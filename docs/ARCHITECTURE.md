@@ -20,6 +20,12 @@ Every placeholder has `placeholder: true`, a visible `DUMMY` label, a unique ass
 
 Godot sends commands shaped as `{command_id, battle_id, actor_id, kind, target_ids, payload}`. Rust returns `{event_id, command_id, sequence, kind, subjects, payload}`. Presentation code switches on event `kind`; it never parses human-readable combat prose to discover results.
 
+## Targeting and animation presentation
+
+`TargetingSession` is a presentation-side collector driven by each skill record's `targetRule`. It controls prompts, ordered selection and obvious local filtering so the player cannot casually click nonsense, but it never makes a command authoritative. Rust validates the submitted IDs again against current battle state. Zero-selection actions resolve immediately. Automatic reactions remain visible in the command display but cannot enter manual targeting. Ordered multi-target skills retain click order in `target_ids`; Rescue Charge therefore always submits the threatened heroine first and the threatening hostile second.
+
+`SkillAnimationDirector` reads the skill record's ordered `animation.beats`, waits on authored millisecond offsets and emits signals for actor poses, VFX, camera and audio consumers. It does not apply damage, healing, status or movement. The command is accepted before presentation starts; authoritative mechanical events remain queued until the authored action finishes in the current prototype. A later synchronization pass may bind individual events to named impact beats, but it must preserve event order and may never derive outcomes from a beat name.
+
 ## Encounter state machine
 
 Every encounter moves through `AwaitingActor -> AwaitingCommand -> Resolving -> AwaitingCommand`, ending in `Victory` or `Defeat`. Initiative selects the active actor. A command naming any other actor is rejected before mutation. Resolution emits ordered events: acceptance, actor focus, mechanical changes, defeat if any, turn end, then the next turn and visible enemy intent. Godot may animate that event sequence; it may not skip ahead and calculate the result itself.

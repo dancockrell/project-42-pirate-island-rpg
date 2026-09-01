@@ -4,7 +4,7 @@
 
 Open `game/project.godot` in Godot 4.7.2 or a later compatible Godot 4 maintenance release. The main scene is already configured. Press F6/F5 to show the battle prototype.
 
-Expected screen: four vertical heroine cards on the left; one large active placeholder actor and one large razorbeak placeholder on the battle plane; descriptive observation text; a visible enemy-intent line; and four Betty command buttons. `Guarded Strike`, `Condition Cleanse`, and `Healing Impact` are functional in the presentation fixture. `Rescue Charge` remains locked in this one-party-member encounter even though its Rust rule is implemented because it requires another heroine to rescue. Clicking an available command sends a stable-ID command through `SimulationPort`, projects the ordered player action, shows the enemy's declared `Rushing Bite`, resolves it, then begins the next round.
+Expected screen: four vertical heroine cards on the left; one large active placeholder actor and one large razorbeak placeholder on the battle plane; descriptive observation text; a visible enemy-intent line; and all seven Betty skills in a two-row command grid. `Fatal Intercept` is visible but disabled because it is an automatic reaction. Manual skills enter the targeting session, prompt for legal targets in authored order, submit stable IDs through `SimulationPort`, play the authored action beats, then project the returned mechanical events.
 
 ## Current deliberate mock
 
@@ -15,6 +15,8 @@ Expected screen: four vertical heroine cards on the left; one large active place
 ## Validate before every commit
 
 Run `cargo fmt --manifest-path godot-rust/Cargo.toml -- --check`, `cargo test --manifest-path godot-rust/Cargo.toml`, and `node tools/src/validate.mjs`. The content validator rejects missing stable-ID relationships, heroine rosters without exactly seven bond skills, animation records without explicit action beats or safe framing, penned dinosaurs, non-individual prototype monster groups, and encounters that abandon the card-rail/full-body-active presentation contract.
+
+Run `.\tools\verify-godot.ps1` to parse, instantiate and advance the configured main scene for three headless frames, then execute the Godot targeting-session test suite. The verifier redirects Godot's per-user directories to task-specific temporary folders and fails on a nonzero engine exit. Its default is the ignored local Godot 4.7.2 stable build; pass `-GodotExecutable` to check another Godot 4 build. A root-certificate-store warning can appear inside a restricted Windows sandbox. The prototype performs no runtime network access, so that warning is not a scene failure.
 
 After validation, run `npm run build:content` from `tools/` or `node tools/src/build-content-bundle.mjs` from the repository root. Commit `game/generated/content_bundle.json` whenever its source records change. `ContentCatalog` loads only that bundle and returns defensive copies so callers cannot mutate the catalog's authoritative definitions.
 

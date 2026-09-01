@@ -6,6 +6,7 @@ const repo = resolve(import.meta.dirname, "../..");
 const failures = [];
 const ids = new Map();
 const references = [];
+const supportedTargetRules = new Set(["one_hostile", "one_living_hostile", "one_living_party_member", "ordered_pair_threatened_ally_then_hostile", "automatic_reaction_to_other_party_member_lethal_hit", "all_living_party_members", "one_defeated_party_member_other_than_betty"]);
 
 function fail(file, message) { failures.push(`${relative(repo, file)}: ${message}`); }
 function requireString(record, key, file) {
@@ -55,6 +56,17 @@ for (const { file, value } of await readJsonDirectory("skills")) {
   if (!value.rules || typeof value.rules !== "object") fail(file, "rules must be an object");
   if (!Array.isArray(value.animation?.beats) || value.animation.beats.length < 4) fail(file, "animation must contain at least four explicit beats");
   if (!value.animation?.framing?.includes("safe frame")) fail(file, "animation framing must state its safe-frame requirement");
+  if (!supportedTargetRules.has(value.targetRule)) fail(file, `targetRule ${value.targetRule} has no registered Godot targeting-session behavior`);
+  if (Array.isArray(value.animation?.beats)) {
+    let previousAt = -1;
+    for (const [index, beat] of value.animation.beats.entries()) {
+      if (!Number.isInteger(beat?.atMs) || beat.atMs < 0) fail(file, `animation.beats[${index}].atMs must be a non-negative integer`);
+      if (beat?.atMs < previousAt) fail(file, "animation beats must be ordered by atMs");
+      if (typeof beat?.name !== "string" || beat.name.length === 0) fail(file, `animation.beats[${index}] requires a direct action name`);
+      previousAt = beat?.atMs ?? previousAt;
+    }
+    if (!Number.isInteger(value.animation?.durationMs) || value.animation.durationMs < previousAt) fail(file, "animation durationMs must include the final authored beat");
+  }
   if (value.id === "skill.betty.condition_cleanse" && JSON.stringify(value.rules?.removalPriority) !== JSON.stringify(["stunned", "burning", "poisoned", "bleeding"])) {
     fail(file, "Condition Cleanse must preserve its deterministic status-removal priority");
   }

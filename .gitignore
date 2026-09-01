@@ -1,5 +1,6 @@
 .godot/
 godot-rust/target/
+.local-tools/
 tools/node_modules/
 tools/dist/
 *.tmp

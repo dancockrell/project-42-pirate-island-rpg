@@ -1,0 +1,34 @@
+param(
+    [string]$GodotExecutable = ""
+)
+
+$ErrorActionPreference = "Stop"
+$workspace = Split-Path -Parent $PSScriptRoot
+if ([string]::IsNullOrWhiteSpace($GodotExecutable)) {
+    $GodotExecutable = Join-Path $workspace ".local-tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe"
+}
+if (-not (Test-Path -LiteralPath $GodotExecutable -PathType Leaf)) {
+    throw "Godot executable not found: $GodotExecutable"
+}
+
+$taskProfile = Join-Path $env:TEMP "project42-godot-profile"
+$taskLocal = Join-Path $env:TEMP "project42-godot-local"
+New-Item -ItemType Directory -Force $taskProfile, $taskLocal | Out-Null
+$previousAppData = $env:APPDATA
+$previousLocalAppData = $env:LOCALAPPDATA
+try {
+    $env:APPDATA = $taskProfile
+    $env:LOCALAPPDATA = $taskLocal
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --quit-after 3
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot headless verification failed with exit code $LASTEXITCODE"
+    }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/targeting_session_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot targeting-session tests failed with exit code $LASTEXITCODE"
+    }
+} finally {
+    $env:APPDATA = $previousAppData
+    $env:LOCALAPPDATA = $previousLocalAppData
+}
+Write-Host "Godot headless verification passed."

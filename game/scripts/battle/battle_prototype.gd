@@ -13,7 +13,12 @@ const TEAL := Color("4fc7b4")
 const DANGER := Color("c24e45")
 
 var simulation: SimulationPort
+var catalog := ContentCatalog.new()
+var targeting := TargetingSession.new()
+var animation_director: SkillAnimationDirector
 var active_actor_id := "character.heroine.betty"
+var selected_skill_id := ""
+var snapshot_actors: Array = []
 var description_label: RichTextLabel
 var actor_panel: PanelContainer
 var actor_name: Label
@@ -22,6 +27,7 @@ var card_buttons: Dictionary = {}
 var status_labels: Dictionary = {}
 var intent_label: Label
 var round_label: Label
+var target_label: Label
 var command_buttons: Dictionary = {}
 var actor_display_names := {
 	"character.heroine.betty": "BETTY",
@@ -31,6 +37,12 @@ var actor_display_names := {
 }
 
 func _ready() -> void:
+	if catalog.load_default() != OK:
+		push_error("The battle prototype requires the validated generated content bundle.")
+	animation_director = SkillAnimationDirector.new()
+	animation_director.name = "SkillAnimationDirector"
+	animation_director.beat_started.connect(on_animation_beat)
+	add_child(animation_director)
 	simulation = MockSimulationPort.new()
 	build_screen()
 	project_snapshot(simulation.create_debug_battle())
@@ -93,6 +105,9 @@ func build_battle_plane() -> Control:
 	visual.add_child(actor_panel)
 	enemy_panel = make_actor_placeholder("RAZORBEAK", "DUMMY ENEMY ACTOR\nLEVEL 7 • INDIVIDUAL THREAT", DANGER)
 	enemy_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	enemy_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	enemy_panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	enemy_panel.gui_input.connect(on_enemy_gui_input)
 	visual.add_child(enemy_panel)
 	stage.add_child(visual)
 	intent_label = make_label("INTENT: OBSERVING", 18, DANGER)
@@ -111,6 +126,11 @@ func build_battle_plane() -> Control:
 	return plane
 
 func build_footer() -> Control:
+	var footer := VBoxContainer.new()
+	footer.add_theme_constant_override("separation", 8)
+	target_label = make_label("COMMAND READY", 16, BRONZE)
+	target_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	footer.add_child(target_label)
 	var commands := GridContainer.new()
 	commands.columns = 4
 	commands.custom_minimum_size.y = 156
@@ -132,10 +152,11 @@ func build_footer() -> Control:
 		button.add_theme_font_size_override("font_size", 15)
 		button.disabled = not command[2]
 		button.tooltip_text = "Stable skill ID: %s%s" % [command[0], " — triggers automatically; it is never a manual command" if not command[2] else ""]
-		button.pressed.connect(func() -> void: submit_skill(command[0]))
+		button.pressed.connect(func() -> void: begin_skill_targeting(command[0]))
 		commands.add_child(button)
 		command_buttons[command[0]] = button
-	return commands
+	footer.add_child(commands)
+	return footer
 
 func make_party_card(id: String, display_name: String, role: String, accent: Color) -> Button:
 	var card := Button.new()
@@ -146,7 +167,7 @@ func make_party_card(id: String, display_name: String, role: String, accent: Col
 	card.add_theme_color_override("font_color", CREAM)
 	card.add_theme_color_override("font_hover_color", Color.WHITE)
 	card.add_theme_color_override("font_pressed_color", accent)
-	card.pressed.connect(func() -> void: select_actor(id, display_name, accent))
+	card.pressed.connect(func() -> void: on_party_card_pressed(id, display_name, accent))
 	status_labels[id] = card
 	return card
 
@@ -170,19 +191,47 @@ func make_actor_placeholder(display_name: String, replacement: String, accent: C
 	return panel
 
 func select_actor(id: String, display_name: String, accent: Color) -> void:
-	active_actor_id = id
 	var stack := actor_panel.get_child(0) as VBoxContainer
 	(stack.get_child(0) as ColorRect).color = Color(accent, 0.52)
 	(stack.get_child(1) as Label).text = display_name
-	description_label.text = "[color=#b78a4b]FOCUS[/color] %s leaves the card rail and occupies the active battle plane. Simulation state is unchanged until a command is accepted." % display_name
+	description_label.text = "[color=#b78a4b]INSPECT[/color] %s is previewed from the card rail. The simulation still owns whose turn it is." % display_name
 
-func submit_skill(skill_id: String) -> void:
-	var targets := ["enemy.raptor.razorbeak.prototype"]
-	match skill_id:
-		"skill.betty.condition_cleanse": targets = ["character.heroine.betty"]
-		"skill.betty.rescue_charge": targets = ["character.heroine.vix", "enemy.raptor.razorbeak.prototype"]
-		"skill.betty.mobile_infirmary": targets = []
-		"skill.betty.combat_revival": targets = ["character.heroine.ayla"]
+func on_party_card_pressed(id: String, display_name: String, accent: Color) -> void:
+	if targeting.active:
+		accept_target(id)
+	else:
+		select_actor(id, display_name, accent)
+
+func on_enemy_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		accept_target("enemy.raptor.razorbeak.prototype")
+
+func begin_skill_targeting(skill_id: String) -> void:
+	if animation_director.playing:
+		return
+	selected_skill_id = skill_id
+	var skill_record := catalog.get_record(skill_id)
+	var result := targeting.begin(skill_record, snapshot_actors)
+	match result.get("status", ""):
+		"ready": submit_skill(skill_id, result.target_ids)
+		"selecting":
+			target_label.text = result.prompt
+			description_label.text = "[color=#b78a4b]TARGETING[/color] %s — %s." % [skill_record.get("displayName", skill_id), result.prompt]
+		"automatic":
+			target_label.text = "AUTOMATIC REACTION — NO MANUAL TARGET"
+
+func accept_target(actor_id: String) -> void:
+	if not targeting.active:
+		return
+	var result := targeting.select(actor_id)
+	match result.get("status", ""):
+		"ready": submit_skill(selected_skill_id, result.target_ids)
+		"selecting": target_label.text = result.prompt
+		"illegal": description_label.text = "[color=#c24e45]ILLEGAL TARGET[/color] %s. %s." % [result.reason, result.prompt]
+
+func submit_skill(skill_id: String, targets: Array) -> void:
+	target_label.text = "RESOLVING %s" % skill_id.to_upper()
+	set_commands_enabled(false)
 	var command := {
 		"command_id": "command.debug.%s" % Time.get_ticks_msec(),
 		"battle_id": "battle.prototype.returning_names",
@@ -192,12 +241,23 @@ func submit_skill(skill_id: String) -> void:
 		"target_ids": targets,
 		"payload": {}
 	}
-	for event in simulation.submit(command):
+	await project_command_events(simulation.submit(command))
+
+func project_command_events(events: Array[Dictionary]) -> void:
+	for event in events:
 		project_event(event)
+		if event.get("kind", "") == "command_accepted":
+			var skill_id: String = str(event.payload.get("skill_id", ""))
+			if catalog.has(skill_id):
+				await animation_director.play(catalog.get_record(skill_id))
+	target_label.text = "COMMAND READY"
+	targeting.cancel()
+	selected_skill_id = ""
 
 func project_snapshot(snapshot: Dictionary) -> void:
 	description_label.text = "[color=#b78a4b]OBSERVED[/color] %s" % snapshot.get("description", "No description supplied.")
-	for actor in snapshot.get("actors", []):
+	snapshot_actors = snapshot.get("actors", []).duplicate(true)
+	for actor in snapshot_actors:
 		update_actor_status(actor)
 
 func project_event(event: Dictionary) -> void:
@@ -245,6 +305,10 @@ func project_event(event: Dictionary) -> void:
 		"command_rejected": description_label.text = "[color=#c24e45]REJECTED[/color] %s" % event.payload.reason
 		_: description_label.text += " [Unknown event: %s]" % event.get("kind", "missing")
 
+func on_animation_beat(skill_id: String, _beat_index: int, beat: Dictionary) -> void:
+	var readable_name := str(beat.get("name", "unnamed_beat")).replace("_", " ").to_upper()
+	target_label.text = "%s  •  %s" % [skill_id.trim_prefix("skill.betty.").replace("_", " ").to_upper(), readable_name]
+
 func update_actor_status(actor: Dictionary) -> void:
 	var id: String = actor.id
 	if status_labels.has(id):
@@ -254,6 +318,10 @@ func update_actor_status(actor: Dictionary) -> void:
 		card.text = "%s\nVIT %d/%d  •  GRD %d  •  %s\n[DUMMY PORTRAIT]" % [name, actor.vitality, actor.max_vitality, actor.guard, state]
 
 func update_status_values(id: String, vitality: int) -> void:
+	for actor in snapshot_actors:
+		if str(actor.get("id", "")) == id:
+			actor.vitality = vitality
+			break
 	if id == "character.heroine.betty" and status_labels.has(id):
 		var card := status_labels[id] as Button
 		card.text = "BETTY\nFIELD MEDIC\nVIT %d/100  •  RESOLVING\n[DUMMY PORTRAIT]" % vitality
