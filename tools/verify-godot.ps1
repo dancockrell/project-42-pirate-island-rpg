@@ -31,6 +31,10 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Godot skill-animation-director tests failed with exit code $LASTEXITCODE"
     }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/placeholder_action_presenter_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot placeholder-action-presenter tests failed with exit code $LASTEXITCODE"
+    }
 } finally {
     $env:APPDATA = $previousAppData
     $env:LOCALAPPDATA = $previousLocalAppData

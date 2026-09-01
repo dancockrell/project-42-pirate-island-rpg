@@ -6,6 +6,7 @@ extends Node
 
 signal action_started(skill_id: String, duration_ms: int)
 signal beat_started(skill_id: String, beat_index: int, beat: Dictionary)
+signal presentation_cue_started(skill_id: String, cue: Dictionary)
 signal event_cued(skill_id: String, beat_name: String, event: Dictionary)
 signal action_finished(skill_id: String)
 
@@ -20,6 +21,9 @@ func play(skill_record: Dictionary, action_events: Array[Dictionary] = []) -> vo
 	var animation: Dictionary = skill_record.get("animation", {})
 	var duration_ms := int(animation.get("durationMs", 0))
 	var beats: Array = animation.get("beats", [])
+	var cues_by_beat: Dictionary = {}
+	for cue in animation.get("presentationCues", []):
+		cues_by_beat[str(cue.get("beat", ""))] = cue
 	var scheduled_events := schedule_events(animation, action_events)
 	var next_event_index := 0
 	playing = true
@@ -35,6 +39,9 @@ func play(skill_record: Dictionary, action_events: Array[Dictionary] = []) -> vo
 			await get_tree().create_timer(float(wait_ms) / 1000.0 * playback_time_scale).timeout
 		elapsed_ms = beat_ms
 		beat_started.emit(skill_id, index, beat.duplicate(true))
+		var beat_name := str(beat.get("name", ""))
+		if cues_by_beat.has(beat_name):
+			presentation_cue_started.emit(skill_id, cues_by_beat[beat_name].duplicate(true))
 		while next_event_index < scheduled_events.size() and int(scheduled_events[next_event_index].cue_ms) <= beat_ms:
 			var scheduled: Dictionary = scheduled_events[next_event_index]
 			event_cued.emit(skill_id, str(scheduled.beat_name), scheduled.event.duplicate(true))

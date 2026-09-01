@@ -6,9 +6,13 @@ func _initialize() -> void:
 	root.add_child(director)
 	var cue_kinds: Array[String] = []
 	var beat_names: Array[String] = []
+	var presentation_beats: Array[String] = []
 	director.event_cued.connect(func(_skill_id: String, beat_name: String, event: Dictionary) -> void:
 		cue_kinds.append(str(event.kind))
 		beat_names.append(beat_name)
+	)
+	director.presentation_cue_started.connect(func(_skill_id: String, cue: Dictionary) -> void:
+		presentation_beats.append(str(cue.beat))
 	)
 	var record := {
 		"id": "skill.test.guarded_strike",
@@ -23,7 +27,12 @@ func _initialize() -> void:
 				"actor_focused": "select",
 				"damage_applied": "impact",
 				"turn_ended": "recover"
-			}
+			},
+			"presentationCues": [
+				{"beat": "select"},
+				{"beat": "impact"},
+				{"beat": "recover"}
+			]
 		}
 	}
 	var events: Array[Dictionary] = [
@@ -35,6 +44,7 @@ func _initialize() -> void:
 	await director.play(record, events)
 	assert(cue_kinds == ["actor_focused", "damage_applied", "turn_ended", "unbound_fixture_event"])
 	assert(beat_names == ["select", "impact", "recover", "action_end"])
+	assert(presentation_beats == ["select", "impact", "recover"])
 	assert(not director.playing)
 
 	var reversed := director.schedule_events(record.animation, [

@@ -1,6 +1,8 @@
 class_name BattlePrototype
 extends Control
 
+const PlaceholderActionPresenterScript = preload("res://scripts/battle/placeholder_action_presenter.gd")
+
 ## Presentation-only prototype. Gameplay truth comes through SimulationPort.
 ## All generated shapes and labels are explicit placeholders registered in
 ## content/art/placeholders.json.
@@ -16,6 +18,7 @@ var simulation: SimulationPort
 var catalog := ContentCatalog.new()
 var targeting := TargetingSession.new()
 var animation_director: SkillAnimationDirector
+var placeholder_presenter: Node
 var active_actor_id := "character.heroine.betty"
 var selected_skill_id := ""
 var snapshot_actors: Array = []
@@ -28,6 +31,7 @@ var status_labels: Dictionary = {}
 var intent_label: Label
 var round_label: Label
 var target_label: Label
+var action_cue_label: Label
 var command_buttons: Dictionary = {}
 var actor_display_names := {
 	"character.heroine.betty": "BETTY",
@@ -42,10 +46,16 @@ func _ready() -> void:
 	animation_director = SkillAnimationDirector.new()
 	animation_director.name = "SkillAnimationDirector"
 	animation_director.beat_started.connect(on_animation_beat)
+	animation_director.presentation_cue_started.connect(on_presentation_cue)
 	animation_director.event_cued.connect(on_animation_event_cued)
+	animation_director.action_finished.connect(on_animation_finished)
 	add_child(animation_director)
 	simulation = MockSimulationPort.new()
 	build_screen()
+	placeholder_presenter = PlaceholderActionPresenterScript.new()
+	placeholder_presenter.name = "PlaceholderActionPresenter"
+	add_child(placeholder_presenter)
+	placeholder_presenter.configure(actor_panel, enemy_panel, action_cue_label)
 	project_snapshot(simulation.create_debug_battle())
 	for event in simulation.start():
 		project_event(event)
@@ -111,6 +121,11 @@ func build_battle_plane() -> Control:
 	enemy_panel.gui_input.connect(on_enemy_gui_input)
 	visual.add_child(enemy_panel)
 	stage.add_child(visual)
+	action_cue_label = make_label("DUMMY ACTION CUE — WAITING FOR AUTHORED BEAT", 13, Color("e4b75e"))
+	action_cue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	action_cue_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	action_cue_label.custom_minimum_size.y = 42
+	stage.add_child(action_cue_label)
 	intent_label = make_label("INTENT: OBSERVING", 18, DANGER)
 	intent_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stage.add_child(intent_label)
@@ -322,6 +337,12 @@ func on_animation_beat(skill_id: String, _beat_index: int, beat: Dictionary) -> 
 
 func on_animation_event_cued(_skill_id: String, _beat_name: String, event: Dictionary) -> void:
 	project_event(event)
+
+func on_presentation_cue(_skill_id: String, cue: Dictionary) -> void:
+	placeholder_presenter.present(cue)
+
+func on_animation_finished(_skill_id: String) -> void:
+	placeholder_presenter.reset()
 
 func update_actor_status(actor: Dictionary) -> void:
 	var id: String = actor.id

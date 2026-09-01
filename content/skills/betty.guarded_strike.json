@@ -21,6 +21,13 @@
       "guard_changed": "guard_set",
       "turn_ended": "recall"
     },
+    "presentationCues": [
+      {"beat":"select","pose":"mace_low_guard","motion":"card_hold","camera":"active_card_close","vfx":"none","audio":"leather_grip","hitStopMs":0,"shake":0.0,"frameSubjects":["betty","mace"]},
+      {"beat":"break_plane","pose":"forward_step","motion":"card_to_battle_plane","camera":"two_actor_track","vfx":"teal_card_release","audio":"boot_step","hitStopMs":0,"shake":0.0,"frameSubjects":["betty","mace","target"]},
+      {"beat":"impact","pose":"horizontal_mace_hit","motion":"contact_lunge","camera":"impact_punch_in","vfx":"bronze_teal_impact_arc","audio":"mace_armor_impact","hitStopMs":80,"shake":0.35,"frameSubjects":["betty","mace","target","impact_arc"]},
+      {"beat":"guard_set","pose":"mace_cross_body","motion":"recoil_to_guard","camera":"two_actor_medium","vfx":"teal_guard_ring","audio":"guard_chime","hitStopMs":0,"shake":0.0,"frameSubjects":["betty","mace","target","guard_ring"]},
+      {"beat":"recall","pose":"card_ready","motion":"battle_plane_to_card","camera":"battle_wide_reset","vfx":"card_recall_trail","audio":"card_lock","hitStopMs":0,"shake":0.0,"frameSubjects":["betty","mace","target"]}
+    ],
     "framing": "Betty, target, mace head, complete impact arc and both characters' feet remain inside the safe frame.",
     "replacementAssetIds": ["art.placeholder.betty.active_actor"]
   },

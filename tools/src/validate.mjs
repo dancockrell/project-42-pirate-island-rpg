@@ -8,6 +8,8 @@ const ids = new Map();
 const references = [];
 const supportedTargetRules = new Set(["one_hostile", "one_living_hostile", "one_living_party_member", "ordered_pair_threatened_ally_then_hostile", "automatic_reaction_to_other_party_member_lethal_hit", "all_living_party_members", "one_defeated_party_member_other_than_betty"]);
 const bindableBattleEvents = new Set(["actor_focused", "actor_moved", "damage_applied", "guard_changed", "vitality_changed", "status_removed", "interception_set", "interception_triggered", "reaction_window_opened", "reaction_triggered", "defeat_prevented", "actor_revived", "bonus_turn_granted", "battlefield_effect_created", "battlefield_effect_pulse", "battlefield_effect_removed", "actor_defeated", "turn_ended", "battle_ended"]);
+let skillCount = 0;
+let presentationCueCount = 0;
 
 function fail(file, message) { failures.push(`${relative(repo, file)}: ${message}`); }
 function requireString(record, key, file) {
@@ -51,6 +53,7 @@ for (const name of (await readdir(characterDir)).filter(name => name.endsWith(".
 }
 
 for (const { file, value } of await readJsonDirectory("skills")) {
+  skillCount += 1;
   requireString(value, "displayName", file);
   reference(value.ownerId, file, "ownerId");
   if (!new Set(["D", "C", "B", "A", "S", "SS", "SSS"]).has(value.bondRank)) fail(file, "bondRank must be D, C, B, A, S, SS or SSS");
@@ -75,6 +78,23 @@ for (const { file, value } of await readJsonDirectory("skills")) {
     else for (const [eventKind, beatName] of Object.entries(bindings)) {
       if (!bindableBattleEvents.has(eventKind)) fail(file, `animation eventBindings contains unknown event kind ${eventKind}`);
       if (!beatNames.has(beatName)) fail(file, `animation event ${eventKind} targets missing beat ${beatName}`);
+    }
+    const cues = value.animation?.presentationCues;
+    if (Array.isArray(cues)) presentationCueCount += cues.length;
+    if (!Array.isArray(cues) || cues.length !== beatNames.size) fail(file, "animation presentationCues must define exactly one cue per beat");
+    else {
+      const cueBeats = new Set();
+      for (const [index, cue] of cues.entries()) {
+        for (const field of ["beat", "pose", "motion", "camera", "vfx", "audio"]) {
+          if (typeof cue?.[field] !== "string" || cue[field].length === 0) fail(file, `animation.presentationCues[${index}].${field} must be a direct non-empty instruction`);
+        }
+        if (!beatNames.has(cue?.beat)) fail(file, `presentation cue targets missing beat ${cue?.beat}`);
+        if (cueBeats.has(cue?.beat)) fail(file, `presentation cue for beat ${cue?.beat} is duplicated`);
+        cueBeats.add(cue?.beat);
+        if (!Number.isInteger(cue?.hitStopMs) || cue.hitStopMs < 0 || cue.hitStopMs > 200) fail(file, `presentation cue ${cue?.beat} hitStopMs must be an integer from 0 through 200`);
+        if (typeof cue?.shake !== "number" || cue.shake < 0 || cue.shake > 1) fail(file, `presentation cue ${cue?.beat} shake must be from 0 through 1`);
+        if (!Array.isArray(cue?.frameSubjects) || cue.frameSubjects.length < 2) fail(file, `presentation cue ${cue?.beat} must name at least two safe-frame subjects`);
+      }
     }
   }
   if (value.id === "skill.betty.condition_cleanse" && JSON.stringify(value.rules?.removalPriority) !== JSON.stringify(["stunned", "burning", "poisoned", "bleeding"])) {
@@ -151,4 +171,4 @@ if (failures.length) {
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
-console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
+console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills and ${presentationCueCount} presentation cues validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
