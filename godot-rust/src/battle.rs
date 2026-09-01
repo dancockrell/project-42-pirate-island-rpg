@@ -277,6 +277,7 @@ impl Battle {
             "skill.betty.guarded_strike"
                 | "skill.betty.condition_cleanse"
                 | "skill.betty.rescue_charge"
+                | "skill.betty.healing_impact"
                 | "skill.enemy.razorbeak.rushing_bite"
         ) {
             return Err(BattleError::UnsupportedSkill(command.skill_id));
@@ -315,7 +316,9 @@ impl Battle {
                     target_id,
                 });
             }
-            "skill.betty.guarded_strike" | "skill.enemy.razorbeak.rushing_bite"
+            "skill.betty.guarded_strike"
+            | "skill.betty.healing_impact"
+            | "skill.enemy.razorbeak.rushing_bite"
                 if actor.faction == target.faction =>
             {
                 return Err(BattleError::FriendlyFire {
@@ -368,6 +371,7 @@ impl Battle {
                 return self.resolve_condition_cleanse(command, events);
             }
             "skill.betty.rescue_charge" => return self.resolve_rescue_charge(command, events),
+            "skill.betty.healing_impact" => return self.resolve_healing_impact(command, events),
             "skill.betty.guarded_strike" | "skill.enemy.razorbeak.rushing_bite" => {}
             other => return Err(BattleError::UnsupportedSkill(other.to_owned())),
         }
@@ -404,8 +408,10 @@ impl Battle {
             let target = self.actors.get_mut(&target_id).expect("target checked");
             let absorbed = target.guard.min(raw_damage);
             target.guard -= absorbed;
-            let damage = raw_damage - absorbed;
-            target.vitality = (target.vitality - damage).max(0);
+            let effective = raw_damage - absorbed;
+            let before = target.vitality;
+            target.vitality = (target.vitality - effective).max(0);
+            let damage = before - target.vitality;
             (damage, !target.is_alive())
         };
         events.push(BattleEvent::DamageApplied {
@@ -512,8 +518,10 @@ impl Battle {
         let target = self.actors.get_mut(hostile_id).expect("hostile checked");
         let absorbed = target.guard.min(10);
         target.guard -= absorbed;
-        let damage = 10 - absorbed;
-        target.vitality = (target.vitality - damage).max(0);
+        let effective = 10 - absorbed;
+        let before = target.vitality;
+        target.vitality = (target.vitality - effective).max(0);
+        let damage = before - target.vitality;
         events.push(BattleEvent::DamageApplied {
             command_id: command.command_id.clone(),
             source_id: command.actor_id.clone(),
@@ -526,6 +534,66 @@ impl Battle {
                 actor_id: hostile_id.clone(),
             });
         }
+        Ok(())
+    }
+
+    fn resolve_healing_impact(
+        &mut self,
+        command: &SkillCommand,
+        events: &mut Vec<BattleEvent>,
+    ) -> Result<(), BattleError> {
+        let hostile_id = &command.target_ids[0];
+        let actor_level = self
+            .actors
+            .get(&command.actor_id)
+            .expect("actor checked")
+            .level;
+        let raw_damage = 18 + i32::from(actor_level);
+        let (damage, defeated) = {
+            let hostile = self.actors.get_mut(hostile_id).expect("target checked");
+            let absorbed = hostile.guard.min(raw_damage);
+            hostile.guard -= absorbed;
+            let effective = raw_damage - absorbed;
+            let before = hostile.vitality;
+            hostile.vitality = (hostile.vitality - effective).max(0);
+            let damage = before - hostile.vitality;
+            (damage, !hostile.is_alive())
+        };
+        events.push(BattleEvent::DamageApplied {
+            command_id: command.command_id.clone(),
+            source_id: command.actor_id.clone(),
+            target_id: hostile_id.clone(),
+            amount: damage,
+        });
+        if defeated {
+            events.push(BattleEvent::ActorDefeated {
+                command_id: command.command_id.clone(),
+                actor_id: hostile_id.clone(),
+            });
+        }
+
+        let healing = damage / 2;
+        let recipient_id = self
+            .actors
+            .values()
+            .filter(|candidate| candidate.faction == Faction::Party && candidate.is_alive())
+            .min_by(|left, right| {
+                compare_vitality_percentage(left, right).then_with(|| left.id.cmp(&right.id))
+            })
+            .map(|candidate| candidate.id.clone())
+            .expect("acting party has a living member");
+        let recipient = self
+            .actors
+            .get_mut(&recipient_id)
+            .expect("recipient exists");
+        let before = recipient.vitality;
+        recipient.vitality = (recipient.vitality + healing).min(recipient.max_vitality);
+        events.push(BattleEvent::VitalityChanged {
+            command_id: command.command_id.clone(),
+            actor_id: recipient_id,
+            delta: recipient.vitality - before,
+            total: recipient.vitality,
+        });
         Ok(())
     }
 
@@ -601,6 +669,12 @@ fn status_priority(kind: &StatusKind) -> u8 {
         StatusKind::Poisoned => 2,
         StatusKind::Bleeding => 3,
     }
+}
+
+fn compare_vitality_percentage(left: &Actor, right: &Actor) -> std::cmp::Ordering {
+    let left_scaled = i64::from(left.vitality) * i64::from(right.max_vitality);
+    let right_scaled = i64::from(right.vitality) * i64::from(left.max_vitality);
+    left_scaled.cmp(&right_scaled)
 }
 
 #[cfg(test)]
@@ -899,5 +973,87 @@ mod tests {
                 .iter()
                 .any(|event| matches!(event, BattleEvent::InterceptionTriggered { .. }))
         );
+    }
+
+    #[test]
+    fn healing_impact_uses_actual_post_guard_damage_and_lowest_percentage() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 60, 0, 12);
+        betty.max_vitality = 100;
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 40, 0, 10);
+        ayla.max_vitality = 80;
+        let enemy = actor("enemy.test", Faction::Hostile, 4, 70, 5, 8);
+        let mut battle = Battle::new("battle.healing_impact", [betty, ayla, enemy]);
+        battle.start();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "impact".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.healing_impact".into(),
+                target_ids: vec![ActorId("enemy.test".into())],
+            })
+            .unwrap();
+        assert_eq!(
+            battle
+                .actor(&ActorId("enemy.test".into()))
+                .unwrap()
+                .vitality,
+            54
+        );
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.ayla".into()))
+                .unwrap()
+                .vitality,
+            48
+        );
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.betty".into()))
+                .unwrap()
+                .vitality,
+            60
+        );
+        let damage_index = events
+            .iter()
+            .position(|event| matches!(event, BattleEvent::DamageApplied { .. }))
+            .unwrap();
+        let healing_index = events
+            .iter()
+            .position(|event| matches!(event, BattleEvent::VitalityChanged { .. }))
+            .unwrap();
+        assert!(damage_index < healing_index);
+    }
+
+    #[test]
+    fn healing_impact_heals_before_victory_and_uses_floor_rounding() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 50, 0, 12);
+        betty.max_vitality = 100;
+        let enemy = actor("enemy.test", Faction::Hostile, 1, 5, 0, 8);
+        let mut battle = Battle::new("battle.healing_impact_victory", [betty, enemy]);
+        battle.start();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "impact.finish".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.healing_impact".into(),
+                target_ids: vec![ActorId("enemy.test".into())],
+            })
+            .unwrap();
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.betty".into()))
+                .unwrap()
+                .vitality,
+            52
+        );
+        let heal_index = events
+            .iter()
+            .position(|event| matches!(event, BattleEvent::VitalityChanged { .. }))
+            .unwrap();
+        let victory_index = events
+            .iter()
+            .position(|event| matches!(event, BattleEvent::BattleEnded { victory: true }))
+            .unwrap();
+        assert!(heal_index < victory_index);
     }
 }

@@ -61,6 +61,10 @@ for (const { file, value } of await readJsonDirectory("skills")) {
   if (value.id === "skill.betty.rescue_charge" && value.targetRule !== "ordered_pair_threatened_ally_then_hostile") {
     fail(file, "Rescue Charge must name the rescued ally first and threatening hostile second");
   }
+  if (value.id === "skill.betty.healing_impact") {
+    if (value.rules?.healingPercentOfActualVitalityDamage !== 50 || value.rules?.healingRounding !== "floor") fail(file, "Healing Impact must heal 50 percent of actual Vitality damage using floor rounding");
+    if (value.rules?.recipientTieBreak !== "stable_actor_id_ascending" || value.rules?.resolveHealingBeforeVictory !== true) fail(file, "Healing Impact selection and event order must remain deterministic");
+  }
 }
 
 for (const { file, value } of await readJsonDirectory("enemies")) {

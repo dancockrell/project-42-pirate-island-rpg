@@ -4,7 +4,7 @@
 
 Open `game/project.godot` in Godot 4.7.2 or a later compatible Godot 4 maintenance release. The main scene is already configured. Press F6/F5 to show the battle prototype.
 
-Expected screen: four vertical heroine cards on the left; one large active placeholder actor and one large razorbeak placeholder on the battle plane; descriptive observation text; a visible enemy-intent line; and four Betty command buttons. `Guarded Strike` and `Condition Cleanse` are functional in the presentation fixture. `Rescue Charge` remains locked in this one-party-member encounter even though its Rust rule is implemented because it requires another heroine to rescue. `Healing Impact` remains locked until its Rust resolver exists. Clicking an available command sends a stable-ID command through `SimulationPort`, projects the ordered player action, shows the enemy's declared `Rushing Bite`, resolves it, then begins the next round.
+Expected screen: four vertical heroine cards on the left; one large active placeholder actor and one large razorbeak placeholder on the battle plane; descriptive observation text; a visible enemy-intent line; and four Betty command buttons. `Guarded Strike`, `Condition Cleanse`, and `Healing Impact` are functional in the presentation fixture. `Rescue Charge` remains locked in this one-party-member encounter even though its Rust rule is implemented because it requires another heroine to rescue. Clicking an available command sends a stable-ID command through `SimulationPort`, projects the ordered player action, shows the enemy's declared `Rushing Bite`, resolves it, then begins the next round.
 
 ## Current deliberate mock
 

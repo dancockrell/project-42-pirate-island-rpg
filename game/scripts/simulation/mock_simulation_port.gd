@@ -38,7 +38,7 @@ func submit(command: Dictionary) -> Array[Dictionary]:
 	var command_id: String = command.get("command_id", "command.missing")
 	var actor_id: String = command.get("actor_id", "actor.missing")
 	var skill_id: String = command.get("skill_id", "skill.missing")
-	if actor_id != "character.heroine.betty" or skill_id not in ["skill.betty.guarded_strike", "skill.betty.condition_cleanse"]:
+	if actor_id != "character.heroine.betty" or skill_id not in ["skill.betty.guarded_strike", "skill.betty.condition_cleanse", "skill.betty.healing_impact"]:
 		return [make_event("command_rejected", [actor_id], {"reason": "prototype_skill_not_implemented", "command_id": command_id})]
 	if skill_id == "skill.betty.condition_cleanse":
 		var healed := mini(8, 100 - betty_vitality)
@@ -51,6 +51,26 @@ func submit(command: Dictionary) -> Array[Dictionary]:
 		]
 		cleanse_events.append_array(resolve_enemy_turn())
 		return cleanse_events
+	if skill_id == "skill.betty.healing_impact":
+		var effective := maxi(0, 21 - razorbeak_guard)
+		razorbeak_guard = maxi(0, razorbeak_guard - 21)
+		var impact_damage := mini(razorbeak_vitality, effective)
+		razorbeak_vitality -= impact_damage
+		var healed := mini(int(impact_damage / 2), 100 - betty_vitality)
+		betty_vitality += healed
+		var impact_events: Array[Dictionary] = [
+			make_event("command_accepted", [actor_id], {"command_id": command_id, "skill_id": skill_id}),
+			make_event("actor_focused", [actor_id], {"card_state": "expanding", "active_state": "active"}),
+			make_event("damage_applied", [actor_id, "enemy.raptor.razorbeak.prototype"], {"amount": impact_damage, "remaining_vitality": razorbeak_vitality}),
+			make_event("vitality_changed", [actor_id], {"delta": healed, "total": betty_vitality}),
+			make_event("turn_ended", [actor_id], {"round": round_number})
+		]
+		if razorbeak_vitality <= 0:
+			impact_events.insert(4, make_event("actor_defeated", ["enemy.raptor.razorbeak.prototype"], {}))
+			impact_events.append(make_event("battle_ended", [], {"victory": true}))
+		else:
+			impact_events.append_array(resolve_enemy_turn())
+		return impact_events
 
 	var player_damage := maxi(0, 15 - razorbeak_guard)
 	razorbeak_guard = maxi(0, razorbeak_guard - 15)

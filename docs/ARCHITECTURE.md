@@ -24,11 +24,13 @@ Godot sends commands shaped as `{command_id, battle_id, actor_id, kind, target_i
 
 Every encounter moves through `AwaitingActor -> AwaitingCommand -> Resolving -> AwaitingCommand`, ending in `Victory` or `Defeat`. Initiative selects the active actor. A command naming any other actor is rejected before mutation. Resolution emits ordered events: acceptance, actor focus, mechanical changes, defeat if any, turn end, then the next turn and visible enemy intent. Godot may animate that event sequence; it may not skip ahead and calculate the result itself.
 
-The executable Rust slice currently implements Betty's `Guarded Strike`, `Condition Cleanse`, and `Rescue Charge`, plus the razorbeak's `Rushing Bite`. Later Betty skills remain fully specified as content records but stay locked in the prototype UI until each receives a tested Rust resolver. A locked button is an honest production state, not an implied implementation.
+The executable Rust slice currently implements Betty's `Guarded Strike`, `Condition Cleanse`, `Rescue Charge`, and `Healing Impact`, plus the razorbeak's `Rushing Bite`. Later Betty skills remain fully specified as content records but stay locked in the prototype UI until each receives a tested Rust resolver. A locked button is an honest production state, not an implied implementation.
 
 `Condition Cleanse` names one living party member, removes no more than two negative statuses in the fixed urgency order Stunned, Burning, Poisoned, Bleeding, then restores eight Vitality without exceeding maximum Vitality. The fixed order prevents array insertion order from deciding a combat result.
 
 `Rescue Charge` names an ordered pair: first a threatened party member other than Betty, then the hostile threatening her. Betty moves to the ally's band, deals ten Guard-absorbed impact damage to the named hostile, and intercepts the next hostile attack aimed at that ally. An interception redirects one attack to Betty and then clears itself. Requiring both targets keeps targeting, animation staging and AI evaluation deterministic.
+
+`Healing Impact` names one living hostile and deals `18 + Betty's level` raw damage. Guard applies first. Healing equals half of actual Vitality removed, rounded down. The recipient is the living party member with the lowest current-Vitality percentage, compared through integer cross multiplication; ties resolve by stable actor ID. Healing occurs after damage and defeat events but before victory, and cannot exceed maximum Vitality.
 
 ## Midnight return transaction
 

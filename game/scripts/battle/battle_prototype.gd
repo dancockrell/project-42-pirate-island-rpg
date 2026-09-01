@@ -113,7 +113,7 @@ func build_footer() -> Control:
 		["skill.betty.guarded_strike", "GUARDED STRIKE", true],
 		["skill.betty.condition_cleanse", "CONDITION CLEANSE", true],
 		["skill.betty.rescue_charge", "RESCUE CHARGE", false],
-		["skill.betty.healing_impact", "HEALING IMPACT", false]
+		["skill.betty.healing_impact", "HEALING IMPACT", true]
 	]:
 		var button := Button.new()
 		button.text = command[1] if command[2] else "%s\n[LOCKED IN PROTOTYPE]" % command[1]
@@ -235,7 +235,7 @@ func set_card_state(id: String, state: String) -> void:
 
 func set_commands_enabled(enabled: bool) -> void:
 	for index in command_buttons.size():
-		command_buttons[index].disabled = not enabled or index > 1
+		command_buttons[index].disabled = not enabled or index == 2
 
 func make_color_rect(color: Color, node_name: String) -> ColorRect:
 	var rect := ColorRect.new()
