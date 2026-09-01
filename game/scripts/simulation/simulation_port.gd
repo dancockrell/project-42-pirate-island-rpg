@@ -7,7 +7,10 @@ func create_debug_battle() -> Dictionary:
 	push_error("SimulationPort.create_debug_battle is abstract")
 	return {}
 
+func start() -> Array[Dictionary]:
+	push_error("SimulationPort.start is abstract")
+	return []
+
 func submit(_command: Dictionary) -> Array[Dictionary]:
 	push_error("SimulationPort.submit is abstract")
 	return []
-

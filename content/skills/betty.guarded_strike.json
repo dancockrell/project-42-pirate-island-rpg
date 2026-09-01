@@ -1,0 +1,22 @@
+{
+  "id": "skill.betty.guarded_strike",
+  "displayName": "Guarded Strike",
+  "ownerId": "character.heroine.betty",
+  "bondRank": "D",
+  "targetRule": "one_hostile",
+  "rules": { "damageBase": 12, "damageLevelScale": 1, "guardGain": 2, "rangeBands": [0, 1] },
+  "animation": {
+    "cardId": "animation.betty.guarded_strike",
+    "durationMs": 680,
+    "beats": [
+      { "atMs": 0, "name": "select", "pose": "mace_low_guard" },
+      { "atMs": 140, "name": "break_plane", "pose": "forward_step" },
+      { "atMs": 310, "name": "impact", "pose": "horizontal_mace_hit" },
+      { "atMs": 420, "name": "guard_set", "pose": "mace_cross_body" },
+      { "atMs": 680, "name": "recall", "pose": "card_ready" }
+    ],
+    "framing": "Betty, target, mace head, complete impact arc and both characters' feet remain inside the safe frame.",
+    "replacementAssetIds": ["art.placeholder.betty.active_actor"]
+  },
+  "metadata": { "implementationOwner": "rust-simulation", "presentationOwner": "godot-gdscript", "maturity": "prototype" }
+}

@@ -5,6 +5,8 @@
 pub mod battle;
 pub mod world;
 
-pub use battle::{Actor, ActorId, Battle, BattleError, BattleEvent, SkillCommand};
-pub use world::{DeathMemory, NamedPerson, SpawnedMonster, WorldClock};
-
+pub use battle::{
+    Actor, ActorId, Battle, BattleError, BattleEvent, BattlePhase, BattleSnapshot, Faction,
+    SkillCommand,
+};
+pub use world::{DeathMemory, NamedPerson, SpawnRule, SpawnedMonster, WorldClock, WorldEvent};

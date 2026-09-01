@@ -5,6 +5,7 @@ import process from "node:process";
 const repo = resolve(import.meta.dirname, "../..");
 const failures = [];
 const ids = new Map();
+const references = [];
 
 function fail(file, message) { failures.push(`${relative(repo, file)}: ${message}`); }
 function requireString(record, key, file) {
@@ -14,6 +15,21 @@ function registerId(id, file) {
   if (typeof id !== "string") return fail(file, "id must be a string");
   if (ids.has(id)) fail(file, `duplicate stable ID ${id}; first declared in ${relative(repo, ids.get(id))}`);
   else ids.set(id, file);
+}
+function reference(id, file, field) {
+  if (typeof id !== "string" || id.trim() === "") fail(file, `${field} must contain a stable ID`);
+  else references.push({ id, file, field });
+}
+async function readJsonDirectory(name) {
+  const directory = resolve(repo, `content/${name}`);
+  const records = [];
+  for (const filename of (await readdir(directory)).filter(value => value.endsWith(".json"))) {
+    const file = resolve(directory, filename);
+    const value = JSON.parse(await readFile(file, "utf8"));
+    registerId(value.id, file);
+    records.push({ file, value });
+  }
+  return records;
 }
 
 const characterDir = resolve(repo, "content/characters");
@@ -26,9 +42,38 @@ for (const name of (await readdir(characterDir)).filter(name => name.endsWith(".
   requireString(value, "presentationOwner", file);
   if (value.presentationOwner !== "godot-gdscript") fail(file, "presentationOwner must be godot-gdscript");
   if (!Array.isArray(value.tags) || value.tags.length < 3) fail(file, "tags must contain at least three searchable values");
-  if (!Array.isArray(value.skillIds) || value.skillIds.length === 0) fail(file, "skillIds must not be empty");
+  if (!Array.isArray(value.skillIds) || value.skillIds.length !== 7) fail(file, "a heroine must declare exactly seven D-through-SSS skills");
+  else value.skillIds.forEach((id, index) => reference(id, file, `skillIds[${index}]`));
   if (!value.art?.accessibilityDescription || value.art.accessibilityDescription.length < 20) fail(file, "art accessibilityDescription is missing or too short");
   if (value.art?.status === "placeholder" && value.metadata?.releaseLegal !== false) fail(file, "placeholder character must set metadata.releaseLegal=false");
+}
+
+for (const { file, value } of await readJsonDirectory("skills")) {
+  requireString(value, "displayName", file);
+  reference(value.ownerId, file, "ownerId");
+  if (!new Set(["D", "C", "B", "A", "S", "SS", "SSS"]).has(value.bondRank)) fail(file, "bondRank must be D, C, B, A, S, SS or SSS");
+  if (!value.rules || typeof value.rules !== "object") fail(file, "rules must be an object");
+  if (!Array.isArray(value.animation?.beats) || value.animation.beats.length < 4) fail(file, "animation must contain at least four explicit beats");
+  if (!value.animation?.framing?.includes("safe frame")) fail(file, "animation framing must state its safe-frame requirement");
+}
+
+for (const { file, value } of await readJsonDirectory("enemies")) {
+  requireString(value, "displayName", file);
+  if (value.worldPresence?.penAllowed !== false) fail(file, "island monsters may not be designed as pen exhibits");
+  if (value.worldPresence?.packSize !== 1) fail(file, "prototype enemies must be tuned as individual threats");
+  for (const [index, id] of (value.skillIds ?? []).entries()) reference(id, file, `skillIds[${index}]`);
+}
+
+for (const { file, value } of await readJsonDirectory("encounters")) {
+  for (const [index, id] of (value.partyActorIds ?? []).entries()) reference(id, file, `partyActorIds[${index}]`);
+  for (const [index, id] of (value.hostileActorIds ?? []).entries()) reference(id, file, `hostileActorIds[${index}]`);
+  if (value.presentation?.inactivePartyMode !== "card_rail" || value.presentation?.activeActorMode !== "full_body_battle_plane") fail(file, "encounter must preserve the card-to-active combat contract");
+}
+
+for (const { file, value } of await readJsonDirectory("world")) {
+  if (value.trigger !== "midnight_flash") fail(file, "spawn rule trigger must be midnight_flash");
+  if (value.grouping?.designRule !== "individual_threat") fail(file, "daily spawns must use individual_threat tuning");
+  for (const [index, id] of (value.definitionIds ?? []).entries()) reference(id, file, `definitionIds[${index}]`);
 }
 
 const placeholderFile = resolve(repo, "content/art/placeholders.json");
@@ -42,10 +87,16 @@ for (const asset of placeholderManifest.assets ?? []) {
   if (!Array.isArray(asset.replacementGate) || asset.replacementGate.length < 2) fail(placeholderFile, `${asset.id} needs explicit replacement gates`);
 }
 
+const intentionallyExternalPrefixes = ["skill.enemy."];
+for (const item of references) {
+  if (!ids.has(item.id) && !intentionallyExternalPrefixes.some(prefix => item.id.startsWith(prefix))) {
+    fail(item.file, `${item.field} references missing stable ID ${item.id}`);
+  }
+}
+
 if (failures.length) {
   console.error(`Project 42 validation failed with ${failures.length} issue(s):`);
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
 console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
-

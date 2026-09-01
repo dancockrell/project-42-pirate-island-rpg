@@ -19,11 +19,17 @@ var actor_panel: PanelContainer
 var actor_name: Label
 var enemy_panel: PanelContainer
 var card_buttons: Dictionary = {}
+var status_labels: Dictionary = {}
+var intent_label: Label
+var round_label: Label
+var command_buttons: Array[Button] = []
 
 func _ready() -> void:
 	simulation = MockSimulationPort.new()
 	build_screen()
 	project_snapshot(simulation.create_debug_battle())
+	for event in simulation.start():
+		project_event(event)
 
 func build_screen() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -49,7 +55,8 @@ func build_header() -> Control:
 	var title := make_label("RETURNING NAMES — RECEPTION ROAD", 25, BRONZE)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.add_child(title)
-	bar.add_child(make_label("DAY 18  •  16:40  •  HEAVY AIR", 18, CREAM))
+	round_label = make_label("DAY 18  •  16:40  •  ROUND 1", 18, CREAM)
+	bar.add_child(round_label)
 	return bar
 
 func build_battle_plane() -> Control:
@@ -82,6 +89,9 @@ func build_battle_plane() -> Control:
 	enemy_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	visual.add_child(enemy_panel)
 	stage.add_child(visual)
+	intent_label = make_label("INTENT: OBSERVING", 18, DANGER)
+	intent_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stage.add_child(intent_label)
 	description_label = RichTextLabel.new()
 	description_label.name = "CombatDescription"
 	description_label.bbcode_enabled = true
@@ -99,13 +109,21 @@ func build_footer() -> Control:
 	commands.custom_minimum_size.y = 94
 	commands.alignment = BoxContainer.ALIGNMENT_CENTER
 	commands.add_theme_constant_override("separation", 16)
-	for command in ["GUARDED STRIKE", "CONDITION CLEANSE", "RESCUE CHARGE", "HEALING IMPACT"]:
+	for command in [
+		["skill.betty.guarded_strike", "GUARDED STRIKE", true],
+		["skill.betty.condition_cleanse", "CONDITION CLEANSE", false],
+		["skill.betty.rescue_charge", "RESCUE CHARGE", false],
+		["skill.betty.healing_impact", "HEALING IMPACT", false]
+	]:
 		var button := Button.new()
-		button.text = command
+		button.text = command[1] if command[2] else "%s\n[LOCKED IN PROTOTYPE]" % command[1]
 		button.custom_minimum_size = Vector2(260, 70)
 		button.add_theme_font_size_override("font_size", 17)
-		button.pressed.connect(func() -> void: submit_skill(command))
+		button.disabled = not command[2]
+		button.tooltip_text = "Stable skill ID: %s" % command[0]
+		button.pressed.connect(func() -> void: submit_skill(command[0]))
 		commands.add_child(button)
+		command_buttons.append(button)
 	return commands
 
 func make_party_card(id: String, display_name: String, role: String, accent: Color) -> Button:
@@ -118,6 +136,7 @@ func make_party_card(id: String, display_name: String, role: String, accent: Col
 	card.add_theme_color_override("font_hover_color", Color.WHITE)
 	card.add_theme_color_override("font_pressed_color", accent)
 	card.pressed.connect(func() -> void: select_actor(id, display_name, accent))
+	status_labels[id] = card
 	return card
 
 func make_actor_placeholder(display_name: String, replacement: String, accent: Color) -> PanelContainer:
@@ -146,26 +165,74 @@ func select_actor(id: String, display_name: String, accent: Color) -> void:
 	(stack.get_child(1) as Label).text = display_name
 	description_label.text = "[color=#b78a4b]FOCUS[/color] %s leaves the card rail and occupies the active battle plane. Simulation state is unchanged until a command is accepted." % display_name
 
-func submit_skill(command_label: String) -> void:
+func submit_skill(skill_id: String) -> void:
 	var command := {
 		"command_id": "command.debug.%s" % Time.get_ticks_msec(),
 		"battle_id": "battle.prototype.returning_names",
 		"actor_id": active_actor_id,
 		"kind": "use_skill",
+		"skill_id": skill_id,
 		"target_ids": ["enemy.raptor.razorbeak.prototype"],
-		"payload": {"display_command": command_label}
+		"payload": {}
 	}
 	for event in simulation.submit(command):
 		project_event(event)
 
 func project_snapshot(snapshot: Dictionary) -> void:
 	description_label.text = "[color=#b78a4b]OBSERVED[/color] %s" % snapshot.get("description", "No description supplied.")
+	for actor in snapshot.get("actors", []):
+		update_actor_status(actor)
 
 func project_event(event: Dictionary) -> void:
 	match event.get("kind", ""):
-		"command_accepted": description_label.text = "[color=#4fc7b4]ACCEPTED[/color] %s prepares %s." % [event.payload.actor_name, event.payload.command_label]
-		"damage_applied": description_label.text += " The strike deals %d damage. The target remains dangerous." % event.payload.amount
+		"battle_started": description_label.text = "[color=#b78a4b]BATTLE STARTED[/color] The card rail is dormant until the simulation names an active actor."
+		"turn_started":
+			var actor_id: String = event.subjects[0]
+			active_actor_id = actor_id
+			round_label.text = "DAY 18  •  16:40  •  ROUND %d" % event.payload.round
+			set_card_state(actor_id, "FOCUSED")
+			set_commands_enabled(actor_id == "character.heroine.betty")
+		"command_accepted": description_label.text = "[color=#4fc7b4]ACCEPTED[/color] The simulation accepted %s." % event.payload.skill_id
+		"actor_focused": set_card_state(event.subjects[0], "ACTIVE")
+		"enemy_intent_declared":
+			intent_label.text = "INTENT: RUSHING BITE → BETTY"
+			description_label.text += " [color=#c24e45]INTENT[/color] It lowers its skull and commits to a straight rushing bite."
+		"damage_applied":
+			var target_id: String = event.subjects[-1]
+			description_label.text += " The hit deals %d damage; %d vitality remains." % [event.payload.amount, event.payload.remaining_vitality]
+			update_status_values(target_id, event.payload.remaining_vitality)
+		"guard_changed": description_label.text += " Betty gains %d Guard." % event.payload.delta
+		"round_started": description_label.text += " [color=#b78a4b]ROUND %d[/color] Both survivors reset their stance." % event.payload.round
+		"battle_ended":
+			set_commands_enabled(false)
+			intent_label.text = "VICTORY" if event.payload.victory else "DEFEAT — MIDNIGHT RETURN PENDING"
+		"command_rejected": description_label.text = "[color=#c24e45]REJECTED[/color] %s" % event.payload.reason
 		_: description_label.text += " [Unknown event: %s]" % event.get("kind", "missing")
+
+func update_actor_status(actor: Dictionary) -> void:
+	var id: String = actor.id
+	if status_labels.has(id):
+		var card := status_labels[id] as Button
+		card.text = "BETTY\nFIELD MEDIC\nVIT %d/%d  •  GRD %d\n[DUMMY PORTRAIT]" % [actor.vitality, actor.max_vitality, actor.guard]
+
+func update_status_values(id: String, vitality: int) -> void:
+	if id == "character.heroine.betty" and status_labels.has(id):
+		var card := status_labels[id] as Button
+		card.text = "BETTY\nFIELD MEDIC\nVIT %d/100  •  RESOLVING\n[DUMMY PORTRAIT]" % vitality
+	elif id == "enemy.raptor.razorbeak.prototype":
+		var stack := enemy_panel.get_child(0) as VBoxContainer
+		(stack.get_child(2) as Label).text = "DUMMY ENEMY ACTOR\nVIT %d/70 • INDIVIDUAL THREAT" % vitality
+
+func set_card_state(id: String, state: String) -> void:
+	for card_id in card_buttons:
+		var card := card_buttons[card_id] as Button
+		card.modulate = Color.WHITE if card_id == id else Color("9aa5a2")
+		if card_id == id:
+			card.tooltip_text = "Card state: %s. Stable actor ID: %s" % [state, id]
+
+func set_commands_enabled(enabled: bool) -> void:
+	for index in command_buttons.size():
+		command_buttons[index].disabled = not enabled or index > 0
 
 func make_color_rect(color: Color, node_name: String) -> ColorRect:
 	var rect := ColorRect.new()
@@ -180,4 +247,3 @@ func make_label(value: String, size: int, color: Color) -> Label:
 	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", color)
 	return label
-

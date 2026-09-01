@@ -1,0 +1,17 @@
+{
+  "id": "enemy.raptor.razorbeak.prototype",
+  "displayName": "Razorbeak",
+  "species": "island_raptor",
+  "combatRole": "mobile_individual_threat",
+  "level": 7,
+  "stats": { "vitality": 70, "guard": 3, "initiative": 8, "startingBand": 2 },
+  "skillIds": ["skill.enemy.razorbeak.rushing_bite"],
+  "intent": { "selection": "fixed_prototype", "skillId": "skill.enemy.razorbeak.rushing_bite", "targetRule": "lowest_current_vitality_party_member" },
+  "worldPresence": { "wild": true, "penAllowed": false, "packSize": 1, "midnightRespawnEligible": true },
+  "text": {
+    "firstObservation": "The razorbeak keeps its wounded flank away from Betty. Its feet are coiled for a two-band rush.",
+    "intentTell": "It lowers its skull, fixes on the weakest stance in the party and prepares a straight rushing bite."
+  },
+  "art": { "assetId": "art.placeholder.razorbeak.active_actor", "status": "placeholder", "framing": "Entire animal, tail, feet, target line and lunge effect remain inside the battle safe frame." },
+  "metadata": { "implementationOwner": "rust-simulation", "presentationOwner": "godot-gdscript", "releaseLegal": false }
+}
