@@ -15,6 +15,12 @@
       { "atMs": 420, "name": "guard_set", "pose": "mace_cross_body" },
       { "atMs": 680, "name": "recall", "pose": "card_ready" }
     ],
+    "eventBindings": {
+      "actor_focused": "break_plane",
+      "damage_applied": "impact",
+      "guard_changed": "guard_set",
+      "turn_ended": "recall"
+    },
     "framing": "Betty, target, mace head, complete impact arc and both characters' feet remain inside the safe frame.",
     "replacementAssetIds": ["art.placeholder.betty.active_actor"]
   },

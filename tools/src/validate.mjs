@@ -7,6 +7,7 @@ const failures = [];
 const ids = new Map();
 const references = [];
 const supportedTargetRules = new Set(["one_hostile", "one_living_hostile", "one_living_party_member", "ordered_pair_threatened_ally_then_hostile", "automatic_reaction_to_other_party_member_lethal_hit", "all_living_party_members", "one_defeated_party_member_other_than_betty"]);
+const bindableBattleEvents = new Set(["actor_focused", "actor_moved", "damage_applied", "guard_changed", "vitality_changed", "status_removed", "interception_set", "interception_triggered", "reaction_window_opened", "reaction_triggered", "defeat_prevented", "actor_revived", "bonus_turn_granted", "battlefield_effect_created", "battlefield_effect_pulse", "battlefield_effect_removed", "actor_defeated", "turn_ended", "battle_ended"]);
 
 function fail(file, message) { failures.push(`${relative(repo, file)}: ${message}`); }
 function requireString(record, key, file) {
@@ -59,13 +60,22 @@ for (const { file, value } of await readJsonDirectory("skills")) {
   if (!supportedTargetRules.has(value.targetRule)) fail(file, `targetRule ${value.targetRule} has no registered Godot targeting-session behavior`);
   if (Array.isArray(value.animation?.beats)) {
     let previousAt = -1;
+    const beatNames = new Set();
     for (const [index, beat] of value.animation.beats.entries()) {
       if (!Number.isInteger(beat?.atMs) || beat.atMs < 0) fail(file, `animation.beats[${index}].atMs must be a non-negative integer`);
       if (beat?.atMs < previousAt) fail(file, "animation beats must be ordered by atMs");
       if (typeof beat?.name !== "string" || beat.name.length === 0) fail(file, `animation.beats[${index}] requires a direct action name`);
+      if (beatNames.has(beat?.name)) fail(file, `animation beat name ${beat?.name} is duplicated`);
+      beatNames.add(beat?.name);
       previousAt = beat?.atMs ?? previousAt;
     }
     if (!Number.isInteger(value.animation?.durationMs) || value.animation.durationMs < previousAt) fail(file, "animation durationMs must include the final authored beat");
+    const bindings = value.animation?.eventBindings;
+    if (!bindings || typeof bindings !== "object" || Array.isArray(bindings) || Object.keys(bindings).length < 3) fail(file, "animation eventBindings must bind at least three authoritative event kinds");
+    else for (const [eventKind, beatName] of Object.entries(bindings)) {
+      if (!bindableBattleEvents.has(eventKind)) fail(file, `animation eventBindings contains unknown event kind ${eventKind}`);
+      if (!beatNames.has(beatName)) fail(file, `animation event ${eventKind} targets missing beat ${beatName}`);
+    }
   }
   if (value.id === "skill.betty.condition_cleanse" && JSON.stringify(value.rules?.removalPriority) !== JSON.stringify(["stunned", "burning", "poisoned", "bleeding"])) {
     fail(file, "Condition Cleanse must preserve its deterministic status-removal priority");

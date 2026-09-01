@@ -27,6 +27,10 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Godot targeting-session tests failed with exit code $LASTEXITCODE"
     }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/skill_animation_director_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot skill-animation-director tests failed with exit code $LASTEXITCODE"
+    }
 } finally {
     $env:APPDATA = $previousAppData
     $env:LOCALAPPDATA = $previousLocalAppData

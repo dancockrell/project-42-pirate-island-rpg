@@ -42,6 +42,7 @@ func _ready() -> void:
 	animation_director = SkillAnimationDirector.new()
 	animation_director.name = "SkillAnimationDirector"
 	animation_director.beat_started.connect(on_animation_beat)
+	animation_director.event_cued.connect(on_animation_event_cued)
 	add_child(animation_director)
 	simulation = MockSimulationPort.new()
 	build_screen()
@@ -244,12 +245,22 @@ func submit_skill(skill_id: String, targets: Array) -> void:
 	await project_command_events(simulation.submit(command))
 
 func project_command_events(events: Array[Dictionary]) -> void:
-	for event in events:
+	var index := 0
+	while index < events.size():
+		var event: Dictionary = events[index]
 		project_event(event)
+		index += 1
 		if event.get("kind", "") == "command_accepted":
 			var skill_id: String = str(event.payload.get("skill_id", ""))
+			var action_events: Array[Dictionary] = []
+			while index < events.size() and events[index].get("kind", "") != "turn_started":
+				action_events.append(events[index])
+				index += 1
 			if catalog.has(skill_id):
-				await animation_director.play(catalog.get_record(skill_id))
+				await animation_director.play(catalog.get_record(skill_id), action_events)
+			else:
+				for deferred_event in action_events:
+					project_event(deferred_event)
 	target_label.text = "COMMAND READY"
 	targeting.cancel()
 	selected_skill_id = ""
@@ -308,6 +319,9 @@ func project_event(event: Dictionary) -> void:
 func on_animation_beat(skill_id: String, _beat_index: int, beat: Dictionary) -> void:
 	var readable_name := str(beat.get("name", "unnamed_beat")).replace("_", " ").to_upper()
 	target_label.text = "%s  •  %s" % [skill_id.trim_prefix("skill.betty.").replace("_", " ").to_upper(), readable_name]
+
+func on_animation_event_cued(_skill_id: String, _beat_name: String, event: Dictionary) -> void:
+	project_event(event)
 
 func update_actor_status(actor: Dictionary) -> void:
 	var id: String = actor.id
