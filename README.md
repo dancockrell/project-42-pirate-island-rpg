@@ -13,6 +13,10 @@ This repository is the executable companion to the design bible. It begins with 
 
 The initial Godot shell uses a clearly marked mock simulation adapter because Godot is not installed in the current environment and the native Rust bridge has not been compiled into a GDExtension yet. The mock implements the same command/event shapes as the Rust crate. Replacing it is a boundary task, not a rewrite of UI logic.
 
+The presentation fixture now exposes all seven of Betty's D-through-SSS skills. `Fatal Intercept` is visibly present but disabled because it is an automatic reaction, not a manual command. The remaining buttons drive deterministic mock event sequences so card focus, multi-target rescue, battlefield effects, revival and bonus-turn presentation can be built before the native bridge is attached. These fixtures are not a second rules implementation and are never release-authoritative.
+
+Betty's current Magnific images are stored as component references under `work/art/magnific/betty/`. Their exact approval boundaries live in `content/art/betty.reference_ledger.json`: one image controls body and rendering direction; two contribute equipment and palette only. None is marked as final production art.
+
 ## Workspace map
 
 - `game/` — Godot 4 project and GDScript presentation.
@@ -31,4 +35,3 @@ npm run validate
 ```
 
 Godot runtime validation remains pending until a Godot 4 executable is installed or attached.
-

@@ -11,6 +11,11 @@ var betty_vitality := 100
 var betty_guard := 0
 var razorbeak_vitality := 70
 var razorbeak_guard := 3
+var ayla_vitality := 0
+var vix_vitality := 72
+var grisha_vitality := 88
+var infirmary_pulses_remaining := 0
+var combat_revival_uses := 1
 
 func create_debug_battle() -> Dictionary:
 	return {
@@ -21,6 +26,9 @@ func create_debug_battle() -> Dictionary:
 		"description": "The razorbeak keeps its wounded flank away from Betty. Its feet are coiled for a two-band rush.",
 		"actors": [
 			actor_snapshot("character.heroine.betty", "Betty", "party", betty_vitality, 100, betty_guard, 0),
+			actor_snapshot("character.heroine.ayla", "Ayla", "party", ayla_vitality, 90, 0, 0),
+			actor_snapshot("character.heroine.vix", "Vix", "party", vix_vitality, 90, 0, 1),
+			actor_snapshot("character.heroine.grisha", "Grisha", "party", grisha_vitality, 110, 4, 0),
 			actor_snapshot("enemy.raptor.razorbeak.prototype", "Razorbeak", "hostile", razorbeak_vitality, 70, razorbeak_guard, 2)
 		],
 		"metadata": {"source": "mock", "release_legal": false, "authoritative_equivalent": "godot-rust/src/battle.rs"}
@@ -38,8 +46,42 @@ func submit(command: Dictionary) -> Array[Dictionary]:
 	var command_id: String = command.get("command_id", "command.missing")
 	var actor_id: String = command.get("actor_id", "actor.missing")
 	var skill_id: String = command.get("skill_id", "skill.missing")
-	if actor_id != "character.heroine.betty" or skill_id not in ["skill.betty.guarded_strike", "skill.betty.condition_cleanse", "skill.betty.healing_impact"]:
+	if actor_id != "character.heroine.betty" or skill_id not in ["skill.betty.guarded_strike", "skill.betty.condition_cleanse", "skill.betty.rescue_charge", "skill.betty.healing_impact", "skill.betty.mobile_infirmary", "skill.betty.combat_revival"]:
 		return [make_event("command_rejected", [actor_id], {"reason": "prototype_skill_not_implemented", "command_id": command_id})]
+	var opening: Array[Dictionary] = [
+		make_event("command_accepted", [actor_id], {"command_id": command_id, "skill_id": skill_id}),
+		make_event("actor_focused", [actor_id], {"card_state": "expanding", "active_state": "active"})
+	]
+	if skill_id == "skill.betty.rescue_charge":
+		opening.append(make_event("actor_moved", [actor_id], {"from_band": 0, "to_band": 1}))
+		var rescue_damage := mini(razorbeak_vitality, maxi(0, 10 - razorbeak_guard))
+		razorbeak_guard = maxi(0, razorbeak_guard - 10)
+		razorbeak_vitality -= rescue_damage
+		opening.append(make_event("damage_applied", [actor_id, "enemy.raptor.razorbeak.prototype"], {"amount": rescue_damage, "remaining_vitality": razorbeak_vitality}))
+		opening.append(make_event("interception_set", [actor_id, "character.heroine.vix"], {"protector_id": actor_id, "protected_id": "character.heroine.vix"}))
+		opening.append(make_event("turn_ended", [actor_id], {"round": round_number}))
+		opening.append_array(resolve_enemy_turn())
+		return opening
+	if skill_id == "skill.betty.mobile_infirmary":
+		infirmary_pulses_remaining = 2
+		opening.append(make_event("battlefield_effect_created", [actor_id], {"effect_id": "effect.mock.mobile_infirmary", "source_skill_id": skill_id, "total_pulses": 3}))
+		for party_id in ["character.heroine.betty", "character.heroine.vix", "character.heroine.grisha"]:
+			opening.append(make_event("vitality_changed", [party_id], {"delta": 10, "total": heal_mock_actor(party_id, 10)}))
+			opening.append(make_event("guard_changed", [party_id], {"delta": 2, "total": 2}))
+		opening.append(make_event("battlefield_effect_pulse", [actor_id], {"effect_id": "effect.mock.mobile_infirmary", "pulses_remaining_after": infirmary_pulses_remaining}))
+		opening.append(make_event("turn_ended", [actor_id], {"round": round_number}))
+		opening.append_array(resolve_enemy_turn())
+		return opening
+	if skill_id == "skill.betty.combat_revival":
+		if ayla_vitality > 0 or combat_revival_uses == 0:
+			return [make_event("command_rejected", [actor_id], {"reason": "no_legal_defeated_target_or_use_spent", "command_id": command_id})]
+		combat_revival_uses -= 1
+		ayla_vitality = 36
+		opening.append(make_event("actor_revived", ["character.heroine.ayla"], {"vitality": ayla_vitality}))
+		opening.append(make_event("bonus_turn_granted", ["character.heroine.ayla"], {"resume_after": actor_id}))
+		opening.append(make_event("turn_ended", [actor_id], {"round": round_number}))
+		opening.append(make_event("turn_started", ["character.heroine.ayla"], {"round": round_number, "bonus_turn": true}))
+		return opening
 	if skill_id == "skill.betty.condition_cleanse":
 		var healed := mini(8, 100 - betty_vitality)
 		betty_vitality += healed
@@ -108,8 +150,28 @@ func resolve_enemy_turn() -> Array[Dictionary]:
 	else:
 		round_number += 1
 		events.append(make_event("round_started", [], {"round": round_number}))
+		if infirmary_pulses_remaining > 0:
+			infirmary_pulses_remaining -= 1
+			for party_id in ["character.heroine.betty", "character.heroine.vix", "character.heroine.grisha"]:
+				events.append(make_event("vitality_changed", [party_id], {"delta": 10, "total": heal_mock_actor(party_id, 10)}))
+			events.append(make_event("battlefield_effect_pulse", ["character.heroine.betty"], {"effect_id": "effect.mock.mobile_infirmary", "pulses_remaining_after": infirmary_pulses_remaining}))
+			if infirmary_pulses_remaining == 0:
+				events.append(make_event("battlefield_effect_removed", [], {"effect_id": "effect.mock.mobile_infirmary", "reason": "completed"}))
 		events.append(make_event("turn_started", ["character.heroine.betty"], {"round": round_number}))
 	return events
+
+func heal_mock_actor(actor_id: String, amount: int) -> int:
+	match actor_id:
+		"character.heroine.betty":
+			betty_vitality = mini(100, betty_vitality + amount)
+			return betty_vitality
+		"character.heroine.vix":
+			vix_vitality = mini(90, vix_vitality + amount)
+			return vix_vitality
+		"character.heroine.grisha":
+			grisha_vitality = mini(110, grisha_vitality + amount)
+			return grisha_vitality
+	return 0
 
 func actor_snapshot(id: String, display_name: String, faction: String, vitality: int, maximum: int, guard: int, band: int) -> Dictionary:
 	return {"id": id, "display_name": display_name, "faction": faction, "vitality": vitality, "max_vitality": maximum, "guard": guard, "band": band}

@@ -8,6 +8,7 @@
       "visibleMark": "DUMMY FULL-BODY ACTOR",
       "intendedFinal": "Complete full-body painterly Betty battle actor with boarding mace and eight-percent VFX safe margin.",
       "requiredTags": ["adult", "full-body", "sexy-field-medic", "signature-weapon-visible", "no-crop"],
+      "referenceLedger": "content/art/betty.reference_ledger.json",
       "replacementGate": ["approved identity rig", "complete boots and hair", "complete mace", "1920x1080 battle-scale test", "colorblind silhouette review"]
     },
     {
@@ -17,6 +18,7 @@
       "visibleMark": "DUMMY PORTRAIT",
       "intendedFinal": "Betty bust portrait with direct eye contact, teal identity accent, readable injury and readiness overlays.",
       "requiredTags": ["adult", "portrait", "flirtatious-confidence", "card-safe-crop"],
+      "referenceLedger": "content/art/betty.reference_ledger.json",
       "replacementGate": ["matches active actor face", "readable at 280x150", "expression set approved"]
     },
     {
@@ -30,4 +32,3 @@
     }
   ]
 }
-

@@ -22,7 +22,13 @@ var card_buttons: Dictionary = {}
 var status_labels: Dictionary = {}
 var intent_label: Label
 var round_label: Label
-var command_buttons: Array[Button] = []
+var command_buttons: Dictionary = {}
+var actor_display_names := {
+	"character.heroine.betty": "BETTY",
+	"character.heroine.ayla": "AYLA",
+	"character.heroine.vix": "VIX",
+	"character.heroine.grisha": "GRISHA"
+}
 
 func _ready() -> void:
 	simulation = MockSimulationPort.new()
@@ -105,25 +111,30 @@ func build_battle_plane() -> Control:
 	return plane
 
 func build_footer() -> Control:
-	var commands := HBoxContainer.new()
-	commands.custom_minimum_size.y = 94
-	commands.alignment = BoxContainer.ALIGNMENT_CENTER
-	commands.add_theme_constant_override("separation", 16)
+	var commands := GridContainer.new()
+	commands.columns = 4
+	commands.custom_minimum_size.y = 156
+	commands.add_theme_constant_override("h_separation", 12)
+	commands.add_theme_constant_override("v_separation", 10)
 	for command in [
-		["skill.betty.guarded_strike", "GUARDED STRIKE", true],
-		["skill.betty.condition_cleanse", "CONDITION CLEANSE", true],
-		["skill.betty.rescue_charge", "RESCUE CHARGE", false],
-		["skill.betty.healing_impact", "HEALING IMPACT", true]
+		["skill.betty.guarded_strike", "D  GUARDED STRIKE", true],
+		["skill.betty.condition_cleanse", "C  CONDITION CLEANSE", true],
+		["skill.betty.rescue_charge", "B  RESCUE CHARGE", true],
+		["skill.betty.healing_impact", "A  HEALING IMPACT", true],
+		["skill.betty.fatal_intercept", "S  FATAL INTERCEPT\n[AUTOMATIC REACTION]", false],
+		["skill.betty.mobile_infirmary", "SS  MOBILE INFIRMARY", true],
+		["skill.betty.combat_revival", "SSS  COMBAT REVIVAL", true]
 	]:
 		var button := Button.new()
-		button.text = command[1] if command[2] else "%s\n[LOCKED IN PROTOTYPE]" % command[1]
-		button.custom_minimum_size = Vector2(260, 70)
-		button.add_theme_font_size_override("font_size", 17)
+		button.text = command[1]
+		button.custom_minimum_size = Vector2(238, 66)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.add_theme_font_size_override("font_size", 15)
 		button.disabled = not command[2]
-		button.tooltip_text = "Stable skill ID: %s" % command[0]
+		button.tooltip_text = "Stable skill ID: %s%s" % [command[0], " — triggers automatically; it is never a manual command" if not command[2] else ""]
 		button.pressed.connect(func() -> void: submit_skill(command[0]))
 		commands.add_child(button)
-		command_buttons.append(button)
+		command_buttons[command[0]] = button
 	return commands
 
 func make_party_card(id: String, display_name: String, role: String, accent: Color) -> Button:
@@ -166,13 +177,19 @@ func select_actor(id: String, display_name: String, accent: Color) -> void:
 	description_label.text = "[color=#b78a4b]FOCUS[/color] %s leaves the card rail and occupies the active battle plane. Simulation state is unchanged until a command is accepted." % display_name
 
 func submit_skill(skill_id: String) -> void:
+	var targets := ["enemy.raptor.razorbeak.prototype"]
+	match skill_id:
+		"skill.betty.condition_cleanse": targets = ["character.heroine.betty"]
+		"skill.betty.rescue_charge": targets = ["character.heroine.vix", "enemy.raptor.razorbeak.prototype"]
+		"skill.betty.mobile_infirmary": targets = []
+		"skill.betty.combat_revival": targets = ["character.heroine.ayla"]
 	var command := {
 		"command_id": "command.debug.%s" % Time.get_ticks_msec(),
 		"battle_id": "battle.prototype.returning_names",
 		"actor_id": active_actor_id,
 		"kind": "use_skill",
 		"skill_id": skill_id,
-		"target_ids": ["character.heroine.betty"] if skill_id == "skill.betty.condition_cleanse" else ["enemy.raptor.razorbeak.prototype"],
+		"target_ids": targets,
 		"payload": {}
 	}
 	for event in simulation.submit(command):
@@ -201,10 +218,26 @@ func project_event(event: Dictionary) -> void:
 			var target_id: String = event.subjects[-1]
 			description_label.text += " The hit deals %d damage; %d vitality remains." % [event.payload.amount, event.payload.remaining_vitality]
 			update_status_values(target_id, event.payload.remaining_vitality)
-		"guard_changed": description_label.text += " Betty gains %d Guard." % event.payload.delta
+		"guard_changed":
+			var guarded_name: String = actor_display_names.get(event.subjects[0], event.subjects[0])
+			description_label.text += " %s gains %d Guard." % [guarded_name, event.payload.delta]
 		"vitality_changed":
-			description_label.text += " Betty restores %d Vitality and now has %d." % [event.payload.delta, event.payload.total]
+			var healed_name: String = actor_display_names.get(event.subjects[0], event.subjects[0])
+			description_label.text += " %s restores %d Vitality and now has %d." % [healed_name, event.payload.delta, event.payload.total]
 			update_status_values(event.subjects[0], event.payload.total)
+		"actor_moved": description_label.text += " Betty crosses from band %d to band %d." % [event.payload.from_band, event.payload.to_band]
+		"interception_set": description_label.text += " Betty takes position in front of Vix and will intercept the next attack aimed at her."
+		"interception_triggered": description_label.text += " Betty receives the attack meant for Vix; the interception is now spent."
+		"reaction_window_opened": description_label.text += " [color=#c24e45]LETHAL HIT DETECTED[/color] The simulation opens a reaction window."
+		"reaction_triggered": description_label.text += " Betty breaks out of the card rail and triggers Fatal Intercept."
+		"defeat_prevented": description_label.text += " The incoming hit is cancelled completely."
+		"battlefield_effect_created": description_label.text += " Betty plants her mace and unrolls the Mobile Infirmary."
+		"battlefield_effect_pulse": description_label.text += " [color=#4fc7b4]INFIRMARY PULSE[/color] Medicine and guard reach every living party member. %d pulse(s) remain." % event.payload.pulses_remaining_after
+		"battlefield_effect_removed": description_label.text += " The Mobile Infirmary folds away: %s." % event.payload.reason
+		"actor_revived":
+			description_label.text += " [color=#4fc7b4]COMBAT REVIVAL[/color] Ayla returns with %d Vitality, zero Guard and no negative conditions." % event.payload.vitality
+			update_status_values(event.subjects[0], event.payload.vitality)
+		"bonus_turn_granted": description_label.text += " Ayla receives an immediate bonus turn; normal initiative will resume after it."
 		"round_started": description_label.text += " [color=#b78a4b]ROUND %d[/color] Both survivors reset their stance." % event.payload.round
 		"battle_ended":
 			set_commands_enabled(false)
@@ -216,12 +249,18 @@ func update_actor_status(actor: Dictionary) -> void:
 	var id: String = actor.id
 	if status_labels.has(id):
 		var card := status_labels[id] as Button
-		card.text = "BETTY\nFIELD MEDIC\nVIT %d/%d  •  GRD %d\n[DUMMY PORTRAIT]" % [actor.vitality, actor.max_vitality, actor.guard]
+		var name: String = actor_display_names.get(id, actor.display_name.to_upper())
+		var state := "DEFEATED" if actor.vitality <= 0 else "READY"
+		card.text = "%s\nVIT %d/%d  •  GRD %d  •  %s\n[DUMMY PORTRAIT]" % [name, actor.vitality, actor.max_vitality, actor.guard, state]
 
 func update_status_values(id: String, vitality: int) -> void:
 	if id == "character.heroine.betty" and status_labels.has(id):
 		var card := status_labels[id] as Button
 		card.text = "BETTY\nFIELD MEDIC\nVIT %d/100  •  RESOLVING\n[DUMMY PORTRAIT]" % vitality
+	elif status_labels.has(id):
+		var card := status_labels[id] as Button
+		var state := "DEFEATED" if vitality <= 0 else "READY"
+		card.text = "%s\nVIT %d  •  %s\n[DUMMY PORTRAIT]" % [actor_display_names.get(id, id), vitality, state]
 	elif id == "enemy.raptor.razorbeak.prototype":
 		var stack := enemy_panel.get_child(0) as VBoxContainer
 		(stack.get_child(2) as Label).text = "DUMMY ENEMY ACTOR\nVIT %d/70 • INDIVIDUAL THREAT" % vitality
@@ -234,8 +273,9 @@ func set_card_state(id: String, state: String) -> void:
 			card.tooltip_text = "Card state: %s. Stable actor ID: %s" % [state, id]
 
 func set_commands_enabled(enabled: bool) -> void:
-	for index in command_buttons.size():
-		command_buttons[index].disabled = not enabled or index == 2
+	for skill_id in command_buttons:
+		var button := command_buttons[skill_id] as Button
+		button.disabled = not enabled or skill_id == "skill.betty.fatal_intercept"
 
 func make_color_rect(color: Color, node_name: String) -> ColorRect:
 	var rect := ColorRect.new()

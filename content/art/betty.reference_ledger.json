@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "characterId": "character.heroine.betty",
+  "approvalState": "direction-approved-production-sheet-required",
+  "identityContract": {
+    "adultAgePresentation": "mid-twenties",
+    "body": "Slender, slight and agile adult build; modest small chest; narrow hips; fine waist; graceful shoulders; long lean legs; light functional muscle.",
+    "face": "Warm green eyes, freckles across nose and upper cheeks, softly pointed chin, lively auburn curls and an affectionate confident smile.",
+    "sexAppeal": "Open shoulders, a strip of midriff, long bare thighs, fitted tailoring, playful eye contact and confident posture. Attraction comes from charm and deliberate display, not exaggerated anatomy.",
+    "professionRead": "Close-range pirate field physician. Satchel, ampoules, bandage roll and medical-war-mace must remain legible at battle scale.",
+    "weaponRead": "A short heavy striking mace with a reinforced bronze neck, clear impact face and luminous glass alchemical chamber. It must not read as a wizard staff.",
+    "hardRejects": [
+      "pronounced bust",
+      "heavy hourglass torso",
+      "wide hips",
+      "thick thighs",
+      "bulky physique",
+      "generic wizard staff",
+      "modern red-cross iconography",
+      "cropped feet",
+      "cropped weapon",
+      "cropped action effects"
+    ]
+  },
+  "references": [
+    {
+      "assetId": "art.reference.betty.magnific.body_direction.01",
+      "file": "work/art/magnific/betty/betty-body-direction-gpt2.png",
+      "status": "approved-for-body-and-rendering-direction",
+      "use": ["slender proportions", "small-chest direction", "cute adult face", "fanservice level", "full-body safe framing", "premium anime RPG rendering"],
+      "doNotUse": ["staff-like weapon construction", "weak medical identity", "missing satchel"]
+    },
+    {
+      "assetId": "art.reference.betty.magnific.equipment.01",
+      "file": "work/art/magnific/betty/betty-equipment-reference-seedream.jpg",
+      "status": "approved-for-components-only",
+      "use": ["physician satchel", "ampoules", "teal shorts", "split coat tails", "freckles", "equipment density"],
+      "doNotUse": ["bust size", "hip width", "thigh proportions", "overall anatomy"]
+    },
+    {
+      "assetId": "art.reference.betty.magnific.palette.01",
+      "file": "work/art/magnific/betty/betty-palette-reference-seedream.png",
+      "status": "approved-for-components-only",
+      "use": ["sunburst satchel emblem", "luminous mace chamber", "teal-cream-bronze palette"],
+      "doNotUse": ["bust size", "hourglass anatomy", "long staff proportions"]
+    }
+  ],
+  "nextRequiredPlate": {
+    "name": "Betty production identity sheet v1",
+    "views": ["neutral front", "combat three-quarter", "back view", "four facial expressions", "weapon orthographic", "open satchel contents", "color swatches"],
+    "safeFrame": "Every body view includes hair, boot soles, both hands and carried equipment. Weapon orthographic includes the complete pommel and impact head. No required element touches the outer eight percent of the canvas.",
+    "acceptance": [
+      "same facial identity in every view",
+      "body follows the approved slender reference",
+      "weapon reads as a striking medical mace",
+      "profession remains readable without text",
+      "all anatomy, equipment and effects remain inside frame"
+    ]
+  }
+}

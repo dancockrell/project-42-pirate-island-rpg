@@ -12,13 +12,12 @@
     "activeActorAssetId": "art.placeholder.betty.active_actor",
     "cardPortraitAssetId": "art.placeholder.betty.card_portrait",
     "status": "placeholder",
-    "accessibilityDescription": "A sturdy auburn-haired adult field medic holding a heavy boarding mace."
+    "accessibilityDescription": "A slender, lightly built adult field medic with freckles, bright green eyes and auburn curls, wearing a cropped teal pirate-physician outfit and carrying an oversized bronze-and-glass medical war mace."
   },
   "metadata": {
     "source": "design-bible-2026-09",
     "maturity": "prototype",
     "releaseLegal": false,
-    "notes": ["Canonical combat job: protection through physical intervention and field medicine.", "Default presentation must be intentionally sexy while remaining occupationally legible."]
+    "notes": ["Canonical combat job: protection through physical intervention and field medicine.", "Default presentation must be intentionally sexy while remaining occupationally legible.", "Locked body direction: slight agile adult frame, modest small chest, narrow hips, fine waist and long lean legs. Do not drift toward voluptuous, heavy-hourglass or physically bulky anatomy.", "Current Magnific references are component references only; no single image is an approved production identity sheet."]
   }
 }
-
