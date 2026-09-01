@@ -29,3 +29,7 @@ The vertical slice deliberately implements only Betty's `Guarded Strike` and the
 ## Midnight return transaction
 
 Midnight is one atomic simulation transaction. The clock advances to the next day, named people become alive again without losing their death counters, then each region emits its deterministic daily monster instances in visible flashes. The same world seed, new day, region, and slot always produce the same instance. Each spawned monster receives an individual physical variant, condition, purpose, level, and loot seed. Prototype spawn rules enforce a group size of one because ordinary wilderness encounters are meant to read as D&D-like individual power relationships rather than anonymous packs of one-hit enemies.
+
+## Runtime content bundle
+
+Authoring remains split into local records under `content/` so ownership and relationships stay readable. `npm run build:content` validates those records, sorts them by stable ID, and writes one deterministic `game/generated/content_bundle.json` for Godot. The bundle includes every source path and a SHA-256 hash of its canonical record array. Godot loads the bundle; it does not crawl authoring directories or invent defaults. The generated file is committed so a build always identifies the exact validated content it consumed.
