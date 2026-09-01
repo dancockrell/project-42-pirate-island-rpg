@@ -7,7 +7,7 @@ pub mod protocol;
 pub mod world;
 
 pub use battle::{
-    Actor, ActorId, Battle, BattleError, BattleEvent, BattlePhase, BattleSnapshot, Faction,
-    SkillCommand, StatusInstance, StatusKind,
+    Actor, ActorId, Battle, BattleError, BattleEvent, BattlePhase, BattleSnapshot,
+    BattlefieldEffect, Faction, SkillCommand, StatusInstance, StatusKind,
 };
 pub use world::{DeathMemory, NamedPerson, SpawnRule, SpawnedMonster, WorldClock, WorldEvent};

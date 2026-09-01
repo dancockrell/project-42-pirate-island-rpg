@@ -69,6 +69,13 @@ for (const { file, value } of await readJsonDirectory("skills")) {
     if (value.rules?.incomingDamageResult !== "cancel_entire_hit" || value.rules?.counterRawDamage !== 24) fail(file, "Fatal Intercept must cancel the lethal hit and counter for 24 raw damage");
     if (value.rules?.nestedReactionsAllowed !== false || value.rules?.rescueChargeInterceptionResolvesFirst !== true) fail(file, "Fatal Intercept must prohibit nested reactions and resolve after ordinary interception");
   }
+  if (value.id === "skill.betty.mobile_infirmary") {
+    if (value.activation !== "normal_action" || value.targetRule !== "all_living_party_members") fail(file, "Mobile Infirmary must be a zero-selection normal action affecting all living party members");
+    if (value.rules?.pulseCountTotal !== 3 || value.rules?.pulseTiming !== "immediate_then_start_of_next_two_betty_turns") fail(file, "Mobile Infirmary must pulse immediately and at the start of Betty's next two turns");
+    if (value.rules?.healingPerPulse !== 10 || value.rules?.guardPerPulse !== 2) fail(file, "Mobile Infirmary must restore 10 Vitality and grant 2 Guard per pulse");
+    if (value.rules?.defeatedTargetsExcluded !== true || value.rules?.sourceDefeatRemovesEffect !== true) fail(file, "Mobile Infirmary must exclude defeated allies and end when Betty is defeated");
+    if (value.rules?.sameSkillRecast !== "replace_existing_effect" || value.rules?.sourceStunDoesNotSuspendDeployedEffect !== true) fail(file, "Mobile Infirmary replacement and source-stun behavior must remain explicit");
+  }
 }
 
 for (const { file, value } of await readJsonDirectory("enemies")) {

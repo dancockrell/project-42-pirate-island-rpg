@@ -32,6 +32,14 @@ pub struct StatusInstance {
     pub source_id: ActorId,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BattlefieldEffect {
+    pub instance_id: String,
+    pub source_actor_id: ActorId,
+    pub source_skill_id: String,
+    pub remaining_pulses: u8,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Actor {
     pub id: ActorId,
@@ -140,6 +148,22 @@ pub enum BattleEvent {
         actor_id: ActorId,
         prevented_by_skill_id: String,
     },
+    BattlefieldEffectCreated {
+        command_id: String,
+        effect_id: String,
+        source_actor_id: ActorId,
+        source_skill_id: String,
+        total_pulses: u8,
+    },
+    BattlefieldEffectPulse {
+        effect_id: String,
+        source_actor_id: ActorId,
+        pulses_remaining_after: u8,
+    },
+    BattlefieldEffectRemoved {
+        effect_id: String,
+        reason: String,
+    },
     ActorDefeated {
         command_id: String,
         actor_id: ActorId,
@@ -170,6 +194,10 @@ pub enum BattleError {
     UnknownActor(ActorId),
     UnknownTarget(ActorId),
     ActorDefeated(ActorId),
+    ActorIncapacitated {
+        actor_id: ActorId,
+        status: StatusKind,
+    },
     FriendlyFire {
         actor_id: ActorId,
         target_id: ActorId,
@@ -183,6 +211,11 @@ pub enum BattleError {
         expected: usize,
         actual: usize,
     },
+    SkillOwnerMismatch {
+        skill_id: String,
+        expected_actor_id: ActorId,
+        actual_actor_id: ActorId,
+    },
     UnsupportedSkill(String),
 }
 
@@ -193,6 +226,7 @@ pub struct BattleSnapshot {
     pub phase: BattlePhase,
     pub active_actor_id: Option<ActorId>,
     pub actors: Vec<Actor>,
+    pub effects: Vec<BattlefieldEffect>,
 }
 
 #[derive(Clone, Debug)]
@@ -204,6 +238,7 @@ pub struct Battle {
     round: u32,
     phase: BattlePhase,
     resolving_reaction: bool,
+    effects: Vec<BattlefieldEffect>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -235,6 +270,7 @@ impl Battle {
             round: 1,
             phase: BattlePhase::AwaitingActor,
             resolving_reaction: false,
+            effects: Vec::new(),
         }
     }
 
@@ -251,6 +287,7 @@ impl Battle {
             phase: self.phase.clone(),
             active_actor_id: self.active_actor_id().cloned(),
             actors: self.actors.values().cloned().collect(),
+            effects: self.effects.clone(),
         }
     }
 
@@ -298,18 +335,46 @@ impl Battle {
         if !actor.is_alive() {
             return Err(BattleError::ActorDefeated(command.actor_id));
         }
+        if actor
+            .statuses
+            .iter()
+            .any(|status| status.kind == StatusKind::Stunned)
+        {
+            return Err(BattleError::ActorIncapacitated {
+                actor_id: command.actor_id,
+                status: StatusKind::Stunned,
+            });
+        }
         if !matches!(
             command.skill_id.as_str(),
             "skill.betty.guarded_strike"
                 | "skill.betty.condition_cleanse"
                 | "skill.betty.rescue_charge"
                 | "skill.betty.healing_impact"
+                | "skill.betty.mobile_infirmary"
                 | "skill.enemy.razorbeak.rushing_bite"
         ) {
             return Err(BattleError::UnsupportedSkill(command.skill_id));
         }
+        let expected_owner = if command.skill_id.starts_with("skill.betty.") {
+            Some(ActorId("character.heroine.betty".into()))
+        } else if command.skill_id == "skill.enemy.razorbeak.rushing_bite" {
+            Some(ActorId("enemy.raptor.razorbeak.prototype".into()))
+        } else {
+            None
+        };
+        if let Some(expected_actor_id) = expected_owner {
+            if command.actor_id != expected_actor_id {
+                return Err(BattleError::SkillOwnerMismatch {
+                    skill_id: command.skill_id,
+                    expected_actor_id,
+                    actual_actor_id: command.actor_id,
+                });
+            }
+        }
         let expected_targets = match command.skill_id.as_str() {
             "skill.betty.rescue_charge" => 2,
+            "skill.betty.mobile_infirmary" => 0,
             _ => 1,
         };
         if command.target_ids.len() != expected_targets {
@@ -327,6 +392,27 @@ impl Battle {
             if !target.is_alive() {
                 return Err(BattleError::ActorDefeated(target_id.clone()));
             }
+        }
+        if command.skill_id == "skill.betty.mobile_infirmary" {
+            self.phase = BattlePhase::Resolving;
+            let mut events = vec![
+                BattleEvent::CommandAccepted {
+                    command_id: command.command_id.clone(),
+                    actor_id: command.actor_id.clone(),
+                    skill_id: command.skill_id.clone(),
+                },
+                BattleEvent::ActorFocused {
+                    command_id: command.command_id.clone(),
+                    actor_id: command.actor_id.clone(),
+                },
+            ];
+            self.resolve_skill(&command, &mut events)?;
+            events.push(BattleEvent::TurnEnded {
+                round: self.round,
+                actor_id: command.actor_id,
+            });
+            self.advance_turn(&mut events);
+            return Ok(events);
         }
         let target_id = command.target_ids[0].clone();
         let target = self
@@ -398,6 +484,10 @@ impl Battle {
             }
             "skill.betty.rescue_charge" => return self.resolve_rescue_charge(command, events),
             "skill.betty.healing_impact" => return self.resolve_healing_impact(command, events),
+            "skill.betty.mobile_infirmary" => {
+                self.resolve_mobile_infirmary(command, events);
+                return Ok(());
+            }
             "skill.betty.guarded_strike" | "skill.enemy.razorbeak.rushing_bite" => {}
             other => return Err(BattleError::UnsupportedSkill(other.to_owned())),
         }
@@ -583,6 +673,121 @@ impl Battle {
         Ok(())
     }
 
+    fn resolve_mobile_infirmary(&mut self, command: &SkillCommand, events: &mut Vec<BattleEvent>) {
+        let replaced: Vec<_> = self
+            .effects
+            .iter()
+            .filter(|effect| effect.source_skill_id == command.skill_id)
+            .map(|effect| effect.instance_id.clone())
+            .collect();
+        for effect_id in replaced {
+            self.remove_effect(&effect_id, "replaced", events);
+        }
+        let effect_id = format!("effect.{}.mobile_infirmary", command.command_id);
+        self.effects.push(BattlefieldEffect {
+            instance_id: effect_id.clone(),
+            source_actor_id: command.actor_id.clone(),
+            source_skill_id: command.skill_id.clone(),
+            remaining_pulses: 3,
+        });
+        events.push(BattleEvent::BattlefieldEffectCreated {
+            command_id: command.command_id.clone(),
+            effect_id: effect_id.clone(),
+            source_actor_id: command.actor_id.clone(),
+            source_skill_id: command.skill_id.clone(),
+            total_pulses: 3,
+        });
+        self.pulse_effect(&effect_id, events);
+    }
+
+    fn pulse_effects_for_source(
+        &mut self,
+        source_actor_id: &ActorId,
+        events: &mut Vec<BattleEvent>,
+    ) {
+        let effect_ids: Vec<_> = self
+            .effects
+            .iter()
+            .filter(|effect| &effect.source_actor_id == source_actor_id)
+            .map(|effect| effect.instance_id.clone())
+            .collect();
+        for effect_id in effect_ids {
+            self.pulse_effect(&effect_id, events);
+        }
+    }
+
+    fn pulse_effect(&mut self, effect_id: &str, events: &mut Vec<BattleEvent>) {
+        let Some(index) = self
+            .effects
+            .iter()
+            .position(|effect| effect.instance_id == effect_id)
+        else {
+            return;
+        };
+        let source_actor_id = self.effects[index].source_actor_id.clone();
+        self.effects[index].remaining_pulses -= 1;
+        let remaining = self.effects[index].remaining_pulses;
+        events.push(BattleEvent::BattlefieldEffectPulse {
+            effect_id: effect_id.into(),
+            source_actor_id,
+            pulses_remaining_after: remaining,
+        });
+        for actor in self
+            .actors
+            .values_mut()
+            .filter(|actor| actor.faction == Faction::Party && actor.is_alive())
+        {
+            let before = actor.vitality;
+            actor.vitality = (actor.vitality + 10).min(actor.max_vitality);
+            events.push(BattleEvent::VitalityChanged {
+                command_id: effect_id.into(),
+                actor_id: actor.id.clone(),
+                delta: actor.vitality - before,
+                total: actor.vitality,
+            });
+            actor.guard += 2;
+            events.push(BattleEvent::GuardChanged {
+                command_id: effect_id.into(),
+                actor_id: actor.id.clone(),
+                delta: 2,
+                total: actor.guard,
+            });
+        }
+        if remaining == 0 {
+            self.remove_effect(effect_id, "duration_completed", events);
+        }
+    }
+
+    fn remove_effect(&mut self, effect_id: &str, reason: &str, events: &mut Vec<BattleEvent>) {
+        if let Some(index) = self
+            .effects
+            .iter()
+            .position(|effect| effect.instance_id == effect_id)
+        {
+            self.effects.remove(index);
+            events.push(BattleEvent::BattlefieldEffectRemoved {
+                effect_id: effect_id.into(),
+                reason: reason.into(),
+            });
+        }
+    }
+
+    fn remove_effects_from_source(
+        &mut self,
+        source_actor_id: &ActorId,
+        events: &mut Vec<BattleEvent>,
+    ) {
+        let effect_ids: Vec<_> = self
+            .effects
+            .iter()
+            .filter(|effect| &effect.source_actor_id == source_actor_id)
+            .map(|effect| effect.instance_id.clone())
+            .collect();
+        for effect_id in effect_ids {
+            self.remove_effect(&effect_id, "source_defeated", events);
+        }
+    }
+
     fn apply_damage(
         &mut self,
         command_id: &str,
@@ -679,6 +884,7 @@ impl Battle {
                 command_id: command_id.into(),
                 actor_id: target_id.clone(),
             });
+            self.remove_effects_from_source(target_id, events);
         }
         DamageOutcome {
             amount,
@@ -719,6 +925,7 @@ impl Battle {
             round: self.round,
             actor_id: actor_id.clone(),
         });
+        self.pulse_effects_for_source(&actor_id, events);
         if self.actor(&actor_id).expect("actor exists").faction == Faction::Hostile {
             events.push(self.enemy_intent(&actor_id));
         }
@@ -1318,5 +1525,179 @@ mod tests {
                 .iter()
                 .any(|event| matches!(event, BattleEvent::ReactionTriggered { .. }))
         );
+    }
+
+    #[test]
+    fn mobile_infirmary_pulses_immediately_and_on_two_future_betty_turns() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 50, 0, 12);
+        betty.max_vitality = 100;
+        let enemy = actor(
+            "enemy.raptor.razorbeak.prototype",
+            Faction::Hostile,
+            1,
+            200,
+            0,
+            8,
+        );
+        let mut battle = Battle::new("battle.mobile_infirmary", [betty, enemy]);
+        battle.start();
+        let cast_events = battle
+            .submit(SkillCommand {
+                command_id: "infirmary.cast".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.mobile_infirmary".into(),
+                target_ids: vec![],
+            })
+            .unwrap();
+        assert_eq!(battle.snapshot().effects[0].remaining_pulses, 2);
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.betty".into()))
+                .unwrap()
+                .vitality,
+            60
+        );
+        assert!(matches!(
+            cast_events
+                .iter()
+                .find(|event| matches!(event, BattleEvent::BattlefieldEffectPulse { .. })),
+            Some(BattleEvent::BattlefieldEffectPulse {
+                pulses_remaining_after: 2,
+                ..
+            })
+        ));
+
+        battle
+            .submit(SkillCommand {
+                command_id: "enemy.one".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .unwrap();
+        assert_eq!(battle.snapshot().effects[0].remaining_pulses, 1);
+
+        battle
+            .submit(SkillCommand {
+                command_id: "betty.two".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.guarded_strike".into(),
+                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+            })
+            .unwrap();
+        let final_pulse_events = battle
+            .submit(SkillCommand {
+                command_id: "enemy.two".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .unwrap();
+        assert!(battle.snapshot().effects.is_empty());
+        assert!(final_pulse_events.iter().any(|event| matches!(
+            event,
+            BattleEvent::BattlefieldEffectRemoved { reason, .. }
+                if reason == "duration_completed"
+        )));
+    }
+
+    #[test]
+    fn mobile_infirmary_affects_each_living_party_member_in_actor_id_order() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 50, 0, 12);
+        betty.max_vitality = 100;
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 30, 1, 10);
+        ayla.max_vitality = 80;
+        let defeated = actor("character.heroine.vix", Faction::Party, 3, 0, 0, 9);
+        let enemy = actor("enemy.test", Faction::Hostile, 1, 100, 0, 8);
+        let mut battle = Battle::new("battle.mobile_party", [betty, ayla, defeated, enemy]);
+        battle.start();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "infirmary.party".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.mobile_infirmary".into(),
+                target_ids: vec![],
+            })
+            .unwrap();
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.ayla".into()))
+                .unwrap()
+                .vitality,
+            40
+        );
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.ayla".into()))
+                .unwrap()
+                .guard,
+            3
+        );
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.vix".into()))
+                .unwrap()
+                .vitality,
+            0
+        );
+        let healed: Vec<_> = events
+            .iter()
+            .filter_map(|event| match event {
+                BattleEvent::VitalityChanged { actor_id, .. } => Some(actor_id.0.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            healed,
+            vec!["character.heroine.ayla", "character.heroine.betty"]
+        );
+    }
+
+    #[test]
+    fn stunned_actor_cannot_submit_a_command_and_state_does_not_mutate() {
+        let mut battle = prototype();
+        battle
+            .actors
+            .get_mut(&ActorId("character.heroine.betty".into()))
+            .unwrap()
+            .statuses
+            .push(StatusInstance {
+                id: "status.stunned".into(),
+                kind: StatusKind::Stunned,
+                remaining_rounds: 1,
+                source_id: ActorId("enemy.test".into()),
+            });
+        battle.start();
+        let before = battle.snapshot();
+        let error = battle
+            .submit(SkillCommand {
+                command_id: "stunned.command".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.guarded_strike".into(),
+                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+            })
+            .unwrap_err();
+        assert!(matches!(error, BattleError::ActorIncapacitated { .. }));
+        assert_eq!(battle.snapshot(), before);
+    }
+
+    #[test]
+    fn actor_cannot_submit_another_actors_signature_skill() {
+        let betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 8);
+        let ayla = actor("character.heroine.ayla", Faction::Party, 3, 80, 0, 12);
+        let enemy = actor("enemy.test", Faction::Hostile, 1, 100, 0, 6);
+        let mut battle = Battle::new("battle.skill_owner", [betty, ayla, enemy]);
+        battle.start();
+        let before = battle.snapshot();
+        let error = battle
+            .submit(SkillCommand {
+                command_id: "wrong.owner".into(),
+                actor_id: ActorId("character.heroine.ayla".into()),
+                skill_id: "skill.betty.mobile_infirmary".into(),
+                target_ids: vec![],
+            })
+            .unwrap_err();
+        assert!(matches!(error, BattleError::SkillOwnerMismatch { .. }));
+        assert_eq!(battle.snapshot(), before);
     }
 }
