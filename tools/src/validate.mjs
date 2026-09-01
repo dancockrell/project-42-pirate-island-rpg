@@ -85,7 +85,7 @@ for (const { file, value } of await readJsonDirectory("skills")) {
     else {
       const cueBeats = new Set();
       for (const [index, cue] of cues.entries()) {
-        for (const field of ["beat", "pose", "motion", "cameraId", "vfx", "audio"]) {
+        for (const field of ["beat", "pose", "motion", "cameraId", "vfxId", "audio"]) {
           if (typeof cue?.[field] !== "string" || cue[field].length === 0) fail(file, `animation.presentationCues[${index}].${field} must be a direct non-empty instruction`);
         }
         if (!beatNames.has(cue?.beat)) fail(file, `presentation cue targets missing beat ${cue?.beat}`);
@@ -95,6 +95,7 @@ for (const { file, value } of await readJsonDirectory("skills")) {
         if (typeof cue?.shake !== "number" || cue.shake < 0 || cue.shake > 1) fail(file, `presentation cue ${cue?.beat} shake must be from 0 through 1`);
         if (!Array.isArray(cue?.frameSubjects) || cue.frameSubjects.length < 2) fail(file, `presentation cue ${cue?.beat} must name at least two safe-frame subjects`);
         reference(cue?.cameraId, file, `animation.presentationCues[${index}].cameraId`);
+        reference(cue?.vfxId, file, `animation.presentationCues[${index}].vfxId`);
       }
     }
   }
@@ -150,17 +151,40 @@ for (const { file, value } of await readJsonDirectory("world")) {
 }
 
 for (const { file, value } of await readJsonDirectory("presentation")) {
-  if (value.kind !== "camera_registry") fail(file, "presentation registry kind must be camera_registry");
-  if (!Array.isArray(value.entries) || value.entries.length === 0) fail(file, "camera registry must contain entries");
-  for (const [index, entry] of (value.entries ?? []).entries()) {
-    registerId(entry.id, file);
-    if (!entry.id?.startsWith("presentation.camera.")) fail(file, `entries[${index}].id must use presentation.camera prefix`);
-    if (!new Set(["static", "track", "punch", "reset", "insert", "pan", "snap", "push"]).has(entry.mode)) fail(file, `${entry.id} has unsupported camera mode ${entry.mode}`);
-    if (typeof entry.zoom !== "number" || entry.zoom < 0.8 || entry.zoom > 1.25) fail(file, `${entry.id} zoom must be from 0.8 through 1.25`);
-    if (!Array.isArray(entry.focusSubjects) || entry.focusSubjects.length < 2) fail(file, `${entry.id} must name at least two focus subjects`);
-    requireString(entry, "lead", file);
-    if (!Number.isInteger(entry.safePaddingPercent) || entry.safePaddingPercent < 8 || entry.safePaddingPercent > 20) fail(file, `${entry.id} safePaddingPercent must be an integer from 8 through 20`);
-    for (const field of ["transitionInMs", "transitionOutMs"]) if (!Number.isInteger(entry[field]) || entry[field] < 0 || entry[field] > 500) fail(file, `${entry.id} ${field} must be an integer from 0 through 500`);
+  if (!Array.isArray(value.entries) || value.entries.length === 0) fail(file, "presentation registry must contain entries");
+  if (value.kind === "camera_registry") {
+    for (const [index, entry] of (value.entries ?? []).entries()) {
+      registerId(entry.id, file);
+      if (!entry.id?.startsWith("presentation.camera.")) fail(file, `entries[${index}].id must use presentation.camera prefix`);
+      if (!new Set(["static", "track", "punch", "reset", "insert", "pan", "snap", "push"]).has(entry.mode)) fail(file, `${entry.id} has unsupported camera mode ${entry.mode}`);
+      if (typeof entry.zoom !== "number" || entry.zoom < 0.8 || entry.zoom > 1.25) fail(file, `${entry.id} zoom must be from 0.8 through 1.25`);
+      if (!Array.isArray(entry.focusSubjects) || entry.focusSubjects.length < 2) fail(file, `${entry.id} must name at least two focus subjects`);
+      requireString(entry, "lead", file);
+      if (!Number.isInteger(entry.safePaddingPercent) || entry.safePaddingPercent < 8 || entry.safePaddingPercent > 20) fail(file, `${entry.id} safePaddingPercent must be an integer from 8 through 20`);
+      for (const field of ["transitionInMs", "transitionOutMs"]) if (!Number.isInteger(entry[field]) || entry[field] < 0 || entry[field] > 500) fail(file, `${entry.id} ${field} must be an integer from 0 through 500`);
+    }
+  } else if (value.kind === "vfx_registry") {
+    const defaults = value.defaults ?? {};
+    for (const [index, entry] of (value.entries ?? []).entries()) {
+      registerId(entry.id, file);
+      if (!entry.id?.startsWith("presentation.vfx.")) fail(file, `entries[${index}].id must use presentation.vfx prefix`);
+      for (const field of ["purpose", "anchor", "motion"]) requireString(entry, field, file);
+      if (!Array.isArray(entry.palette) || entry.palette.length === 0 || entry.palette.some(color => typeof color !== "string" || color.length === 0)) fail(file, `${entry.id} palette must contain at least one named color`);
+      const layer = entry.layer ?? defaults.layer;
+      const blend = entry.blend ?? defaults.blend;
+      const reducedFlashMode = entry.reducedFlashMode ?? defaults.reducedFlashMode;
+      const assetStatus = entry.assetStatus ?? defaults.assetStatus;
+      const safeFrameOverflowAllowed = entry.safeFrameOverflowAllowed ?? defaults.safeFrameOverflowAllowed;
+      if (!Number.isInteger(layer) || layer < 0 || layer > 100) fail(file, `${entry.id} layer must be an integer from 0 through 100`);
+      if (!new Set(["mix", "add", "screen", "multiply"]).has(blend)) fail(file, `${entry.id} has unsupported blend ${blend}`);
+      for (const field of ["envelopeWidthPercent", "envelopeHeightPercent"]) if (typeof entry[field] !== "number" || entry[field] < 0 || entry[field] > 100) fail(file, `${entry.id} ${field} must be from 0 through 100`);
+      if (!Number.isInteger(entry.persistenceMs) || entry.persistenceMs < -1 || entry.persistenceMs > 5000) fail(file, `${entry.id} persistenceMs must be -1 or an integer through 5000`);
+      if (typeof reducedFlashMode !== "string" || reducedFlashMode.length === 0) fail(file, `${entry.id} reducedFlashMode must be explicit or inherited`);
+      if (!new Set(["placeholder", "approved", "not_required"]).has(assetStatus)) fail(file, `${entry.id} has unsupported assetStatus ${assetStatus}`);
+      if (safeFrameOverflowAllowed !== false) fail(file, `${entry.id} must prohibit safe-frame overflow`);
+    }
+  } else {
+    fail(file, `unsupported presentation registry kind ${value.kind}`);
   }
 }
 

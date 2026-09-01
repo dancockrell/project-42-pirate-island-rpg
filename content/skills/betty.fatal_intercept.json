@@ -61,7 +61,6 @@
         "beat": "lethal_warning_freeze",
         "pose": "offscreen_or_card_alert",
         "motion": "global_freeze",
-        "vfx": "red_lethal_vector",
         "audio": "lethal_warning_sting",
         "hitStopMs": 120,
         "shake": 0,
@@ -71,13 +70,13 @@
           "incoming_weapon",
           "lethal_vector"
         ],
-        "cameraId": "presentation.camera.ally_attacker_warning_close"
+        "cameraId": "presentation.camera.ally_attacker_warning_close",
+        "vfxId": "presentation.vfx.red_lethal_vector"
       },
       {
         "beat": "betty_breaks_from_card_or_stance",
         "pose": "airborne_intercept_entry",
         "motion": "instant_diagonal_entry",
-        "vfx": "teal_card_shatter_entry",
         "audio": "intercept_dash",
         "hitStopMs": 0,
         "shake": 0.15,
@@ -88,13 +87,13 @@
           "mace",
           "entry_trail"
         ],
-        "cameraId": "presentation.camera.three_actor_snap_wide"
+        "cameraId": "presentation.camera.three_actor_snap_wide",
+        "vfxId": "presentation.vfx.teal_card_shatter_entry"
       },
       {
         "beat": "mace_parry_cancels_hit",
         "pose": "two_hand_cross_parry",
         "motion": "weapon_line_displaced",
-        "vfx": "gold_teal_parry_sparks",
         "audio": "weapon_parry_crack",
         "hitStopMs": 130,
         "shake": 0.7,
@@ -105,13 +104,13 @@
           "both_weapons",
           "parry_sparks"
         ],
-        "cameraId": "presentation.camera.parry_contact_close"
+        "cameraId": "presentation.camera.parry_contact_close",
+        "vfxId": "presentation.vfx.gold_teal_parry_sparks"
       },
       {
         "beat": "counter_hit_on_attacker",
         "pose": "reverse_grip_counter_swing",
         "motion": "short_counter_rotation",
-        "vfx": "bronze_counter_arc",
         "audio": "counter_mace_impact",
         "hitStopMs": 95,
         "shake": 0.55,
@@ -122,13 +121,13 @@
           "mace",
           "counter_arc"
         ],
-        "cameraId": "presentation.camera.counter_punch_in"
+        "cameraId": "presentation.camera.counter_punch_in",
+        "vfxId": "presentation.vfx.bronze_counter_arc"
       },
       {
         "beat": "ally_confirmed_safe",
         "pose": "betty_checks_ally_over_shoulder",
         "motion": "ally_balance_recovery",
-        "vfx": "teal_safety_outline",
         "audio": "danger_release",
         "hitStopMs": 0,
         "shake": 0,
@@ -138,13 +137,13 @@
           "attacker",
           "mace"
         ],
-        "cameraId": "presentation.camera.protector_ally_medium"
+        "cameraId": "presentation.camera.protector_ally_medium",
+        "vfxId": "presentation.vfx.teal_safety_outline"
       },
       {
         "beat": "betty_hold_guard",
         "pose": "mace_forward_body_between",
         "motion": "hold_intercept_line",
-        "vfx": "guard_motes_fade",
         "audio": "guard_hold",
         "hitStopMs": 0,
         "shake": 0,
@@ -154,7 +153,8 @@
           "attacker",
           "mace"
         ],
-        "cameraId": "presentation.camera.battle_wide_reset"
+        "cameraId": "presentation.camera.battle_wide_reset",
+        "vfxId": "presentation.vfx.guard_motes_fade"
       }
     ],
     "framing": "Betty, protected ally, attacker, complete weapons, parry sparks and counter arc remain inside the safe frame.",

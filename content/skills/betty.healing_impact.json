@@ -55,7 +55,6 @@
         "beat": "mace_prime",
         "pose": "mace_head_over_shoulder",
         "motion": "alchemical_chamber_charge",
-        "vfx": "mace_core_compression",
         "audio": "glass_core_rise",
         "hitStopMs": 0,
         "shake": 0,
@@ -64,13 +63,13 @@
           "mace",
           "target"
         ],
-        "cameraId": "presentation.camera.betty_weapon_medium"
+        "cameraId": "presentation.camera.betty_weapon_medium",
+        "vfxId": "presentation.vfx.mace_core_compression"
       },
       {
         "beat": "overhead_swing",
         "pose": "full_extension_overhead_arc",
         "motion": "committed_downswing",
-        "vfx": "teal_gold_weapon_trail",
         "audio": "heavy_mace_whoosh",
         "hitStopMs": 0,
         "shake": 0.1,
@@ -80,13 +79,13 @@
           "target",
           "weapon_trail"
         ],
-        "cameraId": "presentation.camera.vertical_arc_track"
+        "cameraId": "presentation.camera.vertical_arc_track",
+        "vfxId": "presentation.vfx.teal_gold_weapon_trail"
       },
       {
         "beat": "ground_impact",
         "pose": "deep_lunge_mace_grounded",
         "motion": "impact_at_target_feet",
-        "vfx": "bronze_crater_teal_shock",
         "audio": "mace_ground_crack",
         "hitStopMs": 110,
         "shake": 0.65,
@@ -96,13 +95,13 @@
           "target",
           "ground_burst"
         ],
-        "cameraId": "presentation.camera.ground_impact_punch"
+        "cameraId": "presentation.camera.ground_impact_punch",
+        "vfxId": "presentation.vfx.bronze_crater_teal_shock"
       },
       {
         "beat": "healing_wave",
         "pose": "one_knee_mace_anchor",
         "motion": "wave_returns_through_party",
-        "vfx": "teal_healing_wave",
         "audio": "healing_wave_bloom",
         "hitStopMs": 35,
         "shake": 0.05,
@@ -113,13 +112,13 @@
           "mace",
           "healing_wave"
         ],
-        "cameraId": "presentation.camera.party_pan"
+        "cameraId": "presentation.camera.party_pan",
+        "vfxId": "presentation.vfx.teal_healing_wave"
       },
       {
         "beat": "recover",
         "pose": "mace_lift_to_ready",
         "motion": "rise_from_lunge",
-        "vfx": "healing_motes_fade",
         "audio": "mace_lift",
         "hitStopMs": 0,
         "shake": 0,
@@ -128,7 +127,8 @@
           "mace",
           "target"
         ],
-        "cameraId": "presentation.camera.battle_wide_reset"
+        "cameraId": "presentation.camera.battle_wide_reset",
+        "vfxId": "presentation.vfx.healing_motes_fade"
       }
     ],
     "framing": "Betty, enemy, mace arc, ground burst, selected healing recipient and the complete healing wave remain inside the safe frame.",

@@ -55,7 +55,6 @@
         "beat": "open_satchel",
         "pose": "kneeling_satchel_open",
         "motion": "step_to_patient",
-        "vfx": "none",
         "audio": "satchel_clasp",
         "hitStopMs": 0,
         "shake": 0,
@@ -65,13 +64,13 @@
           "mace",
           "satchel"
         ],
-        "cameraId": "presentation.camera.betty_patient_medium"
+        "cameraId": "presentation.camera.betty_patient_medium",
+        "vfxId": "presentation.vfx.none"
       },
       {
         "beat": "draw_ampoule",
         "pose": "ampoule_held_to_light",
         "motion": "precise_hand_draw",
-        "vfx": "ampoule_inner_glow",
         "audio": "glass_draw",
         "hitStopMs": 0,
         "shake": 0,
@@ -80,13 +79,13 @@
           "patient",
           "ampoule"
         ],
-        "cameraId": "presentation.camera.ampoule_insert"
+        "cameraId": "presentation.camera.ampoule_insert",
+        "vfxId": "presentation.vfx.ampoule_inner_glow"
       },
       {
         "beat": "break_ampoule_over_target",
         "pose": "ampoule_snap_over_patient",
         "motion": "short_downward_snap",
-        "vfx": "liquid_thread",
         "audio": "glass_snap",
         "hitStopMs": 25,
         "shake": 0,
@@ -96,13 +95,13 @@
           "ampoule",
           "liquid_thread"
         ],
-        "cameraId": "presentation.camera.betty_patient_close"
+        "cameraId": "presentation.camera.betty_patient_close",
+        "vfxId": "presentation.vfx.liquid_thread"
       },
       {
         "beat": "cleanse_flash",
         "pose": "open_hand_shielding_patient",
         "motion": "healing_release",
-        "vfx": "teal_white_condition_burst",
         "audio": "cleanse_bloom",
         "hitStopMs": 45,
         "shake": 0.08,
@@ -112,13 +111,13 @@
           "mace",
           "cleanse_burst"
         ],
-        "cameraId": "presentation.camera.party_medium"
+        "cameraId": "presentation.camera.party_medium",
+        "vfxId": "presentation.vfx.teal_white_condition_burst"
       },
       {
         "beat": "recall",
         "pose": "satchel_closed_mace_ready",
         "motion": "return_to_battle_stance",
-        "vfx": "cleanse_motes_fade",
         "audio": "satchel_lock",
         "hitStopMs": 0,
         "shake": 0,
@@ -127,7 +126,8 @@
           "patient",
           "mace"
         ],
-        "cameraId": "presentation.camera.battle_wide_reset"
+        "cameraId": "presentation.camera.battle_wide_reset",
+        "vfxId": "presentation.vfx.cleanse_motes_fade"
       }
     ],
     "framing": "Betty, patient, ampoule and complete cleansing effect remain inside the safe frame.",

@@ -61,7 +61,6 @@
         "beat": "slide_to_ally",
         "pose": "low_kneeling_arrival",
         "motion": "fast_knee_slide_to_fallen_ally",
-        "vfx": "teal_slide_trail",
         "audio": "armored_knee_slide",
         "hitStopMs": 0,
         "shake": 0.08,
@@ -70,13 +69,13 @@
           "fallen_ally",
           "mace"
         ],
-        "cameraId": "presentation.camera.betty_ally_two_shot"
+        "cameraId": "presentation.camera.betty_ally_two_shot",
+        "vfxId": "presentation.vfx.teal_slide_trail"
       },
       {
         "beat": "mace_defibrillator_prime",
         "pose": "mace_head_braced_above_chest",
         "motion": "alchemical_core_overcharge",
-        "vfx": "gold_teal_charge_coils",
         "audio": "revival_charge_rise",
         "hitStopMs": 0,
         "shake": 0.05,
@@ -86,13 +85,13 @@
           "mace",
           "charge_coils"
         ],
-        "cameraId": "presentation.camera.mace_ally_close"
+        "cameraId": "presentation.camera.mace_ally_close",
+        "vfxId": "presentation.vfx.gold_teal_charge_coils"
       },
       {
         "beat": "controlled_shock",
         "pose": "one_hand_mace_one_hand_ally",
         "motion": "single_downward_energy_discharge",
-        "vfx": "contained_teal_shock_ring",
         "audio": "revival_shock",
         "hitStopMs": 145,
         "shake": 0.45,
@@ -102,13 +101,13 @@
           "mace",
           "complete_shock_ring"
         ],
-        "cameraId": "presentation.camera.controlled_shock_close"
+        "cameraId": "presentation.camera.controlled_shock_close",
+        "vfxId": "presentation.vfx.contained_teal_shock_ring"
       },
       {
         "beat": "ally_rises",
         "pose": "betty_supports_ally_to_knee",
         "motion": "ally_chest_breath_then_rise",
-        "vfx": "heartbeat_line_and_returning_color",
         "audio": "heartbeat_return",
         "hitStopMs": 70,
         "shake": 0,
@@ -118,13 +117,13 @@
           "mace",
           "heartbeat_effect"
         ],
-        "cameraId": "presentation.camera.revival_two_shot"
+        "cameraId": "presentation.camera.revival_two_shot",
+        "vfxId": "presentation.vfx.heartbeat_line_and_returning_color"
       },
       {
         "beat": "weapon_return",
         "pose": "betty_rotates_mace_to_ready",
         "motion": "ally_reaches_standing_guard",
-        "vfx": "revival_arc_fades",
         "audio": "weapon_recover",
         "hitStopMs": 0,
         "shake": 0,
@@ -133,13 +132,13 @@
           "standing_ally",
           "mace"
         ],
-        "cameraId": "presentation.camera.party_medium"
+        "cameraId": "presentation.camera.party_medium",
+        "vfxId": "presentation.vfx.revival_arc_fades"
       },
       {
         "beat": "ally_turn_start",
         "pose": "betty_presents_open_lane",
         "motion": "revived_ally_steps_into_active_plane",
-        "vfx": "gold_turn_grant_ring",
         "audio": "bonus_turn_sting",
         "hitStopMs": 45,
         "shake": 0.08,
@@ -149,7 +148,8 @@
           "mace",
           "turn_ring"
         ],
-        "cameraId": "presentation.camera.ally_hero_push_in"
+        "cameraId": "presentation.camera.ally_hero_push_in",
+        "vfxId": "presentation.vfx.gold_turn_grant_ring"
       }
     ],
     "framing": "Betty, fallen ally, full mace, revival arc, rising body and all effects remain inside the safe frame.",

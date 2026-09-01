@@ -46,6 +46,7 @@ func load_bundle(bundle: Dictionary) -> Error:
 			return ERR_INVALID_DATA
 		next_records[id] = entry.value
 		next_sources[id] = str(entry.get("sourcePath", ""))
+		var registry_defaults: Dictionary = entry.value.get("defaults", {})
 		for registry_entry in entry.value.get("entries", []):
 			if not registry_entry is Dictionary:
 				return ERR_INVALID_DATA
@@ -53,7 +54,9 @@ func load_bundle(bundle: Dictionary) -> Error:
 			if registry_entry_id.is_empty() or next_registry_entries.has(registry_entry_id) or next_records.has(registry_entry_id):
 				push_error("Content bundle contains an empty or duplicate registry entry ID: %s" % registry_entry_id)
 				return ERR_INVALID_DATA
-			next_registry_entries[registry_entry_id] = registry_entry
+			var resolved_registry_entry := registry_defaults.duplicate(true)
+			resolved_registry_entry.merge(registry_entry, true)
+			next_registry_entries[registry_entry_id] = resolved_registry_entry
 	records_by_id = next_records
 	source_path_by_id = next_sources
 	registry_entries_by_id = next_registry_entries

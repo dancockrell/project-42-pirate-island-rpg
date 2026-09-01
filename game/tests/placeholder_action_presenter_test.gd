@@ -19,7 +19,8 @@ func _initialize() -> void:
 		"motion": "contact_lunge",
 		"cameraId": "presentation.camera.impact_punch_in",
 		"cameraRecord": {"mode": "punch", "zoom": 1.12},
-		"vfx": "bronze_teal_impact_arc",
+		"vfxId": "presentation.vfx.bronze_teal_impact_arc",
+		"vfxRecord": {"purpose": "Shows the mace contact", "anchor": "weapon_contact", "envelopeWidthPercent": 22, "envelopeHeightPercent": 28, "persistenceMs": 180, "reducedFlashMode": "replace_flash_with_outline", "assetStatus": "placeholder"},
 		"audio": "mace_armor_impact",
 		"hitStopMs": 80,
 		"shake": 0.35,
@@ -27,7 +28,8 @@ func _initialize() -> void:
 	})
 	assert("HORIZONTAL MACE HIT" in label.text)
 	assert("SAFE FRAME: betty, mace, target, impact_arc" in label.text)
-	assert(label.tooltip_text == "Audio cue: mace_armor_impact")
+	assert("VFX purpose: Shows the mace contact" in label.tooltip_text)
+	assert("Audio cue: mace_armor_impact" in label.tooltip_text)
 	assert(actor.scale.x > 1.0)
 	assert(enemy.rotation != 0.0)
 	presenter.reset()

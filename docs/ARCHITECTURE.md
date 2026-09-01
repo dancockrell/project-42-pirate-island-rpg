@@ -30,6 +30,8 @@ Every authored beat has exactly one `presentationCue`. A cue names the pose, sta
 
 Camera treatments are stable registry entries under `presentation.camera.*`, not free-form labels. Each record defines mode, zoom, focus subjects, lead subject, safe padding and transition timing. Skill cues reference `cameraId`; `ContentCatalog` resolves a defensive copy from the bundled registry. The camera registry may shape framing only. It cannot change targets, range, hit results or any other simulation value.
 
+VFX treatments follow the same stable-reference rule under `presentation.vfx.*`. Each effect record states exactly what gameplay result it communicates, its palette, attachment anchor, render layer, blend mode, screen envelope, motion direction, lifetime, reduced-flash substitute, safe-frame rule and asset status. Skill cues contain `vfxId`, never an improvised effect label. `ContentCatalog` resolves the record for the Godot presentation consumer after Rust has already decided the result. A VFX record can explain or emphasize an event; it cannot create damage, healing, guard, targeting or state changes.
+
 ## Encounter state machine
 
 Every encounter moves through `AwaitingActor -> AwaitingCommand -> Resolving -> AwaitingCommand`, ending in `Victory` or `Defeat`. Initiative selects the active actor. A command naming any other actor is rejected before mutation. Resolution emits ordered events: acceptance, actor focus, mechanical changes, defeat if any, turn end, then the next turn and visible enemy intent. Godot may animate that event sequence; it may not skip ahead and calculate the result itself.

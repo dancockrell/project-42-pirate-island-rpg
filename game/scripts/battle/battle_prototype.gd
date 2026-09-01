@@ -342,6 +342,8 @@ func on_presentation_cue(_skill_id: String, cue: Dictionary) -> void:
 	var resolved := cue.duplicate(true)
 	var camera_id := str(cue.get("cameraId", ""))
 	resolved.cameraRecord = catalog.get_registry_entry(camera_id)
+	var vfx_id := str(cue.get("vfxId", ""))
+	resolved.vfxRecord = catalog.get_registry_entry(vfx_id)
 	placeholder_presenter.present(resolved)
 
 func on_animation_finished(_skill_id: String) -> void:

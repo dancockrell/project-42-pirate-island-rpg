@@ -54,7 +54,6 @@
         "beat": "select",
         "pose": "mace_low_guard",
         "motion": "card_hold",
-        "vfx": "none",
         "audio": "leather_grip",
         "hitStopMs": 0,
         "shake": 0,
@@ -62,13 +61,13 @@
           "betty",
           "mace"
         ],
-        "cameraId": "presentation.camera.active_card_close"
+        "cameraId": "presentation.camera.active_card_close",
+        "vfxId": "presentation.vfx.none"
       },
       {
         "beat": "break_plane",
         "pose": "forward_step",
         "motion": "card_to_battle_plane",
-        "vfx": "teal_card_release",
         "audio": "boot_step",
         "hitStopMs": 0,
         "shake": 0,
@@ -77,13 +76,13 @@
           "mace",
           "target"
         ],
-        "cameraId": "presentation.camera.two_actor_track"
+        "cameraId": "presentation.camera.two_actor_track",
+        "vfxId": "presentation.vfx.teal_card_release"
       },
       {
         "beat": "impact",
         "pose": "horizontal_mace_hit",
         "motion": "contact_lunge",
-        "vfx": "bronze_teal_impact_arc",
         "audio": "mace_armor_impact",
         "hitStopMs": 80,
         "shake": 0.35,
@@ -93,13 +92,13 @@
           "target",
           "impact_arc"
         ],
-        "cameraId": "presentation.camera.impact_punch_in"
+        "cameraId": "presentation.camera.impact_punch_in",
+        "vfxId": "presentation.vfx.bronze_teal_impact_arc"
       },
       {
         "beat": "guard_set",
         "pose": "mace_cross_body",
         "motion": "recoil_to_guard",
-        "vfx": "teal_guard_ring",
         "audio": "guard_chime",
         "hitStopMs": 0,
         "shake": 0,
@@ -109,13 +108,13 @@
           "target",
           "guard_ring"
         ],
-        "cameraId": "presentation.camera.two_actor_medium"
+        "cameraId": "presentation.camera.two_actor_medium",
+        "vfxId": "presentation.vfx.teal_guard_ring"
       },
       {
         "beat": "recall",
         "pose": "card_ready",
         "motion": "battle_plane_to_card",
-        "vfx": "card_recall_trail",
         "audio": "card_lock",
         "hitStopMs": 0,
         "shake": 0,
@@ -124,7 +123,8 @@
           "mace",
           "target"
         ],
-        "cameraId": "presentation.camera.battle_wide_reset"
+        "cameraId": "presentation.camera.battle_wide_reset",
+        "vfxId": "presentation.vfx.card_recall_trail"
       }
     ],
     "framing": "Betty, target, mace head, complete impact arc and both characters' feet remain inside the safe frame.",

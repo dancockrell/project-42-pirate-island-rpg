@@ -20,7 +20,14 @@ func present(cue: Dictionary) -> void:
 		return
 	var pose := str(cue.get("pose", "missing_pose")).replace("_", " ").to_upper()
 	var motion := str(cue.get("motion", "missing_motion")).replace("_", " ").to_upper()
-	var vfx := str(cue.get("vfx", "none")).replace("_", " ").to_upper()
+	var vfx_record: Dictionary = cue.get("vfxRecord", {})
+	var vfx_id := str(cue.get("vfxId", "presentation.vfx.none"))
+	var vfx := vfx_id.trim_prefix("presentation.vfx.").replace("_", " ").to_upper()
+	var vfx_purpose := str(vfx_record.get("purpose", "missing purpose"))
+	var vfx_anchor := str(vfx_record.get("anchor", "missing_anchor")).replace("_", " ").to_upper()
+	var vfx_width := float(vfx_record.get("envelopeWidthPercent", 0.0))
+	var vfx_height := float(vfx_record.get("envelopeHeightPercent", 0.0))
+	var vfx_persistence := int(vfx_record.get("persistenceMs", 0))
 	var camera_record: Dictionary = cue.get("cameraRecord", {})
 	var camera_id := str(cue.get("cameraId", "missing_camera"))
 	var camera := camera_id.trim_prefix("presentation.camera.").replace("_", " ").to_upper()
@@ -29,12 +36,12 @@ func present(cue: Dictionary) -> void:
 	var hit_stop := int(cue.get("hitStopMs", 0))
 	var shake := float(cue.get("shake", 0.0))
 	var frame_subjects: Array = cue.get("frameSubjects", [])
-	cue_label.text = "DUMMY ACTION CUE  •  POSE: %s  •  MOTION: %s  •  CAMERA: %s / %s / %.2fX  •  VFX: %s  •  HIT STOP: %d MS  •  SAFE FRAME: %s" % [pose, motion, camera, camera_mode, camera_zoom, vfx, hit_stop, ", ".join(PackedStringArray(frame_subjects))]
-	cue_label.tooltip_text = "Audio cue: %s" % str(cue.get("audio", "missing_audio"))
+	cue_label.text = "DUMMY ACTION CUE  •  POSE: %s  •  MOTION: %s  •  CAMERA: %s / %s / %.2fX  •  VFX: %s / %s / %.0fX%.0f%%  •  HIT STOP: %d MS  •  SAFE FRAME: %s" % [pose, motion, camera, camera_mode, camera_zoom, vfx, vfx_anchor, vfx_width, vfx_height, hit_stop, ", ".join(PackedStringArray(frame_subjects))]
+	cue_label.tooltip_text = "VFX purpose: %s\nPersistence: %s\nReduced flash: %s\nAsset: %s\nAudio cue: %s" % [vfx_purpose, "persistent" if vfx_persistence == -1 else "%d ms" % vfx_persistence, str(vfx_record.get("reducedFlashMode", "missing")), str(vfx_record.get("assetStatus", "missing")), str(cue.get("audio", "missing_audio"))]
 	actor_panel.pivot_offset = actor_panel.size * 0.5
 	enemy_panel.pivot_offset = enemy_panel.size * 0.5
 	actor_panel.scale = Vector2.ONE * clampf(camera_zoom, 0.92, 1.12)
-	actor_panel.modulate = Color("bffdf3") if vfx != "NONE" else Color.WHITE
+	actor_panel.modulate = Color("bffdf3") if vfx_id != "presentation.vfx.none" else Color.WHITE
 	enemy_panel.rotation = deg_to_rad(2.5 * shake)
 	enemy_panel.modulate = Color("ffd6bf") if shake > 0.0 else Color.WHITE
 	cue_presented.emit(cue.duplicate(true))

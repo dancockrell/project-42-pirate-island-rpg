@@ -55,7 +55,6 @@
         "beat": "plant_mace",
         "pose": "two_hand_mace_plant",
         "motion": "mace_head_locked_to_ground",
-        "vfx": "teal_anchor_ring",
         "audio": "mace_plant_lock",
         "hitStopMs": 55,
         "shake": 0.25,
@@ -65,13 +64,13 @@
           "mace",
           "anchor_ring"
         ],
-        "cameraId": "presentation.camera.betty_party_wide"
+        "cameraId": "presentation.camera.betty_party_wide",
+        "vfxId": "presentation.vfx.teal_anchor_ring"
       },
       {
         "beat": "throw_medical_roll",
         "pose": "low_sidearm_supply_throw",
         "motion": "satchel_to_ground_unroll",
-        "vfx": "cloth_ribbon_path",
         "audio": "canvas_roll_throw",
         "hitStopMs": 0,
         "shake": 0,
@@ -81,13 +80,13 @@
           "mace",
           "medical_roll"
         ],
-        "cameraId": "presentation.camera.lateral_supply_track"
+        "cameraId": "presentation.camera.lateral_supply_track",
+        "vfxId": "presentation.vfx.cloth_ribbon_path"
       },
       {
         "beat": "supplies_unfurl",
         "pose": "one_hand_on_mace_one_hand_command",
         "motion": "screens_and_supplies_snap_open",
-        "vfx": "three_teal_medical_panels",
         "audio": "infirmary_unfurl",
         "hitStopMs": 35,
         "shake": 0.1,
@@ -97,13 +96,13 @@
           "mace",
           "all_supplies"
         ],
-        "cameraId": "presentation.camera.field_setup_wide"
+        "cameraId": "presentation.camera.field_setup_wide",
+        "vfxId": "presentation.vfx.three_teal_medical_panels"
       },
       {
         "beat": "party_aura",
         "pose": "mace_core_pulse_stance",
         "motion": "aura_crosses_living_party",
-        "vfx": "mobile_teal_healing_aura",
         "audio": "infirmary_pulse",
         "hitStopMs": 40,
         "shake": 0.05,
@@ -114,13 +113,13 @@
           "supplies",
           "complete_aura"
         ],
-        "cameraId": "presentation.camera.party_card_pan"
+        "cameraId": "presentation.camera.party_card_pan",
+        "vfxId": "presentation.vfx.mobile_teal_healing_aura"
       },
       {
         "beat": "shoulder_mace",
         "pose": "mace_shouldered_supplies_active",
         "motion": "return_to_mobile_ready",
-        "vfx": "persistent_infirmary_idle",
         "audio": "mace_shouldered",
         "hitStopMs": 0,
         "shake": 0,
@@ -130,7 +129,8 @@
           "mace",
           "persistent_supplies"
         ],
-        "cameraId": "presentation.camera.battle_wide_reset"
+        "cameraId": "presentation.camera.battle_wide_reset",
+        "vfxId": "presentation.vfx.persistent_infirmary_idle"
       }
     ],
     "framing": "Betty, full party card rail, deployed supplies and entire mobile aura remain inside the safe frame.",
