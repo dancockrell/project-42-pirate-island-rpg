@@ -38,8 +38,19 @@ func submit(command: Dictionary) -> Array[Dictionary]:
 	var command_id: String = command.get("command_id", "command.missing")
 	var actor_id: String = command.get("actor_id", "actor.missing")
 	var skill_id: String = command.get("skill_id", "skill.missing")
-	if actor_id != "character.heroine.betty" or skill_id != "skill.betty.guarded_strike":
-		return [make_event("command_rejected", [actor_id], {"reason": "prototype_supports_betty_guarded_strike_only", "command_id": command_id})]
+	if actor_id != "character.heroine.betty" or skill_id not in ["skill.betty.guarded_strike", "skill.betty.condition_cleanse"]:
+		return [make_event("command_rejected", [actor_id], {"reason": "prototype_skill_not_implemented", "command_id": command_id})]
+	if skill_id == "skill.betty.condition_cleanse":
+		var healed := mini(8, 100 - betty_vitality)
+		betty_vitality += healed
+		var cleanse_events: Array[Dictionary] = [
+			make_event("command_accepted", [actor_id], {"command_id": command_id, "skill_id": skill_id}),
+			make_event("actor_focused", [actor_id], {"card_state": "expanding", "active_state": "active"}),
+			make_event("vitality_changed", [actor_id], {"delta": healed, "total": betty_vitality}),
+			make_event("turn_ended", [actor_id], {"round": round_number})
+		]
+		cleanse_events.append_array(resolve_enemy_turn())
+		return cleanse_events
 
 	var player_damage := maxi(0, 15 - razorbeak_guard)
 	razorbeak_guard = maxi(0, razorbeak_guard - 15)
@@ -57,7 +68,11 @@ func submit(command: Dictionary) -> Array[Dictionary]:
 		events.append(make_event("battle_ended", [], {"victory": true}))
 		return events
 
-	events.append(make_event("turn_started", ["enemy.raptor.razorbeak.prototype"], {"round": round_number}))
+	events.append_array(resolve_enemy_turn())
+	return events
+
+func resolve_enemy_turn() -> Array[Dictionary]:
+	var events: Array[Dictionary] = [make_event("turn_started", ["enemy.raptor.razorbeak.prototype"], {"round": round_number})]
 	events.append(make_event("enemy_intent_declared", ["enemy.raptor.razorbeak.prototype", "character.heroine.betty"], {
 		"skill_id": "skill.enemy.razorbeak.rushing_bite", "intent_name": "Rushing Bite", "target_id": "character.heroine.betty"
 	}))

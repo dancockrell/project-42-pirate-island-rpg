@@ -55,6 +55,12 @@ for (const { file, value } of await readJsonDirectory("skills")) {
   if (!value.rules || typeof value.rules !== "object") fail(file, "rules must be an object");
   if (!Array.isArray(value.animation?.beats) || value.animation.beats.length < 4) fail(file, "animation must contain at least four explicit beats");
   if (!value.animation?.framing?.includes("safe frame")) fail(file, "animation framing must state its safe-frame requirement");
+  if (value.id === "skill.betty.condition_cleanse" && JSON.stringify(value.rules?.removalPriority) !== JSON.stringify(["stunned", "burning", "poisoned", "bleeding"])) {
+    fail(file, "Condition Cleanse must preserve its deterministic status-removal priority");
+  }
+  if (value.id === "skill.betty.rescue_charge" && value.targetRule !== "ordered_pair_threatened_ally_then_hostile") {
+    fail(file, "Rescue Charge must name the rescued ally first and threatening hostile second");
+  }
 }
 
 for (const { file, value } of await readJsonDirectory("enemies")) {

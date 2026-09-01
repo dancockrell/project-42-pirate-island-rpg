@@ -16,6 +16,22 @@ pub enum BattlePhase {
     Defeat,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum StatusKind {
+    Bleeding,
+    Poisoned,
+    Burning,
+    Stunned,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StatusInstance {
+    pub id: String,
+    pub kind: StatusKind,
+    pub remaining_rounds: u8,
+    pub source_id: ActorId,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Actor {
     pub id: ActorId,
@@ -27,6 +43,8 @@ pub struct Actor {
     pub guard: i32,
     pub band: i8,
     pub initiative: i16,
+    pub statuses: Vec<StatusInstance>,
+    pub intercepts_for: Option<ActorId>,
 }
 impl Actor {
     pub fn is_alive(&self) -> bool {
@@ -77,6 +95,34 @@ pub enum BattleEvent {
         delta: i32,
         total: i32,
     },
+    VitalityChanged {
+        command_id: String,
+        actor_id: ActorId,
+        delta: i32,
+        total: i32,
+    },
+    StatusRemoved {
+        command_id: String,
+        actor_id: ActorId,
+        status_id: String,
+    },
+    ActorMoved {
+        command_id: String,
+        actor_id: ActorId,
+        from_band: i8,
+        to_band: i8,
+    },
+    InterceptionSet {
+        command_id: String,
+        protector_id: ActorId,
+        protected_id: ActorId,
+    },
+    InterceptionTriggered {
+        command_id: String,
+        protector_id: ActorId,
+        protected_id: ActorId,
+        attacker_id: ActorId,
+    },
     ActorDefeated {
         command_id: String,
         actor_id: ActorId,
@@ -110,6 +156,10 @@ pub enum BattleError {
     FriendlyFire {
         actor_id: ActorId,
         target_id: ActorId,
+    },
+    IllegalSelfTarget {
+        skill_id: String,
+        actor_id: ActorId,
     },
     IllegalTargetCount {
         skill_id: String,
@@ -222,22 +272,63 @@ impl Battle {
         if !actor.is_alive() {
             return Err(BattleError::ActorDefeated(command.actor_id));
         }
-        if command.target_ids.len() != 1 {
+        if !matches!(
+            command.skill_id.as_str(),
+            "skill.betty.guarded_strike"
+                | "skill.betty.condition_cleanse"
+                | "skill.betty.rescue_charge"
+                | "skill.enemy.razorbeak.rushing_bite"
+        ) {
+            return Err(BattleError::UnsupportedSkill(command.skill_id));
+        }
+        let expected_targets = match command.skill_id.as_str() {
+            "skill.betty.rescue_charge" => 2,
+            _ => 1,
+        };
+        if command.target_ids.len() != expected_targets {
             return Err(BattleError::IllegalTargetCount {
                 skill_id: command.skill_id,
-                expected: 1,
+                expected: expected_targets,
                 actual: command.target_ids.len(),
             });
+        }
+        for target_id in &command.target_ids {
+            let target = self
+                .actors
+                .get(target_id)
+                .ok_or_else(|| BattleError::UnknownTarget(target_id.clone()))?;
+            if !target.is_alive() {
+                return Err(BattleError::ActorDefeated(target_id.clone()));
+            }
         }
         let target_id = command.target_ids[0].clone();
         let target = self
             .actors
             .get(&target_id)
             .ok_or_else(|| BattleError::UnknownTarget(target_id.clone()))?;
-        if actor.faction == target.faction {
-            return Err(BattleError::FriendlyFire {
+        match command.skill_id.as_str() {
+            "skill.betty.condition_cleanse" | "skill.betty.rescue_charge"
+                if actor.faction != target.faction =>
+            {
+                return Err(BattleError::FriendlyFire {
+                    actor_id: command.actor_id,
+                    target_id,
+                });
+            }
+            "skill.betty.guarded_strike" | "skill.enemy.razorbeak.rushing_bite"
+                if actor.faction == target.faction =>
+            {
+                return Err(BattleError::FriendlyFire {
+                    actor_id: command.actor_id,
+                    target_id,
+                });
+            }
+            _ => {}
+        }
+        if command.skill_id == "skill.betty.rescue_charge" && command.actor_id == target_id {
+            return Err(BattleError::IllegalSelfTarget {
+                skill_id: command.skill_id,
                 actor_id: command.actor_id,
-                target_id,
             });
         }
 
@@ -253,7 +344,7 @@ impl Battle {
                 actor_id: command.actor_id.clone(),
             },
         ];
-        self.resolve_skill(&command, &target_id, &mut events)?;
+        self.resolve_skill(&command, &mut events)?;
         events.push(BattleEvent::TurnEnded {
             round: self.round,
             actor_id: command.actor_id,
@@ -265,17 +356,52 @@ impl Battle {
     fn resolve_skill(
         &mut self,
         command: &SkillCommand,
-        target_id: &ActorId,
         events: &mut Vec<BattleEvent>,
     ) -> Result<(), BattleError> {
-        let actor = self.actors.get(&command.actor_id).expect("actor checked");
-        let (raw_damage, guard_gain) = match command.skill_id.as_str() {
-            "skill.betty.guarded_strike" => (12 + i32::from(actor.level), 2),
-            "skill.enemy.razorbeak.rushing_bite" => (9 + i32::from(actor.level), 0),
+        let actor_level = self
+            .actors
+            .get(&command.actor_id)
+            .expect("actor checked")
+            .level;
+        match command.skill_id.as_str() {
+            "skill.betty.condition_cleanse" => {
+                return self.resolve_condition_cleanse(command, events);
+            }
+            "skill.betty.rescue_charge" => return self.resolve_rescue_charge(command, events),
+            "skill.betty.guarded_strike" | "skill.enemy.razorbeak.rushing_bite" => {}
             other => return Err(BattleError::UnsupportedSkill(other.to_owned())),
+        }
+        let mut target_id = command.target_ids[0].clone();
+        if command.skill_id == "skill.enemy.razorbeak.rushing_bite" {
+            let protected_id = target_id.clone();
+            let protector_id = self
+                .actors
+                .values()
+                .find(|candidate| {
+                    candidate.is_alive() && candidate.intercepts_for.as_ref() == Some(&protected_id)
+                })
+                .map(|candidate| candidate.id.clone());
+            if let Some(protector_id) = protector_id {
+                self.actors
+                    .get_mut(&protector_id)
+                    .expect("protector exists")
+                    .intercepts_for = None;
+                events.push(BattleEvent::InterceptionTriggered {
+                    command_id: command.command_id.clone(),
+                    protector_id: protector_id.clone(),
+                    protected_id,
+                    attacker_id: command.actor_id.clone(),
+                });
+                target_id = protector_id;
+            }
+        }
+        let (raw_damage, guard_gain) = if command.skill_id == "skill.betty.guarded_strike" {
+            (12 + i32::from(actor_level), 2)
+        } else {
+            (9 + i32::from(actor_level), 0)
         };
         let (damage, defeated) = {
-            let target = self.actors.get_mut(target_id).expect("target checked");
+            let target = self.actors.get_mut(&target_id).expect("target checked");
             let absorbed = target.guard.min(raw_damage);
             target.guard -= absorbed;
             let damage = raw_damage - absorbed;
@@ -305,6 +431,99 @@ impl Battle {
             events.push(BattleEvent::ActorDefeated {
                 command_id: command.command_id.clone(),
                 actor_id: target_id.clone(),
+            });
+        }
+        Ok(())
+    }
+
+    fn resolve_condition_cleanse(
+        &mut self,
+        command: &SkillCommand,
+        events: &mut Vec<BattleEvent>,
+    ) -> Result<(), BattleError> {
+        let target_id = &command.target_ids[0];
+        let target = self.actors.get_mut(target_id).expect("target checked");
+        target.statuses.sort_by(|left, right| {
+            status_priority(&left.kind)
+                .cmp(&status_priority(&right.kind))
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        let remove_count = target.statuses.len().min(2);
+        for status in target.statuses.drain(0..remove_count).collect::<Vec<_>>() {
+            events.push(BattleEvent::StatusRemoved {
+                command_id: command.command_id.clone(),
+                actor_id: target_id.clone(),
+                status_id: status.id,
+            });
+        }
+        let before = target.vitality;
+        target.vitality = (target.vitality + 8).min(target.max_vitality);
+        events.push(BattleEvent::VitalityChanged {
+            command_id: command.command_id.clone(),
+            actor_id: target_id.clone(),
+            delta: target.vitality - before,
+            total: target.vitality,
+        });
+        Ok(())
+    }
+
+    fn resolve_rescue_charge(
+        &mut self,
+        command: &SkillCommand,
+        events: &mut Vec<BattleEvent>,
+    ) -> Result<(), BattleError> {
+        let ally_id = &command.target_ids[0];
+        let hostile_id = &command.target_ids[1];
+        let actor_faction = self
+            .actors
+            .get(&command.actor_id)
+            .expect("actor checked")
+            .faction
+            .clone();
+        let hostile = self
+            .actors
+            .get(hostile_id)
+            .ok_or_else(|| BattleError::UnknownTarget(hostile_id.clone()))?;
+        if hostile.faction == actor_faction {
+            return Err(BattleError::FriendlyFire {
+                actor_id: command.actor_id.clone(),
+                target_id: hostile_id.clone(),
+            });
+        }
+        let ally_band = self.actors.get(ally_id).expect("ally checked").band;
+        let actor = self
+            .actors
+            .get_mut(&command.actor_id)
+            .expect("actor checked");
+        let from_band = actor.band;
+        actor.band = ally_band;
+        actor.intercepts_for = Some(ally_id.clone());
+        events.push(BattleEvent::ActorMoved {
+            command_id: command.command_id.clone(),
+            actor_id: command.actor_id.clone(),
+            from_band,
+            to_band: ally_band,
+        });
+        events.push(BattleEvent::InterceptionSet {
+            command_id: command.command_id.clone(),
+            protector_id: command.actor_id.clone(),
+            protected_id: ally_id.clone(),
+        });
+        let target = self.actors.get_mut(hostile_id).expect("hostile checked");
+        let absorbed = target.guard.min(10);
+        target.guard -= absorbed;
+        let damage = 10 - absorbed;
+        target.vitality = (target.vitality - damage).max(0);
+        events.push(BattleEvent::DamageApplied {
+            command_id: command.command_id.clone(),
+            source_id: command.actor_id.clone(),
+            target_id: hostile_id.clone(),
+            amount: damage,
+        });
+        if !target.is_alive() {
+            events.push(BattleEvent::ActorDefeated {
+                command_id: command.command_id.clone(),
+                actor_id: hostile_id.clone(),
             });
         }
         Ok(())
@@ -375,6 +594,15 @@ impl Battle {
     }
 }
 
+fn status_priority(kind: &StatusKind) -> u8 {
+    match kind {
+        StatusKind::Stunned => 0,
+        StatusKind::Burning => 1,
+        StatusKind::Poisoned => 2,
+        StatusKind::Bleeding => 3,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -396,6 +624,8 @@ mod tests {
             guard,
             band: 0,
             initiative,
+            statuses: Vec::new(),
+            intercepts_for: None,
         }
     }
     fn prototype() -> Battle {
@@ -465,6 +695,26 @@ mod tests {
         assert!(matches!(error, BattleError::NotActiveActor { .. }));
         assert_eq!(battle.snapshot(), before);
     }
+
+    #[test]
+    fn rejects_unsupported_skills_without_mutation() {
+        let mut battle = prototype();
+        battle.start();
+        let before = battle.snapshot();
+        let error = battle
+            .submit(SkillCommand {
+                command_id: "unsupported".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.not_real".into(),
+                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+            })
+            .unwrap_err();
+        assert_eq!(
+            error,
+            BattleError::UnsupportedSkill("skill.betty.not_real".into())
+        );
+        assert_eq!(battle.snapshot(), before);
+    }
     #[test]
     fn ends_when_last_hostile_falls() {
         let mut battle = Battle::new(
@@ -485,5 +735,169 @@ mod tests {
             .unwrap();
         assert!(events.contains(&BattleEvent::BattleEnded { victory: true }));
         assert_eq!(battle.snapshot().phase, BattlePhase::Victory);
+    }
+
+    #[test]
+    fn condition_cleanse_removes_two_most_urgent_statuses_and_heals_without_overflow() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 95, 0, 10);
+        ayla.max_vitality = 100;
+        ayla.statuses = vec![
+            StatusInstance {
+                id: "status.ayla.bleeding".into(),
+                kind: StatusKind::Bleeding,
+                remaining_rounds: 3,
+                source_id: ActorId("enemy.test".into()),
+            },
+            StatusInstance {
+                id: "status.ayla.stunned".into(),
+                kind: StatusKind::Stunned,
+                remaining_rounds: 1,
+                source_id: ActorId("enemy.test".into()),
+            },
+            StatusInstance {
+                id: "status.ayla.poisoned".into(),
+                kind: StatusKind::Poisoned,
+                remaining_rounds: 4,
+                source_id: ActorId("enemy.test".into()),
+            },
+        ];
+        betty.band = 1;
+        ayla.band = 1;
+        let mut battle = Battle::new(
+            "battle.cleanse",
+            [
+                betty,
+                ayla,
+                actor("enemy.test", Faction::Hostile, 3, 50, 0, 8),
+            ],
+        );
+        battle.start();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "cleanse".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.condition_cleanse".into(),
+                target_ids: vec![ActorId("character.heroine.ayla".into())],
+            })
+            .unwrap();
+        let ayla = battle
+            .actor(&ActorId("character.heroine.ayla".into()))
+            .unwrap();
+        assert_eq!(ayla.vitality, 100);
+        assert_eq!(ayla.statuses.len(), 1);
+        assert_eq!(ayla.statuses[0].kind, StatusKind::Bleeding);
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(event, BattleEvent::StatusRemoved { .. }))
+                .count(),
+            2
+        );
+    }
+
+    #[test]
+    fn rescue_charge_moves_betty_sets_interception_and_hits_named_hostile() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty.band = 0;
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 80, 0, 10);
+        ayla.band = 2;
+        let enemy = actor("enemy.test", Faction::Hostile, 4, 50, 3, 8);
+        let mut battle = Battle::new("battle.rescue", [betty, ayla, enemy]);
+        battle.start();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "rescue".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.rescue_charge".into(),
+                target_ids: vec![
+                    ActorId("character.heroine.ayla".into()),
+                    ActorId("enemy.test".into()),
+                ],
+            })
+            .unwrap();
+        let betty = battle
+            .actor(&ActorId("character.heroine.betty".into()))
+            .unwrap();
+        assert_eq!(betty.band, 2);
+        assert_eq!(
+            betty.intercepts_for,
+            Some(ActorId("character.heroine.ayla".into()))
+        );
+        assert_eq!(
+            battle
+                .actor(&ActorId("enemy.test".into()))
+                .unwrap()
+                .vitality,
+            43
+        );
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::InterceptionSet { .. }))
+        );
+    }
+
+    #[test]
+    fn rescue_interception_redirects_exactly_one_enemy_attack() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty.band = 0;
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 80, 0, 8);
+        ayla.band = 2;
+        let enemy = actor(
+            "enemy.raptor.razorbeak.prototype",
+            Faction::Hostile,
+            4,
+            50,
+            0,
+            10,
+        );
+        let mut battle = Battle::new("battle.intercept", [betty, ayla, enemy]);
+        battle.start();
+        battle
+            .submit(SkillCommand {
+                command_id: "rescue".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.rescue_charge".into(),
+                target_ids: vec![
+                    ActorId("character.heroine.ayla".into()),
+                    ActorId("enemy.raptor.razorbeak.prototype".into()),
+                ],
+            })
+            .unwrap();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "bite".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.ayla".into())],
+            })
+            .unwrap();
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.ayla".into()))
+                .unwrap()
+                .vitality,
+            80
+        );
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.betty".into()))
+                .unwrap()
+                .vitality,
+            87
+        );
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.betty".into()))
+                .unwrap()
+                .intercepts_for,
+            None
+        );
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::InterceptionTriggered { .. }))
+        );
     }
 }

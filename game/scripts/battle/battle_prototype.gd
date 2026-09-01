@@ -111,7 +111,7 @@ func build_footer() -> Control:
 	commands.add_theme_constant_override("separation", 16)
 	for command in [
 		["skill.betty.guarded_strike", "GUARDED STRIKE", true],
-		["skill.betty.condition_cleanse", "CONDITION CLEANSE", false],
+		["skill.betty.condition_cleanse", "CONDITION CLEANSE", true],
 		["skill.betty.rescue_charge", "RESCUE CHARGE", false],
 		["skill.betty.healing_impact", "HEALING IMPACT", false]
 	]:
@@ -172,7 +172,7 @@ func submit_skill(skill_id: String) -> void:
 		"actor_id": active_actor_id,
 		"kind": "use_skill",
 		"skill_id": skill_id,
-		"target_ids": ["enemy.raptor.razorbeak.prototype"],
+		"target_ids": ["character.heroine.betty"] if skill_id == "skill.betty.condition_cleanse" else ["enemy.raptor.razorbeak.prototype"],
 		"payload": {}
 	}
 	for event in simulation.submit(command):
@@ -202,6 +202,9 @@ func project_event(event: Dictionary) -> void:
 			description_label.text += " The hit deals %d damage; %d vitality remains." % [event.payload.amount, event.payload.remaining_vitality]
 			update_status_values(target_id, event.payload.remaining_vitality)
 		"guard_changed": description_label.text += " Betty gains %d Guard." % event.payload.delta
+		"vitality_changed":
+			description_label.text += " Betty restores %d Vitality and now has %d." % [event.payload.delta, event.payload.total]
+			update_status_values(event.subjects[0], event.payload.total)
 		"round_started": description_label.text += " [color=#b78a4b]ROUND %d[/color] Both survivors reset their stance." % event.payload.round
 		"battle_ended":
 			set_commands_enabled(false)
@@ -232,7 +235,7 @@ func set_card_state(id: String, state: String) -> void:
 
 func set_commands_enabled(enabled: bool) -> void:
 	for index in command_buttons.size():
-		command_buttons[index].disabled = not enabled or index > 0
+		command_buttons[index].disabled = not enabled or index > 1
 
 func make_color_rect(color: Color, node_name: String) -> ColorRect:
 	var rect := ColorRect.new()
