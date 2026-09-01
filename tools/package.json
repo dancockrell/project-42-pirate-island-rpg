@@ -1,0 +1,12 @@
+{
+  "name": "project42-content-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "validate": "node src/validate.mjs",
+    "report:placeholders": "node src/placeholder-report.mjs"
+  },
+  "engines": {"node": ">=20"}
+}
+

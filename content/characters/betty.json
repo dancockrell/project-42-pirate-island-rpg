@@ -1,0 +1,24 @@
+{
+  "$schema": "../schemas/character.schema.json",
+  "id": "character.heroine.betty",
+  "displayName": "Betty",
+  "kind": "heroine",
+  "implementationOwner": "rust-simulation",
+  "presentationOwner": "godot-gdscript",
+  "tags": ["adult", "human", "field-medic", "boarding-fighter", "harem-committed", "prototype"],
+  "signatureWeaponId": "weapon.betty.boarding_mace",
+  "skillIds": ["skill.betty.guarded_strike", "skill.betty.condition_cleanse", "skill.betty.rescue_charge", "skill.betty.healing_impact", "skill.betty.fatal_intercept", "skill.betty.mobile_infirmary", "skill.betty.combat_revival"],
+  "art": {
+    "activeActorAssetId": "art.placeholder.betty.active_actor",
+    "cardPortraitAssetId": "art.placeholder.betty.card_portrait",
+    "status": "placeholder",
+    "accessibilityDescription": "A sturdy auburn-haired adult field medic holding a heavy boarding mace."
+  },
+  "metadata": {
+    "source": "design-bible-2026-09",
+    "maturity": "prototype",
+    "releaseLegal": false,
+    "notes": ["Canonical combat job: protection through physical intervention and field medicine.", "Default presentation must be intentionally sexy while remaining occupationally legible."]
+  }
+}
+

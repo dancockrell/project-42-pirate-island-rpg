@@ -1,0 +1,13 @@
+.godot/
+godot-rust/target/
+tools/node_modules/
+tools/dist/
+*.tmp
+work/rendered*/
+work/a11y*.json
+work/*.docx
+work/*.pdf
+work/__pycache__/
+*.zip
+.git-meta/
+.gh-auth/

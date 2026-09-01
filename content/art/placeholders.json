@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "assets": [
+    {
+      "id": "art.placeholder.betty.active_actor",
+      "placeholder": true,
+      "consumer": "game/scenes/battle/battle_prototype.tscn#ActiveActor",
+      "visibleMark": "DUMMY FULL-BODY ACTOR",
+      "intendedFinal": "Complete full-body painterly Betty battle actor with boarding mace and eight-percent VFX safe margin.",
+      "requiredTags": ["adult", "full-body", "sexy-field-medic", "signature-weapon-visible", "no-crop"],
+      "replacementGate": ["approved identity rig", "complete boots and hair", "complete mace", "1920x1080 battle-scale test", "colorblind silhouette review"]
+    },
+    {
+      "id": "art.placeholder.betty.card_portrait",
+      "placeholder": true,
+      "consumer": "game/scripts/battle/battle_prototype.gd#make_party_card",
+      "visibleMark": "DUMMY PORTRAIT",
+      "intendedFinal": "Betty bust portrait with direct eye contact, teal identity accent, readable injury and readiness overlays.",
+      "requiredTags": ["adult", "portrait", "flirtatious-confidence", "card-safe-crop"],
+      "replacementGate": ["matches active actor face", "readable at 280x150", "expression set approved"]
+    },
+    {
+      "id": "art.placeholder.razorbeak.active_actor",
+      "placeholder": true,
+      "consumer": "game/scenes/battle/battle_prototype.tscn#EnemyActor",
+      "visibleMark": "DUMMY ENEMY ACTOR",
+      "intendedFinal": "One complete individually scarred razorbeak raptor with full tail, feet, threat tell and VFX envelope.",
+      "requiredTags": ["full-body", "individual-threat", "wild-dinosaur", "no-crop"],
+      "replacementGate": ["complete tail", "level-seven threat read", "three attack tells", "no enclosure imagery"]
+    }
+  ]
+}
+

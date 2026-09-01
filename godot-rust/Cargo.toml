@@ -1,0 +1,12 @@
+[package]
+name = "project42_sim"
+version = "0.1.0"
+edition = "2024"
+description = "Deterministic gameplay simulation for Project 42: Pirate Island RPG"
+license = "Proprietary"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+
