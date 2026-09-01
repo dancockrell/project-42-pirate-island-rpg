@@ -65,6 +65,10 @@ for (const { file, value } of await readJsonDirectory("skills")) {
     if (value.rules?.healingPercentOfActualVitalityDamage !== 50 || value.rules?.healingRounding !== "floor") fail(file, "Healing Impact must heal 50 percent of actual Vitality damage using floor rounding");
     if (value.rules?.recipientTieBreak !== "stable_actor_id_ascending" || value.rules?.resolveHealingBeforeVictory !== true) fail(file, "Healing Impact selection and event order must remain deterministic");
   }
+  if (value.id === "skill.betty.fatal_intercept") {
+    if (value.rules?.incomingDamageResult !== "cancel_entire_hit" || value.rules?.counterRawDamage !== 24) fail(file, "Fatal Intercept must cancel the lethal hit and counter for 24 raw damage");
+    if (value.rules?.nestedReactionsAllowed !== false || value.rules?.rescueChargeInterceptionResolvesFirst !== true) fail(file, "Fatal Intercept must prohibit nested reactions and resolve after ordinary interception");
+  }
 }
 
 for (const { file, value } of await readJsonDirectory("enemies")) {

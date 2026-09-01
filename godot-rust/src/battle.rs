@@ -45,6 +45,7 @@ pub struct Actor {
     pub initiative: i16,
     pub statuses: Vec<StatusInstance>,
     pub intercepts_for: Option<ActorId>,
+    pub skill_uses_remaining: BTreeMap<String, u8>,
 }
 impl Actor {
     pub fn is_alive(&self) -> bool {
@@ -123,6 +124,22 @@ pub enum BattleEvent {
         protected_id: ActorId,
         attacker_id: ActorId,
     },
+    ReactionWindowOpened {
+        command_id: String,
+        trigger: String,
+        threatened_actor_id: ActorId,
+    },
+    ReactionTriggered {
+        command_id: String,
+        reactor_id: ActorId,
+        skill_id: String,
+        protected_id: ActorId,
+    },
+    DefeatPrevented {
+        command_id: String,
+        actor_id: ActorId,
+        prevented_by_skill_id: String,
+    },
     ActorDefeated {
         command_id: String,
         actor_id: ActorId,
@@ -186,6 +203,14 @@ pub struct Battle {
     turn_index: usize,
     round: u32,
     phase: BattlePhase,
+    resolving_reaction: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct DamageOutcome {
+    amount: i32,
+    defeated: bool,
+    prevented: bool,
 }
 
 impl Battle {
@@ -209,6 +234,7 @@ impl Battle {
             turn_index: 0,
             round: 1,
             phase: BattlePhase::AwaitingActor,
+            resolving_reaction: false,
         }
     }
 
@@ -404,22 +430,14 @@ impl Battle {
         } else {
             (9 + i32::from(actor_level), 0)
         };
-        let (damage, defeated) = {
-            let target = self.actors.get_mut(&target_id).expect("target checked");
-            let absorbed = target.guard.min(raw_damage);
-            target.guard -= absorbed;
-            let effective = raw_damage - absorbed;
-            let before = target.vitality;
-            target.vitality = (target.vitality - effective).max(0);
-            let damage = before - target.vitality;
-            (damage, !target.is_alive())
-        };
-        events.push(BattleEvent::DamageApplied {
-            command_id: command.command_id.clone(),
-            source_id: command.actor_id.clone(),
-            target_id: target_id.clone(),
-            amount: damage,
-        });
+        self.apply_damage(
+            &command.command_id,
+            &command.actor_id,
+            &target_id,
+            raw_damage,
+            true,
+            events,
+        );
         if guard_gain > 0 {
             let actor = self
                 .actors
@@ -431,12 +449,6 @@ impl Battle {
                 actor_id: command.actor_id.clone(),
                 delta: guard_gain,
                 total: actor.guard,
-            });
-        }
-        if defeated {
-            events.push(BattleEvent::ActorDefeated {
-                command_id: command.command_id.clone(),
-                actor_id: target_id.clone(),
             });
         }
         Ok(())
@@ -515,25 +527,14 @@ impl Battle {
             protector_id: command.actor_id.clone(),
             protected_id: ally_id.clone(),
         });
-        let target = self.actors.get_mut(hostile_id).expect("hostile checked");
-        let absorbed = target.guard.min(10);
-        target.guard -= absorbed;
-        let effective = 10 - absorbed;
-        let before = target.vitality;
-        target.vitality = (target.vitality - effective).max(0);
-        let damage = before - target.vitality;
-        events.push(BattleEvent::DamageApplied {
-            command_id: command.command_id.clone(),
-            source_id: command.actor_id.clone(),
-            target_id: hostile_id.clone(),
-            amount: damage,
-        });
-        if !target.is_alive() {
-            events.push(BattleEvent::ActorDefeated {
-                command_id: command.command_id.clone(),
-                actor_id: hostile_id.clone(),
-            });
-        }
+        self.apply_damage(
+            &command.command_id,
+            &command.actor_id,
+            hostile_id,
+            10,
+            true,
+            events,
+        );
         Ok(())
     }
 
@@ -549,30 +550,15 @@ impl Battle {
             .expect("actor checked")
             .level;
         let raw_damage = 18 + i32::from(actor_level);
-        let (damage, defeated) = {
-            let hostile = self.actors.get_mut(hostile_id).expect("target checked");
-            let absorbed = hostile.guard.min(raw_damage);
-            hostile.guard -= absorbed;
-            let effective = raw_damage - absorbed;
-            let before = hostile.vitality;
-            hostile.vitality = (hostile.vitality - effective).max(0);
-            let damage = before - hostile.vitality;
-            (damage, !hostile.is_alive())
-        };
-        events.push(BattleEvent::DamageApplied {
-            command_id: command.command_id.clone(),
-            source_id: command.actor_id.clone(),
-            target_id: hostile_id.clone(),
-            amount: damage,
-        });
-        if defeated {
-            events.push(BattleEvent::ActorDefeated {
-                command_id: command.command_id.clone(),
-                actor_id: hostile_id.clone(),
-            });
-        }
-
-        let healing = damage / 2;
+        let outcome = self.apply_damage(
+            &command.command_id,
+            &command.actor_id,
+            hostile_id,
+            raw_damage,
+            true,
+            events,
+        );
+        let healing = outcome.amount / 2;
         let recipient_id = self
             .actors
             .values()
@@ -595,6 +581,110 @@ impl Battle {
             total: recipient.vitality,
         });
         Ok(())
+    }
+
+    fn apply_damage(
+        &mut self,
+        command_id: &str,
+        source_id: &ActorId,
+        target_id: &ActorId,
+        raw_damage: i32,
+        allow_reactions: bool,
+        events: &mut Vec<BattleEvent>,
+    ) -> DamageOutcome {
+        let target = self.actors.get(target_id).expect("damage target checked");
+        let absorbed = target.guard.min(raw_damage);
+        let predicted_damage = (raw_damage - absorbed).min(target.vitality);
+        let would_defeat = predicted_damage >= target.vitality;
+        let source_is_hostile = self
+            .actors
+            .get(source_id)
+            .is_some_and(|source| source.faction == Faction::Hostile);
+        let opens_reaction = allow_reactions
+            && !self.resolving_reaction
+            && would_defeat
+            && source_is_hostile
+            && target.faction == Faction::Party
+            && target_id.0 != "character.heroine.betty";
+        if opens_reaction {
+            events.push(BattleEvent::ReactionWindowOpened {
+                command_id: command_id.into(),
+                trigger: "party_member_would_be_defeated".into(),
+                threatened_actor_id: target_id.clone(),
+            });
+            let betty_id = ActorId("character.heroine.betty".into());
+            let can_react = self.actors.get(&betty_id).is_some_and(|betty| {
+                betty.is_alive()
+                    && !betty
+                        .statuses
+                        .iter()
+                        .any(|status| status.kind == StatusKind::Stunned)
+                    && betty
+                        .skill_uses_remaining
+                        .get("skill.betty.fatal_intercept")
+                        .copied()
+                        .unwrap_or(0)
+                        > 0
+            });
+            if can_react {
+                let betty = self
+                    .actors
+                    .get_mut(&betty_id)
+                    .expect("eligible Betty exists");
+                *betty
+                    .skill_uses_remaining
+                    .get_mut("skill.betty.fatal_intercept")
+                    .expect("reaction charge exists") -= 1;
+                events.push(BattleEvent::ReactionTriggered {
+                    command_id: command_id.into(),
+                    reactor_id: betty_id.clone(),
+                    skill_id: "skill.betty.fatal_intercept".into(),
+                    protected_id: target_id.clone(),
+                });
+                events.push(BattleEvent::DefeatPrevented {
+                    command_id: command_id.into(),
+                    actor_id: target_id.clone(),
+                    prevented_by_skill_id: "skill.betty.fatal_intercept".into(),
+                });
+                self.resolving_reaction = true;
+                self.apply_damage(command_id, &betty_id, source_id, 24, false, events);
+                self.resolving_reaction = false;
+                return DamageOutcome {
+                    amount: 0,
+                    defeated: false,
+                    prevented: true,
+                };
+            }
+        }
+
+        let target = self
+            .actors
+            .get_mut(target_id)
+            .expect("damage target checked");
+        let absorbed = target.guard.min(raw_damage);
+        target.guard -= absorbed;
+        let effective = raw_damage - absorbed;
+        let before = target.vitality;
+        target.vitality = (target.vitality - effective).max(0);
+        let amount = before - target.vitality;
+        let defeated = !target.is_alive();
+        events.push(BattleEvent::DamageApplied {
+            command_id: command_id.into(),
+            source_id: source_id.clone(),
+            target_id: target_id.clone(),
+            amount,
+        });
+        if defeated {
+            events.push(BattleEvent::ActorDefeated {
+                command_id: command_id.into(),
+                actor_id: target_id.clone(),
+            });
+        }
+        DamageOutcome {
+            amount,
+            defeated,
+            prevented: false,
+        }
     }
 
     fn advance_turn(&mut self, events: &mut Vec<BattleEvent>) {
@@ -700,6 +790,7 @@ mod tests {
             initiative,
             statuses: Vec::new(),
             intercepts_for: None,
+            skill_uses_remaining: BTreeMap::new(),
         }
     }
     fn prototype() -> Battle {
@@ -916,6 +1007,9 @@ mod tests {
     fn rescue_interception_redirects_exactly_one_enemy_attack() {
         let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
         betty.band = 0;
+        betty
+            .skill_uses_remaining
+            .insert("skill.betty.fatal_intercept".into(), 1);
         let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 80, 0, 8);
         ayla.band = 2;
         let enemy = actor(
@@ -967,6 +1061,18 @@ mod tests {
                 .unwrap()
                 .intercepts_for,
             None
+        );
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.betty".into()))
+                .unwrap()
+                .skill_uses_remaining["skill.betty.fatal_intercept"],
+            1
+        );
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::ReactionTriggered { .. }))
         );
         assert!(
             events
@@ -1055,5 +1161,162 @@ mod tests {
             .position(|event| matches!(event, BattleEvent::BattleEnded { victory: true }))
             .unwrap();
         assert!(heal_index < victory_index);
+    }
+
+    #[test]
+    fn fatal_intercept_cancels_lethal_damage_spends_charge_and_counters() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty
+            .skill_uses_remaining
+            .insert("skill.betty.fatal_intercept".into(), 1);
+        let ayla = actor("character.heroine.ayla", Faction::Party, 3, 10, 0, 8);
+        let enemy = actor(
+            "enemy.raptor.razorbeak.prototype",
+            Faction::Hostile,
+            4,
+            50,
+            0,
+            10,
+        );
+        let mut battle = Battle::new("battle.fatal_intercept", [betty, ayla, enemy]);
+        battle.start();
+        battle
+            .submit(SkillCommand {
+                command_id: "betty.turn".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.guarded_strike".into(),
+                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+            })
+            .unwrap();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "lethal.bite".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.ayla".into())],
+            })
+            .unwrap();
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.ayla".into()))
+                .unwrap()
+                .vitality,
+            10
+        );
+        assert_eq!(
+            battle
+                .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+                .unwrap()
+                .vitality,
+            11
+        );
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.betty".into()))
+                .unwrap()
+                .skill_uses_remaining["skill.betty.fatal_intercept"],
+            0
+        );
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::ReactionWindowOpened { .. }))
+        );
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::DefeatPrevented { .. }))
+        );
+    }
+
+    #[test]
+    fn fatal_intercept_does_not_trigger_while_betty_is_stunned() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty
+            .skill_uses_remaining
+            .insert("skill.betty.fatal_intercept".into(), 1);
+        betty.statuses.push(StatusInstance {
+            id: "status.betty.stunned".into(),
+            kind: StatusKind::Stunned,
+            remaining_rounds: 1,
+            source_id: ActorId("enemy.test".into()),
+        });
+        let ayla = actor("character.heroine.ayla", Faction::Party, 3, 10, 0, 8);
+        let enemy = actor("enemy.test", Faction::Hostile, 4, 50, 0, 10);
+        let mut battle = Battle::new("battle.stunned_reaction", [betty, ayla, enemy]);
+        let mut events = Vec::new();
+        let outcome = battle.apply_damage(
+            "test.lethal",
+            &ActorId("enemy.test".into()),
+            &ActorId("character.heroine.ayla".into()),
+            20,
+            true,
+            &mut events,
+        );
+        assert!(outcome.defeated);
+        assert!(!outcome.prevented);
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.ayla".into()))
+                .unwrap()
+                .vitality,
+            0
+        );
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::ReactionTriggered { .. }))
+        );
+    }
+
+    #[test]
+    fn fatal_intercept_is_spent_and_second_lethal_hit_resolves_normally() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty
+            .skill_uses_remaining
+            .insert("skill.betty.fatal_intercept".into(), 1);
+        let ayla = actor("character.heroine.ayla", Faction::Party, 3, 10, 0, 8);
+        let enemy = actor("enemy.test", Faction::Hostile, 4, 100, 0, 10);
+        let mut battle = Battle::new("battle.single_reaction", [betty, ayla, enemy]);
+        let mut first_events = Vec::new();
+        let first = battle.apply_damage(
+            "first",
+            &ActorId("enemy.test".into()),
+            &ActorId("character.heroine.ayla".into()),
+            20,
+            true,
+            &mut first_events,
+        );
+        assert!(first.prevented);
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.ayla".into()))
+                .unwrap()
+                .vitality,
+            10
+        );
+        let mut second_events = Vec::new();
+        let second = battle.apply_damage(
+            "second",
+            &ActorId("enemy.test".into()),
+            &ActorId("character.heroine.ayla".into()),
+            20,
+            true,
+            &mut second_events,
+        );
+        assert!(!second.prevented);
+        assert!(second.defeated);
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.ayla".into()))
+                .unwrap()
+                .vitality,
+            0
+        );
+        assert!(
+            !second_events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::ReactionTriggered { .. }))
+        );
     }
 }
