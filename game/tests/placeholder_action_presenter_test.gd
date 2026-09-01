@@ -17,7 +17,8 @@ func _initialize() -> void:
 	presenter.present({
 		"pose": "horizontal_mace_hit",
 		"motion": "contact_lunge",
-		"camera": "impact_punch_in",
+		"cameraId": "presentation.camera.impact_punch_in",
+		"cameraRecord": {"mode": "punch", "zoom": 1.12},
 		"vfx": "bronze_teal_impact_arc",
 		"audio": "mace_armor_impact",
 		"hitStopMs": 80,

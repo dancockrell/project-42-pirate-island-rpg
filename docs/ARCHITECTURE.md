@@ -28,6 +28,8 @@ Godot sends commands shaped as `{command_id, battle_id, actor_id, kind, target_i
 
 Every authored beat has exactly one `presentationCue`. A cue names the pose, stage motion, camera treatment, VFX plate, audio cue, hit stop, normalized shake strength and all subjects that must remain inside the safe frame. `PlaceholderActionPresenter` proves the runtime consumes these fields by changing the dummy actor treatment and displaying the complete cue. It is explicitly a development adapter; final sprite, camera, VFX and audio consumers subscribe to the same director signal and replace it without changing simulation or skill data.
 
+Camera treatments are stable registry entries under `presentation.camera.*`, not free-form labels. Each record defines mode, zoom, focus subjects, lead subject, safe padding and transition timing. Skill cues reference `cameraId`; `ContentCatalog` resolves a defensive copy from the bundled registry. The camera registry may shape framing only. It cannot change targets, range, hit results or any other simulation value.
+
 ## Encounter state machine
 
 Every encounter moves through `AwaitingActor -> AwaitingCommand -> Resolving -> AwaitingCommand`, ending in `Victory` or `Defeat`. Initiative selects the active actor. A command naming any other actor is rejected before mutation. Resolution emits ordered events: acceptance, actor focus, mechanical changes, defeat if any, turn end, then the next turn and visible enemy intent. Godot may animate that event sequence; it may not skip ahead and calculate the result itself.

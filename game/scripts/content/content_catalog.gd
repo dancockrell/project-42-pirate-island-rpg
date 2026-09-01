@@ -10,6 +10,7 @@ const SUPPORTED_VERSION := 1
 
 var records_by_id: Dictionary = {}
 var source_path_by_id: Dictionary = {}
+var registry_entries_by_id: Dictionary = {}
 var content_hash := ""
 
 func load_default() -> Error:
@@ -35,17 +36,27 @@ func load_bundle(bundle: Dictionary) -> Error:
 		return ERR_INVALID_DATA
 	var next_records: Dictionary = {}
 	var next_sources: Dictionary = {}
+	var next_registry_entries: Dictionary = {}
 	for entry in records:
 		if not entry is Dictionary or not entry.get("value", null) is Dictionary:
 			return ERR_INVALID_DATA
 		var id: String = str(entry.get("id", ""))
-		if id.is_empty() or next_records.has(id) or entry.value.get("id", "") != id:
+		if id.is_empty() or next_records.has(id) or next_registry_entries.has(id) or entry.value.get("id", "") != id:
 			push_error("Content bundle contains an empty, duplicate or mismatched stable ID: %s" % id)
 			return ERR_INVALID_DATA
 		next_records[id] = entry.value
 		next_sources[id] = str(entry.get("sourcePath", ""))
+		for registry_entry in entry.value.get("entries", []):
+			if not registry_entry is Dictionary:
+				return ERR_INVALID_DATA
+			var registry_entry_id := str(registry_entry.get("id", ""))
+			if registry_entry_id.is_empty() or next_registry_entries.has(registry_entry_id) or next_records.has(registry_entry_id):
+				push_error("Content bundle contains an empty or duplicate registry entry ID: %s" % registry_entry_id)
+				return ERR_INVALID_DATA
+			next_registry_entries[registry_entry_id] = registry_entry
 	records_by_id = next_records
 	source_path_by_id = next_sources
+	registry_entries_by_id = next_registry_entries
 	content_hash = str(bundle.get("contentHash", ""))
 	return OK
 
@@ -57,6 +68,15 @@ func get_record(id: String) -> Dictionary:
 		push_error("Unknown Project 42 content ID: %s" % id)
 		return {}
 	return records_by_id[id].duplicate(true)
+
+func has_registry_entry(id: String) -> bool:
+	return registry_entries_by_id.has(id)
+
+func get_registry_entry(id: String) -> Dictionary:
+	if not registry_entries_by_id.has(id):
+		push_error("Unknown Project 42 registry entry ID: %s" % id)
+		return {}
+	return registry_entries_by_id[id].duplicate(true)
 
 func get_source_path(id: String) -> String:
 	return str(source_path_by_id.get(id, ""))

@@ -85,7 +85,7 @@ for (const { file, value } of await readJsonDirectory("skills")) {
     else {
       const cueBeats = new Set();
       for (const [index, cue] of cues.entries()) {
-        for (const field of ["beat", "pose", "motion", "camera", "vfx", "audio"]) {
+        for (const field of ["beat", "pose", "motion", "cameraId", "vfx", "audio"]) {
           if (typeof cue?.[field] !== "string" || cue[field].length === 0) fail(file, `animation.presentationCues[${index}].${field} must be a direct non-empty instruction`);
         }
         if (!beatNames.has(cue?.beat)) fail(file, `presentation cue targets missing beat ${cue?.beat}`);
@@ -94,6 +94,7 @@ for (const { file, value } of await readJsonDirectory("skills")) {
         if (!Number.isInteger(cue?.hitStopMs) || cue.hitStopMs < 0 || cue.hitStopMs > 200) fail(file, `presentation cue ${cue?.beat} hitStopMs must be an integer from 0 through 200`);
         if (typeof cue?.shake !== "number" || cue.shake < 0 || cue.shake > 1) fail(file, `presentation cue ${cue?.beat} shake must be from 0 through 1`);
         if (!Array.isArray(cue?.frameSubjects) || cue.frameSubjects.length < 2) fail(file, `presentation cue ${cue?.beat} must name at least two safe-frame subjects`);
+        reference(cue?.cameraId, file, `animation.presentationCues[${index}].cameraId`);
       }
     }
   }
@@ -146,6 +147,21 @@ for (const { file, value } of await readJsonDirectory("world")) {
   if (value.trigger !== "midnight_flash") fail(file, "spawn rule trigger must be midnight_flash");
   if (value.grouping?.designRule !== "individual_threat") fail(file, "daily spawns must use individual_threat tuning");
   for (const [index, id] of (value.definitionIds ?? []).entries()) reference(id, file, `definitionIds[${index}]`);
+}
+
+for (const { file, value } of await readJsonDirectory("presentation")) {
+  if (value.kind !== "camera_registry") fail(file, "presentation registry kind must be camera_registry");
+  if (!Array.isArray(value.entries) || value.entries.length === 0) fail(file, "camera registry must contain entries");
+  for (const [index, entry] of (value.entries ?? []).entries()) {
+    registerId(entry.id, file);
+    if (!entry.id?.startsWith("presentation.camera.")) fail(file, `entries[${index}].id must use presentation.camera prefix`);
+    if (!new Set(["static", "track", "punch", "reset", "insert", "pan", "snap", "push"]).has(entry.mode)) fail(file, `${entry.id} has unsupported camera mode ${entry.mode}`);
+    if (typeof entry.zoom !== "number" || entry.zoom < 0.8 || entry.zoom > 1.25) fail(file, `${entry.id} zoom must be from 0.8 through 1.25`);
+    if (!Array.isArray(entry.focusSubjects) || entry.focusSubjects.length < 2) fail(file, `${entry.id} must name at least two focus subjects`);
+    requireString(entry, "lead", file);
+    if (!Number.isInteger(entry.safePaddingPercent) || entry.safePaddingPercent < 8 || entry.safePaddingPercent > 20) fail(file, `${entry.id} safePaddingPercent must be an integer from 8 through 20`);
+    for (const field of ["transitionInMs", "transitionOutMs"]) if (!Number.isInteger(entry[field]) || entry[field] < 0 || entry[field] > 500) fail(file, `${entry.id} ${field} must be an integer from 0 through 500`);
+  }
 }
 
 const placeholderFile = resolve(repo, "content/art/placeholders.json");

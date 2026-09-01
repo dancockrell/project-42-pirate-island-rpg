@@ -339,7 +339,10 @@ func on_animation_event_cued(_skill_id: String, _beat_name: String, event: Dicti
 	project_event(event)
 
 func on_presentation_cue(_skill_id: String, cue: Dictionary) -> void:
-	placeholder_presenter.present(cue)
+	var resolved := cue.duplicate(true)
+	var camera_id := str(cue.get("cameraId", ""))
+	resolved.cameraRecord = catalog.get_registry_entry(camera_id)
+	placeholder_presenter.present(resolved)
 
 func on_animation_finished(_skill_id: String) -> void:
 	placeholder_presenter.reset()
