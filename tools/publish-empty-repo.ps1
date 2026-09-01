@@ -4,7 +4,9 @@ param(
 
     [string]$Branch = "main",
 
-    [string]$Message = "Initialize Project 42 vertical slice foundation"
+    [string]$Message = "Initialize Project 42 vertical slice foundation",
+
+    [string[]]$Paths = @()
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,7 +31,16 @@ function Invoke-GitHubJson {
 
 $gitDirectoryArgument = "--git-dir=$(Join-Path $workspace '.git-meta')"
 $workTreeArgument = "--work-tree=$workspace"
-$trackedFiles = & git $gitDirectoryArgument $workTreeArgument ls-files
+$trackedFiles = if ($Paths.Count -gt 0) {
+    $allTracked = & git $gitDirectoryArgument $workTreeArgument ls-files
+    $unknown = @($Paths | Where-Object { $_ -notin $allTracked })
+    if ($unknown.Count -gt 0) {
+        throw "Publish paths are not tracked: $($unknown -join ', ')"
+    }
+    @($Paths)
+} else {
+    & git $gitDirectoryArgument $workTreeArgument ls-files
+}
 if ($LASTEXITCODE -ne 0) {
     throw "Unable to list tracked files."
 }
@@ -50,16 +61,19 @@ $treeEntries = foreach ($relativePath in $trackedFiles) {
     Write-Host "Uploaded $relativePath"
 }
 
-$tree = Invoke-GitHubJson -Endpoint "repos/$Repository/git/trees" -Body @{
-    tree = @($treeEntries)
-}
-
 $currentReferenceJson = & $gh api "repos/$Repository/git/ref/heads/$Branch" 2>$null
 $currentCommit = if ($LASTEXITCODE -eq 0) { ($currentReferenceJson | ConvertFrom-Json).object.sha } else { $null }
 $parents = [object[]]@()
 if ($currentCommit) {
     $parents = [object[]]@($currentCommit)
 }
+
+$treeBody = @{ tree = @($treeEntries) }
+if ($currentCommit -and $Paths.Count -gt 0) {
+    $currentCommitRecord = (& $gh api "repos/$Repository/git/commits/$currentCommit" | ConvertFrom-Json)
+    $treeBody.base_tree = $currentCommitRecord.tree.sha
+}
+$tree = Invoke-GitHubJson -Endpoint "repos/$Repository/git/trees" -Body $treeBody
 
 $commit = Invoke-GitHubJson -Endpoint "repos/$Repository/git/commits" -Body @{
     message = $Message
