@@ -49,6 +49,7 @@ for (const name of (await readdir(characterDir)).filter(name => name.endsWith(".
   if (!Array.isArray(value.skillIds) || value.skillIds.length !== 7) fail(file, "a heroine must declare exactly seven D-through-SSS skills");
   else value.skillIds.forEach((id, index) => reference(id, file, `skillIds[${index}]`));
   if (!value.art?.accessibilityDescription || value.art.accessibilityDescription.length < 20) fail(file, "art accessibilityDescription is missing or too short");
+  if (value.art?.readyIdleMotionId) reference(value.art.readyIdleMotionId, file, "art.readyIdleMotionId");
   if (value.art?.status === "placeholder" && value.metadata?.releaseLegal !== false) fail(file, "placeholder character must set metadata.releaseLegal=false");
 }
 
@@ -182,6 +183,28 @@ for (const { file, value } of await readJsonDirectory("presentation")) {
       if (typeof reducedFlashMode !== "string" || reducedFlashMode.length === 0) fail(file, `${entry.id} reducedFlashMode must be explicit or inherited`);
       if (!new Set(["placeholder", "approved", "not_required"]).has(assetStatus)) fail(file, `${entry.id} has unsupported assetStatus ${assetStatus}`);
       if (safeFrameOverflowAllowed !== false) fail(file, `${entry.id} must prohibit safe-frame overflow`);
+    }
+  } else if (value.kind === "motion_asset_registry") {
+    for (const [index, entry] of (value.entries ?? []).entries()) {
+      registerId(entry.id, file);
+      if (!entry.id?.startsWith("presentation.motion.")) fail(file, `entries[${index}].id must use presentation.motion prefix`);
+      reference(entry.characterId, file, `entries[${index}].characterId`);
+      for (const field of ["usage", "sourceProvider", "sourceCreationUrl", "sourceModel", "codec", "loopMode", "cameraMode", "importState", "approvalState"]) requireString(entry, field, file);
+      if (!entry.sourceCreationUrl.startsWith("https://www.magnific.com/app/creation/")) fail(file, `${entry.id} must retain its Magnific creation provenance`);
+      if (!Number.isInteger(entry.durationMs) || entry.durationMs < 250 || entry.durationMs > 10000) fail(file, `${entry.id} durationMs must be an integer from 250 through 10000`);
+      if (!Number.isInteger(entry.frameRate) || entry.frameRate < 12 || entry.frameRate > 60) fail(file, `${entry.id} frameRate must be an integer from 12 through 60`);
+      for (const field of ["width", "height"]) if (!Number.isInteger(entry[field]) || entry[field] < 256 || entry[field] > 4096) fail(file, `${entry.id} ${field} must be an integer from 256 through 4096`);
+      if (!Number.isInteger(entry.safePaddingPercent) || entry.safePaddingPercent < 8 || entry.safePaddingPercent > 20) fail(file, `${entry.id} safePaddingPercent must be an integer from 8 through 20`);
+      if (!Array.isArray(entry.requiredSubjects) || entry.requiredSubjects.length < 4) fail(file, `${entry.id} must name all required in-frame subjects`);
+      if (!Array.isArray(entry.motionContract) || entry.motionContract.length < 3) fail(file, `${entry.id} must define the intended visible motion`);
+      if (!Array.isArray(entry.hardRejects) || entry.hardRejects.length < 5) fail(file, `${entry.id} must define production rejection gates`);
+      if (entry.importState === "source_downloaded_needs_runtime_transcode") {
+        if (typeof entry.sourceLocalPath !== "string" || !entry.sourceLocalPath.startsWith("work/art/")) fail(file, `${entry.id} downloaded source requires a work/art sourceLocalPath`);
+        if (typeof entry.sourceSha256 !== "string" || !/^[a-f0-9]{64}$/.test(entry.sourceSha256)) fail(file, `${entry.id} downloaded source requires a lowercase SHA-256`);
+      }
+      if (entry.importState === "imported" && (typeof entry.runtimePath !== "string" || !entry.runtimePath.startsWith("res://"))) fail(file, `${entry.id} imported assets require a res:// runtimePath`);
+      if (entry.approvalState === "approved" && entry.importState !== "imported") fail(file, `${entry.id} cannot be approved before import`);
+      if (entry.metadata?.releaseLegal !== false && entry.approvalState !== "approved") fail(file, `${entry.id} unapproved motion must set metadata.releaseLegal=false`);
     }
   } else {
     fail(file, `unsupported presentation registry kind ${value.kind}`);

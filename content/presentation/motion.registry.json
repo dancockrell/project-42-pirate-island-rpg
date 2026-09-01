@@ -1,0 +1,32 @@
+{
+  "id": "presentation.motion.registry",
+  "kind": "motion_asset_registry",
+  "implementationOwner": "godot-gdscript",
+  "entries": [
+    {
+      "id": "presentation.motion.betty.ready_idle",
+      "characterId": "character.heroine.betty",
+      "usage": "active_actor_ready_idle",
+      "sourceProvider": "magnific",
+      "sourceCreationUrl": "https://www.magnific.com/app/creation/O6AgUwdynm",
+      "sourceModel": "Wan 3.0",
+      "durationMs": 5000,
+      "frameRate": 30,
+      "width": 1280,
+      "height": 720,
+      "codec": "H.264",
+      "loopMode": "seamless_repeat",
+      "cameraMode": "locked",
+      "runtimePath": "",
+      "sourceLocalPath": "work/art/magnific/betty/animation/betty-ready-idle-wan3-candidate.mp4",
+      "sourceSha256": "db98af21149b831723bde460220154b30d50f9bcc6200b1ad6728da0e51af282",
+      "importState": "source_downloaded_needs_runtime_transcode",
+      "approvalState": "needs_loop_and_identity_review",
+      "requiredSubjects": ["betty_hair", "betty_body", "both_boots", "both_hands", "complete_mace", "mace_glow"],
+      "safePaddingPercent": 8,
+      "motionContract": ["one_breath_cycle", "small_weight_shift", "one_blink", "hair_and_coat_settle", "one_mace_core_pulse"],
+      "hardRejects": ["camera_motion", "body_crop", "weapon_crop", "identity_drift", "anatomy_drift", "costume_mutation", "weapon_bending", "weapon_duplication", "first_last_pose_mismatch"],
+      "metadata": {"releaseLegal": false, "generatedAt": "2026-09-02"}
+    }
+  ]
+}

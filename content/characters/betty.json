@@ -11,6 +11,7 @@
   "art": {
     "activeActorAssetId": "art.placeholder.betty.active_actor",
     "cardPortraitAssetId": "art.placeholder.betty.card_portrait",
+    "readyIdleMotionId": "presentation.motion.betty.ready_idle",
     "status": "placeholder",
     "accessibilityDescription": "A slender, lightly built adult field medic with freckles, bright green eyes and auburn curls, wearing a cropped teal pirate-physician outfit and carrying an oversized bronze-and-glass medical war mace."
   },
