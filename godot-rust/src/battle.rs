@@ -148,6 +148,15 @@ pub enum BattleEvent {
         actor_id: ActorId,
         prevented_by_skill_id: String,
     },
+    ActorRevived {
+        command_id: String,
+        actor_id: ActorId,
+        vitality: i32,
+    },
+    BonusTurnGranted {
+        command_id: String,
+        actor_id: ActorId,
+    },
     BattlefieldEffectCreated {
         command_id: String,
         effect_id: String,
@@ -198,6 +207,11 @@ pub enum BattleError {
         actor_id: ActorId,
         status: StatusKind,
     },
+    SkillUnavailable {
+        actor_id: ActorId,
+        skill_id: String,
+    },
+    TargetMustBeDefeated(ActorId),
     FriendlyFire {
         actor_id: ActorId,
         target_id: ActorId,
@@ -227,6 +241,8 @@ pub struct BattleSnapshot {
     pub active_actor_id: Option<ActorId>,
     pub actors: Vec<Actor>,
     pub effects: Vec<BattlefieldEffect>,
+    pub forced_next_actor_id: Option<ActorId>,
+    pub forced_turn_resume: Option<(usize, u32)>,
 }
 
 #[derive(Clone, Debug)]
@@ -239,6 +255,8 @@ pub struct Battle {
     phase: BattlePhase,
     resolving_reaction: bool,
     effects: Vec<BattlefieldEffect>,
+    forced_next_actor: Option<ActorId>,
+    forced_turn_resume: Option<(usize, u32)>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -271,6 +289,8 @@ impl Battle {
             phase: BattlePhase::AwaitingActor,
             resolving_reaction: false,
             effects: Vec::new(),
+            forced_next_actor: None,
+            forced_turn_resume: None,
         }
     }
 
@@ -288,6 +308,8 @@ impl Battle {
             active_actor_id: self.active_actor_id().cloned(),
             actors: self.actors.values().cloned().collect(),
             effects: self.effects.clone(),
+            forced_next_actor_id: self.forced_next_actor.clone(),
+            forced_turn_resume: self.forced_turn_resume,
         }
     }
 
@@ -352,6 +374,7 @@ impl Battle {
                 | "skill.betty.rescue_charge"
                 | "skill.betty.healing_impact"
                 | "skill.betty.mobile_infirmary"
+                | "skill.betty.combat_revival"
                 | "skill.enemy.razorbeak.rushing_bite"
         ) {
             return Err(BattleError::UnsupportedSkill(command.skill_id));
@@ -372,6 +395,19 @@ impl Battle {
                 });
             }
         }
+        if command.skill_id == "skill.betty.combat_revival"
+            && actor
+                .skill_uses_remaining
+                .get(&command.skill_id)
+                .copied()
+                .unwrap_or(0)
+                == 0
+        {
+            return Err(BattleError::SkillUnavailable {
+                actor_id: command.actor_id,
+                skill_id: command.skill_id,
+            });
+        }
         let expected_targets = match command.skill_id.as_str() {
             "skill.betty.rescue_charge" => 2,
             "skill.betty.mobile_infirmary" => 0,
@@ -389,7 +425,10 @@ impl Battle {
                 .actors
                 .get(target_id)
                 .ok_or_else(|| BattleError::UnknownTarget(target_id.clone()))?;
-            if !target.is_alive() {
+            if command.skill_id == "skill.betty.combat_revival" && target.is_alive() {
+                return Err(BattleError::TargetMustBeDefeated(target_id.clone()));
+            }
+            if command.skill_id != "skill.betty.combat_revival" && !target.is_alive() {
                 return Err(BattleError::ActorDefeated(target_id.clone()));
             }
         }
@@ -420,7 +459,9 @@ impl Battle {
             .get(&target_id)
             .ok_or_else(|| BattleError::UnknownTarget(target_id.clone()))?;
         match command.skill_id.as_str() {
-            "skill.betty.condition_cleanse" | "skill.betty.rescue_charge"
+            "skill.betty.condition_cleanse"
+            | "skill.betty.rescue_charge"
+            | "skill.betty.combat_revival"
                 if actor.faction != target.faction =>
             {
                 return Err(BattleError::FriendlyFire {
@@ -441,6 +482,12 @@ impl Battle {
             _ => {}
         }
         if command.skill_id == "skill.betty.rescue_charge" && command.actor_id == target_id {
+            return Err(BattleError::IllegalSelfTarget {
+                skill_id: command.skill_id,
+                actor_id: command.actor_id,
+            });
+        }
+        if command.skill_id == "skill.betty.combat_revival" && command.actor_id == target_id {
             return Err(BattleError::IllegalSelfTarget {
                 skill_id: command.skill_id,
                 actor_id: command.actor_id,
@@ -486,6 +533,10 @@ impl Battle {
             "skill.betty.healing_impact" => return self.resolve_healing_impact(command, events),
             "skill.betty.mobile_infirmary" => {
                 self.resolve_mobile_infirmary(command, events);
+                return Ok(());
+            }
+            "skill.betty.combat_revival" => {
+                self.resolve_combat_revival(command, events);
                 return Ok(());
             }
             "skill.betty.guarded_strike" | "skill.enemy.razorbeak.rushing_bite" => {}
@@ -700,6 +751,40 @@ impl Battle {
         self.pulse_effect(&effect_id, events);
     }
 
+    fn resolve_combat_revival(&mut self, command: &SkillCommand, events: &mut Vec<BattleEvent>) {
+        let target_id = command.target_ids[0].clone();
+        let betty = self
+            .actors
+            .get_mut(&command.actor_id)
+            .expect("acting Betty checked");
+        *betty
+            .skill_uses_remaining
+            .get_mut(&command.skill_id)
+            .expect("availability checked") -= 1;
+
+        let target = self.actors.get_mut(&target_id).expect("target checked");
+        target.vitality = ((target.max_vitality * 40) + 99) / 100;
+        target.guard = 0;
+        let removed_statuses = std::mem::take(&mut target.statuses);
+        for status in removed_statuses {
+            events.push(BattleEvent::StatusRemoved {
+                command_id: command.command_id.clone(),
+                actor_id: target_id.clone(),
+                status_id: status.id,
+            });
+        }
+        events.push(BattleEvent::ActorRevived {
+            command_id: command.command_id.clone(),
+            actor_id: target_id.clone(),
+            vitality: target.vitality,
+        });
+        events.push(BattleEvent::BonusTurnGranted {
+            command_id: command.command_id.clone(),
+            actor_id: target_id.clone(),
+        });
+        self.forced_next_actor = Some(target_id);
+    }
+
     fn pulse_effects_for_source(
         &mut self,
         source_actor_id: &ActorId,
@@ -912,11 +997,32 @@ impl Battle {
             events.push(BattleEvent::BattleEnded { victory: false });
             return;
         }
-        self.turn_index += 1;
-        if self.turn_index >= self.turn_order.len() {
-            self.turn_index = 0;
-            self.round += 1;
-            events.push(BattleEvent::RoundStarted { round: self.round });
+        if let Some(forced_actor_id) = self.forced_next_actor.take() {
+            let mut resume_index = self.turn_index + 1;
+            let mut resume_round = self.round;
+            if resume_index >= self.turn_order.len() {
+                resume_index = 0;
+                resume_round += 1;
+            }
+            self.forced_turn_resume = Some((resume_index, resume_round));
+            self.turn_index = self
+                .turn_order
+                .iter()
+                .position(|actor_id| actor_id == &forced_actor_id)
+                .expect("forced actor belongs to turn order");
+        } else if let Some((resume_index, resume_round)) = self.forced_turn_resume.take() {
+            self.turn_index = resume_index;
+            if resume_round > self.round {
+                self.round = resume_round;
+                events.push(BattleEvent::RoundStarted { round: self.round });
+            }
+        } else {
+            self.turn_index += 1;
+            if self.turn_index >= self.turn_order.len() {
+                self.turn_index = 0;
+                self.round += 1;
+                events.push(BattleEvent::RoundStarted { round: self.round });
+            }
         }
         self.skip_defeated_actors();
         self.phase = BattlePhase::AwaitingCommand;
@@ -1698,6 +1804,185 @@ mod tests {
             })
             .unwrap_err();
         assert!(matches!(error, BattleError::SkillOwnerMismatch { .. }));
+        assert_eq!(battle.snapshot(), before);
+    }
+
+    #[test]
+    fn combat_revival_restores_ceiling_percent_clears_statuses_and_spends_use() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty
+            .skill_uses_remaining
+            .insert("skill.betty.combat_revival".into(), 1);
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 0, 7, 10);
+        ayla.max_vitality = 83;
+        ayla.statuses.push(StatusInstance {
+            id: "status.ayla.poisoned".into(),
+            kind: StatusKind::Poisoned,
+            remaining_rounds: 3,
+            source_id: ActorId("enemy.test".into()),
+        });
+        let enemy = actor("enemy.test", Faction::Hostile, 1, 100, 0, 8);
+        let mut battle = Battle::new("battle.combat_revival", [betty, ayla, enemy]);
+        battle.start();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "revive.ayla".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.combat_revival".into(),
+                target_ids: vec![ActorId("character.heroine.ayla".into())],
+            })
+            .unwrap();
+        let ayla = battle
+            .actor(&ActorId("character.heroine.ayla".into()))
+            .unwrap();
+        assert_eq!(ayla.vitality, 34);
+        assert_eq!(ayla.guard, 0);
+        assert!(ayla.statuses.is_empty());
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.betty".into()))
+                .unwrap()
+                .skill_uses_remaining["skill.betty.combat_revival"],
+            0
+        );
+        assert_eq!(
+            battle.active_actor_id(),
+            Some(&ActorId("character.heroine.ayla".into()))
+        );
+        let removed_index = events
+            .iter()
+            .position(|event| matches!(event, BattleEvent::StatusRemoved { .. }))
+            .unwrap();
+        let revived_index = events
+            .iter()
+            .position(|event| matches!(event, BattleEvent::ActorRevived { .. }))
+            .unwrap();
+        let bonus_index = events
+            .iter()
+            .position(|event| matches!(event, BattleEvent::BonusTurnGranted { .. }))
+            .unwrap();
+        let turn_index = events
+            .iter()
+            .position(|event| matches!(event, BattleEvent::TurnStarted { actor_id, .. } if actor_id.0 == "character.heroine.ayla"))
+            .unwrap();
+        assert!(removed_index < revived_index);
+        assert!(revived_index < bonus_index);
+        assert!(bonus_index < turn_index);
+    }
+
+    #[test]
+    fn combat_revival_bonus_turn_resumes_the_natural_successor_and_round() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty
+            .skill_uses_remaining
+            .insert("skill.betty.combat_revival".into(), 1);
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 0, 0, 10);
+        ayla.max_vitality = 80;
+        let enemy = actor("enemy.test", Faction::Hostile, 1, 100, 0, 8);
+        let mut battle = Battle::new("battle.bonus_resume", [betty, ayla, enemy]);
+        battle.start();
+        battle
+            .submit(SkillCommand {
+                command_id: "revive.bonus".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.combat_revival".into(),
+                target_ids: vec![ActorId("character.heroine.ayla".into())],
+            })
+            .unwrap();
+        assert_eq!(battle.snapshot().forced_turn_resume, Some((1, 1)));
+        let mut events = Vec::new();
+        battle.advance_turn(&mut events);
+        assert_eq!(battle.round, 1);
+        assert_eq!(
+            battle.active_actor_id(),
+            Some(&ActorId("character.heroine.ayla".into()))
+        );
+
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 5);
+        betty
+            .skill_uses_remaining
+            .insert("skill.betty.combat_revival".into(), 1);
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 0, 0, 15);
+        ayla.max_vitality = 80;
+        let enemy = actor(
+            "enemy.raptor.razorbeak.prototype",
+            Faction::Hostile,
+            1,
+            100,
+            0,
+            10,
+        );
+        let mut battle = Battle::new("battle.bonus_wrap", [betty, ayla, enemy]);
+        battle.start();
+        battle
+            .submit(SkillCommand {
+                command_id: "enemy.first".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .unwrap();
+        battle
+            .submit(SkillCommand {
+                command_id: "revive.wrap".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.combat_revival".into(),
+                target_ids: vec![ActorId("character.heroine.ayla".into())],
+            })
+            .unwrap();
+        let mut resume_events = Vec::new();
+        battle.advance_turn(&mut resume_events);
+        assert_eq!(battle.round, 2);
+        assert!(
+            resume_events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::RoundStarted { round: 2 }))
+        );
+    }
+
+    #[test]
+    fn combat_revival_rejects_living_targets_and_missing_use_without_mutation() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty
+            .skill_uses_remaining
+            .insert("skill.betty.combat_revival".into(), 1);
+        let ayla = actor("character.heroine.ayla", Faction::Party, 3, 80, 0, 10);
+        let enemy = actor("enemy.test", Faction::Hostile, 1, 100, 0, 8);
+        let mut battle = Battle::new("battle.revival_rejection", [betty, ayla, enemy]);
+        battle.start();
+        let before = battle.snapshot();
+        let error = battle
+            .submit(SkillCommand {
+                command_id: "revive.living".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.combat_revival".into(),
+                target_ids: vec![ActorId("character.heroine.ayla".into())],
+            })
+            .unwrap_err();
+        assert!(matches!(error, BattleError::TargetMustBeDefeated(_)));
+        assert_eq!(battle.snapshot(), before);
+
+        battle
+            .actors
+            .get_mut(&ActorId("character.heroine.ayla".into()))
+            .unwrap()
+            .vitality = 0;
+        battle
+            .actors
+            .get_mut(&ActorId("character.heroine.betty".into()))
+            .unwrap()
+            .skill_uses_remaining
+            .insert("skill.betty.combat_revival".into(), 0);
+        let before = battle.snapshot();
+        let error = battle
+            .submit(SkillCommand {
+                command_id: "revive.spent".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.combat_revival".into(),
+                target_ids: vec![ActorId("character.heroine.ayla".into())],
+            })
+            .unwrap_err();
+        assert!(matches!(error, BattleError::SkillUnavailable { .. }));
         assert_eq!(battle.snapshot(), before);
     }
 }

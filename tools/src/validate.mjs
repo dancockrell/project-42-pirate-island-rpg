@@ -76,6 +76,15 @@ for (const { file, value } of await readJsonDirectory("skills")) {
     if (value.rules?.defeatedTargetsExcluded !== true || value.rules?.sourceDefeatRemovesEffect !== true) fail(file, "Mobile Infirmary must exclude defeated allies and end when Betty is defeated");
     if (value.rules?.sameSkillRecast !== "replace_existing_effect" || value.rules?.sourceStunDoesNotSuspendDeployedEffect !== true) fail(file, "Mobile Infirmary replacement and source-stun behavior must remain explicit");
   }
+  if (value.id === "skill.betty.combat_revival") {
+    if (value.activation !== "normal_action" || value.targetRule !== "one_defeated_party_member_other_than_betty") fail(file, "Combat Revival must target exactly one defeated party member other than Betty");
+    if (value.rules?.restoreVitalityPercentOfMaximum !== 40 || value.rules?.restoreRounding !== "ceiling" || value.rules?.minimumRestoredVitality !== 1) fail(file, "Combat Revival must restore 40 percent maximum Vitality with ceiling rounding and a minimum of one");
+    if (value.rules?.guardAfterRevival !== 0 || value.rules?.removeAllNegativeStatuses !== true) fail(file, "Combat Revival must reset Guard and clear all negative statuses");
+    if (value.rules?.grantImmediateBonusTurn !== true || value.rules?.resumeInitiative !== "natural_successor_after_betty") fail(file, "Combat Revival must grant a bonus turn before resuming after Betty");
+    if (value.rules?.oncePerBattle !== true || value.rules?.cannotTargetSelf !== true) fail(file, "Combat Revival must remain once per battle and unable to target Betty");
+    if (value.rules?.countsAsWorldDeath !== false || value.rules?.changesIslandDeathCounter !== false) fail(file, "Combat defeat and revival must not alter persistent island death memory");
+    if (value.rules?.fatalInterceptResolvesBeforeDefeat !== true || value.rules?.mobileInfirmaryCanAffectAfterRevival !== true) fail(file, "Combat Revival interactions with Fatal Intercept and Mobile Infirmary must remain explicit");
+  }
 }
 
 for (const { file, value } of await readJsonDirectory("enemies")) {
