@@ -128,6 +128,13 @@ pub enum BattleEvent {
         target_id: ActorId,
         amount: i32,
     },
+    TargetInspected {
+        command_id: String,
+        actor_id: ActorId,
+        target_id: ActorId,
+        guard_revealed: i32,
+        counter_tag: String,
+    },
     GuardChanged {
         command_id: String,
         actor_id: ActorId,
@@ -595,6 +602,9 @@ impl Battle {
                 | "skill.betty.healing_impact"
                 | "skill.betty.mobile_infirmary"
                 | "skill.betty.combat_revival"
+                | "skill.ayla.safe_passage"
+                | "skill.ayla.curse_dispel"
+                | "skill.ayla.structural_scan"
                 | "skill.enemy.razorbeak.rushing_bite"
                 | "skill.enemy.razorbeak.guard_breaking_kick"
                 | "skill.system.hold_position"
@@ -603,6 +613,8 @@ impl Battle {
         }
         let expected_owner = if command.skill_id.starts_with("skill.betty.") {
             Some(ActorId("character.heroine.betty".into()))
+        } else if command.skill_id.starts_with("skill.ayla.") {
+            Some(ActorId("character.heroine.ayla".into()))
         } else if command.skill_id.starts_with("skill.enemy.razorbeak.") {
             Some(ActorId("enemy.raptor.razorbeak.prototype".into()))
         } else {
@@ -632,7 +644,9 @@ impl Battle {
         }
         let expected_targets = match command.skill_id.as_str() {
             "skill.betty.rescue_charge" => 2,
-            "skill.betty.mobile_infirmary" | "skill.system.hold_position" => 0,
+            "skill.betty.mobile_infirmary"
+            | "skill.system.hold_position"
+            | "skill.ayla.safe_passage" => 0,
             _ => 1,
         };
         if command.target_ids.len() != expected_targets {
@@ -656,7 +670,9 @@ impl Battle {
         }
         if matches!(
             command.skill_id.as_str(),
-            "skill.betty.mobile_infirmary" | "skill.system.hold_position"
+            "skill.betty.mobile_infirmary"
+                | "skill.system.hold_position"
+                | "skill.ayla.safe_passage"
         ) {
             self.phase = BattlePhase::Resolving;
             let mut events = vec![
@@ -687,6 +703,7 @@ impl Battle {
             "skill.betty.condition_cleanse"
             | "skill.betty.rescue_charge"
             | "skill.betty.combat_revival"
+            | "skill.ayla.curse_dispel"
                 if actor.faction != target.faction =>
             {
                 return Err(BattleError::FriendlyFire {
@@ -696,6 +713,7 @@ impl Battle {
             }
             "skill.betty.guarded_strike"
             | "skill.betty.healing_impact"
+            | "skill.ayla.structural_scan"
             | "skill.enemy.razorbeak.rushing_bite"
             | "skill.enemy.razorbeak.guard_breaking_kick"
                 if actor.faction == target.faction =>
@@ -764,6 +782,16 @@ impl Battle {
             "skill.betty.combat_revival" => {
                 self.resolve_combat_revival(command, events);
                 return Ok(());
+            }
+            "skill.ayla.safe_passage" => {
+                self.resolve_safe_passage(command, events);
+                return Ok(());
+            }
+            "skill.ayla.curse_dispel" => {
+                return self.resolve_curse_dispel(command, events);
+            }
+            "skill.ayla.structural_scan" => {
+                return self.resolve_structural_scan(command, events);
             }
             "skill.system.hold_position" => {
                 let actor = self
@@ -895,6 +923,80 @@ impl Battle {
             total: target.vitality,
         });
         Ok(())
+    }
+
+    fn resolve_curse_dispel(
+        &mut self,
+        command: &SkillCommand,
+        events: &mut Vec<BattleEvent>,
+    ) -> Result<(), BattleError> {
+        let target_id = &command.target_ids[0];
+        let target = self.actors.get_mut(target_id).expect("target checked");
+        target.statuses.sort_by(|left, right| {
+            status_priority(&left.kind)
+                .cmp(&status_priority(&right.kind))
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        for status in target.statuses.drain(..).collect::<Vec<_>>() {
+            events.push(BattleEvent::StatusRemoved {
+                command_id: command.command_id.clone(),
+                actor_id: target_id.clone(),
+                status_id: status.id,
+                status_kind: status.kind,
+            });
+        }
+        Ok(())
+    }
+
+    fn resolve_structural_scan(
+        &mut self,
+        command: &SkillCommand,
+        events: &mut Vec<BattleEvent>,
+    ) -> Result<(), BattleError> {
+        let target_id = &command.target_ids[0];
+        let target = self.actors.get(target_id).expect("target checked");
+        let guard_revealed = target.guard;
+        let counter_tag = if guard_revealed > 0 {
+            "break_guard_before_striking".to_string()
+        } else {
+            "exploit_open_guard".to_string()
+        };
+        events.push(BattleEvent::TargetInspected {
+            command_id: command.command_id.clone(),
+            actor_id: command.actor_id.clone(),
+            target_id: target_id.clone(),
+            guard_revealed,
+            counter_tag,
+        });
+        Ok(())
+    }
+
+    fn resolve_safe_passage(&mut self, command: &SkillCommand, events: &mut Vec<BattleEvent>) {
+        let ayla_id = &command.actor_id;
+        let ayla_band = self.actors.get(ayla_id).expect("actor checked").band;
+        let movers: Vec<ActorId> = self
+            .actors
+            .values()
+            .filter(|actor| {
+                actor.faction == Faction::Party
+                    && actor.is_alive()
+                    && actor.id != *ayla_id
+                    && (actor.band - ayla_band).abs() <= 1
+                    && actor.band != ayla_band
+            })
+            .map(|actor| actor.id.clone())
+            .collect();
+        for actor_id in movers {
+            let actor = self.actors.get_mut(&actor_id).expect("mover exists");
+            let from_band = actor.band;
+            actor.band = ayla_band;
+            events.push(BattleEvent::ActorMoved {
+                command_id: command.command_id.clone(),
+                actor_id,
+                from_band,
+                to_band: ayla_band,
+            });
+        }
     }
 
     fn resolve_rescue_charge(
@@ -1174,15 +1276,68 @@ impl Battle {
         let absorbed = target.guard.min(raw_damage);
         let predicted_damage = (raw_damage - absorbed).min(target.vitality);
         let would_defeat = predicted_damage >= target.vitality;
+        let target_faction = target.faction.clone();
+        let target_band = target.band;
         let source_is_hostile = self
             .actors
             .get(source_id)
             .is_some_and(|source| source.faction == Faction::Hostile);
+
+        // Reach Counter is unlimited-use: the skill_uses_remaining entry is a presence
+        // gate ("Ayla has this skill unlocked"), never decremented, unlike Fatal Intercept's charge.
+        let ayla_id = ActorId("character.heroine.ayla".into());
+        let reach_counter_eligible = allow_reactions
+            && !self.resolving_reaction
+            && source_is_hostile
+            && target_faction == Faction::Party
+            && self.actors.get(&ayla_id).is_some_and(|ayla| {
+                ayla.is_alive()
+                    && !ayla
+                        .statuses
+                        .iter()
+                        .any(|status| status.kind == StatusKind::Stunned)
+                    && ayla.band == target_band
+                    && ayla
+                        .skill_uses_remaining
+                        .get("skill.ayla.reach_counter")
+                        .copied()
+                        .unwrap_or(0)
+                        > 0
+            });
+        if reach_counter_eligible {
+            events.push(BattleEvent::ReactionWindowOpened {
+                command_id: command_id.into(),
+                trigger: "hostile_attack_in_ayla_contested_band".into(),
+                threatened_actor_id: target_id.clone(),
+            });
+            events.push(BattleEvent::ReactionTriggered {
+                command_id: command_id.into(),
+                reactor_id: ayla_id.clone(),
+                skill_id: "skill.ayla.reach_counter".into(),
+                protected_id: target_id.clone(),
+            });
+            let ayla_level = self
+                .actors
+                .get(&ayla_id)
+                .expect("eligible Ayla exists")
+                .level;
+            self.resolving_reaction = true;
+            self.apply_damage(
+                command_id,
+                &ayla_id,
+                source_id,
+                10 + i32::from(ayla_level),
+                false,
+                events,
+            );
+            self.resolving_reaction = false;
+        }
+
         let opens_reaction = allow_reactions
             && !self.resolving_reaction
             && would_defeat
             && source_is_hostile
-            && target.faction == Faction::Party
+            && target_faction == Faction::Party
             && target_id.0 != "character.heroine.betty";
         if opens_reaction {
             events.push(BattleEvent::ReactionWindowOpened {
@@ -2587,5 +2742,251 @@ mod tests {
             .unwrap_err();
         assert!(matches!(error, BattleError::SkillUnavailable { .. }));
         assert_eq!(battle.snapshot(), before);
+    }
+
+    #[test]
+    fn curse_dispel_removes_every_negative_status_without_healing() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty.statuses = vec![
+            StatusInstance {
+                id: "status.betty.stunned".into(),
+                kind: StatusKind::Stunned,
+                remaining_rounds: 1,
+                source_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+            },
+            StatusInstance {
+                id: "status.betty.poisoned".into(),
+                kind: StatusKind::Poisoned,
+                remaining_rounds: 3,
+                source_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+            },
+            StatusInstance {
+                id: "status.betty.bleeding".into(),
+                kind: StatusKind::Bleeding,
+                remaining_rounds: 2,
+                source_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+            },
+        ];
+        let ayla = actor("character.heroine.ayla", Faction::Party, 3, 60, 0, 20);
+        let enemy = actor(
+            "enemy.raptor.razorbeak.prototype",
+            Faction::Hostile,
+            7,
+            70,
+            3,
+            1,
+        );
+        let mut battle = Battle::new("battle.curse_dispel", [betty, ayla, enemy]);
+        battle.start();
+        battle
+            .submit(SkillCommand {
+                command_id: "ayla.curse_dispel".into(),
+                actor_id: ActorId("character.heroine.ayla".into()),
+                skill_id: "skill.ayla.curse_dispel".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .unwrap();
+        let betty = battle
+            .actor(&ActorId("character.heroine.betty".into()))
+            .unwrap();
+        assert!(betty.statuses.is_empty());
+        assert_eq!(betty.vitality, 100);
+    }
+
+    #[test]
+    fn structural_scan_reveals_guard_without_mutating_the_target() {
+        let ayla = actor("character.heroine.ayla", Faction::Party, 3, 60, 0, 20);
+        let enemy = actor(
+            "enemy.raptor.razorbeak.prototype",
+            Faction::Hostile,
+            7,
+            70,
+            5,
+            1,
+        );
+        let mut battle = Battle::new("battle.structural_scan", [ayla, enemy]);
+        battle.start();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "ayla.scan".into(),
+                actor_id: ActorId("character.heroine.ayla".into()),
+                skill_id: "skill.ayla.structural_scan".into(),
+                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+            })
+            .unwrap();
+        assert!(events.iter().any(|event| matches!(
+            event,
+            BattleEvent::TargetInspected {
+                guard_revealed: 5,
+                ..
+            }
+        )));
+        let enemy = battle
+            .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+            .unwrap();
+        assert_eq!(enemy.guard, 5);
+        assert_eq!(enemy.vitality, 70);
+    }
+
+    #[test]
+    fn safe_passage_moves_adjacent_living_allies_into_aylas_band_in_stable_order() {
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 60, 0, 20);
+        ayla.band = 1;
+        let mut near_ally = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        near_ally.band = 0;
+        let mut far_ally = actor("character.heroine.vix", Faction::Party, 3, 80, 0, 10);
+        far_ally.band = 2;
+        let mut already_there = actor("character.heroine.grisha", Faction::Party, 3, 80, 0, 9);
+        already_there.band = 1;
+        let mut defeated_ally = actor("character.heroine.nara", Faction::Party, 3, 0, 0, 8);
+        defeated_ally.band = 0;
+        let enemy = actor(
+            "enemy.raptor.razorbeak.prototype",
+            Faction::Hostile,
+            7,
+            70,
+            3,
+            1,
+        );
+        let mut battle = Battle::new(
+            "battle.safe_passage",
+            [
+                ayla,
+                near_ally,
+                far_ally,
+                already_there,
+                defeated_ally,
+                enemy,
+            ],
+        );
+        battle.start();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "ayla.safe_passage".into(),
+                actor_id: ActorId("character.heroine.ayla".into()),
+                skill_id: "skill.ayla.safe_passage".into(),
+                target_ids: vec![],
+            })
+            .unwrap();
+        let moved: Vec<ActorId> = events
+            .iter()
+            .filter_map(|event| match event {
+                BattleEvent::ActorMoved { actor_id, .. } => Some(actor_id.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            moved,
+            vec![
+                ActorId("character.heroine.betty".into()),
+                ActorId("character.heroine.vix".into()),
+            ]
+        );
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.betty".into()))
+                .unwrap()
+                .band,
+            1
+        );
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.vix".into()))
+                .unwrap()
+                .band,
+            1
+        );
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.nara".into()))
+                .unwrap()
+                .band,
+            0
+        );
+    }
+
+    #[test]
+    fn reach_counter_strikes_a_hostile_that_attacks_an_ally_sharing_aylas_band() {
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 60, 0, 20);
+        ayla.band = 2;
+        ayla.skill_uses_remaining
+            .insert("skill.ayla.reach_counter".into(), 1);
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty.band = 2;
+        let enemy = actor(
+            "enemy.raptor.razorbeak.prototype",
+            Faction::Hostile,
+            4,
+            50,
+            0,
+            30,
+        );
+        let mut battle = Battle::new("battle.reach_counter", [ayla, betty, enemy]);
+        battle.start();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "enemy.bite".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .unwrap();
+        assert!(events.iter().any(|event| matches!(
+            event,
+            BattleEvent::ReactionTriggered { skill_id, .. } if skill_id == "skill.ayla.reach_counter"
+        )));
+        assert_eq!(
+            battle
+                .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+                .unwrap()
+                .vitality,
+            37
+        );
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.ayla".into()))
+                .unwrap()
+                .skill_uses_remaining["skill.ayla.reach_counter"],
+            1
+        );
+    }
+
+    #[test]
+    fn reach_counter_does_not_trigger_when_ayla_does_not_share_the_targets_band() {
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 60, 0, 20);
+        ayla.band = 0;
+        ayla.skill_uses_remaining
+            .insert("skill.ayla.reach_counter".into(), 1);
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty.band = 2;
+        let enemy = actor(
+            "enemy.raptor.razorbeak.prototype",
+            Faction::Hostile,
+            4,
+            50,
+            0,
+            30,
+        );
+        let mut battle = Battle::new("battle.reach_counter_out_of_band", [ayla, betty, enemy]);
+        battle.start();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "enemy.bite".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .unwrap();
+        assert!(!events.iter().any(|event| matches!(
+            event,
+            BattleEvent::ReactionTriggered { skill_id, .. } if skill_id == "skill.ayla.reach_counter"
+        )));
+        assert_eq!(
+            battle
+                .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+                .unwrap()
+                .vitality,
+            50
+        );
     }
 }

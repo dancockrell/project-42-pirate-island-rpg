@@ -10,6 +10,7 @@ const supportedTargetRules = new Set(["one_hostile", "one_living_hostile", "one_
 const bindableBattleEvents = new Set(["actor_focused", "actor_moved", "damage_applied", "guard_changed", "vitality_changed", "status_removed", "interception_set", "interception_triggered", "reaction_window_opened", "reaction_triggered", "defeat_prevented", "actor_revived", "bonus_turn_granted", "battlefield_effect_created", "battlefield_effect_pulse", "battlefield_effect_removed", "recovery_opening_created", "recovery_opening_consumed", "recovery_opening_expired", "actor_defeated", "turn_ended", "battle_ended"]);
 let skillCount = 0;
 let presentationCueCount = 0;
+let locationCount = 0;
 
 function fail(file, message) { failures.push(`${relative(repo, file)}: ${message}`); }
 function requireString(record, key, file) {
@@ -173,7 +174,19 @@ for (const { file, value } of await readJsonDirectory("enemies")) {
 for (const { file, value } of await readJsonDirectory("encounters")) {
   for (const [index, id] of (value.partyActorIds ?? []).entries()) reference(id, file, `partyActorIds[${index}]`);
   for (const [index, id] of (value.hostileActorIds ?? []).entries()) reference(id, file, `hostileActorIds[${index}]`);
+  if (value.locationId) reference(value.locationId, file, "locationId");
+  if (value.defeat?.returnLocationId) reference(value.defeat.returnLocationId, file, "defeat.returnLocationId");
   if (value.presentation?.inactivePartyMode !== "card_rail" || value.presentation?.activeActorMode !== "full_body_battle_plane") fail(file, "encounter must preserve the card-to-active combat contract");
+}
+
+for (const { file, value } of await readJsonDirectory("locations")) {
+  locationCount += 1;
+  requireString(value, "displayName", file);
+  requireString(value, "kind", file);
+  requireString(value, "description", file);
+  if (!value.id?.startsWith("location.")) fail(file, "location id must use the location. prefix");
+  if (value.description.length < 40) fail(file, "location description is too short to be a usable authoring fact");
+  for (const [index, id] of (value.consumers ?? []).entries()) reference(id, file, `consumers[${index}]`);
 }
 
 for (const { file, value } of await readJsonDirectory("world")) {
@@ -297,4 +310,4 @@ if (failures.length) {
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
-console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels and ${stillPlan.plates.length} still-image plates validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
+console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${stillPlan.plates.length} still-image plates and ${locationCount} locations validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);

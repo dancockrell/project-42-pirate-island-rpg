@@ -297,6 +297,20 @@ fn event_dictionary(
                 .unwrap_or(0);
             payload.set("remaining_vitality", i64::from(remaining));
         }
+        BattleEvent::TargetInspected {
+            command_id: id,
+            actor_id,
+            target_id,
+            guard_revealed,
+            counter_tag,
+        } => {
+            kind = "target_inspected";
+            command!(id);
+            subject!(actor_id);
+            subject!(target_id);
+            payload.set("guard_revealed", i64::from(guard_revealed));
+            payload.set("counter_tag", counter_tag);
+        }
         BattleEvent::GuardChanged {
             command_id: id,
             actor_id,

@@ -1,0 +1,9 @@
+{
+  "id": "location.tomb.returning_names",
+  "displayName": "The Tomb of Returning Names",
+  "kind": "tomb",
+  "description": "An ancient elven magical Bronze Age burial chamber: massive fitted stone, bronze name plaques, teal glass channels, low funerary platforms, dry roots through ceiling cracks, and shallow black water along the floor grooves, with one sealed inner door. No colonial construction.",
+  "artReelId": "art.reel.location.returning_names_tomb",
+  "consumers": [],
+  "metadata": { "maturity": "prototype", "releaseLegal": false, "notes": ["Not yet referenced by any encounter or spawn rule as a structured locationId; recorded because the encounter it lends its name to (encounter.prototype.returning_names) and its own video reel already exist."] }
+}

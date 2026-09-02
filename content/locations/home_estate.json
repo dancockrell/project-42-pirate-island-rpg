@@ -1,0 +1,9 @@
+{
+  "id": "location.estate.infirmary",
+  "displayName": "Home Estate — Infirmary",
+  "kind": "estate",
+  "description": "A tropical pirate household estate courtyard at warm late afternoon: a modest 1720s coastal manor with weathered stucco, a shaded veranda, an open armory door, an outdoor kitchen, a medical worktable, a rain cistern, dense jungle immediately beyond the garden wall, and elven bronze ruin stones reused in the paths. The medical worktable is where a defeated party returns to recover.",
+  "artReelId": "art.reel.location.home_estate_montage",
+  "consumers": ["encounter.prototype.returning_names"],
+  "metadata": { "maturity": "prototype", "releaseLegal": false }
+}

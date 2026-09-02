@@ -1,0 +1,10 @@
+{
+  "id": "location.road.reception",
+  "displayName": "Reception Road",
+  "kind": "route",
+  "regionId": "region.reception_road",
+  "description": "A wild tropical jungle road crossing ancient elven magical Bronze Age ruins: huge wet leaves, cycads, hanging vines, bronze-green stone markers, broken ceremonial stairs, no settlement, no enclosure. The road remains the central compositional spine as it threads through the ruins.",
+  "artReelId": "art.reel.location.jungle_reception_road",
+  "consumers": ["encounter.prototype.returning_names", "spawn_rule.reception_road.daily"],
+  "metadata": { "maturity": "prototype", "releaseLegal": false }
+}

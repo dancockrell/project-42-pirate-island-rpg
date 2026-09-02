@@ -66,6 +66,18 @@ Combat defeat is not an island death. Combat Revival never increments or clears 
 
 Damage resolution opens a reaction window only when an unredirected hostile attack would defeat a party member. Ordinary Rescue Charge interception changes the target before this check, so a redirected hit aimed at Betty cannot also trigger Fatal Intercept. An eligible Betty must be alive, not Stunned and have one `skill.betty.fatal_intercept` use remaining. The reaction spends that use, cancels the incoming hit completely, preserves the ally's current Vitality and counters the triggering attacker for 24 raw damage through normal Guard. The counter runs with reactions disabled. This prohibits nested reaction loops. After the reaction finishes, normal turn-end and victory evaluation resume.
 
+Before that lethal-hit check runs, damage resolution also evaluates Ayla's Reach Counter: an eligible Ayla (alive, not Stunned, sharing the target's `band`, and holding a `skill.ayla.reach_counter` use marker) strikes the attacker for `10 + Ayla's level` raw damage through Guard, unconditionally on any hostile attack against a party member in her band — not only lethal ones. Unlike Fatal Intercept, the marker is never decremented (the skill is unlimited-use) and the reaction never cancels or redirects the original hit; it runs alongside normal resolution, with reactions disabled for its own counter-damage call to prevent nested reaction loops. Both reactions can fire on the same hit: Reach Counter always resolves first, and Fatal Intercept's own lethal-hit gate is evaluated independently afterward.
+
+## Ayla's engine-implemented skills (partial roster)
+
+Ayla is not yet a validated heroine — `content/characters/ayla.json` does not exist, since three of her seven bond skills need engine subsystems (band movement for hostiles, a `Staggered` status, world/site-persistent state) that no character in this codebase has yet. Her canon, full seven-skill kit, and exactly what's blocked and why are recorded in [`docs/HEROINE_AYLA_DESIGN.md`](HEROINE_AYLA_DESIGN.md). Four of her skills are implemented in `godot-rust/src/battle.rs` and covered by dedicated tests even though no content or presentation layer exposes them yet:
+
+`Structural Scan` targets one hostile and emits `TargetInspected`, a read-only event carrying that hostile's current Guard and one counter-tag string; it mutates no simulation state and costs a normal turn, the same as any other targeted action.
+
+`Safe Passage` is a normal action with no manually selected targets. It moves every living party member whose `band` is exactly one away from Ayla's into her band, in stable actor-ID order; allies already sharing her band, or two or more bands away, are unaffected.
+
+`Curse Dispel` names one living party member and removes every currently-applied negative status in the same priority order Condition Cleanse uses, with no cap and no accompanying healing — distinguishing it from Betty's version, which caps removal at two statuses and restores eight Vitality.
+
 ## Midnight return transaction
 
 Midnight is one atomic simulation transaction. The clock advances to the next day, named people become alive again without losing their death counters, then each region emits its deterministic daily monster instances in visible flashes. The same world seed, new day, region, and slot always produce the same instance. Each spawned monster receives an individual physical variant, condition, purpose, level, and loot seed. Prototype spawn rules enforce a group size of one because ordinary wilderness encounters are meant to read as D&D-like individual power relationships rather than anonymous packs of one-hit enemies.
