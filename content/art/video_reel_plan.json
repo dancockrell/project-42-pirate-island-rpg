@@ -1,0 +1,180 @@
+{
+  "schemaVersion": 1,
+  "id": "art.video_reel_plan.prototype",
+  "productionSkill": "magnific-2d-frame-factory",
+  "harvestTool": "C:/Users/Admin/.codex/skills/video-frame-harvester/scripts/harvest_frames.py",
+  "requirements": {
+    "rawSourcePolicy": "preserve_unchanged",
+    "runtimeAdmission": "curated_frames_only",
+    "promptPolicy": "visible_content_only_no_rationale",
+    "characterInputPolicy": "one_isolated_character_one_action_one_loop",
+    "environmentRejectThreshold": "reject_reel_if_more_than_one_third_frames_show_motion_damage"
+  },
+  "reels": [
+    {
+      "id": "art.reel.betty.guarded_strike",
+      "type": "character_action",
+      "sourceAnchor": "work/art/magnific/betty/betty-body-direction-gpt2.png",
+      "durationSeconds": 5,
+      "aspectRatio": "16:9",
+      "extractionFps": 24,
+      "maxFrames": 96,
+      "prompt": "One adult woman, Betty, full body from hair to boot soles, complete short heavy bronze-and-teal medical mace inside frame, dark neutral studio background, locked side-view fighting-game camera, generous empty margin. Betty lowers into a guarded stance, takes one short step, swings one horizontal mace strike at chest height, stops at a clear contact pose, draws the mace back, gains a close teal guard ring, returns to the exact starting stance. Slender agile adult body, small chest, narrow hips, long lean legs, auburn curls, green eyes, freckles, cropped teal pirate field-medic outfit, physician satchel, rigid weapon, correct two-hand grip. Painterly polished 2D anime fighting-game animation. No camera movement, no crop, no extra subject, no enemy, no anatomy change, no costume change, no weapon bending, no duplicated weapon, no text, no logo, no watermark, no effects outside frame. Silent, 5 seconds, 16:9, 30 fps, seamless first-to-last pose.",
+      "status": "queued"
+    },
+    {
+      "id": "art.reel.betty.condition_cleanse",
+      "type": "character_action",
+      "sourceAnchor": "work/art/magnific/betty/betty-body-direction-gpt2.png",
+      "durationSeconds": 5,
+      "aspectRatio": "16:9",
+      "extractionFps": 24,
+      "maxFrames": 96,
+      "prompt": "One adult woman, Betty, full body from hair to boot soles, complete medical mace grounded beside her, complete physician satchel inside frame, dark neutral studio background, locked three-quarter fighting-game camera, generous empty margin. Betty opens the satchel, draws one glowing teal glass ampoule, snaps its seal, casts one narrow liquid thread toward a marked patient position, closes her hand as a compact teal-white cleansing burst appears, returns the ampoule hand to the satchel, resumes the exact starting stance. Slender agile adult body, small chest, narrow hips, long lean legs, auburn curls, green eyes, freckles, cropped teal pirate field-medic outfit, stable face, stable hands, rigid weapon. Painterly polished 2D anime fighting-game animation. No patient body, no camera movement, no crop, no anatomy change, no costume change, no extra limbs, no deformed fingers, no weapon morphing, no text, no logo, no watermark, no effects outside frame. Silent, 5 seconds, 16:9, 30 fps, seamless first-to-last pose.",
+      "status": "queued"
+    },
+    {
+      "id": "art.reel.betty.rescue_charge",
+      "type": "character_action",
+      "sourceAnchor": "work/art/magnific/betty/betty-body-direction-gpt2.png",
+      "durationSeconds": 5,
+      "aspectRatio": "16:9",
+      "extractionFps": 24,
+      "maxFrames": 110,
+      "prompt": "One adult woman, Betty, complete full body and complete short heavy medical mace inside frame, wide dark neutral battle strip, locked side-view fighting-game camera, large empty travel space. Betty braces, leans forward, sprints three powerful steps across the frame with a low teal dust trail, plants one boot, delivers one shoulder check at a marked contact point, slides half a step, sets the mace across her body in a protective guard, holds, returns to the exact starting stance. Slender agile adult body, small chest, narrow hips, long lean legs, auburn curls, green eyes, freckles, cropped teal pirate field-medic outfit, physician satchel fixed at hip, rigid weapon, consistent boots and hands. Painterly polished 2D anime fighting-game animation. No ally body, no enemy body, no camera tracking, no crop, no anatomy change, no costume change, no weapon bending, no duplicated limbs, no text, no logo, no watermark, no effects outside frame. Silent, 5 seconds, 16:9, 30 fps, seamless first-to-last pose.",
+      "status": "queued"
+    },
+    {
+      "id": "art.reel.betty.healing_impact",
+      "type": "character_action",
+      "sourceAnchor": "work/art/magnific/betty/betty-body-direction-gpt2.png",
+      "durationSeconds": 6,
+      "aspectRatio": "16:9",
+      "extractionFps": 24,
+      "maxFrames": 120,
+      "prompt": "One adult woman, Betty, complete full body and complete short heavy bronze-and-teal medical mace inside frame, dark neutral battle strip with visible floor, locked three-quarter fighting-game camera, generous empty margin. Betty compresses teal-gold light into the mace chamber, lifts the mace overhead with both hands, performs one heavy vertical ground strike, holds the low impact pose over a compact bronze crater, one contained teal healing wave travels along the floor, Betty lifts the mace, returns to the exact starting stance. Slender agile adult body, small chest, narrow hips, long lean legs, auburn curls, green eyes, freckles, cropped teal pirate field-medic outfit, stable face, rigid weapon, correct two-hand grip. Painterly polished 2D anime fighting-game animation. No enemy, no camera movement, no crop, no anatomy change, no costume change, no weapon stretching, no duplicated weapon, no text, no logo, no watermark, no effect beyond the safe margin. Silent, 6 seconds, 16:9, 30 fps, seamless first-to-last pose.",
+      "status": "queued"
+    },
+    {
+      "id": "art.reel.betty.fatal_intercept",
+      "type": "character_action",
+      "sourceAnchor": "work/art/magnific/betty/betty-body-direction-gpt2.png",
+      "durationSeconds": 6,
+      "aspectRatio": "16:9",
+      "extractionFps": 24,
+      "maxFrames": 120,
+      "prompt": "One adult woman, Betty, complete full body and complete short heavy medical mace inside frame, wide dark neutral battle strip, locked side-view fighting-game camera, generous empty travel margin. A thin red lethal line appears across the frame. Betty explodes forward from a teal card-shatter streak, catches one invisible weapon contact with the mace shaft, creates one gold-teal parry spark fan, rotates into one compact reverse counter strike, stops in a low guard beside a protected position, returns to the exact starting stance. Slender agile adult body, small chest, narrow hips, long lean legs, auburn curls, green eyes, freckles, cropped teal pirate field-medic outfit, physician satchel stable, rigid weapon, correct hands. Painterly polished 2D anime fighting-game animation. No ally body, no enemy body, no camera movement, no crop, no anatomy change, no costume change, no weapon bending, no duplicated limbs, no text, no logo, no watermark, no effects outside frame. Silent, 6 seconds, 16:9, 30 fps, seamless first-to-last pose.",
+      "status": "queued"
+    },
+    {
+      "id": "art.reel.betty.mobile_infirmary",
+      "type": "character_action",
+      "sourceAnchor": "work/art/magnific/betty/betty-body-direction-gpt2.png",
+      "durationSeconds": 7,
+      "aspectRatio": "16:9",
+      "extractionFps": 24,
+      "maxFrames": 140,
+      "prompt": "One adult woman, Betty, complete full body, complete short heavy medical mace, complete physician satchel and all deployed supplies inside frame, dark neutral battle floor, locked three-quarter fighting-game camera, generous empty margin. Betty plants the mace upright, opens the satchel, throws one rolled cream-and-teal medical canvas, three compact medical panels snap open around the mace, one teal healing pulse crosses the panel line, Betty checks the arrangement, shoulders the mace, leaves the three panels standing, holds. Slender agile adult body, small chest, narrow hips, long lean legs, auburn curls, green eyes, freckles, cropped teal pirate field-medic outfit, stable face and hands, rigid equipment. Painterly polished 2D anime fighting-game animation. No modern red cross, no patient, no camera movement, no crop, no anatomy change, no costume change, no equipment duplication, no text, no logo, no watermark, no effects outside frame. Silent, 7 seconds, 16:9, 30 fps.",
+      "status": "queued"
+    },
+    {
+      "id": "art.reel.betty.combat_revival",
+      "type": "character_action",
+      "sourceAnchor": "work/art/magnific/betty/betty-body-direction-gpt2.png",
+      "durationSeconds": 7,
+      "aspectRatio": "16:9",
+      "extractionFps": 24,
+      "maxFrames": 140,
+      "prompt": "One adult woman, Betty, complete full body and complete short heavy medical mace inside frame, wide dark neutral battle floor, locked three-quarter fighting-game camera, generous empty travel margin. Betty performs one armored knee slide to a marked fallen-patient position, grips the mace with both hands, charges one tight gold-teal coil inside the glass chamber, touches the mace head to the marked position, releases one contained teal shock ring and one heartbeat line, rises into a ready guard, returns to the exact starting stance. Slender agile adult body, small chest, narrow hips, long lean legs, auburn curls, green eyes, freckles, cropped teal pirate field-medic outfit, physician satchel stable, rigid weapon, consistent hands and boots. Painterly polished 2D anime fighting-game animation. No patient body, no camera movement, no crop, no anatomy change, no costume change, no weapon bending, no duplicated limbs, no text, no logo, no watermark, no effects outside frame. Silent, 7 seconds, 16:9, 30 fps, seamless first-to-last pose.",
+      "status": "queued"
+    },
+    {
+      "id": "art.reel.betty.expression_montage",
+      "type": "character_portrait_montage",
+      "sourceAnchor": "work/art/magnific/betty/betty-body-direction-gpt2.png",
+      "durationSeconds": 10,
+      "aspectRatio": "16:9",
+      "extractionFps": 24,
+      "maxFrames": 160,
+      "prompt": "One adult woman, Betty, identical head, hair, freckles, green eyes, small-chested slender adult proportions and teal pirate field-medic collar in every shot, dark neutral studio background, fixed chest-up portrait crop, identical camera distance and lighting. Six hard-cut portrait shots, no dissolves: direct confident smile, delighted laugh, focused combat stare, affectionate half-lidded smile, worried patient check, fierce protective anger. Each shot holds still for one second with one blink and tiny natural breathing. Painterly polished 2D anime fighting-game portrait animation, crisp eyes, stable facial geometry, stable hairline, stable costume. No second subject, no camera movement within shots, no face morphing, no age change, no body change, no costume change, no hand over face, no text, no logo, no watermark. Silent, 10 seconds, 16:9, 30 fps.",
+      "status": "queued"
+    },
+    {
+      "id": "art.reel.betty.mace_turntable",
+      "type": "equipment_turntable",
+      "sourceAnchor": "work/art/magnific/betty/betty-palette-reference-seedream.png",
+      "durationSeconds": 8,
+      "aspectRatio": "16:9",
+      "extractionFps": 24,
+      "maxFrames": 120,
+      "prompt": "One isolated short heavy bronze-and-teal medical war mace centered on a dark neutral studio background, complete pommel, grip, reinforced bronze neck, luminous glass alchemical chamber and broad impact head inside frame with large empty margin. Slow constant 180-degree turntable rotation from left profile through front impact face to right profile. Rigid straight construction, heavy striking proportions, teal liquid glow inside glass chamber, crisp bronze fittings, no hand, no character, no floor contact, fixed orthographic camera, fixed object scale, fixed lighting. Painterly polished 2D anime fantasy equipment rendering. No wizard staff proportions, no spear point, no weapon bending, no part mutation, no duplicated parts, no camera movement, no crop, no text, no logo, no watermark. Silent, 8 seconds, 16:9, 30 fps.",
+      "status": "queued"
+    },
+    {
+      "id": "art.reel.betty.medical_kit_montage",
+      "type": "prop_montage",
+      "sourceAnchor": "work/art/magnific/betty/betty-equipment-reference-seedream.jpg",
+      "durationSeconds": 10,
+      "aspectRatio": "16:9",
+      "extractionFps": 24,
+      "maxFrames": 180,
+      "prompt": "Six hard-cut isolated equipment shots on the same dark neutral studio background with identical warm rim light: closed compact teal physician satchel with antique-gold sunburst emblem; open satchel with organized glass ampoules and bandage rolls; teal healing ampoule front and side view; cream-and-teal rolled medical canvas; three folding medical panels closed; three folding medical panels deployed. One complete object group centered in each shot with large empty margin, fixed orthographic camera, no hands, no character, crisp silhouette, stable teal cream bronze palette, painterly polished 2D anime fantasy equipment rendering. No modern red cross, no text, no letters, no numbers, no logo, no watermark, no object mutation, no crop, no clutter, no camera motion within shots. Silent, 10 seconds, 16:9, 30 fps.",
+      "status": "queued"
+    },
+    {
+      "id": "art.reel.location.jungle_reception_road",
+      "type": "environment_route_dolly",
+      "sourceAnchor": "work/art/jungle-route-gameplay-v1.png",
+      "durationSeconds": 10,
+      "aspectRatio": "16:9",
+      "extractionFps": 12,
+      "maxFrames": 120,
+      "prompt": "Wild tropical jungle road crossing ancient elven magical Bronze Age ruins, huge wet leaves, cycads, hanging vines, bronze-green stone markers, broken ceremonial stairs, distant small raptor silhouette between ferns, humid teal-gold light, no settlement, no enclosure. Slow forward route dolly at adult eye height, road remains the central compositional spine, subtle walking sway, stable terrain, stable ruins, stable vegetation species, slow drifting mist, minor leaf movement, sharp landscape frames, painterly rich 2D anime fantasy RPG background. No new buildings, no morphing stones, no disappearing road, no close foreground occluders, no people, no cages, no dinosaur pen, no camera cuts, no fast motion, no text, no sign, no logo, no watermark. Silent, 10 seconds, 16:9, 30 fps.",
+      "status": "queued"
+    },
+    {
+      "id": "art.reel.location.returning_names_tomb",
+      "type": "environment_atmospheric_hold",
+      "sourceAnchor": "work/art/elven-tomb.png",
+      "durationSeconds": 10,
+      "aspectRatio": "16:9",
+      "extractionFps": 6,
+      "maxFrames": 60,
+      "prompt": "Ancient elven magical Bronze Age burial chamber, massive fitted stone, bronze name plaques, teal glass channels, low funerary platforms, dry roots through ceiling cracks, shallow black water along floor grooves, one sealed inner door, no colonial construction. Nearly locked wide camera with minute left-to-right parallax, fixed architecture, fixed door, fixed plaque positions, faint teal channel pulses, tiny drifting dust, subtle water ripples, restrained torch flicker, sharp landscape frames, painterly rich 2D anime fantasy RPG background. No people, no skeleton rising, no door opening, no room transformation, no moving walls, no new objects, no camera cuts, no readable writing, no text, no logo, no watermark. Silent, 10 seconds, 16:9, 30 fps.",
+      "status": "queued"
+    },
+    {
+      "id": "art.reel.location.home_estate_montage",
+      "type": "environment_lookaround_montage",
+      "sourceAnchor": "work/art/estate-household-gameplay-v1.png",
+      "durationSeconds": 12,
+      "aspectRatio": "16:9",
+      "extractionFps": 12,
+      "maxFrames": 144,
+      "prompt": "One tropical pirate household estate courtyard at warm late afternoon, modest 1720s coastal manor, weathered stucco, shaded veranda, open armory door, outdoor kitchen, medical worktable, rain cistern, dense jungle immediately beyond the garden wall, elven bronze ruin stones reused in paths, intimate inhabited scale. Six hard-cut wide shots from one standing point: forward toward veranda, left toward kitchen, right toward armory, reverse toward jungle gate, slightly raised courtyard overview, slightly lowered view across bronze path stones. Identical architecture, furniture, shadows, weather, plants and time of day in every shot, locked camera within each shot, sharp landscape frames, painterly rich 2D anime fantasy RPG background. No people, no city skyline, no mansion expansion, no new rooms, no object relocation, no readable signs, no text, no logo, no watermark. Silent, 12 seconds, 16:9, 30 fps.",
+      "status": "queued"
+    },
+    {
+      "id": "art.reel.location.wild_dinosaur_shore",
+      "type": "environment_intersection_orbit",
+      "sourceAnchor": "work/art/world-visual-grammar-v1.png",
+      "durationSeconds": 10,
+      "aspectRatio": "16:9",
+      "extractionFps": 12,
+      "maxFrames": 120,
+      "prompt": "Remote tropical cove with black volcanic rocks, bright surf, dense jungle, half-buried ancient elven bronze ribs and carved stone, one wild feathered raptor drinking at the tide line, one distant long-neck dinosaur above the canopy, no buildings, no fences, no handlers. Restrained 70-degree camera arc around a fixed driftwood center at adult eye height, stable coastline, stable horizon, stable ruin positions, stable dinosaur anatomy, gentle waves, slow foliage movement, sharp landscape frames, painterly rich 2D anime fantasy RPG background. No dinosaur pen, no herd, no attack, no new animals, no morphing anatomy, no camera cuts, no close occluders, no ships, no settlement, no text, no logo, no watermark. Silent, 10 seconds, 16:9, 30 fps.",
+      "status": "queued"
+    },
+    {
+      "id": "art.reel.vfx.betty_teal_bronze_atlas",
+      "type": "vfx_plate_montage",
+      "sourceAnchor": "work/art/betty-keyframes.png",
+      "durationSeconds": 12,
+      "aspectRatio": "16:9",
+      "extractionFps": 24,
+      "maxFrames": 180,
+      "prompt": "Six hard-cut isolated magical effect shots centered on a pure black background: compact teal card-release column; bronze-teal horizontal mace impact arc; close teal guard ring; teal-white cleansing burst; low teal healing wave traveling left to right; contained gold-teal revival shock ring with one heartbeat line. One effect per shot, complete effect inside the central sixty percent of frame, fixed camera, crisp edge, bright readable core, sparse particles, controlled teal white gold bronze palette, painterly polished 2D anime fighting-game VFX. No character, no weapon, no environment, no smoke cloud, no screen flash, no effect touching frame edge, no text, no logo, no watermark. Silent, 12 seconds, 16:9, 30 fps.",
+      "status": "queued"
+    }
+  ]
+}

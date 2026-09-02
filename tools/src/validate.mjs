@@ -222,6 +222,23 @@ for (const asset of placeholderManifest.assets ?? []) {
   if (!Array.isArray(asset.replacementGate) || asset.replacementGate.length < 2) fail(placeholderFile, `${asset.id} needs explicit replacement gates`);
 }
 
+const reelPlanFile = resolve(repo, "content/art/video_reel_plan.json");
+const reelPlan = JSON.parse(await readFile(reelPlanFile, "utf8"));
+registerId(reelPlan.id, reelPlanFile);
+if (reelPlan.productionSkill !== "magnific-2d-frame-factory") fail(reelPlanFile, "productionSkill must name the Magnific frame-factory contract");
+const forbiddenPromptRationale = /\b(because|so that|we need|our goal|the reason|gameplay purpose|use this to|intended to provide)\b/i;
+for (const [index, reel] of (reelPlan.reels ?? []).entries()) {
+  registerId(reel.id, reelPlanFile);
+  for (const field of ["type", "sourceAnchor", "aspectRatio", "prompt", "status"]) requireString(reel, field, reelPlanFile);
+  if (!reel.id?.startsWith("art.reel.")) fail(reelPlanFile, `reels[${index}].id must use art.reel prefix`);
+  if (forbiddenPromptRationale.test(reel.prompt ?? "")) fail(reelPlanFile, `${reel.id} prompt contains parser-confusing rationale`);
+  if ((reel.prompt ?? "").length < 300) fail(reelPlanFile, `${reel.id} prompt is too short to be a production contract`);
+  if (!Number.isInteger(reel.durationSeconds) || reel.durationSeconds < 5 || reel.durationSeconds > 15) fail(reelPlanFile, `${reel.id} durationSeconds must be an integer from 5 through 15`);
+  if (![6, 12, 24].includes(reel.extractionFps)) fail(reelPlanFile, `${reel.id} extractionFps must be 6, 12 or 24`);
+  if (!Number.isInteger(reel.maxFrames) || reel.maxFrames < 12 || reel.maxFrames > 240) fail(reelPlanFile, `${reel.id} maxFrames must be an integer from 12 through 240`);
+  if (reel.aspectRatio !== "16:9") fail(reelPlanFile, `${reel.id} must use 16:9`);
+}
+
 const intentionallyExternalPrefixes = ["skill.enemy."];
 for (const item of references) {
   if (!ids.has(item.id) && !intentionallyExternalPrefixes.some(prefix => item.id.startsWith(prefix))) {
@@ -234,4 +251,4 @@ if (failures.length) {
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
-console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills and ${presentationCueCount} presentation cues validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
+console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${presentationCueCount} presentation cues and ${reelPlan.reels.length} video reels validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
