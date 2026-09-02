@@ -314,11 +314,13 @@ fn event_dictionary(
             command_id: id,
             actor_id,
             status_id,
+            status_kind,
         } => {
             kind = "status_removed";
             command!(id);
             subject!(actor_id);
             payload.set("status_id", status_id);
+            payload.set("status_kind", status_name(&status_kind));
         }
         BattleEvent::ActorMoved {
             command_id: id,

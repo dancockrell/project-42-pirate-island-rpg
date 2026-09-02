@@ -28,7 +28,7 @@ func render(event: Dictionary) -> Dictionary:
 			if delta > 0: return append(" %s restores %d Vitality and now has %d." % [name_at(subjects, 0), delta, payload.get("total", 0)])
 			if delta < 0: return append(" %s loses %d Vitality and now has %d." % [name_at(subjects, 0), -delta, payload.get("total", 0)])
 			return append(" %s is already at maximum Vitality." % name_at(subjects, 0))
-		"status_removed": return append(" %s is cleared of %s." % [name_at(subjects, 0), readable_id(payload.get("status_id", "condition"))])
+		"status_removed": return append(" %s is cleared of %s." % [name_at(subjects, 0), readable_id(payload.get("status_kind", "condition"))])
 		"actor_moved": return append(" %s crosses from band %d to band %d." % [name_at(subjects, 0), payload.get("from_band", 0), payload.get("to_band", 0)])
 		"interception_set": return append(" %s takes position in front of %s and will intercept the next hostile attack aimed at her." % [name_at(subjects, 0), name_at(subjects, 1)])
 		"interception_triggered": return append(" %s receives the attack meant for %s; the interception is spent." % [name_at(subjects, 0), name_at(subjects, 1)])

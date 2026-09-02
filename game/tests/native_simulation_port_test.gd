@@ -81,6 +81,7 @@ func test_condition_cleanse() -> void:
 	var port := fresh_port()
 	var events := command(port, "command.test.cleanse", "character.heroine.betty", "skill.betty.condition_cleanse", ["character.heroine.vix"])
 	check(events.any(func(event): return event.kind == "status_removed"), "Condition Cleanse must remove Vix's authored poison")
+	check(events.any(func(event): return event.kind == "status_removed" and event.payload.status_kind == "poisoned"), "status removal must expose the removed condition kind")
 	check(actor(port.bridge.snapshot(), "character.heroine.vix").vitality == 18, "Condition Cleanse must heal Vix by eight")
 
 func test_rescue_and_interception() -> void:

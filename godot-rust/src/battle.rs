@@ -135,6 +135,7 @@ pub enum BattleEvent {
         command_id: String,
         actor_id: ActorId,
         status_id: String,
+        status_kind: StatusKind,
     },
     ActorMoved {
         command_id: String,
@@ -806,6 +807,7 @@ impl Battle {
                 command_id: command.command_id.clone(),
                 actor_id: target_id.clone(),
                 status_id: status.id,
+                status_kind: status.kind,
             });
         }
         let before = target.vitality;
@@ -964,6 +966,7 @@ impl Battle {
                 command_id: command.command_id.clone(),
                 actor_id: target_id.clone(),
                 status_id: status.id,
+                status_kind: status.kind,
             });
         }
         events.push(BattleEvent::ActorRevived {
