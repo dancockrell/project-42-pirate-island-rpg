@@ -31,6 +31,10 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Godot Betty 3D candidate review scene failed with exit code $LASTEXITCODE"
     }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/battle_3d_staging_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot 3D battle staging tests failed with exit code $LASTEXITCODE"
+    }
     & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/targeting_session_test.gd"
     if ($LASTEXITCODE -ne 0) {
         throw "Godot targeting-session tests failed with exit code $LASTEXITCODE"
