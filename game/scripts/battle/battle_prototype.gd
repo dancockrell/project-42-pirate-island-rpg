@@ -38,6 +38,7 @@ var target_label: Label
 var action_cue_label: Label
 var command_buttons: Dictionary = {}
 var actor_display_names := {
+	"character.protagonist.captain": "CAPTAIN",
 	"character.heroine.betty": "BETTY",
 	"character.heroine.ayla": "AYLA",
 	"character.heroine.vix": "VIX",
@@ -114,12 +115,10 @@ func build_battle_plane() -> Control:
 	cards.custom_minimum_size.x = 280
 	cards.add_theme_constant_override("separation", 9)
 	for item in [
-		["character.heroine.betty", "BETTY", "FIELD MEDIC", Color("2d7770"), "D"],
-		["character.heroine.ayla", "AYLA", "TOMB WARDEN", Color("648243"), "D"],
-		["character.heroine.vix", "VIX", "CORSAIR", Color("a05242"), "D"],
-		["character.heroine.grisha", "GRISHA", "OFFICER", Color("704339"), "D"]
+		["character.protagonist.captain", "CAPTAIN", "ECHO CAPTAIN", Color("536c79"), "ECHO", "captain"],
+		["character.heroine.betty", "BETTY", "FIELD MEDIC", Color("2d7770"), "D"]
 	]:
-		var card := make_party_card(item[0], item[1], item[2], item[3], item[4])
+		var card := make_party_card(item[0], item[1], item[2], item[3], item[4], item[5] if item.size() > 5 else "heroine")
 		cards.add_child(card)
 		card_buttons[item[0]] = card
 	plane.add_child(cards)
@@ -175,22 +174,17 @@ func build_footer() -> Control:
 	target_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	footer.add_child(target_label)
 	var commands := GridContainer.new()
-	commands.columns = 4
-	commands.custom_minimum_size.y = 156
+	commands.columns = 1
+	commands.custom_minimum_size.y = 72
 	commands.add_theme_constant_override("h_separation", 12)
 	commands.add_theme_constant_override("v_separation", 10)
-	for command in [
-		["skill.betty.guarded_strike", "D  GUARDED STRIKE", true],
-		["skill.betty.condition_cleanse", "C  CONDITION CLEANSE", true],
-		["skill.betty.rescue_charge", "B  RESCUE CHARGE", true],
-		["skill.betty.healing_impact", "A  HEALING IMPACT", true],
-		["skill.betty.fatal_intercept", "S  FATAL INTERCEPT\n[AUTOMATIC REACTION]", false],
-		["skill.betty.mobile_infirmary", "SS  MOBILE INFIRMARY", true],
-		["skill.betty.combat_revival", "SSS  COMBAT REVIVAL", true]
-	]:
+	# This opening encounter is a D-bond Betty encounter. Only the skill she can
+	# actually use belongs in the command area; later bond skills do not appear as
+	# fake controls before their unlock state and battle rules exist.
+	for command in [["skill.betty.guarded_strike", "D  GUARDED STRIKE", true]]:
 		var button := Button.new()
 		button.text = command[1]
-		button.custom_minimum_size = Vector2(238, 66)
+		button.custom_minimum_size = Vector2(238, 72)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.add_theme_font_size_override("font_size", 15)
 		button.add_theme_color_override("font_color", CREAM)
@@ -208,16 +202,16 @@ func build_footer() -> Control:
 	footer.add_child(commands)
 	return footer
 
-func make_party_card(id: String, display_name: String, role: String, accent: Color, rank: String) -> Button:
-	var card := Button.new()
+func make_party_card(id: String, display_name: String, role: String, accent: Color, rank: String, portrait_kind := "heroine") -> Control:
+	var card := Control.new()
 	card.name = display_name + "Card"
-	card.custom_minimum_size = Vector2(280, 150)
-	card.flat = true
+	card.custom_minimum_size = Vector2(280, 104)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.tooltip_text = "PAPER PORTRAIT — DEVELOPMENT BLOCKOUT\nStable actor ID: %s\nRole: %s\nFuture portrait must preserve card crop, role read, face, hair, outfit palette and readiness overlay." % [id, role]
 	var portrait := PaperCardScript.new()
 	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	portrait.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	portrait.configure(display_name, role, accent, rank)
+	portrait.configure(display_name, role, accent, rank, portrait_kind)
 	card.add_child(portrait)
 	var copy := VBoxContainer.new()
 	copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -232,12 +226,13 @@ func make_party_card(id: String, display_name: String, role: String, accent: Col
 	var role_label := make_label(role, 11, Color("caa66a"))
 	role_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	copy.add_child(role_label)
-	var status_label := make_label("VIT 84/100  •  GRD 0\nREADY", 12, Color("d7e0d7"))
+	var initial_status := "ECHO DECK\nSTANDBY" if id == "character.protagonist.captain" else "VIT 84/100  •  GRD 0\nREADY"
+	var status_label := make_label(initial_status, 12, Color("d7e0d7"))
 	status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	copy.add_child(status_label)
 	card.add_child(copy)
-	card.pressed.connect(func() -> void: on_party_card_pressed(id, display_name, accent))
-	status_labels[id] = status_label
+	if id != "character.protagonist.captain":
+		status_labels[id] = status_label
 	return card
 
 func make_command_box(background: Color, border: Color) -> StyleBoxFlat:
@@ -461,7 +456,7 @@ func update_guard_values(id: String, guard: int) -> void:
 
 func set_card_state(id: String, state: String) -> void:
 	for card_id in card_buttons:
-		var card := card_buttons[card_id] as Button
+		var card := card_buttons[card_id] as Control
 		card.modulate = Color.WHITE if card_id == id else Color("9aa5a2")
 		if card_id == id:
 			card.tooltip_text = "Card state: %s. Stable actor ID: %s" % [state, id]

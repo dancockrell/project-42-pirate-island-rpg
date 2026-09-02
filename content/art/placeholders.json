@@ -2,6 +2,24 @@
   "schemaVersion": 1,
   "assets": [
     {
+      "id": "art.placeholder.captain.card_portrait",
+      "placeholder": true,
+      "consumer": "game/scripts/battle/battle_prototype.gd#PartyRailCaptain",
+      "visibleMark": "DUMMY CAPTAIN CARD",
+      "intendedFinal": "Complete Captain rail portrait: adult human echo-bearer in dark sea coat, open-neck shirt, cutlass and brass echo compass, visibly separate from the heroine cards.",
+      "requiredTags": ["adult", "male-protagonist", "card-portrait", "echo-compass", "no-crop"],
+      "replacementGate": ["approved Captain identity sheet", "readable at rail scale", "costume and compass match active actor when authored"]
+    },
+    {
+      "id": "art.placeholder.captain.active_actor",
+      "placeholder": true,
+      "consumer": "future-game/scenes/battle/protagonist_active_actor",
+      "visibleMark": "DUMMY CAPTAIN FULL-BODY ACTOR",
+      "intendedFinal": "Complete Captain battle actor with full body, cutlass, echo compass, stable root pivot and generous VFX safe margin.",
+      "requiredTags": ["adult", "male-protagonist", "full-body", "echo-weapon", "no-crop"],
+      "replacementGate": ["approved Captain identity rig", "complete boots, head and weapon", "battle safe-frame test"]
+    },
+    {
       "id": "art.placeholder.betty.active_actor",
       "placeholder": true,
       "consumer": "game/scenes/battle/battle_prototype.tscn#ActiveActor",

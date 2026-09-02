@@ -11,6 +11,7 @@ var betty_vitality := 100
 var betty_guard := 0
 var razorbeak_vitality := 70
 var razorbeak_guard := 3
+var captain_vitality := 96
 var ayla_vitality := 0
 var vix_vitality := 72
 var grisha_vitality := 88
@@ -45,6 +46,7 @@ func create_debug_battle() -> Dictionary:
 		"active_actor_id": "character.heroine.betty",
 		"description": "The razorbeak keeps its wounded flank away from Betty. Its feet are coiled for a two-band rush.",
 		"actors": [
+			actor_snapshot("character.protagonist.captain", "Captain", "party", captain_vitality, 96, 1, 0),
 			actor_snapshot("character.heroine.betty", "Betty", "party", betty_vitality, 100, betty_guard, 0),
 			actor_snapshot("character.heroine.ayla", "Ayla", "party", ayla_vitality, 90, 0, 0),
 			actor_snapshot("character.heroine.vix", "Vix", "party", vix_vitality, 90, 0, 1),

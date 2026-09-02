@@ -1,0 +1,23 @@
+{
+  "$schema": "../schemas/character.schema.json",
+  "id": "character.protagonist.captain",
+  "displayName": "Captain",
+  "kind": "protagonist",
+  "implementationOwner": "rust-simulation",
+  "presentationOwner": "godot-gdscript",
+  "tags": ["adult", "human", "protagonist", "echo-bearer", "harem-leader", "prototype"],
+  "signatureWeaponId": "weapon.captain.echo_cutlass",
+  "skillIds": [],
+  "art": {
+    "activeActorAssetId": "art.placeholder.captain.active_actor",
+    "cardPortraitAssetId": "art.placeholder.captain.card_portrait",
+    "status": "placeholder",
+    "accessibilityDescription": "An adult human expedition captain shown on the party rail in a dark sea coat, open-neck shirt, boots and brass echo compass, with a cutlass at his hip."
+  },
+  "metadata": {
+    "source": "design-bible-2026-09",
+    "maturity": "prototype",
+    "releaseLegal": false,
+    "notes": ["The Captain is visible in every battle roster. This first Betty-focused prototype does not expose his Echo command deck yet.", "Echo abilities are mechanically distinct from heroine bond skills and must be authored as their own combat records before they become player commands.", "The paper card is a contract for rail scale, silhouette and costume read; it is not a substitute for final character art."]
+  }
+}

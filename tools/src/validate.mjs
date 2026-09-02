@@ -46,7 +46,8 @@ for (const name of (await readdir(characterDir)).filter(name => name.endsWith(".
   requireString(value, "presentationOwner", file);
   if (value.presentationOwner !== "godot-gdscript") fail(file, "presentationOwner must be godot-gdscript");
   if (!Array.isArray(value.tags) || value.tags.length < 3) fail(file, "tags must contain at least three searchable values");
-  if (!Array.isArray(value.skillIds) || value.skillIds.length !== 7) fail(file, "a heroine must declare exactly seven D-through-SSS skills");
+  if (!Array.isArray(value.skillIds)) fail(file, "skillIds must be an array");
+  else if (value.kind === "heroine" && value.skillIds.length !== 7) fail(file, "a heroine must declare exactly seven D-through-SSS skills");
   else value.skillIds.forEach((id, index) => reference(id, file, `skillIds[${index}]`));
   if (!value.art?.accessibilityDescription || value.art.accessibilityDescription.length < 20) fail(file, "art accessibilityDescription is missing or too short");
   if (value.art?.readyIdleMotionId) reference(value.art.readyIdleMotionId, file, "art.readyIdleMotionId");
