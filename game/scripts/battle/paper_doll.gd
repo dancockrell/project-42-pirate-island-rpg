@@ -59,8 +59,6 @@ func _draw() -> void:
 	if spec.is_empty():
 		return
 	var s := size
-	var pad := float(spec.get("safePaddingPercent", 8)) / 100.0
-	draw_rect(Rect2(s.x * pad, s.y * pad, s.x * (1.0 - pad * 2.0), s.y * (1.0 - pad * 2.0)), Color(accent, 0.18), false, 2.0)
 	var body_offset := Vector2.ZERO
 	var body_rotation := 0.0
 	if pose_name == "forward_step":
@@ -82,9 +80,12 @@ func _draw() -> void:
 		draw_raptor(s)
 	draw_set_transform(Vector2.ZERO, 0.0)
 	draw_presentation_vfx(s)
-	# The complete asset contract lives in the tooltip. The scene itself keeps a
-	# quiet, player-readable cut-paper silhouette.
+	# The complete asset contract lives in the tooltip. Safe-frame geometry is
+	# deliberately invisible in the running game; it appears only during an
+	# explicit layout inspection so the battle plane never reads as boxed-in.
 	if show_anchors:
+		var pad := float(spec.get("safePaddingPercent", 8)) / 100.0
+		draw_rect(Rect2(s.x * pad, s.y * pad, s.x * (1.0 - pad * 2.0), s.y * (1.0 - pad * 2.0)), Color(accent, 0.55), false, 2.0)
 		for key in spec.get("attachmentAnchors", {}):
 			var point: Array = spec.attachmentAnchors[key]
 			var p := Vector2(float(point[0]) * s.x, float(point[1]) * s.y)

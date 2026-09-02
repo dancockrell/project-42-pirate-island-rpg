@@ -35,8 +35,13 @@ func build(canvas: Vector2) -> void:
 		child.queue_free()
 	# The rig uses a 520x560 design grid then scales as one object. This keeps
 	# every bone location stable when actor panels or future cinematics resize.
-	position = Vector2(canvas.x * .31, canvas.y * .17)
-	scale = Vector2(canvas.x / 520.0, canvas.y / 560.0) * .76
+	# Betty must feel like a fighting-game lead, not a small token on a huge
+	# field. Scale uniformly from the design grid so her adult silhouette stays
+	# proportioned, while every boot, mace head and coat-tail still clears the
+	# eight-percent safe frame.
+	var uniform_scale := minf(canvas.x / 520.0, canvas.y / 560.0) * .94
+	position = Vector2((canvas.x - 520.0 * uniform_scale) * .50, canvas.y * .035)
+	scale = Vector2.ONE * uniform_scale
 	torso = add_piece("torso", Vector2(112, 154), Vector2(260, 190), 0.0)
 	coat_left = add_piece("coat_tail", Vector2(70, 125), Vector2(225, 292), 8.0)
 	coat_right = add_piece("coat_tail", Vector2(70, 125), Vector2(296, 292), -8.0)
@@ -111,9 +116,10 @@ class PaperBettyPiece:
 	func _draw() -> void:
 		match kind:
 			"torso":
-				draw_colored_polygon(PackedVector2Array([Vector2(-56,-72),Vector2(56,-72),Vector2(45,18),Vector2(32,52),Vector2(-32,52),Vector2(-45,18)]), CREAM)
-				draw_colored_polygon(PackedVector2Array([Vector2(-40,-20),Vector2(40,-20),Vector2(34,48),Vector2(-34,48)]), TEAL)
-				draw_line(Vector2(0,-15),Vector2(0,40),BRONZE,3)
+				draw_colored_polygon(PackedVector2Array([Vector2(-56,-72),Vector2(56,-72),Vector2(49,-16),Vector2(42,24),Vector2(30,52),Vector2(-30,52),Vector2(-42,24),Vector2(-49,-16)]), CREAM)
+				draw_colored_polygon(PackedVector2Array([Vector2(-42,-18),Vector2(42,-18),Vector2(35,42),Vector2(24,49),Vector2(-24,49),Vector2(-35,42)]), TEAL)
+				draw_line(Vector2(0,-13),Vector2(0,38),BRONZE,3)
+				draw_line(Vector2(-24,7),Vector2(24,7),Color("174f4d"),2)
 				# Open shoulders, blouse folds and fitted corset are separate visual
 				# reads even in a simple paper proxy; do not substitute a box torso.
 				draw_arc(Vector2(-43,-38),16,deg_to_rad(205),deg_to_rad(350),8,CREAM,5,true)
@@ -121,10 +127,12 @@ class PaperBettyPiece:
 			"coat_tail":
 				draw_colored_polygon(PackedVector2Array([Vector2(-30,-12),Vector2(30,-12),Vector2(42,108),Vector2(-12,96)]), Color("174f4d"))
 			"leg":
-				draw_line(Vector2.ZERO,Vector2(0,108),SKIN,22,true)
+				draw_line(Vector2.ZERO,Vector2(0,108),SKIN,24,true)
+				draw_line(Vector2(-7,18),Vector2(7,18),Color("e2a98e"),2)
 			"boot":
-				draw_line(Vector2.ZERO,Vector2(0,85),BOOT,30,true)
-				draw_line(Vector2(-8,88),Vector2(25,88),Color("1a1518"),12,true)
+				draw_line(Vector2.ZERO,Vector2(0,85),BOOT,32,true)
+				draw_line(Vector2(-7,10),Vector2(7,10),BRONZE,2)
+				draw_line(Vector2(-8,88),Vector2(26,88),Color("1a1518"),13,true)
 			"arm":
 				draw_line(Vector2.ZERO,Vector2(0,98),SKIN,18,true)
 				draw_circle(Vector2(0,101),8,SKIN)
@@ -146,14 +154,18 @@ class PaperBettyPiece:
 					draw_rect(Rect2(x-4,-17,8,22),Color("d1e8dd"),true)
 					draw_circle(Vector2(x,-18),4,GLASS)
 			"head":
-				draw_paper_ellipse(Vector2(0,4),Vector2(38,48),SKIN)
-				draw_line(Vector2(-16,3),Vector2(-5,3),Color("244a45"),3)
-				draw_line(Vector2(5,3),Vector2(16,3),Color("244a45"),3)
-				draw_circle(Vector2(-10,4),2.5,GLASS); draw_circle(Vector2(10,4),2.5,GLASS)
-				draw_line(Vector2(-7,30),Vector2(8,30),Color("a94f50"),2)
+				draw_paper_ellipse(Vector2(0,5),Vector2(37,49),SKIN)
+				draw_line(Vector2(-17,1),Vector2(-6,0),Color("5d382d"),2)
+				draw_line(Vector2(6,0),Vector2(17,1),Color("5d382d"),2)
+				draw_line(Vector2(-16,5),Vector2(-6,5),Color("244a45"),3)
+				draw_line(Vector2(6,5),Vector2(16,5),Color("244a45"),3)
+				draw_circle(Vector2(-10,6),2.8,GLASS); draw_circle(Vector2(10,6),2.8,GLASS)
+				for x in [-21.0,-16.0,16.0,21.0]: draw_circle(Vector2(x,20),1.7,Color("c36f53"))
+				draw_arc(Vector2(0,23),11,deg_to_rad(20),deg_to_rad(160),8,Color("a94f50"),2,true)
 			"hair":
-				draw_arc(Vector2(0,0),48,deg_to_rad(195),deg_to_rad(345),16,AUBURN,13,true)
-				draw_circle(Vector2(-22,-34),15,AUBURN); draw_circle(Vector2(20,-39),18,Color("a94f32"))
+				draw_arc(Vector2(0,0),48,deg_to_rad(195),deg_to_rad(345),20,AUBURN,14,true)
+				draw_circle(Vector2(-22,-34),16,AUBURN); draw_circle(Vector2(20,-39),19,Color("a94f32"))
+				draw_arc(Vector2(-18,-8),25,deg_to_rad(125),deg_to_rad(250),8,Color("b05a39"),4,true)
 
 	func draw_paper_ellipse(center: Vector2, radii: Vector2, color: Color) -> void:
 		var points := PackedVector2Array()

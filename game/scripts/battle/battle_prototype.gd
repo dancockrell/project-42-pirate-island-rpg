@@ -5,6 +5,7 @@ const PlaceholderActionPresenterScript = preload("res://scripts/battle/placehold
 const PaperDollScript = preload("res://scripts/battle/paper_doll.gd")
 const PaperStageScript = preload("res://scripts/battle/paper_stage.gd")
 const PaperCardScript = preload("res://scripts/battle/paper_card.gd")
+const PaperSkillDiamondScript = preload("res://scripts/battle/paper_skill_diamond.gd")
 
 ## Presentation-only prototype. Gameplay truth comes through SimulationPort.
 ## All generated shapes and labels are explicit placeholders registered in
@@ -91,10 +92,13 @@ func build_screen() -> void:
 	safe.add_theme_constant_override("margin_top", 18)
 	safe.add_theme_constant_override("margin_bottom", 18)
 	add_child(safe)
-	var root := VBoxContainer.new()
-	root.add_theme_constant_override("separation", 10)
+	# The Bible's battle screen is one shared theatrical plane. Cards and commands
+	# sit on its lower edge; actors share one floor. There is no decorative top
+	# rail and no slot, diamond or crest without a live game rule behind it.
+	var root := Control.new()
+	root.name = "BattlefieldComposition"
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	safe.add_child(root)
-	root.add_child(build_header())
 	root.add_child(build_battle_plane())
 
 func build_header() -> Control:
@@ -108,12 +112,61 @@ func build_header() -> Control:
 	return bar
 
 func build_battle_plane() -> Control:
-	var plane := HBoxContainer.new()
-	plane.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	plane.add_theme_constant_override("separation", 12)
-	var cards := VBoxContainer.new()
-	cards.custom_minimum_size.x = 252
-	cards.add_theme_constant_override("separation", 8)
+	var plane := Control.new()
+	plane.name = "BattlePlane"
+	plane.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var paper_stage := PaperStageScript.new()
+	paper_stage.name = "PaperStage"
+	paper_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	paper_stage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	plane.add_child(paper_stage)
+	# The only persistent information at the top is information the player can
+	# use: location/time and the current enemy intent. No ornamental meter.
+	round_label = make_label("DAY 18  •  16:40", 15, CREAM)
+	round_label.position = Vector2(34, 28)
+	round_label.size = Vector2(250, 28)
+	plane.add_child(round_label)
+	description_label = RichTextLabel.new()
+	description_label.name = "CombatDescription"
+	description_label.bbcode_enabled = true
+	description_label.fit_content = false
+	description_label.add_theme_font_size_override("normal_font_size", 14)
+	description_label.add_theme_color_override("default_color", CREAM)
+	description_label.text = "[color=#b78a4b]RECEPTION ROAD[/color]  •  ELVEN GATE  •  LATE AFTERNOON"
+	description_label.position = Vector2(34, 54)
+	description_label.size = Vector2(520, 34)
+	description_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plane.add_child(description_label)
+	intent_label = make_label("RAZORBEAK  •  RUSHING BITE  •  16 DAMAGE", 15, DANGER)
+	intent_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	intent_label.position = Vector2(1170, 48)
+	intent_label.size = Vector2(650, 30)
+	plane.add_child(intent_label)
+	# A foreground active actor, an individual raptor, and a later enemy socket
+	# occupy the same painted floor. Their panels are not half-screen columns.
+	actor_panel = make_actor_placeholder("presentation.paper_doll.betty.active", TEAL)
+	actor_panel.position = Vector2(250, 190)
+	actor_panel.size = Vector2(420, 560)
+	plane.add_child(actor_panel)
+	enemy_panel = make_actor_placeholder("presentation.paper_doll.razorbeak.active", DANGER)
+	enemy_panel.position = Vector2(1030, 285)
+	enemy_panel.size = Vector2(385, 420)
+	enemy_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	enemy_panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	enemy_panel.gui_input.connect(on_enemy_gui_input)
+	plane.add_child(enemy_panel)
+	action_cue_label = make_label("BETTY IS READY", 14, Color("e4b75e"))
+	action_cue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	action_cue_label.position = Vector2(400, 755)
+	action_cue_label.size = Vector2(220, 28)
+	plane.add_child(action_cue_label)
+	# Only present party members receive cards. The prototype does not invent
+	# empty roster slots merely to imitate a reference composition.
+	var cards := HBoxContainer.new()
+	cards.name = "PartyCardRail"
+	cards.position = Vector2(32, 794)
+	cards.size = Vector2(420, 172)
+	cards.add_theme_constant_override("separation", 12)
 	for item in [
 		["character.protagonist.captain", "MICHAEL", "STEAM CUTTER CAPTAIN", Color("536c79"), "MC", "captain"],
 		["character.heroine.betty", "BETTY", "FIELD MEDIC", Color("2d7770"), "D"]
@@ -122,94 +175,54 @@ func build_battle_plane() -> Control:
 		cards.add_child(card)
 		card_buttons[item[0]] = card
 	plane.add_child(cards)
-	var stage := VBoxContainer.new()
-	stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stage.add_theme_constant_override("separation", 8)
-	var stage_frame := PanelContainer.new()
-	stage_frame.add_theme_stylebox_override("panel", make_stage_box())
-	stage_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stage_frame.custom_minimum_size.y = 390
-	var visual := Control.new()
-	visual.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var paper_stage := PaperStageScript.new()
-	paper_stage.name = "PaperStage"
-	paper_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	paper_stage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	visual.add_child(paper_stage)
-	var actor_row := HBoxContainer.new()
-	actor_row.name = "ActorRow"
-	actor_row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	actor_row.add_theme_constant_override("separation", 4)
-	actor_panel = make_actor_placeholder("presentation.paper_doll.betty.active", TEAL)
-	actor_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	actor_row.add_child(actor_panel)
-	enemy_panel = make_actor_placeholder("presentation.paper_doll.razorbeak.active", DANGER)
-	enemy_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	enemy_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	enemy_panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	enemy_panel.gui_input.connect(on_enemy_gui_input)
-	actor_row.add_child(enemy_panel)
-	visual.add_child(actor_row)
-	stage_frame.add_child(visual)
-	stage.add_child(stage_frame)
-	var combat_state := HBoxContainer.new()
-	combat_state.add_theme_constant_override("separation", 12)
-	action_cue_label = make_label("BETTY IS READY", 13, Color("e4b75e"))
-	action_cue_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	action_cue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	action_cue_label.custom_minimum_size.y = 26
-	combat_state.add_child(action_cue_label)
-	intent_label = make_label("INTENT: RUSHING BITE  •  16 DAMAGE", 15, DANGER)
-	intent_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	intent_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	combat_state.add_child(intent_label)
-	stage.add_child(combat_state)
-	description_label = RichTextLabel.new()
-	description_label.name = "CombatDescription"
-	description_label.bbcode_enabled = true
-	description_label.fit_content = false
-	description_label.custom_minimum_size.y = 58
-	description_label.add_theme_font_size_override("normal_font_size", 16)
-	description_label.add_theme_color_override("default_color", CREAM)
-	description_label.text = "[color=#b78a4b]RECEPTION ROAD[/color]  •  ELVEN GATE  •  LATE AFTERNOON"
-	stage.add_child(description_label)
 	command_dock = build_footer()
-	stage.add_child(command_dock)
-	plane.add_child(stage)
+	command_dock.position = Vector2(650, 805)
+	command_dock.size = Vector2(560, 175)
+	plane.add_child(command_dock)
 	return plane
 
 func build_footer() -> Control:
 	var footer := HBoxContainer.new()
-	footer.custom_minimum_size.y = 64
+	footer.custom_minimum_size.y = 166
 	footer.add_theme_constant_override("separation", 10)
-	target_label = make_label("BETTY\nD-RANK COMMAND", 12, BRONZE)
-	target_label.custom_minimum_size.x = 150
+	target_label = make_label("BETTY\nD-RANK", 12, BRONZE)
+	target_label.custom_minimum_size.x = 120
 	target_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	footer.add_child(target_label)
-	var commands := HBoxContainer.new()
-	commands.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	commands.alignment = BoxContainer.ALIGNMENT_CENTER
-	# This opening encounter is a D-bond Betty encounter. Only the skill she can
-	# actually use belongs in the command area; later bond skills do not appear as
-	# fake controls before their unlock state and battle rules exist.
-	for command in [["skill.betty.guarded_strike", "D  GUARDED STRIKE", true]]:
-		var button := Button.new()
-		button.text = command[1]
-		button.custom_minimum_size = Vector2(340, 62)
-		button.add_theme_font_size_override("font_size", 15)
-		button.add_theme_color_override("font_color", CREAM)
-		button.add_theme_color_override("font_hover_color", Color("fff0cd"))
-		button.add_theme_color_override("font_pressed_color", Color("0d211e"))
-		button.add_theme_stylebox_override("normal", make_command_box(Color("14211f"), Color("735d39")))
-		button.add_theme_stylebox_override("hover", make_command_box(Color("24423b"), Color("e4c487")))
-		button.add_theme_stylebox_override("pressed", make_command_box(Color("e4c487"), Color("e4c487")))
-		button.add_theme_stylebox_override("disabled", make_command_box(Color("111918"), Color("303d39")))
-		button.disabled = not command[2]
-		button.tooltip_text = "Stable skill ID: %s%s" % [command[0], " — triggers automatically; it is never a manual command" if not command[2] else ""]
-		button.pressed.connect(func() -> void: begin_skill_targeting(command[0]))
-		commands.add_child(button)
-		command_buttons[command[0]] = button
-	footer.add_child(commands)
+	var command_rows := VBoxContainer.new()
+	command_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	command_rows.add_theme_constant_override("separation", 0)
+	var first_row := HBoxContainer.new()
+	first_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	first_row.add_theme_constant_override("separation", 4)
+	var second_row := HBoxContainer.new()
+	second_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	second_row.add_theme_constant_override("separation", 4)
+	# Seven diamonds correspond exactly to Betty's D through SSS authored skill
+	# records. Six are locked because their named milestones have not occurred;
+	# they are future capabilities, not decorative empty inventory slots.
+	var commands := [
+		["skill.betty.guarded_strike", "D", "Guarded Strike", true],
+		["skill.betty.condition_cleanse", "C", "Condition Cleanse", false],
+		["skill.betty.rescue_charge", "B", "Rescue Charge", false],
+		["skill.betty.healing_impact", "A", "Healing Impact", false],
+		["skill.betty.fatal_intercept", "S", "Fatal Intercept", false],
+		["skill.betty.mobile_infirmary", "SS", "Mobile Infirmary", false],
+		["skill.betty.combat_revival", "SSS", "Combat Revival", false]
+	]
+	for index in commands.size():
+		var command: Array = commands[index]
+		var gem := PaperSkillDiamondScript.new()
+		gem.configure(command[0], command[1], command[2], command[3])
+		gem.command_pressed.connect(func(skill_id: String) -> void: begin_skill_targeting(skill_id))
+		if index < 4:
+			first_row.add_child(gem)
+		else:
+			second_row.add_child(gem)
+		command_buttons[command[0]] = gem
+	command_rows.add_child(first_row)
+	command_rows.add_child(second_row)
+	footer.add_child(command_rows)
 	return footer
 
 func make_stage_box() -> StyleBoxFlat:
@@ -227,7 +240,7 @@ func make_stage_box() -> StyleBoxFlat:
 func make_party_card(id: String, display_name: String, role: String, accent: Color, rank: String, portrait_kind := "heroine") -> Control:
 	var card := Control.new()
 	card.name = display_name + "Card"
-	card.custom_minimum_size = Vector2(252, 118)
+	card.custom_minimum_size = Vector2(190, 146)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.tooltip_text = "PAPER PORTRAIT — DEVELOPMENT BLOCKOUT\nStable actor ID: %s\nRole: %s\nFuture portrait must preserve card crop, role read, face, hair, outfit palette and readiness overlay." % [id, role]
 	var portrait := PaperCardScript.new()
@@ -238,8 +251,8 @@ func make_party_card(id: String, display_name: String, role: String, accent: Col
 	var copy := VBoxContainer.new()
 	copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	copy.set_anchors_preset(Control.PRESET_FULL_RECT)
-	copy.offset_left = 74
-	copy.offset_top = 17
+	copy.offset_left = 70
+	copy.offset_top = 20
 	copy.offset_right = -10
 	copy.offset_bottom = -18
 	var name_label := make_label(display_name, 16, CREAM)
@@ -272,6 +285,11 @@ func make_command_box(background: Color, border: Color) -> StyleBoxFlat:
 func make_actor_placeholder(spec_id: String, accent: Color) -> PanelContainer:
 	var spec := catalog.get_registry_entry(spec_id)
 	var panel := PanelContainer.new()
+	# The panel remains the interaction owner for targeting and animation. Its
+	# background is explicitly transparent: a stage actor must not stand inside
+	# a fake poster card.
+	var transparent_panel := StyleBoxEmpty.new()
+	panel.add_theme_stylebox_override("panel", transparent_panel)
 	panel.custom_minimum_size = Vector2(320, 360)
 	var stack := VBoxContainer.new()
 	stack.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -283,22 +301,13 @@ func make_actor_placeholder(spec_id: String, accent: Color) -> PanelContainer:
 	doll.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	doll.configure(spec, accent)
 	stack.add_child(doll)
-	var label := make_label(str(spec.get("displayName", spec_id)), 26, accent)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stack.add_child(label)
-	var state_text := "VIT 70/70  •  GRD 3" if spec.get("dollKind", "") == "wild_raptor" else "ACTIVE FIGHTER"
-	var state := make_label(state_text, 11, Color("b9c0a8"))
-	state.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	state.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	state.tooltip_text = "Replacement asset: %s" % spec.get("futureRuntimeAssetId", "missing")
-	stack.add_child(state)
+	# Actor identity and state belong on their compact rail card and in the
+	# useful battle labels. The stage itself shows bodies and action, not a
+	# redundant poster title underneath each figure.
 	panel.add_child(stack)
 	return panel
 
 func select_actor(id: String, display_name: String, accent: Color) -> void:
-	var stack := actor_panel.get_child(0) as VBoxContainer
-	(stack.get_child(1) as Label).text = display_name
 	description_label.text = "[color=#b78a4b]INSPECT[/color] %s is previewed from the card rail. The simulation still owns whose turn it is." % display_name
 
 func on_party_card_pressed(id: String, display_name: String, accent: Color) -> void:
@@ -470,9 +479,6 @@ func update_status_values(id: String, vitality: int) -> void:
 			actor.vitality = vitality
 			update_actor_status(actor)
 			break
-	if id == "enemy.raptor.razorbeak.prototype":
-		var stack := enemy_panel.get_child(0) as VBoxContainer
-		(stack.get_child(2) as Label).text = "VIT %d/70" % vitality
 
 func update_guard_values(id: String, guard: int) -> void:
 	for actor in snapshot_actors:
@@ -490,11 +496,16 @@ func set_card_state(id: String, state: String) -> void:
 
 func set_commands_enabled(enabled: bool) -> void:
 	for skill_id in command_buttons:
-		var button := command_buttons[skill_id] as Button
+		var button := command_buttons[skill_id] as PaperSkillDiamond
 		var has_legal_targets := catalog.has(skill_id) and targeting.has_legal_targets(catalog.get_record(skill_id), snapshot_actors)
-		button.disabled = not enabled or not has_legal_targets
+		var unlocks_in_opening: bool = str(skill_id) == "skill.betty.guarded_strike"
+		button.set_command_enabled(enabled and unlocks_in_opening and has_legal_targets)
 		if enabled and not has_legal_targets:
 			button.tooltip_text = "Unavailable in the current authoritative encounter: no legal target exists. Stable skill ID: %s" % skill_id
+
+func is_command_enabled(skill_id: String) -> bool:
+	var diamond := command_buttons.get(skill_id) as PaperSkillDiamond
+	return diamond != null and diamond.command_button != null and not diamond.command_button.disabled
 
 func make_color_rect(color: Color, node_name: String) -> ColorRect:
 	var rect := ColorRect.new()
