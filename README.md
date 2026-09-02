@@ -17,6 +17,21 @@ The presentation fixture now exposes all seven of Betty's D-through-SSS skills. 
 
 Betty's current Magnific images are stored as component references under `work/art/magnific/betty/`. Their exact approval boundaries live in `content/art/betty.reference_ledger.json`: one image controls body and rendering direction; two contribute equipment and palette only. None is marked as final production art.
 
+## Active implementation handoff
+
+The project is being split deliberately rather than allowing backend work to
+reshape the game screen. The systems/backend track owns deterministic campaign
+state, command validation, saves, the Reception Terrace encounter, Midnight
+Return, content validation and the first estate consequence. The frontend
+track owns Godot scenes, theatrical battle composition, camera, input, 3D
+asset review, animation, art and all player-facing layout.
+
+The implementation-ready backend brief, dependency order and proof gates are
+in [docs/CLAUDE_BACKEND_HANDOFF.md](docs/CLAUDE_BACKEND_HANDOFF.md). Start
+there before changing simulation, content schemas, the native bridge or save
+data. The brief deliberately prohibits fake UI state, visual redesign and
+scene-owned authority in backend work.
+
 ## Workspace map
 
 - `game/` — Godot 4 project and GDScript presentation.
