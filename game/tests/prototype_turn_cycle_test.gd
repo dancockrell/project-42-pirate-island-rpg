@@ -13,6 +13,7 @@ func run() -> void:
 	await prototype.submit_skill("skill.betty.guarded_strike", ["enemy.raptor.razorbeak.prototype"])
 	check(prototype.active_actor_id == "character.heroine.betty", "automatic enemy and support turns must return control to Betty")
 	check(prototype.command_buttons["skill.betty.guarded_strike"].disabled == false, "Betty's legal commands must re-enable after the full initiative cycle")
+	check("VIX" in prototype.intent_label.text and "LETHAL" in prototype.intent_label.text, "visible enemy intent must name the authoritative target and lethal projection")
 	prototype.queue_free()
 	if failures > 0:
 		quit(1)

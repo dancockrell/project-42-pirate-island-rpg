@@ -69,6 +69,28 @@ impl Project42SimulationBridge {
             vdict! { "battle_id" => "", "phase" => "error", "actors" => &actors, "error" => &error }
         })
     }
+
+    #[func]
+    fn recommended_enemy_command(&self, command_id: GString) -> VarDictionary {
+        let Some(battle) = self.battle.as_ref() else {
+            return vdict! { "available" => false, "reason" => "battle_not_created" };
+        };
+        let Some(decision) = battle.enemy_decision() else {
+            return vdict! { "available" => false, "reason" => "active_actor_is_not_hostile" };
+        };
+        let target_ids: Array<GString> = array![decision.target_id.0.as_str()];
+        vdict! {
+            "available" => true, "protocol_version" => i64::from(PROTOCOL_VERSION),
+            "command_id" => &command_id, "battle_id" => BATTLE_ID,
+            "actor_id" => decision.actor_id.0.as_str(), "kind" => "use_skill",
+            "skill_id" => decision.skill_id.as_str(), "target_ids" => &target_ids,
+            "rationale" => decision.rationale.as_str(), "raw_damage" => i64::from(decision.raw_damage),
+            "guard_absorbed" => i64::from(decision.guard_absorbed),
+            "vitality_damage" => i64::from(decision.vitality_damage), "lethal" => decision.lethal,
+            "interception_protector_id" => decision.interception_protector_id.as_ref().map(|id| id.0.as_str()).unwrap_or(""),
+            "fatal_intercept_available" => decision.fatal_intercept_available,
+        }
+    }
 }
 
 impl Project42SimulationBridge {
@@ -204,6 +226,13 @@ fn event_dictionary(
             actor_id,
             skill_id,
             target_ids,
+            rationale,
+            raw_damage,
+            guard_absorbed,
+            vitality_damage,
+            lethal,
+            interception_protector_id,
+            fatal_intercept_available,
         } => {
             kind = "enemy_intent_declared";
             subject!(actor_id);
@@ -211,6 +240,16 @@ fn event_dictionary(
                 subject!(id);
             }
             payload.set("skill_id", skill_id);
+            payload.set("rationale", rationale);
+            payload.set("raw_damage", i64::from(raw_damage));
+            payload.set("guard_absorbed", i64::from(guard_absorbed));
+            payload.set("vitality_damage", i64::from(vitality_damage));
+            payload.set("lethal", lethal);
+            payload.set(
+                "interception_protector_id",
+                interception_protector_id.map(|id| id.0).unwrap_or_default(),
+            );
+            payload.set("fatal_intercept_available", fatal_intercept_available);
         }
         BattleEvent::CommandAccepted {
             command_id: id,

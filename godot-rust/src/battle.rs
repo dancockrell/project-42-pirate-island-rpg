@@ -70,6 +70,20 @@ pub struct SkillCommand {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct EnemyDecision {
+    pub actor_id: ActorId,
+    pub skill_id: String,
+    pub target_id: ActorId,
+    pub rationale: String,
+    pub raw_damage: i32,
+    pub guard_absorbed: i32,
+    pub vitality_damage: i32,
+    pub lethal: bool,
+    pub interception_protector_id: Option<ActorId>,
+    pub fatal_intercept_available: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum BattleEvent {
     BattleStarted {
         round: u32,
@@ -82,6 +96,13 @@ pub enum BattleEvent {
         actor_id: ActorId,
         skill_id: String,
         target_ids: Vec<ActorId>,
+        rationale: String,
+        raw_damage: i32,
+        guard_absorbed: i32,
+        vitality_damage: i32,
+        lethal: bool,
+        interception_protector_id: Option<ActorId>,
+        fatal_intercept_available: bool,
     },
     CommandAccepted {
         command_id: String,
@@ -377,6 +398,78 @@ impl Battle {
     }
     pub fn active_actor_id(&self) -> Option<&ActorId> {
         self.turn_order.get(self.turn_index)
+    }
+    pub fn recommended_enemy_command(&self, command_id: impl Into<String>) -> Option<SkillCommand> {
+        let decision = self.enemy_decision()?;
+        Some(SkillCommand {
+            command_id: command_id.into(),
+            actor_id: decision.actor_id,
+            skill_id: decision.skill_id,
+            target_ids: vec![decision.target_id],
+        })
+    }
+
+    pub fn enemy_decision(&self) -> Option<EnemyDecision> {
+        if self.phase != BattlePhase::AwaitingCommand {
+            return None;
+        }
+        let actor_id = self.active_actor_id()?.clone();
+        let attacker = self.actors.get(&actor_id)?;
+        if attacker.faction != Faction::Hostile || !attacker.is_alive() {
+            return None;
+        }
+        let target = self
+            .actors
+            .values()
+            .filter(|candidate| candidate.faction == Faction::Party && candidate.is_alive())
+            .min_by(|left, right| {
+                compare_vitality_percentage(left, right)
+                    .then_with(|| left.guard.cmp(&right.guard))
+                    .then_with(|| left.id.cmp(&right.id))
+            })?;
+        let raw_damage = 9 + i32::from(attacker.level);
+        let guard_absorbed = target.guard.min(raw_damage);
+        let vitality_damage = raw_damage - guard_absorbed;
+        let lethal = vitality_damage >= target.vitality;
+        let interception_protector_id = self
+            .actors
+            .values()
+            .find(|candidate| {
+                candidate.is_alive() && candidate.intercepts_for.as_ref() == Some(&target.id)
+            })
+            .map(|candidate| candidate.id.clone());
+        let betty_id = ActorId("character.heroine.betty".into());
+        let fatal_intercept_available = lethal
+            && interception_protector_id.is_none()
+            && self.actors.get(&betty_id).is_some_and(|betty| {
+                betty.is_alive()
+                    && !betty
+                        .statuses
+                        .iter()
+                        .any(|status| status.kind == StatusKind::Stunned)
+                    && betty
+                        .skill_uses_remaining
+                        .get("skill.betty.fatal_intercept")
+                        .copied()
+                        .unwrap_or(0)
+                        > 0
+            });
+        Some(EnemyDecision {
+            actor_id,
+            skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+            target_id: target.id.clone(),
+            rationale: if lethal {
+                "finish_most_wounded".into()
+            } else {
+                "pressure_most_wounded".into()
+            },
+            raw_damage,
+            guard_absorbed,
+            vitality_damage,
+            lethal,
+            interception_protector_id,
+            fatal_intercept_available,
+        })
     }
     pub fn snapshot(&self) -> BattleSnapshot {
         BattleSnapshot {
@@ -1147,16 +1240,21 @@ impl Battle {
     }
 
     fn enemy_intent(&self, actor_id: &ActorId) -> BattleEvent {
-        let target = self
-            .actors
-            .values()
-            .filter(|a| a.faction == Faction::Party && a.is_alive())
-            .min_by_key(|a| (a.vitality, &a.id))
-            .expect("party target exists");
+        let decision = self
+            .enemy_decision()
+            .expect("active hostile has a decision");
+        debug_assert_eq!(&decision.actor_id, actor_id);
         BattleEvent::EnemyIntentDeclared {
-            actor_id: actor_id.clone(),
-            skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
-            target_ids: vec![target.id.clone()],
+            actor_id: decision.actor_id,
+            skill_id: decision.skill_id,
+            target_ids: vec![decision.target_id],
+            rationale: decision.rationale,
+            raw_damage: decision.raw_damage,
+            guard_absorbed: decision.guard_absorbed,
+            vitality_damage: decision.vitality_damage,
+            lethal: decision.lethal,
+            interception_protector_id: decision.interception_protector_id,
+            fatal_intercept_available: decision.fatal_intercept_available,
         }
     }
 }
@@ -1252,6 +1350,35 @@ mod tests {
                 .any(|event| matches!(event, BattleEvent::EnemyIntentDeclared { .. }))
         );
         assert_eq!(battle.snapshot().phase, BattlePhase::AwaitingCommand);
+    }
+
+    #[test]
+    fn enemy_decision_selects_the_most_wounded_percentage_and_exposes_reaction_facts() {
+        let mut battle = Battle::prototype_vertical_slice();
+        battle.start();
+        battle
+            .submit(SkillCommand {
+                command_id: "open.enemy.turn".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.guarded_strike".into(),
+                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+            })
+            .unwrap();
+        let decision = battle.enemy_decision().expect("razorbeak is active");
+        assert_eq!(decision.target_id, ActorId("character.heroine.vix".into()));
+        assert_eq!(decision.rationale, "finish_most_wounded");
+        assert_eq!(decision.raw_damage, 16);
+        assert_eq!(decision.guard_absorbed, 0);
+        assert_eq!(decision.vitality_damage, 16);
+        assert!(decision.lethal);
+        assert!(decision.interception_protector_id.is_none());
+        assert!(decision.fatal_intercept_available);
+        let command = battle
+            .recommended_enemy_command("command.enemy.recommended")
+            .expect("decision converts to a command");
+        assert_eq!(command.actor_id, decision.actor_id);
+        assert_eq!(command.skill_id, decision.skill_id);
+        assert_eq!(command.target_ids, vec![decision.target_id]);
     }
     #[test]
     fn rejects_out_of_turn_commands_without_mutation() {

@@ -17,6 +17,25 @@ var grisha_vitality := 88
 var infirmary_pulses_remaining := 0
 var combat_revival_uses := 1
 
+func recommended_enemy_command(command_id: String) -> Dictionary:
+	return {
+		"available": true,
+		"protocol_version": 1,
+		"command_id": command_id,
+		"battle_id": "battle.prototype.returning_names",
+		"actor_id": "enemy.raptor.razorbeak.prototype",
+		"kind": "use_skill",
+		"skill_id": "skill.enemy.razorbeak.rushing_bite",
+		"target_ids": ["character.heroine.betty"],
+		"rationale": "pressure_active_actor",
+		"raw_damage": 16,
+		"guard_absorbed": 0,
+		"vitality_damage": 16,
+		"lethal": false,
+		"interception_protector_id": "",
+		"fatal_intercept_available": false
+	}
+
 func create_debug_battle() -> Dictionary:
 	return {
 		"battle_id": "battle.prototype.returning_names",
@@ -136,7 +155,10 @@ func submit(command: Dictionary) -> Array[Dictionary]:
 func resolve_enemy_turn() -> Array[Dictionary]:
 	var events: Array[Dictionary] = [make_event("turn_started", ["enemy.raptor.razorbeak.prototype"], {"round": round_number})]
 	events.append(make_event("enemy_intent_declared", ["enemy.raptor.razorbeak.prototype", "character.heroine.betty"], {
-		"skill_id": "skill.enemy.razorbeak.rushing_bite", "intent_name": "Rushing Bite", "target_id": "character.heroine.betty"
+		"skill_id": "skill.enemy.razorbeak.rushing_bite", "intent_name": "Rushing Bite", "target_id": "character.heroine.betty",
+		"rationale": "pressure_active_actor", "raw_damage": 16, "guard_absorbed": mini(16, betty_guard),
+		"vitality_damage": maxi(0, 16 - betty_guard), "lethal": maxi(0, 16 - betty_guard) >= betty_vitality,
+		"interception_protector_id": "", "fatal_intercept_available": false
 	}))
 	var enemy_damage := maxi(0, 16 - betty_guard)
 	betty_guard = maxi(0, betty_guard - 16)

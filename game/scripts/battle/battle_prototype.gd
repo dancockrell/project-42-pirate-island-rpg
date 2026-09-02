@@ -292,8 +292,9 @@ func project_command_events(events: Array[Dictionary], run_followups := true) ->
 
 func run_automatic_turns() -> void:
 	while active_actor_id != "character.heroine.betty":
+		var command_id := "command.prototype.auto.%s" % Time.get_ticks_usec()
 		var automatic_command := {
-			"command_id": "command.prototype.auto.%s" % Time.get_ticks_usec(),
+			"command_id": command_id,
 			"battle_id": "battle.prototype.returning_names",
 			"actor_id": active_actor_id,
 			"kind": "use_skill",
@@ -302,8 +303,10 @@ func run_automatic_turns() -> void:
 			"payload": {}
 		}
 		if active_actor_id == "enemy.raptor.razorbeak.prototype":
-			automatic_command.skill_id = "skill.enemy.razorbeak.rushing_bite"
-			automatic_command.target_ids = ["character.heroine.vix"]
+			automatic_command = simulation.recommended_enemy_command(command_id)
+			if not automatic_command.get("available", false):
+				description_label.text += " [color=#c24e45]ENEMY DECISION FAILED[/color] %s." % automatic_command.get("reason", "unknown_reason")
+				return
 		var events: Array[Dictionary] = simulation.submit(automatic_command)
 		if events.is_empty() or events[0].get("kind", "") == "command_rejected":
 			for event in events:
@@ -329,8 +332,10 @@ func project_event(event: Dictionary) -> void:
 		"command_accepted": description_label.text = "[color=#4fc7b4]ACCEPTED[/color] The simulation accepted %s." % event.payload.skill_id
 		"actor_focused": set_card_state(event.subjects[0], "ACTIVE")
 		"enemy_intent_declared":
-			intent_label.text = "INTENT: RUSHING BITE → BETTY"
-			description_label.text += " [color=#c24e45]INTENT[/color] It lowers its skull and commits to a straight rushing bite."
+			var target_id: String = event.subjects[1]
+			var target_name: String = actor_display_names.get(target_id, target_id)
+			intent_label.text = "INTENT: RUSHING BITE → %s%s" % [target_name, " • LETHAL" if event.payload.get("lethal", false) else ""]
+			description_label.text += enemy_intent_description(target_name, event.payload)
 		"damage_applied":
 			var target_id: String = event.subjects[-1]
 			description_label.text += " The hit deals %d damage; %d vitality remains." % [event.payload.amount, event.payload.remaining_vitality]
@@ -425,6 +430,21 @@ func make_color_rect(color: Color, node_name: String) -> ColorRect:
 	rect.color = color
 	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	return rect
+
+func enemy_intent_description(target_name: String, facts: Dictionary) -> String:
+	var sentence := " [color=#c24e45]INTENT[/color] The razorbeak lowers its skull toward %s. The rush will deliver %d raw damage" % [target_name, facts.get("raw_damage", 0)]
+	if int(facts.get("guard_absorbed", 0)) > 0:
+		sentence += "; %d will strike Guard and %d will reach Vitality" % [facts.guard_absorbed, facts.vitality_damage]
+	else:
+		sentence += ", all of it against Vitality"
+	if facts.get("lethal", false):
+		sentence += ". The projected hit is lethal"
+	if not str(facts.get("interception_protector_id", "")).is_empty():
+		var protector_name: String = actor_display_names.get(facts.interception_protector_id, facts.interception_protector_id)
+		sentence += ", though %s is already standing in the attack line" % protector_name
+	elif facts.get("fatal_intercept_available", false):
+		sentence += ", and Betty is ready to break formation before it lands"
+	return sentence + "."
 
 func make_label(value: String, size: int, color: Color) -> Label:
 	var label := Label.new()
