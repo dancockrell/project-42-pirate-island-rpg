@@ -197,6 +197,14 @@ animation enabled before generation**. Add left, right and back plates only
 when they are the same approved body, costume and weapon. Never repair a poor
 side view by mixing in a different character image.
 
+Betty’s generation-ready four-view contract is
+`work/art/magnific/betty/rig_input_plate_family_v1.json`. It produces a single
+clean turnaround sheet first, then extracts the Front, Left, Right and Back
+panels without repainting or mixing generation runs. The material target is
+high-definition stylized anime 3D: clear fabric, bronze, leather and glass
+separation under studio light, with painterly stylized skin and face rather
+than photographic pores or a real-person likeness.
+
 ## Rig delivery contract
 
 A candidate must deliver an editable GLB or GLTF with these literal,
