@@ -1,0 +1,35 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/reception_terrace_setpiece.gd" id="1_setpiece"]
+[ext_resource type="Script" path="res://scripts/world/reception_terrace_component.gd" id="2_component"]
+[ext_resource type="Script" path="res://scripts/world/reception_terrace_lighting_kit.gd" id="3_lighting"]
+
+[node name="ReceptionTerraceSetpiece" type="Node3D"]
+script = ExtResource("1_setpiece")
+metadata/asset_kind = "procedural_environment_setpiece"
+metadata/purpose = "Visual shell for the Reception Terrace world cell; no characters or gameplay truth."
+metadata/source_status = "Godot built-in mesh and material kit; replace by named section when curated art is admitted."
+metadata/visual_authority = "docs/VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md"
+
+[node name="Lighting" type="Node3D" parent="."]
+script = ExtResource("3_lighting")
+
+[node name="ProcessionalTerrace" type="Node3D" parent="."]
+script = ExtResource("2_component")
+component_id = "processional_terrace"
+
+[node name="ElvenGate" type="Node3D" parent="."]
+script = ExtResource("2_component")
+component_id = "elven_gate"
+
+[node name="JungleMass" type="Node3D" parent="."]
+script = ExtResource("2_component")
+component_id = "jungle_mass"
+
+[node name="ShipwreckFlotsam" type="Node3D" parent="."]
+script = ExtResource("2_component")
+component_id = "shipwreck_flotsam"
+
+[node name="SeaAndSky" type="Node3D" parent="."]
+script = ExtResource("2_component")
+component_id = "sea_and_sky"

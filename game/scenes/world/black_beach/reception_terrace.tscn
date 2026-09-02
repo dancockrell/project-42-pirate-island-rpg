@@ -1,16 +1,20 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/world_cell.gd" id="1_cell"]
 [ext_resource type="PackedScene" path="res://scenes/world/black_beach/reception_terrace_collision.tscn" id="2_collision"]
 [ext_resource type="PackedScene" path="res://scenes/world/black_beach/reception_terrace_navigation.tscn" id="3_navigation"]
+[ext_resource type="PackedScene" path="res://scenes/world/black_beach/reception_terrace_setpiece.tscn" id="4_setpiece"]
 
 [node name="ReceptionTerrace" type="Node3D"]
 script = ExtResource("1_cell")
 world_cell_id = "world.cell.reception_terrace"
 
 [node name="VisualShell" type="Node3D" parent="."]
-metadata/production_state = "waiting_for_curated_baked_glb"
-metadata/runtime_path = "res://assets/world/black_beach/reception_terrace/reception_terrace.glb"
+metadata/production_state = "procedural-standard-godot-setpiece-active"
+metadata/runtime_path = "res://scenes/world/black_beach/reception_terrace_setpiece.tscn"
+metadata/replacement_contract = "Replace cohesive named setpiece sections only; preserve collision, navigation, entry anchors, battle entries and camera rails."
+
+[node name="ReceptionTerraceSetpiece" parent="VisualShell" instance=ExtResource("4_setpiece")]
 
 [node name="TerrainAndCollision" parent="." instance=ExtResource("2_collision")]
 

@@ -39,6 +39,14 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Godot world-cell tests failed with exit code $LASTEXITCODE"
     }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --scene "res://scenes/review/reception_terrace_setpiece_review.tscn" --quit-after 2
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot Reception Terrace setpiece review scene failed with exit code $LASTEXITCODE"
+    }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/reception_terrace_setpiece_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot Reception Terrace setpiece tests failed with exit code $LASTEXITCODE"
+    }
     & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/targeting_session_test.gd"
     if ($LASTEXITCODE -ne 0) {
         throw "Godot targeting-session tests failed with exit code $LASTEXITCODE"
