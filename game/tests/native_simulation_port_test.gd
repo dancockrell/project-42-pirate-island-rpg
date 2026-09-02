@@ -10,6 +10,7 @@ func _init() -> void:
 	check(before.metadata.source == "rust_gdextension", "snapshot must name Rust authority")
 	check(before.phase == "awaiting_actor", "prototype must start awaiting an actor")
 	check(before.actors.size() == 4, "native fixture must expose a party-scale encounter")
+	check(before.has("recovery_openings") and before.recovery_openings.is_empty(), "native snapshot must expose an initially empty recovery-opening collection")
 	check(actor(before, "character.heroine.ayla").vitality == 0, "Ayla must begin defeated so Combat Revival is testable")
 	check(actor(before, "character.heroine.vix").vitality == 10, "Vix must begin wounded so healing and lethal reactions are testable")
 	var start := port.start()

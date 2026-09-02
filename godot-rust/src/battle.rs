@@ -40,6 +40,13 @@ pub struct BattlefieldEffect {
     pub remaining_pulses: u8,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RecoveryOpening {
+    pub actor_id: ActorId,
+    pub source_skill_id: String,
+    pub bonus_raw_damage: i32,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Actor {
     pub id: ActorId,
@@ -197,6 +204,21 @@ pub enum BattleEvent {
         effect_id: String,
         reason: String,
     },
+    RecoveryOpeningCreated {
+        command_id: String,
+        actor_id: ActorId,
+        source_skill_id: String,
+        bonus_raw_damage: i32,
+    },
+    RecoveryOpeningConsumed {
+        command_id: String,
+        actor_id: ActorId,
+        attacker_id: ActorId,
+        bonus_raw_damage: i32,
+    },
+    RecoveryOpeningExpired {
+        actor_id: ActorId,
+    },
     ActorDefeated {
         command_id: String,
         actor_id: ActorId,
@@ -265,6 +287,7 @@ pub struct BattleSnapshot {
     pub active_actor_id: Option<ActorId>,
     pub actors: Vec<Actor>,
     pub effects: Vec<BattlefieldEffect>,
+    pub recovery_openings: Vec<RecoveryOpening>,
     pub forced_next_actor_id: Option<ActorId>,
     pub forced_turn_resume: Option<(usize, u32)>,
 }
@@ -279,6 +302,7 @@ pub struct Battle {
     phase: BattlePhase,
     resolving_reaction: bool,
     effects: Vec<BattlefieldEffect>,
+    recovery_openings: BTreeMap<ActorId, RecoveryOpening>,
     forced_next_actor: Option<ActorId>,
     forced_turn_resume: Option<(usize, u32)>,
 }
@@ -391,6 +415,7 @@ impl Battle {
             phase: BattlePhase::AwaitingActor,
             resolving_reaction: false,
             effects: Vec::new(),
+            recovery_openings: BTreeMap::new(),
             forced_next_actor: None,
             forced_turn_resume: None,
         }
@@ -502,6 +527,7 @@ impl Battle {
             active_actor_id: self.active_actor_id().cloned(),
             actors: self.actors.values().cloned().collect(),
             effects: self.effects.clone(),
+            recovery_openings: self.recovery_openings.values().cloned().collect(),
             forced_next_actor_id: self.forced_next_actor.clone(),
             forced_turn_resume: self.forced_turn_resume,
         }
@@ -808,6 +834,21 @@ impl Battle {
             true,
             events,
         );
+        if command.skill_id == "skill.enemy.razorbeak.guard_breaking_kick" {
+            let opening = RecoveryOpening {
+                actor_id: command.actor_id.clone(),
+                source_skill_id: command.skill_id.clone(),
+                bonus_raw_damage: 6,
+            };
+            self.recovery_openings
+                .insert(command.actor_id.clone(), opening.clone());
+            events.push(BattleEvent::RecoveryOpeningCreated {
+                command_id: command.command_id.clone(),
+                actor_id: opening.actor_id,
+                source_skill_id: opening.source_skill_id,
+                bonus_raw_damage: opening.bonus_raw_damage,
+            });
+        }
         if guard_gain > 0 {
             let actor = self
                 .actors
@@ -1113,6 +1154,22 @@ impl Battle {
         allow_reactions: bool,
         events: &mut Vec<BattleEvent>,
     ) -> DamageOutcome {
+        let mut raw_damage = raw_damage;
+        let source_is_party = self
+            .actors
+            .get(source_id)
+            .is_some_and(|source| source.faction == Faction::Party);
+        if source_is_party {
+            if let Some(opening) = self.recovery_openings.remove(target_id) {
+                raw_damage += opening.bonus_raw_damage;
+                events.push(BattleEvent::RecoveryOpeningConsumed {
+                    command_id: command_id.into(),
+                    actor_id: target_id.clone(),
+                    attacker_id: source_id.clone(),
+                    bonus_raw_damage: opening.bonus_raw_damage,
+                });
+            }
+        }
         let target = self.actors.get(target_id).expect("damage target checked");
         let absorbed = target.guard.min(raw_damage);
         let predicted_damage = (raw_damage - absorbed).min(target.vitality);
@@ -1258,6 +1315,11 @@ impl Battle {
         self.skip_defeated_actors();
         self.phase = BattlePhase::AwaitingCommand;
         let actor_id = self.active_actor_id().expect("living actor exists").clone();
+        if self.recovery_openings.remove(&actor_id).is_some() {
+            events.push(BattleEvent::RecoveryOpeningExpired {
+                actor_id: actor_id.clone(),
+            });
+        }
         events.push(BattleEvent::TurnStarted {
             round: self.round,
             actor_id: actor_id.clone(),
@@ -1564,6 +1626,139 @@ mod tests {
         assert_eq!(betty.guard, 0);
         assert_eq!(betty.vitality, 89);
         assert!(betty.intercepts_for.is_none());
+    }
+
+    #[test]
+    fn guard_breaking_kick_creates_a_recovery_opening_consumed_by_the_next_party_hit() {
+        let mut battle = Battle::prototype_vertical_slice();
+        battle
+            .actors
+            .get_mut(&ActorId("character.heroine.vix".into()))
+            .expect("Vix exists")
+            .guard = 10;
+        battle.start();
+        battle
+            .submit(SkillCommand {
+                command_id: "open.enemy.turn.for.recovery".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.guarded_strike".into(),
+                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+            })
+            .unwrap();
+        let kick_events = battle
+            .submit(SkillCommand {
+                command_id: "create.recovery.opening".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.guard_breaking_kick".into(),
+                target_ids: vec![ActorId("character.heroine.vix".into())],
+            })
+            .unwrap();
+        assert!(kick_events.iter().any(|event| matches!(
+            event,
+            BattleEvent::RecoveryOpeningCreated {
+                actor_id,
+                bonus_raw_damage: 6,
+                ..
+            } if actor_id.0 == "enemy.raptor.razorbeak.prototype"
+        )));
+        assert_eq!(battle.snapshot().recovery_openings.len(), 1);
+
+        battle
+            .submit(SkillCommand {
+                command_id: "vix.waits".into(),
+                actor_id: ActorId("character.heroine.vix".into()),
+                skill_id: "skill.system.hold_position".into(),
+                target_ids: vec![],
+            })
+            .unwrap();
+        assert_eq!(battle.snapshot().recovery_openings.len(), 1);
+
+        let punish_events = battle
+            .submit(SkillCommand {
+                command_id: "betty.punishes.recovery".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.guarded_strike".into(),
+                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+            })
+            .unwrap();
+        let consumed_index = punish_events
+            .iter()
+            .position(|event| {
+                matches!(
+                    event,
+                    BattleEvent::RecoveryOpeningConsumed {
+                        bonus_raw_damage: 6,
+                        ..
+                    }
+                )
+            })
+            .expect("recovery opening consumed");
+        let damage_index = punish_events
+            .iter()
+            .position(|event| matches!(event, BattleEvent::DamageApplied { target_id, amount: 21, .. } if target_id.0 == "enemy.raptor.razorbeak.prototype"))
+            .expect("bonus damage applied");
+        assert!(consumed_index < damage_index);
+        assert!(battle.snapshot().recovery_openings.is_empty());
+        assert_eq!(
+            battle
+                .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+                .expect("Razorbeak remains")
+                .vitality,
+            37
+        );
+    }
+
+    #[test]
+    fn unused_recovery_opening_expires_before_razorbeaks_next_intent() {
+        let mut battle = Battle::prototype_vertical_slice();
+        battle
+            .actors
+            .get_mut(&ActorId("character.heroine.vix".into()))
+            .expect("Vix exists")
+            .guard = 10;
+        battle.start();
+        battle
+            .submit(SkillCommand {
+                command_id: "open.enemy.turn.for.expiry".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.guarded_strike".into(),
+                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+            })
+            .unwrap();
+        battle
+            .submit(SkillCommand {
+                command_id: "create.expiring.opening".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.guard_breaking_kick".into(),
+                target_ids: vec![ActorId("character.heroine.vix".into())],
+            })
+            .unwrap();
+        battle
+            .submit(SkillCommand {
+                command_id: "vix.does.not.punish".into(),
+                actor_id: ActorId("character.heroine.vix".into()),
+                skill_id: "skill.system.hold_position".into(),
+                target_ids: vec![],
+            })
+            .unwrap();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "betty.does.not.punish".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.system.hold_position".into(),
+                target_ids: vec![],
+            })
+            .unwrap();
+        let expired_index = events
+            .iter()
+            .position(|event| matches!(event, BattleEvent::RecoveryOpeningExpired { actor_id } if actor_id.0 == "enemy.raptor.razorbeak.prototype"))
+            .expect("recovery opening expired");
+        let intent_index = events
+            .iter()
+            .position(|event| matches!(event, BattleEvent::EnemyIntentDeclared { .. }))
+            .expect("next enemy intent declared");
+        assert!(expired_index < intent_index);
+        assert!(battle.snapshot().recovery_openings.is_empty());
     }
     #[test]
     fn rejects_out_of_turn_commands_without_mutation() {

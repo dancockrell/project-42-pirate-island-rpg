@@ -15,6 +15,9 @@ func _init() -> void:
 	check_text("bonus_turn_granted", ["character.heroine.isabella"], {}, ["Isabella"], ["Ayla"])
 	check_text("actor_moved", ["character.heroine.isabella"], {"from_band": 2, "to_band": 0}, ["Isabella", "band 2", "band 0"], ["Betty"])
 	check_text("status_removed", ["character.heroine.isabella"], {"status_id": "status.isabella.poisoned.prototype", "status_kind": "poisoned"}, ["Isabella", "poisoned"], ["prototype"])
+	check_text("recovery_opening_created", ["enemy.raptor.razorbeak.prototype"], {"source_skill_id": "skill.enemy.razorbeak.guard_breaking_kick", "bonus_raw_damage": 6}, ["Razorbeak", "GUARD BREAKING KICK", "6 raw damage"], ["Betty"])
+	check_text("recovery_opening_consumed", ["enemy.raptor.razorbeak.prototype", "character.heroine.betty"], {"bonus_raw_damage": 6}, ["Betty", "Razorbeak", "6 bonus"], ["Isabella"])
+	check_text("recovery_opening_expired", ["enemy.raptor.razorbeak.prototype"], {}, ["Razorbeak", "opening closes"], ["Betty"])
 	var intent := renderer.render(event("enemy_intent_declared", ["enemy.raptor.razorbeak.prototype", "character.heroine.isabella"], {
 		"skill_id": "skill.enemy.razorbeak.rushing_bite", "raw_damage": 16,
 		"guard_absorbed": 4, "vitality_damage": 12, "lethal": true,

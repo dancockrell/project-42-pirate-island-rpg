@@ -51,6 +51,8 @@ func create_debug_battle() -> Dictionary:
 			actor_snapshot("character.heroine.grisha", "Grisha", "party", grisha_vitality, 110, 4, 0),
 			actor_snapshot("enemy.raptor.razorbeak.prototype", "Razorbeak", "hostile", razorbeak_vitality, 70, razorbeak_guard, 2)
 		],
+		"effects": [],
+		"recovery_openings": [],
 		"metadata": {"source": "mock", "release_legal": false, "authoritative_equivalent": "godot-rust/src/battle.rs"}
 	}
 

@@ -2,7 +2,7 @@ use godot::prelude::*;
 
 use crate::battle::{
     Actor, Battle, BattleEvent, BattlePhase, BattleSnapshot, BattlefieldEffect, Faction,
-    StatusInstance, StatusKind,
+    RecoveryOpening, StatusInstance, StatusKind,
 };
 use crate::protocol::{CommandEnvelope, CommandKind, PROTOCOL_VERSION};
 
@@ -163,13 +163,17 @@ fn snapshot_dictionary(snapshot: &BattleSnapshot) -> VarDictionary {
     for effect in &snapshot.effects {
         effects.push(&effect_dictionary(effect));
     }
+    let mut recovery_openings = Array::<VarDictionary>::new();
+    for opening in &snapshot.recovery_openings {
+        recovery_openings.push(&recovery_opening_dictionary(opening));
+    }
     let metadata = vdict! { "source" => "rust_gdextension", "authoritative" => true };
     vdict! {
         "protocol_version" => i64::from(PROTOCOL_VERSION), "battle_id" => snapshot.battle_id.as_str(),
         "round" => snapshot.round as i64, "phase" => phase_name(&snapshot.phase),
         "active_actor_id" => snapshot.active_actor_id.as_ref().map(|id| id.0.as_str()).unwrap_or(""),
         "description" => "The razorbeak keeps its wounded flank away from Betty. Its feet are coiled for a two-band rush.",
-        "actors" => &actors, "effects" => &effects, "metadata" => &metadata,
+        "actors" => &actors, "effects" => &effects, "recovery_openings" => &recovery_openings, "metadata" => &metadata,
     }
 }
 
@@ -192,6 +196,10 @@ fn status_dictionary(status: &StatusInstance) -> VarDictionary {
 
 fn effect_dictionary(effect: &BattlefieldEffect) -> VarDictionary {
     vdict! { "effect_id" => effect.instance_id.as_str(), "source_actor_id" => effect.source_actor_id.0.as_str(), "source_skill_id" => effect.source_skill_id.as_str(), "remaining_pulses" => i64::from(effect.remaining_pulses) }
+}
+
+fn recovery_opening_dictionary(opening: &RecoveryOpening) -> VarDictionary {
+    vdict! { "actor_id" => opening.actor_id.0.as_str(), "source_skill_id" => opening.source_skill_id.as_str(), "bonus_raw_damage" => i64::from(opening.bonus_raw_damage) }
 }
 
 fn event_dictionary(
@@ -437,6 +445,34 @@ fn event_dictionary(
             kind = "battlefield_effect_removed";
             payload.set("effect_id", effect_id);
             payload.set("reason", reason);
+        }
+        BattleEvent::RecoveryOpeningCreated {
+            command_id: id,
+            actor_id,
+            source_skill_id,
+            bonus_raw_damage,
+        } => {
+            kind = "recovery_opening_created";
+            command!(id);
+            subject!(actor_id);
+            payload.set("source_skill_id", source_skill_id);
+            payload.set("bonus_raw_damage", i64::from(bonus_raw_damage));
+        }
+        BattleEvent::RecoveryOpeningConsumed {
+            command_id: id,
+            actor_id,
+            attacker_id,
+            bonus_raw_damage,
+        } => {
+            kind = "recovery_opening_consumed";
+            command!(id);
+            subject!(actor_id);
+            subject!(attacker_id);
+            payload.set("bonus_raw_damage", i64::from(bonus_raw_damage));
+        }
+        BattleEvent::RecoveryOpeningExpired { actor_id } => {
+            kind = "recovery_opening_expired";
+            subject!(actor_id);
         }
         BattleEvent::ActorDefeated {
             command_id: id,
