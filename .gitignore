@@ -10,5 +10,5 @@ work/*.docx
 work/*.pdf
 work/__pycache__/
 *.zip
-.git-meta/
+.git-empty-backup-*/
 .gh-auth/

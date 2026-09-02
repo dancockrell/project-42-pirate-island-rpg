@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+
+repo_root="$(git rev-parse --show-toplevel)"
+node "$repo_root/tools/src/scan-staged-secrets.mjs"
+git diff --cached --check
