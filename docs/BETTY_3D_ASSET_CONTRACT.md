@@ -82,3 +82,21 @@ prove:
 
 Only then may the 3D model replace the temporary paper Betty in the Reception
 Terrace scene.
+
+## Candidate 01: static blocking export
+
+The downloaded candidate is retained with its raw export and provenance at
+`work/art/vendor/magnific/betty-3d/N2cYw4m6D9/`. Its exact engine review copy is
+`game/assets/candidates/betty_3d/betty_candidate_v1.glb`.
+
+Structural inspection found one textured mesh, one material, zero skins and
+zero animation clips. It is therefore deliberately quarantined as a **static
+blocking candidate**. The isolated Godot review scene at
+`res://scenes/review/betty_3d_candidate_review.tscn` may test only identity
+read, scale, silhouette and the active-fighter camera envelope. It cannot be
+used for Betty's idle, step, weapon socket, seven skills or live battle actor.
+
+The next 3D generation must explicitly retain the approved identity while
+exporting a skeleton and separate hand-held weapon. Its acceptance check is
+the normal contract above, including an idle, a forward step and a short
+cross-body boarding-mace strike.

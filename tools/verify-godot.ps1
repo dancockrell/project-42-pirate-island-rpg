@@ -55,6 +55,10 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Godot battle-prototype turn-cycle test failed with exit code $LASTEXITCODE"
     }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/betty_3d_candidate_contract_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot Betty 3D candidate contract test failed with exit code $LASTEXITCODE"
+    }
 } finally {
     $env:APPDATA = $previousAppData
     $env:LOCALAPPDATA = $previousLocalAppData
