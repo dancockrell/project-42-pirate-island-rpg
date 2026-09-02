@@ -35,6 +35,10 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Godot 3D battle staging tests failed with exit code $LASTEXITCODE"
     }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/world_cell_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot world-cell tests failed with exit code $LASTEXITCODE"
+    }
     & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/targeting_session_test.gd"
     if ($LASTEXITCODE -ne 0) {
         throw "Godot targeting-session tests failed with exit code $LASTEXITCODE"

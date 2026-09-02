@@ -1,0 +1,48 @@
+[gd_scene load_steps=5 format=3]
+
+[sub_resource type="BoxShape3D" id="GroundShape"]
+size = Vector3(36, 0.5, 26)
+
+[sub_resource type="BoxShape3D" id="GateShape"]
+size = Vector3(2.2, 5.0, 2.6)
+
+[sub_resource type="BoxShape3D" id="SlabShape"]
+size = Vector3(4.0, 1.1, 2.0)
+
+[sub_resource type="BoxShape3D" id="WaterDropShape"]
+size = Vector3(36, 2.0, 1.4)
+
+[node name="ReceptionTerraceCollision" type="Node3D"]
+metadata/production_state = "authored_proxy_geometry_before_visual_shell"
+
+[node name="WalkableGround" type="StaticBody3D" parent="."]
+
+[node name="GroundShape" type="CollisionShape3D" parent="WalkableGround"]
+position = Vector3(0, -0.25, 0)
+shape = SubResource("GroundShape")
+
+[node name="ElvenGateBlocker" type="StaticBody3D" parent="."]
+position = Vector3(0, 2.5, -8.7)
+
+[node name="GateShape" type="CollisionShape3D" parent="ElvenGateBlocker"]
+shape = SubResource("GateShape")
+
+[node name="FallenSlabLeft" type="StaticBody3D" parent="."]
+position = Vector3(-6.4, 0.55, -1.6)
+rotation_degrees = Vector3(0, 21, 8)
+
+[node name="SlabShape" type="CollisionShape3D" parent="FallenSlabLeft"]
+shape = SubResource("SlabShape")
+
+[node name="FallenSlabRight" type="StaticBody3D" parent="."]
+position = Vector3(6.7, 0.55, 2.0)
+rotation_degrees = Vector3(0, -18, -7)
+
+[node name="SlabShape" type="CollisionShape3D" parent="FallenSlabRight"]
+shape = SubResource("SlabShape")
+
+[node name="WaterAndCliffBoundary" type="StaticBody3D" parent="."]
+position = Vector3(0, -1.0, 12.4)
+
+[node name="WaterDropShape" type="CollisionShape3D" parent="WaterAndCliffBoundary"]
+shape = SubResource("WaterDropShape")
