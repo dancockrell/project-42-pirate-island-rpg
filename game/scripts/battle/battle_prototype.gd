@@ -4,6 +4,7 @@ extends Control
 const PlaceholderActionPresenterScript = preload("res://scripts/battle/placeholder_action_presenter.gd")
 const PaperDollScript = preload("res://scripts/battle/paper_doll.gd")
 const PaperStageScript = preload("res://scripts/battle/paper_stage.gd")
+const PaperCardScript = preload("res://scripts/battle/paper_card.gd")
 
 ## Presentation-only prototype. Gameplay truth comes through SimulationPort.
 ## All generated shapes and labels are explicit placeholders registered in
@@ -113,12 +114,12 @@ func build_battle_plane() -> Control:
 	cards.custom_minimum_size.x = 280
 	cards.add_theme_constant_override("separation", 9)
 	for item in [
-		["character.heroine.betty", "BETTY", "FIELD MEDIC", Color("2d7770")],
-		["character.heroine.ayla", "AYLA", "TOMB WARDEN", Color("648243")],
-		["character.heroine.vix", "VIX", "CORSAIR", Color("a05242")],
-		["character.heroine.grisha", "GRISHA", "OFFICER", Color("704339")]
+		["character.heroine.betty", "BETTY", "FIELD MEDIC", Color("2d7770"), "D"],
+		["character.heroine.ayla", "AYLA", "TOMB WARDEN", Color("648243"), "D"],
+		["character.heroine.vix", "VIX", "CORSAIR", Color("a05242"), "D"],
+		["character.heroine.grisha", "GRISHA", "OFFICER", Color("704339"), "D"]
 	]:
-		var card := make_party_card(item[0], item[1], item[2], item[3])
+		var card := make_party_card(item[0], item[1], item[2], item[3], item[4])
 		cards.add_child(card)
 		card_buttons[item[0]] = card
 	plane.add_child(cards)
@@ -147,7 +148,7 @@ func build_battle_plane() -> Control:
 	actor_row.add_child(enemy_panel)
 	visual.add_child(actor_row)
 	stage.add_child(visual)
-	action_cue_label = make_label("DUMMY ACTION CUE — WAITING FOR AUTHORED BEAT", 13, Color("e4b75e"))
+	action_cue_label = make_label("BETTY IS READY", 13, Color("e4b75e"))
 	action_cue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	action_cue_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	action_cue_label.custom_minimum_size.y = 42
@@ -192,6 +193,13 @@ func build_footer() -> Control:
 		button.custom_minimum_size = Vector2(238, 66)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.add_theme_font_size_override("font_size", 15)
+		button.add_theme_color_override("font_color", CREAM)
+		button.add_theme_color_override("font_hover_color", Color("fff0cd"))
+		button.add_theme_color_override("font_pressed_color", Color("0d211e"))
+		button.add_theme_stylebox_override("normal", make_command_box(Color("14211f"), Color("735d39")))
+		button.add_theme_stylebox_override("hover", make_command_box(Color("24423b"), Color("e4c487")))
+		button.add_theme_stylebox_override("pressed", make_command_box(Color("e4c487"), Color("e4c487")))
+		button.add_theme_stylebox_override("disabled", make_command_box(Color("111918"), Color("303d39")))
 		button.disabled = not command[2]
 		button.tooltip_text = "Stable skill ID: %s%s" % [command[0], " — triggers automatically; it is never a manual command" if not command[2] else ""]
 		button.pressed.connect(func() -> void: begin_skill_targeting(command[0]))
@@ -200,18 +208,49 @@ func build_footer() -> Control:
 	footer.add_child(commands)
 	return footer
 
-func make_party_card(id: String, display_name: String, role: String, accent: Color) -> Button:
+func make_party_card(id: String, display_name: String, role: String, accent: Color, rank: String) -> Button:
 	var card := Button.new()
 	card.name = display_name + "Card"
 	card.custom_minimum_size = Vector2(280, 150)
-	card.text = "%s\n%s\nVIT 84/100  •  READY\n[DUMMY PORTRAIT]" % [display_name, role]
-	card.tooltip_text = "Placeholder portrait. Stable actor ID: %s" % id
-	card.add_theme_color_override("font_color", CREAM)
-	card.add_theme_color_override("font_hover_color", Color.WHITE)
-	card.add_theme_color_override("font_pressed_color", accent)
+	card.flat = true
+	card.tooltip_text = "PAPER PORTRAIT — DEVELOPMENT BLOCKOUT\nStable actor ID: %s\nRole: %s\nFuture portrait must preserve card crop, role read, face, hair, outfit palette and readiness overlay." % [id, role]
+	var portrait := PaperCardScript.new()
+	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	portrait.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	portrait.configure(display_name, role, accent, rank)
+	card.add_child(portrait)
+	var copy := VBoxContainer.new()
+	copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.set_anchors_preset(Control.PRESET_FULL_RECT)
+	copy.offset_left = 74
+	copy.offset_top = 17
+	copy.offset_right = -14
+	copy.offset_bottom = -18
+	var name_label := make_label(display_name, 18, CREAM)
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.add_child(name_label)
+	var role_label := make_label(role, 11, Color("caa66a"))
+	role_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.add_child(role_label)
+	var status_label := make_label("VIT 84/100  •  GRD 0\nREADY", 12, Color("d7e0d7"))
+	status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.add_child(status_label)
+	card.add_child(copy)
 	card.pressed.connect(func() -> void: on_party_card_pressed(id, display_name, accent))
-	status_labels[id] = card
+	status_labels[id] = status_label
 	return card
+
+func make_command_box(background: Color, border: Color) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = background
+	box.border_color = border
+	box.set_border_width_all(2)
+	box.set_corner_radius_all(7)
+	box.shadow_color = Color(0, 0, 0, .35)
+	box.shadow_size = 4
+	box.content_margin_left = 10
+	box.content_margin_right = 10
+	return box
 
 func make_actor_placeholder(spec_id: String, accent: Color) -> PanelContainer:
 	var spec := catalog.get_registry_entry(spec_id)
@@ -231,11 +270,11 @@ func make_actor_placeholder(spec_id: String, accent: Color) -> PanelContainer:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stack.add_child(label)
-	var dummy := make_label("DUMMY PAPER DOLL • REPLACE: %s" % spec.get("futureRuntimeAssetId", "missing"), 12, Color("e4b75e"))
-	dummy.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	dummy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	dummy.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stack.add_child(dummy)
+	var role := make_label("PAPER-DOLL BLOCKOUT", 10, Color("b9c0a8"))
+	role.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	role.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	role.tooltip_text = "Replacement asset: %s" % spec.get("futureRuntimeAssetId", "missing")
+	stack.add_child(role)
 	panel.add_child(stack)
 	return panel
 
@@ -398,10 +437,10 @@ func on_animation_finished(_skill_id: String) -> void:
 func update_actor_status(actor: Dictionary) -> void:
 	var id: String = actor.id
 	if status_labels.has(id):
-		var card := status_labels[id] as Button
+		var status := status_labels[id] as Label
 		var name: String = actor_display_names.get(id, actor.display_name.to_upper())
 		var state := "DEFEATED" if actor.vitality <= 0 else "READY"
-		card.text = "%s\nVIT %d/%d  •  GRD %d  •  %s\n[DUMMY PORTRAIT]" % [name, actor.vitality, actor.max_vitality, actor.guard, state]
+		status.text = "VIT %d/%d  •  GRD %d\n%s" % [actor.vitality, actor.max_vitality, actor.guard, state]
 
 func update_status_values(id: String, vitality: int) -> void:
 	for actor in snapshot_actors:
@@ -411,7 +450,7 @@ func update_status_values(id: String, vitality: int) -> void:
 			break
 	if id == "enemy.raptor.razorbeak.prototype":
 		var stack := enemy_panel.get_child(0) as VBoxContainer
-		(stack.get_child(2) as Label).text = "DUMMY PAPER DOLL • VIT %d/70 • REPLACE: art.enemy.razorbeak.battle.ready_idle" % vitality
+		(stack.get_child(2) as Label).text = "VIT %d/70" % vitality
 
 func update_guard_values(id: String, guard: int) -> void:
 	for actor in snapshot_actors:

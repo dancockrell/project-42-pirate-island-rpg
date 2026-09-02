@@ -26,8 +26,8 @@ func _initialize() -> void:
 		"shake": 0.35,
 		"frameSubjects": ["betty", "mace", "target", "impact_arc"]
 	})
-	assert("HORIZONTAL MACE HIT" in label.text)
-	assert("SAFE FRAME: betty, mace, target, impact_arc" in label.text)
+	assert(label.text == "HORIZONTAL MACE HIT  •  BRONZE TEAL IMPACT ARC")
+	assert("Safe frame: betty, mace, target, impact_arc" in label.tooltip_text)
 	assert("VFX purpose: Shows the mace contact" in label.tooltip_text)
 	assert("Audio cue: mace_armor_impact" in label.tooltip_text)
 	assert(actor.scale.x > 1.0)

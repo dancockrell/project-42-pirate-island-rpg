@@ -8,7 +8,22 @@ var spec: Dictionary = {}
 var accent := Color("4fc7b4")
 var paper := Color("e8d7b7")
 var ink := Color("2a211a")
-var show_anchors := true
+## Anchor dots are available in the inspector/tooltip contract, while the
+## running game keeps the silhouette clean. Toggle this locally only while
+## laying out a replacement sprite sheet.
+var show_anchors := false
+var pose_name := "card_ready"
+var vfx_id := "presentation.vfx.none"
+
+func set_presentation_cue(cue: Dictionary) -> void:
+	pose_name = str(cue.get("pose", "card_ready"))
+	vfx_id = str(cue.get("vfxId", "presentation.vfx.none"))
+	queue_redraw()
+
+func reset_presentation() -> void:
+	pose_name = "card_ready"
+	vfx_id = "presentation.vfx.none"
+	queue_redraw()
 
 func configure(next_spec: Dictionary, next_accent: Color) -> void:
 	spec = next_spec.duplicate(true)
@@ -26,17 +41,43 @@ func _draw() -> void:
 	var s := size
 	var pad := float(spec.get("safePaddingPercent", 8)) / 100.0
 	draw_rect(Rect2(s.x * pad, s.y * pad, s.x * (1.0 - pad * 2.0), s.y * (1.0 - pad * 2.0)), Color(accent, 0.18), false, 2.0)
+	var body_offset := Vector2.ZERO
+	var body_rotation := 0.0
+	if pose_name == "forward_step":
+		body_offset = Vector2(s.x * .07, -s.y * .01)
+	elif pose_name == "horizontal_mace_hit":
+		body_offset = Vector2(s.x * .13, -s.y * .035)
+		body_rotation = deg_to_rad(-7.0)
+	elif pose_name == "mace_cross_body":
+		body_rotation = deg_to_rad(4.0)
+	draw_set_transform(body_offset, body_rotation)
 	if spec.get("dollKind", "") == "wild_raptor":
 		draw_raptor(s)
 	else:
 		draw_betty(s)
-	draw_string(ThemeDB.fallback_font, Vector2(18, s.y - 16), "PAPER ACTOR • %s" % spec.get("id", "missing"), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("caa66a"))
+	draw_set_transform(Vector2.ZERO, 0.0)
+	draw_presentation_vfx(s)
+	# The complete asset contract lives in the tooltip. The scene itself keeps a
+	# quiet, player-readable cut-paper silhouette.
 	if show_anchors:
 		for key in spec.get("attachmentAnchors", {}):
 			var point: Array = spec.attachmentAnchors[key]
 			var p := Vector2(float(point[0]) * s.x, float(point[1]) * s.y)
 			draw_circle(p, 4.0, Color("ffd166"))
 			draw_string(ThemeDB.fallback_font, p + Vector2(7, -5), str(key), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("ffe6a7"))
+
+func draw_presentation_vfx(s: Vector2) -> void:
+	if vfx_id == "presentation.vfx.bronze_teal_impact_arc":
+		var impact := Vector2(s.x * .84, s.y * .34)
+		draw_arc(impact, s.x*.12, deg_to_rad(205), deg_to_rad(345), 16, Color("e4b75e"), 7, true)
+		draw_arc(impact, s.x*.095, deg_to_rad(210), deg_to_rad(340), 16, Color("4fc7b4"), 3, true)
+		for point in [Vector2(.76,.27),Vector2(.88,.24),Vector2(.93,.37),Vector2(.80,.45)]: draw_circle(Vector2(point.x*s.x,point.y*s.y),4,Color("fff1cc"))
+	elif vfx_id == "presentation.vfx.teal_guard_ring":
+		var center := Vector2(s.x*.50,s.y*.61)
+		draw_arc(center,s.x*.18,0,TAU,36,Color("4fc7b4"),4,true)
+		draw_arc(center,s.x*.145,0,TAU,36,Color("d9bd72"),2,true)
+	elif vfx_id == "presentation.vfx.teal_card_release" or vfx_id == "presentation.vfx.card_recall_trail":
+		for x in [.20,.28,.36,.64,.72,.80]: draw_line(Vector2(x*s.x,s.y*.80),Vector2((x+.04)*s.x,s.y*.34),Color("4fc7b4",.7),3)
 
 func draw_betty(s: Vector2) -> void:
 	var shadow := Vector2(s.x * 0.52, s.y * 0.88)
