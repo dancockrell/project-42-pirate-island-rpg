@@ -38,7 +38,7 @@ var target_label: Label
 var action_cue_label: Label
 var command_buttons: Dictionary = {}
 var actor_display_names := {
-	"character.protagonist.captain": "CAPTAIN",
+	"character.protagonist.captain": "MICHAEL CORRIGAN",
 	"character.heroine.betty": "BETTY",
 	"character.heroine.ayla": "AYLA",
 	"character.heroine.vix": "VIX",
@@ -115,7 +115,7 @@ func build_battle_plane() -> Control:
 	cards.custom_minimum_size.x = 280
 	cards.add_theme_constant_override("separation", 9)
 	for item in [
-		["character.protagonist.captain", "CAPTAIN", "STEAM CUTTER CAPTAIN", Color("536c79"), "MC", "captain"],
+		["character.protagonist.captain", "MICHAEL CORRIGAN", "STEAM CUTTER CAPTAIN", Color("536c79"), "MC", "captain"],
 		["character.heroine.betty", "BETTY", "FIELD MEDIC", Color("2d7770"), "D"]
 	]:
 		var card := make_party_card(item[0], item[1], item[2], item[3], item[4], item[5] if item.size() > 5 else "heroine")

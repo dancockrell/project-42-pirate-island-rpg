@@ -14,7 +14,7 @@ func render(event: Dictionary) -> Dictionary:
 	var subjects: Array = event.get("subjects", [])
 	var payload: Dictionary = event.get("payload", {})
 	match kind:
-		"battle_started": return replace("[color=#b78a4b]RECEPTION ROAD[/color] The Captain holds the command rail while Betty steps forward with her mace. Razorbeak keeps low beneath the elven gate, ready to rush her.")
+		"battle_started": return replace("[color=#b78a4b]RECEPTION ROAD[/color] Michael Corrigan holds the command rail while Betty steps forward with her mace. Razorbeak keeps low beneath the elven gate, ready to rush her.")
 		"command_accepted": return replace("[color=#4fc7b4]ACCEPTED[/color] %s begins %s." % [name_at(subjects, 0), skill_name(payload.get("skill_id", "unknown_skill"))])
 		"enemy_intent_declared": return enemy_intent(subjects, payload)
 		"damage_applied": return append(" %s hits %s for %d damage; %d Vitality remains." % [name_at(subjects, 0), name_at(subjects, subjects.size() - 1), payload.get("amount", 0), payload.get("remaining_vitality", 0)])

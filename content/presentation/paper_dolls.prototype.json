@@ -6,7 +6,7 @@
       "id": "presentation.paper_doll.captain.card",
       "placeholderAssetId": "art.placeholder.captain.card_portrait",
       "subjectId": "character.protagonist.captain",
-      "displayName": "CAPTAIN",
+      "displayName": "MICHAEL CORRIGAN",
       "dollKind": "adult_human_echo_captain",
       "facing": "right",
       "nativeCanvas": [280, 256],
@@ -26,7 +26,7 @@
       "poseVariable": "standing at rest in the inactive party rail, head angled toward the current fighter",
       "futureRuntimeAssetId": "art.character.captain.card.ready",
       "futureFormat": "transparent lossless card portrait plus engine-ready texture",
-      "replacementTests": ["face and compass remain readable at 280 by 150", "portrait stays inside the rail safe crop", "the Captain reads as distinct from every heroine at a glance", "portrait retains an unobstructed card-rank and status area"]
+      "replacementTests": ["face and compass remain readable at 280 by 150", "portrait stays inside the rail safe crop", "Michael Corrigan reads as distinct from every heroine at a glance", "portrait retains an unobstructed card-rank and status area"]
     },
     {
       "id": "presentation.paper_doll.betty.active",
