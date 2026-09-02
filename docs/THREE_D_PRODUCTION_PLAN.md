@@ -2,17 +2,128 @@
 
 ## Production decision
 
-Project 42 is now a **3D character-and-stage game with a 2D theatrical battle
-interface**. The player sees dimensional, lit characters on a fixed side-view
-battle plane. Party cards, skill diamonds, readable combat prose, targeting,
-health and intent remain 2D `CanvasLayer` UI. This is not free-roaming
-third-person action. The combat camera remains deliberate, legible and
-fighting-game sized.
+Project 42 is now a **fully 3D island game with a 2D theatrical interface**.
+Exploration locations, battle stages, playable characters, monsters,
+architecture, props and distant scenery are dimensional scenes. Party cards,
+skill diamonds, readable combat prose, targeting, health and intent remain 2D
+`CanvasLayer` UI. This is not a loose collection of generated beauty shots.
+The combat camera remains deliberate, legible and fighting-game sized.
 
-The existing paper dolls are temporary mechanical stand-ins. They are not
-visual source, approved art or a fallback art direction. They leave the live
-battle only when a corresponding 3D actor passes its rig, camera and skill
-motion gates.
+The existing paper dolls and painted environment plate are temporary mechanical
+stand-ins. They are not visual source, approved art or a fallback art direction.
+They leave the live game only when corresponding 3D actors and world cells pass
+their separate camera, collision, navigation and motion gates.
+
+## Island world-cell architecture
+
+The island is not one giant generated mesh. It is a directed graph of authored
+**world cells**. A cell is a bounded 3D playable scene with one stable entry
+and exit contract. A region contains several cells; the island map connects
+regions. This lets a generated or hand-built scene become playable only after
+its physical and narrative layers are separately defined.
+
+```text
+Island Map
+  Region: Black Beach
+    Cell: Shipwreck Shore
+    Cell: Smuggler Trail
+    Cell: Reception Terrace
+  Region: Elven Interior
+    Cell: Sunken Road
+    Cell: Tomb Entrance
+    Cell: Bronze-Age Burial Hall
+
+Each WorldCell (Node3D)
+  VisualShell            imported baked GLB/GLTF and distant sky/card backdrop
+  TerrainAndCollision    hand-authored simple walkable and blocking geometry
+  Navigation             authored navigation regions and explicit portal paths
+  Occlusion              camera obstruction volumes and transparency rules
+  Interactives           named doors, chests, readable objects and NPC anchors
+  EncounterVolumes       authored encounter entries and retreat exits
+  Ambient                weather, sound anchors, day/night material parameters
+  CameraRails            exploration, conversation and battle-entry camera marks
+```
+
+A visual scene can be elaborate. Its collision, navigation and encounter
+meaning cannot be guessed from its triangles. Every imported environment gets
+simple separate proxy geometry. Actors walk on authored `TerrainAndCollision`,
+not on arbitrary generated decoration. The same rule keeps the player from
+getting trapped in roots, stairs, ruins or foliage simply because an AI scene
+looks good in a still image.
+
+### Exploration camera and scale
+
+Exploration uses a fixed elevated three-quarter camera, not a free rotating
+camera. The camera travels on explicit rails in a cell and keeps the player,
+near interaction targets and local path exits readable. The player is normally
+shown head-to-boot at about 20–32% of viewport height. On approach to a battle
+volume, the world cell passes a stable entry anchor and facing direction to the
+battle scene; the battle then uses its fixed side camera. The two scenes share
+the same named physical location, not two unrelated paintings.
+
+World scale uses metres. One normal adult is 1.65–1.85 metres; a normal cell
+is 45–90 metres across; a local interaction reads at 1.5–3 metres; a battle
+entry lane is 8–12 metres wide. Do not make a 300-metre plaza only because a
+generated image feels grand. The player must cross the cell at a believable
+walk time and be able to understand where every route leads.
+
+### Baked-scene intake
+
+A baked world scene is a source layer, not a finished playable level. The
+ingestion package for every cell contains:
+
+| Layer | Required asset or data | Purpose |
+| --- | --- | --- |
+| Source | raw vendor GLB/GLTF, images and creation URL | preserves provenance and rerun information |
+| Visual shell | cleaned, material-budgeted engine copy | visible architecture, foliage, prop density and distant depth |
+| Collision | low-complexity ground, wall, climb, water and no-go volumes | reliable walking and combat placement |
+| Navigation | explicit nav region and portal path graph | deterministic movement and NPC routes |
+| Occlusion | camera hide/fade volumes and ceiling cutaways | camera never loses the player behind a wall |
+| Semantics | stable object IDs and readable descriptions | makes prose, quests and interaction logic refer to real places |
+| Lighting | baked/parameterized day-night material inputs | keeps region palette coherent without runtime light chaos |
+| QA | arrival, exit, camera, collision, encounter and browser performance result | admission evidence |
+
+The baked visual shell must never embed functional collision, a navmesh, quest
+state, NPC identity or a spawn rule. Those are authored Godot/data layers.
+
+### World-cell manifest
+
+Each cell has an explicit record before implementation:
+
+```json
+{
+  "id": "world.cell.reception_terrace",
+  "regionId": "world.region.black_beach",
+  "visualShell": "res://assets/world/black_beach/reception_terrace.glb",
+  "collisionScene": "res://scenes/world/black_beach/reception_terrace_collision.tscn",
+  "entryAnchors": ["entry.shipwreck_trail", "entry.estate_gate"],
+  "portals": ["world.portal.reception_to_shipwreck_trail"],
+  "battleEntries": ["encounter.reception_razorbeak"],
+  "cameraRail": "camera.exploration.reception_terrace",
+  "descriptions": ["location.reception_terrace.arrival", "location.reception_terrace.ruin"],
+  "timeLightingProfile": "lighting.black_beach.storm_gold"
+}
+```
+
+All fields use stable IDs. No dialogue, quest, battle or save system is
+permitted to point directly at a Godot node path or a vendor asset filename.
+
+### First 3D world-cell proof
+
+`world.cell.reception_terrace` is the first complete cell. It has a wild
+Bronze-Age elven gate, jungle encroachment, a broken approach, clear ground
+for the Razorbeak encounter, and a visible path toward the estate. It is not a
+colonial city block, zoo, dinosaur pen or generic arena. Its implementation
+test is intentionally concrete:
+
+1. Player arrives from Shipwreck Trail at the named entry anchor.
+2. Camera frames player, gate and usable route without foliage clipping.
+3. The player can walk to estate gate, battle entry and return route.
+4. A Razorbeak encounter locks to the named battle entry, then returns the
+   party to the correct world anchor after victory, retreat or defeat.
+5. Every visible landmark has a short, authored readable description.
+6. The exported browser build keeps a responsive frame rate with its visual
+   shell, collision proxies, active actor, monster and interface present.
 
 ## First playable 3D shot
 

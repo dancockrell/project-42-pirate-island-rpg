@@ -178,9 +178,48 @@ for (const { file, value } of await readJsonDirectory("encounters")) {
 }
 
 for (const { file, value } of await readJsonDirectory("world")) {
-  if (value.trigger !== "midnight_flash") fail(file, "spawn rule trigger must be midnight_flash");
-  if (value.grouping?.designRule !== "individual_threat") fail(file, "daily spawns must use individual_threat tuning");
-  for (const [index, id] of (value.definitionIds ?? []).entries()) reference(id, file, `definitionIds[${index}]`);
+  if (value.kind === "world_region") {
+    requireString(value, "displayName", file);
+    requireString(value, "description", file);
+    if (!Array.isArray(value.worldCellIds) || value.worldCellIds.length === 0) fail(file, "world region requires at least one worldCellId");
+    else value.worldCellIds.forEach((id, index) => reference(id, file, `worldCellIds[${index}]`));
+  } else if (value.kind === "world_cell") {
+    requireString(value, "displayName", file);
+    reference(value.regionId, file, "regionId");
+    if (!value.visualShell || typeof value.visualShell !== "object") fail(file, "world cell requires a visualShell record");
+    else {
+      requireString(value.visualShell, "runtimePath", file);
+      requireString(value.visualShell, "status", file);
+      if (!value.visualShell.runtimePath.startsWith("res://assets/world/")) fail(file, "world cell visual shell must use an assets/world runtime path");
+      if (!Array.isArray(value.visualShell.requiredFeatures) || value.visualShell.requiredFeatures.length < 4) fail(file, "world cell visual shell requires four or more literal features");
+      if (!Array.isArray(value.visualShell.prohibitedFeatures) || value.visualShell.prohibitedFeatures.length < 3) fail(file, "world cell visual shell requires three or more literal prohibitions");
+    }
+    for (const field of ["collisionScene", "navigationScene", "cameraRailId"]) requireString(value, field, file);
+    if (!value.collisionScene?.startsWith("res://scenes/world/") || !value.navigationScene?.startsWith("res://scenes/world/")) fail(file, "world cell collision and navigation must be separate world scenes");
+    if (!Array.isArray(value.entryAnchors) || value.entryAnchors.length < 2) fail(file, "world cell requires two or more entry anchors");
+    else for (const [index, anchor] of value.entryAnchors.entries()) {
+      requireString(anchor, "id", file);
+      requireString(anchor, "role", file);
+      if (!Array.isArray(anchor.positionMetres) || anchor.positionMetres.length !== 3 || anchor.positionMetres.some(component => typeof component !== "number")) fail(file, `entryAnchors[${index}].positionMetres must be three numeric metres`);
+      if (!Number.isInteger(anchor.facingDegrees) || anchor.facingDegrees < 0 || anchor.facingDegrees >= 360) fail(file, `entryAnchors[${index}].facingDegrees must be 0 through 359`);
+    }
+    if (!Array.isArray(value.battleEntries) || value.battleEntries.length === 0) fail(file, "world cell requires one or more battle entries");
+    else for (const [index, entry] of value.battleEntries.entries()) {
+      requireString(entry, "id", file);
+      reference(entry.encounterId, file, `battleEntries[${index}].encounterId`);
+      for (const field of ["returnAnchorId", "safeRetreatAnchorId"]) requireString(entry, field, file);
+    }
+    if (!Array.isArray(value.readableDescriptions) || value.readableDescriptions.length < value.admission?.descriptionCountMinimum) fail(file, "world cell must include every required readable description");
+    else for (const [index, description] of value.readableDescriptions.entries()) {
+      requireString(description, "id", file);
+      if (typeof description.text !== "string" || description.text.length < 90) fail(file, `readableDescriptions[${index}].text must be at least 90 characters`);
+    }
+    if (value.admission?.collisionSeparatedFromVisualShell !== true || value.admission?.navigationSeparatedFromVisualShell !== true) fail(file, "world cell must separate visual shell, collision and navigation");
+  } else {
+    if (value.trigger !== "midnight_flash") fail(file, "spawn rule trigger must be midnight_flash");
+    if (value.grouping?.designRule !== "individual_threat") fail(file, "daily spawns must use individual_threat tuning");
+    for (const [index, id] of (value.definitionIds ?? []).entries()) reference(id, file, `definitionIds[${index}]`);
+  }
 }
 
 for (const { file, value } of await readJsonDirectory("presentation")) {
