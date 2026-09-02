@@ -24,10 +24,10 @@
       "placeholder": true,
       "consumer": "game/scenes/battle/battle_prototype.tscn#ActiveActor",
       "visibleMark": "DUMMY FULL-BODY ACTOR",
-      "intendedFinal": "Complete full-body premium adult anime-fantasy Betty battle actor. She reads cute and sexy before she reads realistic: slender adult build, small chest, bright green eyes, freckles, auburn curls, cropped white medic blouse, fitted teal corset, short field shorts, tall boots and a bronze-and-glass boarding mace. It is a riggable close-to-final demo with a complete head-to-boot silhouette, named articulated parts, an anchored root pivot and an eight-percent VFX safe margin.",
-      "requiredTags": ["adult", "full-body", "cute-sexy-adult-anime", "slender-small-bust", "signature-weapon-visible", "riggable-parts", "no-crop"],
+      "intendedFinal": "Complete full-body premium adult anime-fantasy Betty 3D battle actor. She reads cute and sexy before she reads realistic: slender adult build, small chest, bright green eyes, freckles, auburn curls, cropped white medic blouse, fitted teal corset, short field shorts, tall boots and a bronze-and-glass boarding mace. It has a complete head-to-boot mesh, named skeleton, separate mace at a named hand socket, literal ready/step/Guarded Strike clips, an anchored root pivot and a fifteen-percent VFX safe margin.",
+      "requiredTags": ["adult", "full-body", "cute-sexy-adult-anime", "slender-small-bust", "signature-weapon-visible", "3d-rigged-glb", "named-skeleton", "hand-weapon-socket", "no-crop"],
       "referenceLedger": "content/art/betty.reference_ledger.json",
-      "replacementGate": ["approved identity rig", "complete boots and hair", "complete mace", "1920x1080 battle-scale test", "colorblind silhouette review"]
+      "replacementGate": ["approved 3D identity plate", "rigged GLB with inspectable skeleton", "separate complete mace at hand socket", "ready-step-contact-recovery clip set", "1920x1080 battle-scale test", "colorblind silhouette review"]
     },
     {
       "id": "art.placeholder.betty.card_portrait",

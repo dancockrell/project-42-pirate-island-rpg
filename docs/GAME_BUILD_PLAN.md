@@ -210,34 +210,36 @@ Current first encounter layout:
 target and effect envelopes. Every visible card, bar, text label and diamond
 has a data source and a live purpose.
 
-### B3. Paper-rig standard
+### B3. 3D actor standard
 
-Temporary art must act like an animation blocking rig, not like decorative
-geometry. Each actor has a root, parented pieces, pivots, draw order and
-sockets. Betty’s minimum hierarchy is:
+The production presentation is a 3D fighter and stage viewed through a fixed
+side-view battle camera, with the card rail and command grid remaining 2D.
+Temporary paper rigs remain technical blocking tools only. They do not define
+the visual source and cannot replace an approved rigged model.
+
+Every production actor has a root, named skeleton, named weapon socket,
+separate held weapon, material slots and literal clips. Betty’s minimum 3D
+hierarchy is:
 
 ```text
-BettyRoot
-  rear_coat_tail
-  rear_leg → rear_boot
-  torso
-    satchel
-    ampoule_rack
-    head → hair
-    left_arm → left_hand
-    right_arm → right_hand → boarding_mace
-  front_leg → front_boot
-  front_coat_tail
+BettyRoot → Hips → Spine → Chest → Neck → Head
+  LeftUpperArm → LeftLowerArm → LeftHand
+  RightUpperArm → RightLowerArm → RightHand → Socket_Weapon_R → boarding_mace
+  LeftUpperLeg → LeftLowerLeg → LeftFoot
+  RightUpperLeg → RightLowerLeg → RightFoot
+  optional: hair, coat-tail, satchel and ampoule-rack secondary bones
 ```
 
-The active box must allow pose changes without clipping. The same pieces make
-idle, step, anticipation, contact and recovery. Betty is not a generic nurse
-or a large-busted fantasy pin-up: her reference ledger controls the blockout
-silhouette as well as final art.
+The active camera must allow pose changes without clipping. The required first
+clip set is `Idle_Ready`, `Step_Forward`, `GuardedStrike_Anticipation`,
+`GuardedStrike_Contact` and `GuardedStrike_Recovery`. Betty is not a generic
+nurse or a large-busted fantasy pin-up: her reference ledger controls the mesh
+silhouette, source plate, materials and final animation work.
 
-**Exit test:** a rig test moves every parent and verifies the required child
-piece moves with it. Five screenshots of a single action use the same named
-pieces and show no crop.
+**Exit test:** a GLB inspection finds the required skeleton, weapon socket and
+five named clips. Five camera screenshots of one action use the same mesh and
+show no crop. The model cannot be admitted as an animated fighter merely
+because it is a good static render.
 
 ### B4. First complete command
 
@@ -289,7 +291,7 @@ combat/job pattern instead of adding cast without playable purpose:
 For each heroine, complete this exact package before adding the next:
 
 - one canonical reference ledger;
-- one card state and one complete paper rig;
+- one card state, one clean 3D identity plate and one complete rigged GLB;
 - one recruitment scene and estate presence;
 - one signature weapon and seven literal D→SSS skills;
 - seven action boards with entry, anticipation, contact, consequence,
