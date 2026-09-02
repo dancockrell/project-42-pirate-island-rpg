@@ -45,6 +45,16 @@
       "doNotUse": ["bust size", "hourglass anatomy", "long staff proportions"]
     }
   ],
+  "threeDConversion": {
+    "canonicalInput": "work/art/magnific/betty/betty-body-direction-gpt2.png",
+    "canonicalInputStatus": "approved-for-identity-preserving-3d-conversion",
+    "prohibitedVisualSources": [
+      "game/scripts/battle/paper_betty_rig.gd",
+      "rejected-or-moderated-image-generation-candidates"
+    ],
+    "requiredDeliverable": "Editable riggable GLB preferred; GLTF with textures acceptable; render-only output is rejected.",
+    "contract": "docs/BETTY_3D_ASSET_CONTRACT.md"
+  },
   "nextRequiredPlate": {
     "name": "Betty production identity sheet v1",
     "views": ["neutral front", "combat three-quarter", "back view", "four facial expressions", "weapon orthographic", "open satchel contents", "color swatches"],
