@@ -29,6 +29,15 @@
       "intendedFinal": "One complete individually scarred razorbeak raptor with full tail, feet, threat tell and VFX envelope.",
       "requiredTags": ["full-body", "individual-threat", "wild-dinosaur", "no-crop"],
       "replacementGate": ["complete tail", "level-seven threat read", "three attack tells", "no enclosure imagery"]
+    },
+    {
+      "id": "art.placeholder.reception_road.stage",
+      "placeholder": true,
+      "consumer": "game/scripts/battle/battle_prototype.gd#PaperStage",
+      "visibleMark": "DUMMY PAPER STAGE",
+      "intendedFinal": "Layered 1920x1080 Reception Road battle environment dominated by wild jungle and magical Bronze Age elven funerary masonry.",
+      "requiredTags": ["wild-jungle", "magical-bronze-age", "battle-stage", "layered-depth", "no-colonial-city"],
+      "replacementGate": ["party and hostile standing zones remain readable", "foreground occluders are separate", "battle and exploration geography agree", "no enclosure imagery"]
     }
   ]
 }

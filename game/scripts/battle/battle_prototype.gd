@@ -2,6 +2,8 @@ class_name BattlePrototype
 extends Control
 
 const PlaceholderActionPresenterScript = preload("res://scripts/battle/placeholder_action_presenter.gd")
+const PaperDollScript = preload("res://scripts/battle/paper_doll.gd")
+const PaperStageScript = preload("res://scripts/battle/paper_stage.gd")
 
 ## Presentation-only prototype. Gameplay truth comes through SimulationPort.
 ## All generated shapes and labels are explicit placeholders registered in
@@ -123,18 +125,27 @@ func build_battle_plane() -> Control:
 	var stage := VBoxContainer.new()
 	stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	stage.add_theme_constant_override("separation", 12)
-	var visual := HBoxContainer.new()
+	var visual := Control.new()
 	visual.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	visual.add_theme_constant_override("separation", 18)
-	actor_panel = make_actor_placeholder("BETTY", "DUMMY FULL-BODY ACTOR\nREPLACE: art.character.betty.battle.base", TEAL)
+	var paper_stage := PaperStageScript.new()
+	paper_stage.name = "PaperStage"
+	paper_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	paper_stage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	visual.add_child(paper_stage)
+	var actor_row := HBoxContainer.new()
+	actor_row.name = "ActorRow"
+	actor_row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	actor_row.add_theme_constant_override("separation", 18)
+	actor_panel = make_actor_placeholder("presentation.paper_doll.betty.active", TEAL)
 	actor_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	visual.add_child(actor_panel)
-	enemy_panel = make_actor_placeholder("RAZORBEAK", "DUMMY ENEMY ACTOR\nLEVEL 7 • INDIVIDUAL THREAT", DANGER)
+	actor_row.add_child(actor_panel)
+	enemy_panel = make_actor_placeholder("presentation.paper_doll.razorbeak.active", DANGER)
 	enemy_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	enemy_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	enemy_panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	enemy_panel.gui_input.connect(on_enemy_gui_input)
-	visual.add_child(enemy_panel)
+	actor_row.add_child(enemy_panel)
+	visual.add_child(actor_row)
 	stage.add_child(visual)
 	action_cue_label = make_label("DUMMY ACTION CUE — WAITING FOR AUTHORED BEAT", 13, Color("e4b75e"))
 	action_cue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -202,22 +213,25 @@ func make_party_card(id: String, display_name: String, role: String, accent: Col
 	status_labels[id] = card
 	return card
 
-func make_actor_placeholder(display_name: String, replacement: String, accent: Color) -> PanelContainer:
+func make_actor_placeholder(spec_id: String, accent: Color) -> PanelContainer:
+	var spec := catalog.get_registry_entry(spec_id)
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(480, 560)
 	var stack := VBoxContainer.new()
 	stack.alignment = BoxContainer.ALIGNMENT_CENTER
 	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var silhouette := ColorRect.new()
-	silhouette.custom_minimum_size = Vector2(250, 390)
-	silhouette.color = Color(accent, 0.52)
-	silhouette.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stack.add_child(silhouette)
-	var label := make_label(display_name, 32, accent)
+	var doll := PaperDollScript.new()
+	doll.name = "PaperDoll"
+	doll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	doll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	doll.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	doll.configure(spec, accent)
+	stack.add_child(doll)
+	var label := make_label(str(spec.get("displayName", spec_id)), 26, accent)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stack.add_child(label)
-	var dummy := make_label(replacement, 15, Color("e4b75e"))
+	var dummy := make_label("DUMMY PAPER DOLL • REPLACE: %s" % spec.get("futureRuntimeAssetId", "missing"), 12, Color("e4b75e"))
 	dummy.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	dummy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	dummy.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -227,7 +241,6 @@ func make_actor_placeholder(display_name: String, replacement: String, accent: C
 
 func select_actor(id: String, display_name: String, accent: Color) -> void:
 	var stack := actor_panel.get_child(0) as VBoxContainer
-	(stack.get_child(0) as ColorRect).color = Color(accent, 0.52)
 	(stack.get_child(1) as Label).text = display_name
 	description_label.text = "[color=#b78a4b]INSPECT[/color] %s is previewed from the card rail. The simulation still owns whose turn it is." % display_name
 
@@ -398,7 +411,7 @@ func update_status_values(id: String, vitality: int) -> void:
 			break
 	if id == "enemy.raptor.razorbeak.prototype":
 		var stack := enemy_panel.get_child(0) as VBoxContainer
-		(stack.get_child(2) as Label).text = "DUMMY ENEMY ACTOR\nVIT %d/70 • INDIVIDUAL THREAT" % vitality
+		(stack.get_child(2) as Label).text = "DUMMY PAPER DOLL • VIT %d/70 • REPLACE: art.enemy.razorbeak.battle.ready_idle" % vitality
 
 func update_guard_values(id: String, guard: int) -> void:
 	for actor in snapshot_actors:

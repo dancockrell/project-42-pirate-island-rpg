@@ -237,6 +237,20 @@ for (const { file, value } of await readJsonDirectory("presentation")) {
       if (entry.approvalState === "approved" && entry.importState !== "imported") fail(file, `${entry.id} cannot be approved before import`);
       if (entry.metadata?.releaseLegal !== false && entry.approvalState !== "approved") fail(file, `${entry.id} unapproved motion must set metadata.releaseLegal=false`);
     }
+  } else if (value.kind === "paper_doll_registry") {
+    for (const [index, entry] of (value.entries ?? []).entries()) {
+      registerId(entry.id, file);
+      if (!entry.id?.startsWith("presentation.paper_")) fail(file, `entries[${index}].id must use presentation.paper_ prefix`);
+      for (const field of ["placeholderAssetId", "subjectId", "displayName", "dollKind", "facing", "futureRuntimeAssetId", "futureFormat", "poseVariable"]) requireString(entry, field, file);
+      if (!Array.isArray(entry.nativeCanvas) || entry.nativeCanvas.length !== 2 || entry.nativeCanvas.some(value => !Number.isInteger(value) || value < 256)) fail(file, `${entry.id} nativeCanvas must contain two integer dimensions of at least 256`);
+      if (!Number.isInteger(entry.safePaddingPercent) || entry.safePaddingPercent < 8 || entry.safePaddingPercent > 20) fail(file, `${entry.id} safePaddingPercent must be from 8 through 20`);
+      for (const field of ["groundAnchor", "rootPivot"]) if (!Array.isArray(entry[field]) || entry[field].length !== 2 || entry[field].some(value => typeof value !== "number" || value < 0 || value > 1)) fail(file, `${entry.id} ${field} must be a normalized coordinate pair`);
+      if (!entry.attachmentAnchors || Object.keys(entry.attachmentAnchors).length < 3) fail(file, `${entry.id} requires at least three named attachment anchors`);
+      else for (const [name, point] of Object.entries(entry.attachmentAnchors)) if (!Array.isArray(point) || point.length !== 2 || point.some(value => typeof value !== "number" || value < 0 || value > 1)) fail(file, `${entry.id} attachment anchor ${name} must be normalized`);
+      if (!Array.isArray(entry.layerOrder) || entry.layerOrder.length < 5) fail(file, `${entry.id} requires an explicit layer order`);
+      if (!Array.isArray(entry.identityInvariants) || entry.identityInvariants.length < 5) fail(file, `${entry.id} requires at least five identity invariants`);
+      if (!Array.isArray(entry.replacementTests) || entry.replacementTests.length < 4) fail(file, `${entry.id} requires at least four replacement tests`);
+    }
   } else {
     fail(file, `unsupported presentation registry kind ${value.kind}`);
   }

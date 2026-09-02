@@ -1,0 +1,83 @@
+{
+  "id": "presentation.paper_dolls.prototype",
+  "kind": "paper_doll_registry",
+  "entries": [
+    {
+      "id": "presentation.paper_doll.betty.active",
+      "placeholderAssetId": "art.placeholder.betty.active_actor",
+      "subjectId": "character.heroine.betty",
+      "displayName": "BETTY",
+      "dollKind": "adult_human_medic",
+      "facing": "right",
+      "nativeCanvas": [520, 560],
+      "safePaddingPercent": 8,
+      "groundAnchor": [0.5, 0.94],
+      "rootPivot": [0.5, 0.87],
+      "attachmentAnchors": {
+        "face": [0.51, 0.19],
+        "mainHand": [0.72, 0.49],
+        "offHand": [0.32, 0.47],
+        "weaponHead": [0.84, 0.22],
+        "impactOrigin": [0.84, 0.22],
+        "statusOverhead": [0.5, 0.05]
+      },
+      "layerOrder": ["ground_shadow", "rear_coat", "rear_arm", "legs", "torso", "front_arm", "weapon", "head", "hair_front", "paper_pins", "debug_anchors"],
+      "identityInvariants": ["adult woman", "slender lightly built frame", "small chest", "auburn curly updo", "green eyes and freckles", "cropped teal field-medic outfit", "bronze and glass boarding mace", "complete boots, hair and weapon"],
+      "poseVariable": "ready idle with knees soft, mace carried diagonally, body open toward the camera",
+      "futureRuntimeAssetId": "art.character.betty.battle.ready_idle",
+      "futureFormat": "transparent lossless actor source plus engine-ready animation texture",
+      "replacementTests": ["silhouette fits the same safe bounds", "ground and root anchors move no more than eight pixels at 1920x1080", "main hand remains attached to the mace through every frame", "face remains readable at battle scale", "no anatomy, weapon or VFX crosses the safe boundary"]
+    },
+    {
+      "id": "presentation.paper_doll.razorbeak.active",
+      "placeholderAssetId": "art.placeholder.razorbeak.active_actor",
+      "subjectId": "enemy.raptor.razorbeak.prototype",
+      "displayName": "RAZORBEAK",
+      "dollKind": "wild_raptor",
+      "facing": "left",
+      "nativeCanvas": [520, 560],
+      "safePaddingPercent": 8,
+      "groundAnchor": [0.5, 0.91],
+      "rootPivot": [0.48, 0.67],
+      "attachmentAnchors": {
+        "eye": [0.29, 0.29],
+        "jaw": [0.22, 0.36],
+        "leftHeelClaw": [0.42, 0.84],
+        "rightHeelClaw": [0.62, 0.86],
+        "tailTip": [0.91, 0.42],
+        "biteImpact": [0.18, 0.35],
+        "statusOverhead": [0.5, 0.08]
+      },
+      "layerOrder": ["ground_shadow", "tail", "rear_leg", "body", "front_leg", "forelimbs", "neck", "head", "jaw", "crest", "paper_pins", "debug_anchors"],
+      "identityInvariants": ["one adult wild island raptor", "two legs and two complete feet", "two small clawed forelimbs", "long counterbalancing tail", "hooked heel claws", "scarred face and flank", "dangerous level-seven individual", "no pen, rider, handler, herd or hatchling traits"],
+      "poseVariable": "coiled stalking idle with skull low, tail level and heel claws clear",
+      "futureRuntimeAssetId": "art.enemy.razorbeak.battle.ready_idle",
+      "futureFormat": "transparent lossless actor source plus engine-ready animation texture",
+      "replacementTests": ["complete snout, crest, forelimbs, both feet and tail tip remain visible", "ground and root anchors move no more than eight pixels at 1920x1080", "bite and heel-claw contact anchors remain stable", "silhouette reads as a dangerous adult at card distance", "no anatomy or VFX crosses the safe boundary"]
+    },
+    {
+      "id": "presentation.paper_stage.reception_road",
+      "placeholderAssetId": "art.placeholder.reception_road.stage",
+      "subjectId": "location.road.reception",
+      "displayName": "RECEPTION ROAD",
+      "dollKind": "layered_paper_environment",
+      "facing": "none",
+      "nativeCanvas": [1360, 560],
+      "safePaddingPercent": 8,
+      "groundAnchor": [0.5, 0.88],
+      "rootPivot": [0.5, 0.5],
+      "attachmentAnchors": {
+        "partyStand": [0.29, 0.82],
+        "enemyStand": [0.72, 0.82],
+        "centerContact": [0.5, 0.76],
+        "tombRoadVanishingPoint": [0.54, 0.42]
+      },
+      "layerOrder": ["paper_sky", "far_jungle", "bronze_age_ruins", "mid_jungle", "funerary_road", "foreground_leaves", "actor_shadows", "actors", "vfx", "interface"],
+      "identityInvariants": ["wild tropical jungle dominates the frame", "magical Bronze Age elven road and masonry", "no colonial city skyline", "no dinosaur enclosure", "clear party and enemy standing zones", "warm late-afternoon light", "layered theatrical depth"],
+      "poseVariable": "static side-on battle composition aligned to the exploration road",
+      "futureRuntimeAssetId": "art.environment.reception_road.battle.afternoon",
+      "futureFormat": "layered 1920x1080 lossless master with separated foreground occluders",
+      "replacementTests": ["party and enemy silhouettes remain readable", "road perspective supports the authored ground anchors", "foreground never covers faces or command targets", "background contains no readable text", "battle crop and exploration geography agree"]
+    }
+  ]
+}
