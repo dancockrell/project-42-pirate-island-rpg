@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DeathMemory {
     pub killed_by_player_count: u32,
     pub last_death_day: Option<u32>,
