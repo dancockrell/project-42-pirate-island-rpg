@@ -6,6 +6,18 @@ Open `game/project.godot` in Godot 4.7.2 or a later compatible Godot 4 maintenan
 
 Expected screen: four vertical heroine cards on the left; one large active placeholder actor and one large razorbeak placeholder on the battle plane; descriptive observation text; a visible enemy-intent line; and all seven Betty skills in a two-row command grid. `Fatal Intercept` is visible but disabled because it is an automatic reaction. Manual skills enter the targeting session, prompt for legal targets in authored order, submit stable IDs through `SimulationPort`, play the authored action beats, then project the returned mechanical events.
 
+## Betty 3D candidate review
+
+Open `game/scenes/review/betty_3d_candidate_review.tscn` and press F6. This is
+an isolated camera-and-silhouette review, not a second battle scene. It uses
+the downloaded Magnific GLB at the same 1920×1080 active-fighter crop, fits
+the character's geometric bounds to the floor and marks the fifteen-percent
+effect envelope. The metadata panel is intentionally blunt: candidate 01 has
+no skeleton and no animation clips, so it cannot replace the live Betty or
+stand in for a weapon-socket/skill test. Use this scene only to decide whether
+the 3D visual direction blocks better than the 2D proxy before commissioning a
+rigged export.
+
 ## Native simulation boundary
 
 `Project42SimulationBridge` is the active authoritative simulation when its GDExtension is registered. Build it with `tools/build-native-bridge.ps1`, then run `tools/verify-godot.ps1`; the verifier performs an editor import pass before starting the scene and tests the real bridge through `NativeSimulationPort`.
