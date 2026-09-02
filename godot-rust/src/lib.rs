@@ -6,6 +6,9 @@ pub mod battle;
 pub mod protocol;
 pub mod world;
 
+#[cfg(feature = "godot-ext")]
+mod godot_bridge;
+
 pub use battle::{
     Actor, ActorId, Battle, BattleError, BattleEvent, BattlePhase, BattleSnapshot,
     BattlefieldEffect, Faction, SkillCommand, StatusInstance, StatusKind,

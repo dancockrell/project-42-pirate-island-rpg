@@ -19,6 +19,10 @@ $previousLocalAppData = $env:LOCALAPPDATA
 try {
     $env:APPDATA = $taskProfile
     $env:LOCALAPPDATA = $taskLocal
+    & $GodotExecutable --headless --editor --path (Join-Path $workspace "game") --quit
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot import and extension registration failed with exit code $LASTEXITCODE"
+    }
     & $GodotExecutable --headless --path (Join-Path $workspace "game") --quit-after 3
     if ($LASTEXITCODE -ne 0) {
         throw "Godot headless verification failed with exit code $LASTEXITCODE"
@@ -38,6 +42,10 @@ try {
     & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/content_catalog_test.gd"
     if ($LASTEXITCODE -ne 0) {
         throw "Godot content-catalog registry tests failed with exit code $LASTEXITCODE"
+    }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/native_simulation_port_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot native-simulation-port tests failed with exit code $LASTEXITCODE"
     }
 } finally {
     $env:APPDATA = $previousAppData

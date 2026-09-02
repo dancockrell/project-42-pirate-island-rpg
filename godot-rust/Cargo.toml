@@ -6,6 +6,11 @@ description = "Deterministic gameplay simulation for Project 42: Pirate Island R
 license = "Proprietary"
 
 [lib]
-crate-type = ["rlib"]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = []
+godot-ext = ["dep:godot"]
 
 [dependencies]
+godot = { version = "0.5.5", optional = true, features = ["api-4-2"] }

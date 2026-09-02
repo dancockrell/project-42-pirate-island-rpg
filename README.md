@@ -11,7 +11,7 @@ This repository is the executable companion to the design bible. It begins with 
 | Content schemas, validators, asset ledgers, build reports and authoring transforms | TypeScript | Runs offline. Must not become a second gameplay runtime. |
 | Characters, skills, enemies, locations, art requirements and localization references | JSON | Uses stable IDs and metadata. Never uses a scene path as identity. |
 
-The initial Godot shell uses a clearly marked mock simulation adapter because the native Rust bridge has not been compiled into a GDExtension yet. The mock implements the same command/event shapes as the Rust crate. Replacing it is a boundary task, not a rewrite of UI logic.
+The Godot shell loads `Project42SimulationBridge`, the native Rust GDExtension, and submits commands through `NativeSimulationPort`. The bridge owns the authoritative prototype battle and projects typed snapshots and ordered events into Godot dictionaries. A clearly marked mock remains available only when a debug build cannot load the extension; release startup refuses that fallback.
 
 The presentation fixture now exposes all seven of Betty's D-through-SSS skills. `Fatal Intercept` is visibly present but disabled because it is an automatic reaction, not a manual command. The remaining buttons drive deterministic mock event sequences so card focus, multi-target rescue, battlefield effects, revival and bonus-turn presentation can be built before the native bridge is attached. These fixtures are not a second rules implementation and are never release-authoritative.
 
@@ -29,6 +29,7 @@ Betty's current Magnific images are stored as component references under `work/a
 
 ```powershell
 cargo test --manifest-path godot-rust/Cargo.toml
+./tools/build-native-bridge.ps1 -Configuration debug
 cd tools
 npm install
 npm run validate

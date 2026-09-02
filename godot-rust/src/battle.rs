@@ -267,6 +267,49 @@ struct DamageOutcome {
 }
 
 impl Battle {
+    pub fn prototype_vertical_slice() -> Self {
+        let actor =
+            |id: &str, display_name: &str, faction: Faction, level, vitality, guard, initiative| {
+                Actor {
+                    id: ActorId(id.into()),
+                    display_name: display_name.into(),
+                    faction,
+                    level,
+                    vitality,
+                    max_vitality: vitality,
+                    guard,
+                    band: 0,
+                    initiative,
+                    statuses: Vec::new(),
+                    intercepts_for: None,
+                    skill_uses_remaining: BTreeMap::new(),
+                }
+            };
+        Self::new(
+            "battle.prototype.returning_names",
+            [
+                actor(
+                    "character.heroine.betty",
+                    "Betty",
+                    Faction::Party,
+                    3,
+                    100,
+                    0,
+                    12,
+                ),
+                actor(
+                    "enemy.raptor.razorbeak.prototype",
+                    "Razorbeak",
+                    Faction::Hostile,
+                    7,
+                    70,
+                    3,
+                    8,
+                ),
+            ],
+        )
+    }
+
     pub fn new(battle_id: impl Into<String>, actors: impl IntoIterator<Item = Actor>) -> Self {
         let actors: BTreeMap<_, _> = actors
             .into_iter()

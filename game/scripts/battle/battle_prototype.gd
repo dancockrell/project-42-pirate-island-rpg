@@ -50,7 +50,15 @@ func _ready() -> void:
 	animation_director.event_cued.connect(on_animation_event_cued)
 	animation_director.action_finished.connect(on_animation_finished)
 	add_child(animation_director)
-	simulation = MockSimulationPort.new()
+	if ClassDB.can_instantiate(NativeSimulationPort.BRIDGE_CLASS):
+		simulation = NativeSimulationPort.new()
+	elif OS.is_debug_build():
+		push_warning("Rust GDExtension unavailable; using the development-only mock simulation.")
+		simulation = MockSimulationPort.new()
+	else:
+		push_error("Release startup refused: Project42SimulationBridge is unavailable and mock gameplay is forbidden.")
+		get_tree().quit(78)
+		return
 	build_screen()
 	placeholder_presenter = PlaceholderActionPresenterScript.new()
 	placeholder_presenter.name = "PlaceholderActionPresenter"
@@ -383,7 +391,10 @@ func set_card_state(id: String, state: String) -> void:
 func set_commands_enabled(enabled: bool) -> void:
 	for skill_id in command_buttons:
 		var button := command_buttons[skill_id] as Button
-		button.disabled = not enabled or skill_id == "skill.betty.fatal_intercept"
+		var has_legal_targets := catalog.has(skill_id) and targeting.has_legal_targets(catalog.get_record(skill_id), snapshot_actors)
+		button.disabled = not enabled or not has_legal_targets
+		if enabled and not has_legal_targets:
+			button.tooltip_text = "Unavailable in the current authoritative encounter: no legal target exists. Stable skill ID: %s" % skill_id
 
 func make_color_rect(color: Color, node_name: String) -> ColorRect:
 	var rect := ColorRect.new()

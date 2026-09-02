@@ -8,6 +8,13 @@ func _initialize() -> void:
 		{"id": "enemy.raptor.razorbeak.prototype", "faction": "hostile", "vitality": 70}
 	]
 	var session := TargetingSession.new()
+	assert(session.has_legal_targets(skill("one_living_hostile"), actors))
+	assert(session.has_legal_targets(skill("ordered_pair_threatened_ally_then_hostile"), actors))
+	assert(session.has_legal_targets(skill("one_defeated_party_member_other_than_betty"), actors))
+	assert(not session.has_legal_targets(skill("automatic_reaction_to_other_party_member_lethal_hit"), actors))
+	var two_actor_encounter := [actors[0], actors[3]]
+	assert(not session.has_legal_targets(skill("ordered_pair_threatened_ally_then_hostile"), two_actor_encounter))
+	assert(not session.has_legal_targets(skill("one_defeated_party_member_other_than_betty"), two_actor_encounter))
 
 	var result := session.begin(skill("one_living_hostile"), actors)
 	assert(result.status == "selecting")

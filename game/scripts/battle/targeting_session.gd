@@ -11,6 +11,27 @@ var selected_ids: Array[String] = []
 var actors_by_id: Dictionary = {}
 var active := false
 
+func has_legal_targets(skill_record: Dictionary, actors: Array) -> bool:
+	var rule := str(skill_record.get("targetRule", ""))
+	if rule == "all_living_party_members":
+		return actors.any(func(actor): return is_actor(actor, "party", true))
+	if rule == "automatic_reaction_to_other_party_member_lethal_hit":
+		return false
+	if rule in ["one_hostile", "one_living_hostile"]:
+		return actors.any(func(actor): return is_actor(actor, "hostile", true))
+	if rule == "one_living_party_member":
+		return actors.any(func(actor): return is_actor(actor, "party", true))
+	if rule == "one_defeated_party_member_other_than_betty":
+		return actors.any(func(actor): return is_actor(actor, "party", false) and str(actor.get("id", "")) != "character.heroine.betty")
+	if rule == "ordered_pair_threatened_ally_then_hostile":
+		var has_ally := actors.any(func(actor): return is_actor(actor, "party", true) and str(actor.get("id", "")) != "character.heroine.betty")
+		var has_hostile := actors.any(func(actor): return is_actor(actor, "hostile", true))
+		return has_ally and has_hostile
+	return false
+
+func is_actor(value: Variant, faction: String, living: bool) -> bool:
+	return value is Dictionary and str(value.get("faction", "")) == faction and (int(value.get("vitality", 0)) > 0) == living
+
 func begin(skill_record: Dictionary, actors: Array) -> Dictionary:
 	cancel()
 	skill_id = str(skill_record.get("id", ""))

@@ -30,7 +30,7 @@ func submit(command: Dictionary) -> Array[Dictionary]:
 	if not is_available():
 		return [error_event("native_bridge_unavailable")]
 	var normalized := {
-		"protocol_version": 1,
+		"protocol_version": int(command.get("protocol_version", 1)),
 		"command_id": str(command.get("command_id", "")),
 		"battle_id": str(command.get("battle_id", "")),
 		"actor_id": str(command.get("actor_id", "")),
