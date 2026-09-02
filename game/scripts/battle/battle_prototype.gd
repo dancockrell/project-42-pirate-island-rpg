@@ -52,7 +52,12 @@ func _ready() -> void:
 	animation_director.event_cued.connect(on_animation_event_cued)
 	animation_director.action_finished.connect(on_animation_finished)
 	add_child(animation_director)
-	if ClassDB.can_instantiate(NativeSimulationPort.BRIDGE_CLASS):
+	if OS.has_feature("web") and OS.is_debug_build():
+		# Browser previews cannot load the Windows Rust extension. They use the
+		# presentation fixture deliberately, without asking ClassDB for a class
+		# that cannot exist in this export.
+		simulation = MockSimulationPort.new()
+	elif ClassDB.can_instantiate(NativeSimulationPort.BRIDGE_CLASS):
 		simulation = NativeSimulationPort.new()
 	elif OS.is_debug_build():
 		push_warning("Rust GDExtension unavailable; using the development-only mock simulation.")
@@ -202,16 +207,20 @@ func make_actor_placeholder(display_name: String, replacement: String, accent: C
 	panel.custom_minimum_size = Vector2(480, 560)
 	var stack := VBoxContainer.new()
 	stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var silhouette := ColorRect.new()
 	silhouette.custom_minimum_size = Vector2(250, 390)
 	silhouette.color = Color(accent, 0.52)
+	silhouette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stack.add_child(silhouette)
 	var label := make_label(display_name, 32, accent)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stack.add_child(label)
 	var dummy := make_label(replacement, 15, Color("e4b75e"))
 	dummy.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	dummy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dummy.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stack.add_child(dummy)
 	panel.add_child(stack)
 	return panel
