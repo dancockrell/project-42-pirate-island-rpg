@@ -267,7 +267,7 @@ func submit_skill(skill_id: String, targets: Array) -> void:
 	}
 	await project_command_events(simulation.submit(command))
 
-func project_command_events(events: Array[Dictionary]) -> void:
+func project_command_events(events: Array[Dictionary], run_followups := true) -> void:
 	var index := 0
 	while index < events.size():
 		var event: Dictionary = events[index]
@@ -287,6 +287,29 @@ func project_command_events(events: Array[Dictionary]) -> void:
 	target_label.text = "COMMAND READY"
 	targeting.cancel()
 	selected_skill_id = ""
+	if run_followups:
+		await run_automatic_turns()
+
+func run_automatic_turns() -> void:
+	while active_actor_id != "character.heroine.betty":
+		var automatic_command := {
+			"command_id": "command.prototype.auto.%s" % Time.get_ticks_usec(),
+			"battle_id": "battle.prototype.returning_names",
+			"actor_id": active_actor_id,
+			"kind": "use_skill",
+			"skill_id": "skill.system.hold_position",
+			"target_ids": [],
+			"payload": {}
+		}
+		if active_actor_id == "enemy.raptor.razorbeak.prototype":
+			automatic_command.skill_id = "skill.enemy.razorbeak.rushing_bite"
+			automatic_command.target_ids = ["character.heroine.vix"]
+		var events: Array[Dictionary] = simulation.submit(automatic_command)
+		if events.is_empty() or events[0].get("kind", "") == "command_rejected":
+			for event in events:
+				project_event(event)
+			return
+		await project_command_events(events, false)
 
 func project_snapshot(snapshot: Dictionary) -> void:
 	description_label.text = "[color=#b78a4b]OBSERVED[/color] %s" % snapshot.get("description", "No description supplied.")

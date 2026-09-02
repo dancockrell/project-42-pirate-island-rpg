@@ -44,4 +44,7 @@ The bridge milestone is complete only when all of the following are true:
 5. `ClassDB.can_instantiate("Project42SimulationBridge")` returns true. **Passing.**
 6. A guarded-strike command submitted through `NativeSimulationPort` emits the same ordered opening events and final hostile vitality as the direct Rust test. **Passing.**
 7. An unsupported protocol version returns `command_rejected` without mutating the battle. **Passing.**
+8. The native fixture contains Betty, wounded Vix, defeated Ayla and one level-seven razorbeak, so party healing, ordered rescue, interception, automatic reaction eligibility and revival are representable without mock state. **Passing.**
+9. Godot-boundary tests prove Condition Cleanse, Rescue Charge plus the following enemy interception, Mobile Infirmary's living-party pulse, and Combat Revival's status removal, forty-percent restore and immediate bonus turn. **Passing.**
+10. The prototype drives non-player turns through ordinary native commands: the razorbeak uses Rushing Bite, while party members without executable kits use the explicit temporary `Hold Position` action. A full Betty-to-enemy-to-support-to-Betty initiative cycle no longer freezes after the first player command. **Passing.**
 8. A release runtime cannot select `MockSimulationPort`. **Enforced in `BattlePrototype._ready`.**

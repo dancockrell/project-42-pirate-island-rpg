@@ -47,6 +47,10 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Godot native-simulation-port tests failed with exit code $LASTEXITCODE"
     }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/prototype_turn_cycle_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot battle-prototype turn-cycle test failed with exit code $LASTEXITCODE"
+    }
 } finally {
     $env:APPDATA = $previousAppData
     $env:LOCALAPPDATA = $previousLocalAppData

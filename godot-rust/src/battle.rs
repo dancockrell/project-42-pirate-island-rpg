@@ -285,28 +285,63 @@ impl Battle {
                     skill_uses_remaining: BTreeMap::new(),
                 }
             };
+        let mut betty = actor(
+            "character.heroine.betty",
+            "Betty",
+            Faction::Party,
+            3,
+            100,
+            0,
+            12,
+        );
+        betty
+            .skill_uses_remaining
+            .insert("skill.betty.fatal_intercept".into(), 1);
+        betty
+            .skill_uses_remaining
+            .insert("skill.betty.combat_revival".into(), 1);
+
+        let mut ayla = actor(
+            "character.heroine.ayla",
+            "Ayla",
+            Faction::Party,
+            3,
+            80,
+            0,
+            9,
+        );
+        ayla.vitality = 0;
+        ayla.statuses.push(StatusInstance {
+            id: "status.ayla.bleeding.prototype".into(),
+            kind: StatusKind::Bleeding,
+            remaining_rounds: 2,
+            source_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+        });
+
+        let mut vix = actor("character.heroine.vix", "Vix", Faction::Party, 3, 80, 0, 10);
+        vix.vitality = 10;
+        vix.band = 1;
+        vix.statuses.push(StatusInstance {
+            id: "status.vix.poisoned.prototype".into(),
+            kind: StatusKind::Poisoned,
+            remaining_rounds: 3,
+            source_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+        });
+
+        let mut razorbeak = actor(
+            "enemy.raptor.razorbeak.prototype",
+            "Razorbeak",
+            Faction::Hostile,
+            7,
+            70,
+            3,
+            11,
+        );
+        razorbeak.band = 2;
+
         Self::new(
             "battle.prototype.returning_names",
-            [
-                actor(
-                    "character.heroine.betty",
-                    "Betty",
-                    Faction::Party,
-                    3,
-                    100,
-                    0,
-                    12,
-                ),
-                actor(
-                    "enemy.raptor.razorbeak.prototype",
-                    "Razorbeak",
-                    Faction::Hostile,
-                    7,
-                    70,
-                    3,
-                    8,
-                ),
-            ],
+            [betty, ayla, vix, razorbeak],
         )
     }
 
@@ -419,6 +454,7 @@ impl Battle {
                 | "skill.betty.mobile_infirmary"
                 | "skill.betty.combat_revival"
                 | "skill.enemy.razorbeak.rushing_bite"
+                | "skill.system.hold_position"
         ) {
             return Err(BattleError::UnsupportedSkill(command.skill_id));
         }
@@ -453,7 +489,7 @@ impl Battle {
         }
         let expected_targets = match command.skill_id.as_str() {
             "skill.betty.rescue_charge" => 2,
-            "skill.betty.mobile_infirmary" => 0,
+            "skill.betty.mobile_infirmary" | "skill.system.hold_position" => 0,
             _ => 1,
         };
         if command.target_ids.len() != expected_targets {
@@ -475,7 +511,10 @@ impl Battle {
                 return Err(BattleError::ActorDefeated(target_id.clone()));
             }
         }
-        if command.skill_id == "skill.betty.mobile_infirmary" {
+        if matches!(
+            command.skill_id.as_str(),
+            "skill.betty.mobile_infirmary" | "skill.system.hold_position"
+        ) {
             self.phase = BattlePhase::Resolving;
             let mut events = vec![
                 BattleEvent::CommandAccepted {
@@ -580,6 +619,20 @@ impl Battle {
             }
             "skill.betty.combat_revival" => {
                 self.resolve_combat_revival(command, events);
+                return Ok(());
+            }
+            "skill.system.hold_position" => {
+                let actor = self
+                    .actors
+                    .get_mut(&command.actor_id)
+                    .expect("actor checked");
+                actor.guard += 2;
+                events.push(BattleEvent::GuardChanged {
+                    command_id: command.command_id.clone(),
+                    actor_id: command.actor_id.clone(),
+                    delta: 2,
+                    total: actor.guard,
+                });
                 return Ok(());
             }
             "skill.betty.guarded_strike" | "skill.enemy.razorbeak.rushing_bite" => {}
