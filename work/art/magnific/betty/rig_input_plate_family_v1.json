@@ -2,8 +2,9 @@
   "schemaVersion": 1,
   "assetId": "art.reference.betty.rig_input_plate_family.v1",
   "characterId": "character.heroine.betty",
-  "status": "ready_for_magnific_generation",
-  "purpose": "Four clean multi-view reference plates for a rig-enabled Betty GLB. These are source images for geometry recovery, not final in-game renders.",
+  "status": "retired_pending_bible_visual_lock",
+  "purpose": "Historical four-view request. It must not be sent to a generator because it was written before Project 42's game-facing visual authority was re-established.",
+  "supersededBy": "docs/VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md",
   "styleContract": {
     "target": "Premium stylized anime-fantasy 3D character reference. High material definition and controlled PBR-like surface separation without photo realism.",
     "rendering": [
@@ -31,7 +32,7 @@
     "resolution": "2K or higher",
     "model": "highest available stylized-character quality setting",
     "count": 1,
-    "referenceInput": "work/art/magnific/betty/betty-body-direction-gpt2.png",
+    "referenceInput": null,
     "outputLayout": "one four-panel turnaround sheet, equal-size panels, each panel contains exactly one complete head-to-boot view"
   },
   "prompt": "BETTY, adult anime-fantasy pirate field physician, clean four-panel 3D character turnaround reference sheet. Four equal vertical panels in one row, left to right: FRONT, LEFT, RIGHT, BACK. One identical full-body adult woman in every panel, complete hair to boot soles, both hands and complete short bronze-and-glass medical boarding mace inside every panel with generous empty margin. Slender slight agile adult body, modest small chest, narrow hips, fine waist, long lean legs. Auburn curly updo, green eyes, freckles, teasing confident expression in front view. Teal-and-cream pirate field-medic outfit: open shoulders, small midriff, fitted teal corset, short field shorts, split teal coat tails, tall brown boots, brown physician satchel, glass ampoules, bandage roll. Neutral relaxed A-pose, feet apart, elbows clear of torso, hands visible, mace held low at a diagonal and never crossing the face or legs. Premium stylized anime 3D character rendering: crisp painted facial design, soft stylized skin with freckles, high-quality teal fabric panels, readable leather grain, weathered bronze trim, luminous glass mace chamber, controlled studio key light and warm rim light, neutral charcoal-gray seamless background. No photoreal face, no photographic pores, no real-person likeness, no plastic toy, no flat cel shading, no scenery, no battle pose, no second subject, no giant bust, no heavy hourglass, no wide hips, no thick thighs, no long staff, no wand, no red-cross emblem, no cropped body, no cropped weapon, no text, no logo, no watermark.",
@@ -48,6 +49,6 @@
     "fullBodyEveryPanel": true,
     "cleanBackground": true,
     "textureStyle": "stylized_high_definition_not_photoreal",
-    "nextStep": "Crop the four panels without rescaling or repainting, use as Front/Left/Right/Back inputs in Magnific 3D Generator, turn Rig for animation on before generation."
+    "nextStep": "Do not generate. First create and obtain explicit approval for the game-facing identity plate defined in docs/VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md."
   }
 }

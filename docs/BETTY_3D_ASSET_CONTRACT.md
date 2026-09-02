@@ -1,15 +1,27 @@
 # Betty 3D Asset Contract
 
-## Canonical identity source
+## Current gate: visual authority reopened
 
-Use this image as the single primary reference input:
+**No new 3D request is currently authorized.** The earlier selected image and
+the generic four-view request did not establish the actual Project 42 game
+look. They remain below as historical provenance for the static candidate, not
+as permission to generate another candidate. The controlling document is
+`docs/VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md`.
+
+The next step is a reviewed **Betty game-facing identity plate** derived from
+the battle, motion and cast references named there. Only after the player
+approves that plate may this contract receive a new canonical source and a
+clean rig-input turnaround.
+
+## Historical canonical identity source for Candidate 01 only
+
+Candidate 01 used this image as its single primary reference input:
 
 `work/art/magnific/betty/betty-body-direction-gpt2.png`
 
-This is the approved Betty body-and-rendering direction. The generated 3D
-model must be a conversion of this identity. It is not a new character-design
-attempt. The temporary Godot paper rig is a technical pose scaffold only; it
-is prohibited as visual source material for the model.
+It is no longer the approved Betty body-and-rendering direction. The temporary
+Godot paper rig remains a technical pose scaffold only; it is prohibited as
+visual source material for any model.
 
 Supporting component references:
 
@@ -18,10 +30,10 @@ Supporting component references:
 - `work/art/magnific/betty/betty-palette-reference-seedream.png`: teal,
   cream and bronze palette; sunburst satchel emblem; luminous mace chamber.
 
-## Required Magnific 3D Generator input
+## Retired Magnific 3D Generator input
 
-Use the canonical identity source as image reference. Enter this as the
-generation brief:
+Do not use the following previous generation brief. It is retained only so the
+provenance of Candidate 01 can be understood:
 
 ```text
 BETTY — adult anime-fantasy pirate field physician, identity-preserving 3D
@@ -96,7 +108,6 @@ blocking candidate**. The isolated Godot review scene at
 read, scale, silhouette and the active-fighter camera envelope. It cannot be
 used for Betty's idle, step, weapon socket, seven skills or live battle actor.
 
-The next 3D generation must explicitly retain the approved identity while
-exporting a skeleton and separate hand-held weapon. Its acceptance check is
-the normal contract above, including an idle, a forward step and a short
-cross-body boarding-mace strike.
+The next 3D generation is blocked until the visual entry gate passes. After
+that gate, this document must be rewritten around the approved game-facing
+identity plate before a generator receives any new input.

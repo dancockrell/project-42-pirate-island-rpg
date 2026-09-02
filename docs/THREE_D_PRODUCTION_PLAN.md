@@ -197,13 +197,17 @@ animation enabled before generation**. Add left, right and back plates only
 when they are the same approved body, costume and weapon. Never repair a poor
 side view by mixing in a different character image.
 
-Betty’s generation-ready four-view contract is
-`work/art/magnific/betty/rig_input_plate_family_v1.json`. It produces a single
-clean turnaround sheet first, then extracts the Front, Left, Right and Back
-panels without repainting or mixing generation runs. The material target is
-high-definition stylized anime 3D: clear fabric, bronze, leather and glass
-separation under studio light, with painterly stylized skin and face rather
-than photographic pores or a real-person likeness.
+Betty's former four-view request is retained at
+`work/art/magnific/betty/rig_input_plate_family_v1.json` as retired provenance;
+it is not generation-ready. The gate is now defined by
+`docs/VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md`: first make a player-facing
+identity plate that belongs beside `work/art/battle-ui.png`, then obtain visual
+approval, and only then derive matching Front, Left, Right and Back geometry
+inputs without repainting or mixing generation runs. The material target is
+high-definition stylized fantasy illustration translated into 3D: clear
+fabric, bronze, leather and glass separation under controlled light, with
+painted/stylized surfaces rather than photographic pores, a real-person
+likeness, plastic toy rendering, or flat cel shading.
 
 ## Rig delivery contract
 
@@ -283,14 +287,16 @@ and zero clips. It is a 3D scale-and-lighting reference, not an animated actor.
 
 ## Production order
 
-1. Make and approve Betty’s clean 3D identity plate.
-2. Generate one rig-enabled Betty GLB from that plate.
-3. Inspect skeleton, clips, materials and weapon separation.
-4. Use the isolated review scene for the five-beat camera test.
-5. Build `Battle3DStaging` and connect its anchors to the authoritative battle
+1. Make and approve Betty's game-facing identity plate against the visual
+   authority set.
+2. Derive and approve matching clean rig-input views from that plate.
+3. Generate one rig-enabled Betty GLB from those approved views.
+4. Inspect skeleton, clips, materials and weapon separation.
+5. Use the isolated review scene for the five-beat camera test.
+6. Build `Battle3DStaging` and connect its anchors to the authoritative battle
    snapshot already feeding the UI.
-6. Replace only Betty’s paper proxy after the five-beat test passes.
-7. Repeat for Razorbeak, Michael and the next heroine.
+7. Replace only Betty’s paper proxy after the five-beat test passes.
+8. Repeat for Razorbeak, Michael and the next heroine.
 
 No stage-wide conversion happens before one heroine visibly completes one real
 command from selection through recovery.
