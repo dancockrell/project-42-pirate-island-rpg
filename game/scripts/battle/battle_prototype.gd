@@ -145,19 +145,19 @@ func build_battle_plane() -> Control:
 	# A foreground active actor, an individual raptor, and a later enemy socket
 	# occupy the same painted floor. Their panels are not half-screen columns.
 	actor_panel = make_actor_placeholder("presentation.paper_doll.betty.active", TEAL)
-	actor_panel.position = Vector2(250, 190)
-	actor_panel.size = Vector2(420, 560)
+	actor_panel.position = Vector2(330, 175)
+	actor_panel.size = Vector2(500, 615)
 	plane.add_child(actor_panel)
 	enemy_panel = make_actor_placeholder("presentation.paper_doll.razorbeak.active", DANGER)
-	enemy_panel.position = Vector2(1030, 285)
-	enemy_panel.size = Vector2(385, 420)
+	enemy_panel.position = Vector2(1080, 330)
+	enemy_panel.size = Vector2(450, 455)
 	enemy_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	enemy_panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	enemy_panel.gui_input.connect(on_enemy_gui_input)
 	plane.add_child(enemy_panel)
 	action_cue_label = make_label("BETTY IS READY", 14, Color("e4b75e"))
 	action_cue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	action_cue_label.position = Vector2(400, 755)
+	action_cue_label.position = Vector2(470, 760)
 	action_cue_label.size = Vector2(220, 28)
 	plane.add_child(action_cue_label)
 	# Only present party members receive cards. The prototype does not invent

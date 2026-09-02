@@ -53,6 +53,9 @@
       "placeholder": true,
       "consumer": "game/scripts/battle/battle_prototype.gd#PaperStage",
       "visibleMark": "DUMMY PAPER STAGE",
+      "assetPath": "game/assets/standins/reception_terrace/reception_terrace_backdrop_v1.png",
+      "assetState": "provisional-generated-environment-plate",
+      "source": "Built-in image generation, 2026-09-02. Generated from the approved Reception Terrace composition contract; no reference art was copied into the runtime asset.",
       "intendedFinal": "Layered 1920x1080 Reception Road battle environment dominated by wild jungle and magical Bronze Age elven funerary masonry.",
       "requiredTags": ["wild-jungle", "magical-bronze-age", "battle-stage", "layered-depth", "no-colonial-city"],
       "replacementGate": ["party and hostile standing zones remain readable", "foreground occluders are separate", "battle and exploration geography agree", "no enclosure imagery"]
