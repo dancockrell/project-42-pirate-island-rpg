@@ -8,25 +8,27 @@ var spec: Dictionary = {}
 var accent := Color("4fc7b4")
 var paper := Color("e8d7b7")
 var ink := Color("2a211a")
-## An approved visual identity plate is deliberately shipped for this first
-## playable slice. It establishes real character blocking while the separate
-## paper-part contract below remains the animation replacement target.
-const BETTY_IDENTITY_REFERENCE := preload("res://assets/standins/betty_identity_reference.png")
+const PaperBettyRigScript = preload("res://scripts/battle/paper_betty_rig.gd")
 ## Anchor dots are available in the inspector/tooltip contract, while the
 ## running game keeps the silhouette clean. Toggle this locally only while
 ## laying out a replacement sprite sheet.
 var show_anchors := false
 var pose_name := "card_ready"
 var vfx_id := "presentation.vfx.none"
+var betty_rig: PaperBettyRig
 
 func set_presentation_cue(cue: Dictionary) -> void:
 	pose_name = str(cue.get("pose", "card_ready"))
 	vfx_id = str(cue.get("vfxId", "presentation.vfx.none"))
+	if betty_rig != null:
+		betty_rig.set_pose(pose_name)
 	queue_redraw()
 
 func reset_presentation() -> void:
 	pose_name = "card_ready"
 	vfx_id = "presentation.vfx.none"
+	if betty_rig != null:
+		betty_rig.set_pose("ready_idle")
 	queue_redraw()
 
 func configure(next_spec: Dictionary, next_accent: Color) -> void:
@@ -34,7 +36,21 @@ func configure(next_spec: Dictionary, next_accent: Color) -> void:
 	accent = next_accent
 	custom_minimum_size = Vector2(spec.get("nativeCanvas", [520, 560])[0], spec.get("nativeCanvas", [520, 560])[1])
 	tooltip_text = metadata_tooltip()
+	if spec.get("id", "") == "presentation.paper_doll.betty.active":
+		betty_rig = PaperBettyRigScript.new()
+		betty_rig.name = "BettyArticulatedPaperRig"
+		add_child(betty_rig)
+		call_deferred("rebuild_betty_rig")
 	queue_redraw()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED and betty_rig != null:
+		rebuild_betty_rig()
+
+func rebuild_betty_rig() -> void:
+	if betty_rig != null and size.x > 0.0 and size.y > 0.0:
+		betty_rig.build(size)
+		betty_rig.set_pose(pose_name)
 
 func metadata_tooltip() -> String:
 	return "PAPER DOLL — DEVELOPMENT ONLY\nStable presentation: %s\nSubject: %s\nFuture asset: %s\nCanvas: %s\nSafe padding: %s%%\nGround anchor: %s\nRoot pivot: %s\n\nIdentity invariants:\n• %s\n\nReplacement tests:\n• %s" % [spec.get("id", "missing"), spec.get("subjectId", "missing"), spec.get("futureRuntimeAssetId", "missing"), str(spec.get("nativeCanvas", [])), str(spec.get("safePaddingPercent", 0)), str(spec.get("groundAnchor", [])), str(spec.get("rootPivot", [])), "\n• ".join(PackedStringArray(spec.get("identityInvariants", []))), "\n• ".join(PackedStringArray(spec.get("replacementTests", [])))]
@@ -64,8 +80,6 @@ func _draw() -> void:
 	draw_set_transform(interaction_origin + body_offset, body_rotation, interaction_scale)
 	if spec.get("dollKind", "") == "wild_raptor":
 		draw_raptor(s)
-	else:
-		draw_betty(s)
 	draw_set_transform(Vector2.ZERO, 0.0)
 	draw_presentation_vfx(s)
 	# The complete asset contract lives in the tooltip. The scene itself keeps a
@@ -91,18 +105,10 @@ func draw_presentation_vfx(s: Vector2) -> void:
 		for x in [.20,.28,.36,.64,.72,.80]: draw_line(Vector2(x*s.x,s.y*.80),Vector2((x+.04)*s.x,s.y*.34),Color("4fc7b4",.7),3)
 
 func draw_betty(s: Vector2) -> void:
-	# Use the approved Betty identity plate for the player-facing prototype. This
-	# is not final runtime animation art: the metadata identifies it as a visual
-	# stand-in and the paper-part layout below supplies the future rig contract.
-	# The source crop contains her complete head, boots, satchel and mace, with
-	# safe breathing room on every edge so it blocks the actual actor footprint.
-	var source := Rect2(430, 0, 470, 720)
-	var destination := Rect2(s.x * .19, s.y * .055, s.x * .62, s.y * .89)
-	draw_texture_rect_region(BETTY_IDENTITY_REFERENCE, destination, source, Color.WHITE)
-	if show_anchors:
-		draw_betty_paper_rig(s)
-
-func draw_betty_paper_rig(s: Vector2) -> void:
+	# This is the visible temporary paper rig, never a pasted illustration. The
+	# actual production version is implemented as articulated child pieces in
+	# paper_betty_rig.gd; this legacy draw is retained only until that hierarchy
+	# has been wired into the active actor this pass.
 	var shadow := Vector2(s.x * 0.51, s.y * 0.89)
 	draw_paper_ellipse(shadow, Vector2(s.x * 0.18, s.y * 0.026), Color(0, 0, 0, 0.35))
 	# Betty is a close-to-final paper-rig demo, not a simplified mascot. Her
