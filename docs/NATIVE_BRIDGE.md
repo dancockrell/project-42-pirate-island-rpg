@@ -33,6 +33,10 @@ Every event contains `event_id`, `command_id` when applicable, monotonically inc
 
 The eventual Rust library target is `cdylib`. Windows development output goes to `game/bin/windows/project42_sim.windows.template_debug.x86_64.dll`. The `.gdextension` file goes to `game/bin/project42_sim.gdextension` and maps Windows debug and release libraries separately. Neither file may be invented or checked in before a native build succeeds.
 
+## Platform scope
+
+The native library build and `tools/verify-godot.ps1` are Windows-only steps: they produce a `.windows.template_debug.x86_64.dll` and drive a locally installed Windows Godot binary. A Linux or CI environment without that toolchain should skip both rather than treat their absence as a failure; `cargo test` and `node tools/src/validate.mjs` remain fully runnable everywhere and are the checks to rely on outside Windows.
+
 ## Acceptance gates
 
 The bridge milestone is complete only when all of the following are true:
