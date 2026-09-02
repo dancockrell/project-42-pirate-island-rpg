@@ -43,6 +43,10 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Godot content-catalog registry tests failed with exit code $LASTEXITCODE"
     }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/combat_text_renderer_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot combat-text-renderer tests failed with exit code $LASTEXITCODE"
+    }
     & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/native_simulation_port_test.gd"
     if ($LASTEXITCODE -ne 0) {
         throw "Godot native-simulation-port tests failed with exit code $LASTEXITCODE"
