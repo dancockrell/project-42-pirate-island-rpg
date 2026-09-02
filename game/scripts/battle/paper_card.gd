@@ -30,6 +30,9 @@ func _draw() -> void:
 	if portrait_kind == "captain":
 		draw_colored_polygon(PackedVector2Array([Vector2(17,56),Vector2(53,56),Vector2(61,101),Vector2(10,101)]), Color("2a3b42"))
 		draw_rect(Rect2(27, 57, 11, 31), Color("eadfca"))
+		draw_rect(Rect2(16, 17, 36, 7), Color("4a3928"))
+		draw_rect(Rect2(24, 7, 20, 14), Color("4a3928"))
+		draw_line(Vector2(19, 68), Vector2(56, 56), Color("b78948"), 4)
 		draw_circle(Vector2(48, 76), 6, Color("d0a85f"))
 	else:
 		draw_colored_polygon(PackedVector2Array([Vector2(22,55),Vector2(48,55),Vector2(54,100),Vector2(16,100)]), accent)

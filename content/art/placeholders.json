@@ -6,8 +6,8 @@
       "placeholder": true,
       "consumer": "game/scripts/battle/battle_prototype.gd#PartyRailCaptain",
       "visibleMark": "DUMMY CAPTAIN CARD",
-      "intendedFinal": "Complete Captain rail portrait: adult human echo-bearer in dark sea coat, open-neck shirt, cutlass and brass echo compass, visibly separate from the heroine cards.",
-      "requiredTags": ["adult", "male-protagonist", "card-portrait", "echo-compass", "no-crop"],
+      "intendedFinal": "Complete Captain rail portrait: lean adult tea-cutter captain with a clear 1850s American frontier read, weathered slouch hat, worn dark sea coat, prototype repeating carbine, experimental sidearm, cutlass and brass echo compass.",
+      "requiredTags": ["adult", "male-protagonist", "1850s-frontier", "tea-cutter-captain", "prototype-firearms", "card-portrait", "echo-compass", "no-crop"],
       "replacementGate": ["approved Captain identity sheet", "readable at rail scale", "costume and compass match active actor when authored"]
     },
     {
@@ -15,8 +15,8 @@
       "placeholder": true,
       "consumer": "future-game/scenes/battle/protagonist_active_actor",
       "visibleMark": "DUMMY CAPTAIN FULL-BODY ACTOR",
-      "intendedFinal": "Complete Captain battle actor with full body, cutlass, echo compass, stable root pivot and generous VFX safe margin.",
-      "requiredTags": ["adult", "male-protagonist", "full-body", "echo-weapon", "no-crop"],
+      "intendedFinal": "Complete Captain battle actor: lean 1850s American frontier silhouette with slouch hat, sea coat, prototype repeating carbine, experimental sidearm, cutlass, echo compass, stable root pivot and generous VFX safe margin.",
+      "requiredTags": ["adult", "male-protagonist", "full-body", "1850s-frontier", "prototype-firearms", "echo-weapon", "no-crop"],
       "replacementGate": ["approved Captain identity rig", "complete boots, head and weapon", "battle safe-frame test"]
     },
     {
