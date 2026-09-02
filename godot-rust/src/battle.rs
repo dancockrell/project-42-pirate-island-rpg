@@ -75,6 +75,7 @@ pub struct EnemyDecision {
     pub skill_id: String,
     pub target_id: ActorId,
     pub rationale: String,
+    pub guard_break_amount: i32,
     pub raw_damage: i32,
     pub guard_absorbed: i32,
     pub vitality_damage: i32,
@@ -97,6 +98,7 @@ pub enum BattleEvent {
         skill_id: String,
         target_ids: Vec<ActorId>,
         rationale: String,
+        guard_break_amount: i32,
         raw_damage: i32,
         guard_absorbed: i32,
         vitality_damage: i32,
@@ -439,8 +441,15 @@ impl Battle {
             .as_ref()
             .and_then(|protector_id| self.actors.get(protector_id))
             .unwrap_or(target);
-        let raw_damage = 9 + i32::from(attacker.level);
-        let guard_absorbed = damage_recipient.guard.min(raw_damage);
+        let uses_guard_break = damage_recipient.guard >= 4;
+        let guard_break_amount = if uses_guard_break {
+            damage_recipient.guard.min(6)
+        } else {
+            0
+        };
+        let raw_damage = if uses_guard_break { 6 } else { 9 } + i32::from(attacker.level);
+        let remaining_guard = damage_recipient.guard - guard_break_amount;
+        let guard_absorbed = remaining_guard.min(raw_damage);
         let vitality_damage = raw_damage - guard_absorbed;
         let lethal = vitality_damage >= damage_recipient.vitality;
         let betty_id = ActorId("character.heroine.betty".into());
@@ -461,13 +470,22 @@ impl Battle {
             });
         Some(EnemyDecision {
             actor_id,
-            skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+            skill_id: if uses_guard_break {
+                "skill.enemy.razorbeak.guard_breaking_kick".into()
+            } else {
+                "skill.enemy.razorbeak.rushing_bite".into()
+            },
             target_id: target.id.clone(),
-            rationale: if lethal {
+            rationale: if uses_guard_break && interception_protector_id.is_some() {
+                "break_guard_on_protector".into()
+            } else if uses_guard_break {
+                "break_guard_on_target".into()
+            } else if lethal {
                 "finish_most_wounded".into()
             } else {
                 "pressure_most_wounded".into()
             },
+            guard_break_amount,
             raw_damage,
             guard_absorbed,
             vitality_damage,
@@ -552,13 +570,14 @@ impl Battle {
                 | "skill.betty.mobile_infirmary"
                 | "skill.betty.combat_revival"
                 | "skill.enemy.razorbeak.rushing_bite"
+                | "skill.enemy.razorbeak.guard_breaking_kick"
                 | "skill.system.hold_position"
         ) {
             return Err(BattleError::UnsupportedSkill(command.skill_id));
         }
         let expected_owner = if command.skill_id.starts_with("skill.betty.") {
             Some(ActorId("character.heroine.betty".into()))
-        } else if command.skill_id == "skill.enemy.razorbeak.rushing_bite" {
+        } else if command.skill_id.starts_with("skill.enemy.razorbeak.") {
             Some(ActorId("enemy.raptor.razorbeak.prototype".into()))
         } else {
             None
@@ -652,6 +671,7 @@ impl Battle {
             "skill.betty.guarded_strike"
             | "skill.betty.healing_impact"
             | "skill.enemy.razorbeak.rushing_bite"
+            | "skill.enemy.razorbeak.guard_breaking_kick"
                 if actor.faction == target.faction =>
             {
                 return Err(BattleError::FriendlyFire {
@@ -733,11 +753,13 @@ impl Battle {
                 });
                 return Ok(());
             }
-            "skill.betty.guarded_strike" | "skill.enemy.razorbeak.rushing_bite" => {}
+            "skill.betty.guarded_strike"
+            | "skill.enemy.razorbeak.rushing_bite"
+            | "skill.enemy.razorbeak.guard_breaking_kick" => {}
             other => return Err(BattleError::UnsupportedSkill(other.to_owned())),
         }
         let mut target_id = command.target_ids[0].clone();
-        if command.skill_id == "skill.enemy.razorbeak.rushing_bite" {
+        if command.skill_id.starts_with("skill.enemy.razorbeak.") {
             let protected_id = target_id.clone();
             let protector_id = self
                 .actors
@@ -760,8 +782,21 @@ impl Battle {
                 target_id = protector_id;
             }
         }
+        if command.skill_id == "skill.enemy.razorbeak.guard_breaking_kick" {
+            let target = self.actors.get_mut(&target_id).expect("target checked");
+            let guard_lost = target.guard.min(6);
+            target.guard -= guard_lost;
+            events.push(BattleEvent::GuardChanged {
+                command_id: command.command_id.clone(),
+                actor_id: target_id.clone(),
+                delta: -guard_lost,
+                total: target.guard,
+            });
+        }
         let (raw_damage, guard_gain) = if command.skill_id == "skill.betty.guarded_strike" {
             (12 + i32::from(actor_level), 2)
+        } else if command.skill_id == "skill.enemy.razorbeak.guard_breaking_kick" {
+            (6 + i32::from(actor_level), 0)
         } else {
             (9 + i32::from(actor_level), 0)
         };
@@ -1256,6 +1291,7 @@ impl Battle {
             skill_id: decision.skill_id,
             target_ids: vec![decision.target_id],
             rationale: decision.rationale,
+            guard_break_amount: decision.guard_break_amount,
             raw_damage: decision.raw_damage,
             guard_absorbed: decision.guard_absorbed,
             vitality_damage: decision.vitality_damage,
@@ -1412,6 +1448,122 @@ mod tests {
         assert_eq!(decision.vitality_damage, 16);
         assert!(!decision.lethal);
         assert!(!decision.fatal_intercept_available);
+    }
+
+    #[test]
+    fn enemy_selects_guard_breaking_kick_and_projects_both_guard_steps() {
+        let mut battle = Battle::prototype_vertical_slice();
+        battle
+            .actors
+            .get_mut(&ActorId("character.heroine.vix".into()))
+            .expect("Vix exists")
+            .guard = 10;
+        battle.start();
+        battle
+            .submit(SkillCommand {
+                command_id: "open.enemy.turn.with.guard".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.guarded_strike".into(),
+                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+            })
+            .unwrap();
+
+        let decision = battle.enemy_decision().expect("razorbeak is active");
+        assert_eq!(
+            decision.skill_id,
+            "skill.enemy.razorbeak.guard_breaking_kick"
+        );
+        assert_eq!(decision.rationale, "break_guard_on_target");
+        assert_eq!(decision.guard_break_amount, 6);
+        assert_eq!(decision.raw_damage, 13);
+        assert_eq!(decision.guard_absorbed, 4);
+        assert_eq!(decision.vitality_damage, 9);
+        assert!(!decision.lethal);
+    }
+
+    #[test]
+    fn enemy_selects_guard_breaking_kick_from_the_interceptors_guard() {
+        let mut battle = Battle::prototype_vertical_slice();
+        battle
+            .actors
+            .get_mut(&ActorId("character.heroine.betty".into()))
+            .expect("Betty exists")
+            .guard = 8;
+        battle.start();
+        battle
+            .submit(SkillCommand {
+                command_id: "set.guarded.interception".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.rescue_charge".into(),
+                target_ids: vec![
+                    ActorId("character.heroine.vix".into()),
+                    ActorId("enemy.raptor.razorbeak.prototype".into()),
+                ],
+            })
+            .unwrap();
+
+        let decision = battle.enemy_decision().expect("razorbeak is active");
+        assert_eq!(
+            decision.skill_id,
+            "skill.enemy.razorbeak.guard_breaking_kick"
+        );
+        assert_eq!(decision.rationale, "break_guard_on_protector");
+        assert_eq!(decision.guard_break_amount, 6);
+        assert_eq!(decision.guard_absorbed, 2);
+        assert_eq!(
+            decision.interception_protector_id,
+            Some(ActorId("character.heroine.betty".into()))
+        );
+    }
+
+    #[test]
+    fn guard_breaking_kick_redirects_then_breaks_guard_then_deals_damage() {
+        let mut battle = Battle::prototype_vertical_slice();
+        battle
+            .actors
+            .get_mut(&ActorId("character.heroine.betty".into()))
+            .expect("Betty exists")
+            .guard = 8;
+        battle.start();
+        battle
+            .submit(SkillCommand {
+                command_id: "set.interception.for.kick".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.rescue_charge".into(),
+                target_ids: vec![
+                    ActorId("character.heroine.vix".into()),
+                    ActorId("enemy.raptor.razorbeak.prototype".into()),
+                ],
+            })
+            .unwrap();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "enemy.guard.break".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.guard_breaking_kick".into(),
+                target_ids: vec![ActorId("character.heroine.vix".into())],
+            })
+            .unwrap();
+
+        let intercept_index = events
+            .iter()
+            .position(|event| matches!(event, BattleEvent::InterceptionTriggered { .. }))
+            .expect("interception event");
+        let break_index = events
+            .iter()
+            .position(|event| matches!(event, BattleEvent::GuardChanged { actor_id, delta: -6, total: 2, .. } if actor_id.0 == "character.heroine.betty"))
+            .expect("guard break event");
+        let damage_index = events
+            .iter()
+            .position(|event| matches!(event, BattleEvent::DamageApplied { target_id, amount: 11, .. } if target_id.0 == "character.heroine.betty"))
+            .expect("damage event");
+        assert!(intercept_index < break_index && break_index < damage_index);
+        let betty = battle
+            .actor(&ActorId("character.heroine.betty".into()))
+            .expect("Betty remains");
+        assert_eq!(betty.guard, 0);
+        assert_eq!(betty.vitality, 89);
+        assert!(betty.intercepts_for.is_none());
     }
     #[test]
     fn rejects_out_of_turn_commands_without_mutation() {

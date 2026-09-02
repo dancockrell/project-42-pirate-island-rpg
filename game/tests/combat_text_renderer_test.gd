@@ -22,6 +22,13 @@ func _init() -> void:
 	}))
 	check(intent.intent == "INTENT: RUSHING BITE → ISABELLA • LETHAL", "intent header must use structured skill, target and lethality")
 	check("Isabella" in intent.text and "Betty" in intent.text and "4 will strike Guard" in intent.text, "intent prose must describe actual subjects and projection facts")
+	var kick_intent := renderer.render(event("enemy_intent_declared", ["enemy.raptor.razorbeak.prototype", "character.heroine.isabella"], {
+		"skill_id": "skill.enemy.razorbeak.guard_breaking_kick", "raw_damage": 13,
+		"guard_break_amount": 6, "guard_absorbed": 2, "vitality_damage": 11, "lethal": false,
+		"interception_protector_id": "", "fatal_intercept_available": false
+	}))
+	check(kick_intent.intent == "INTENT: GUARD BREAKING KICK → ISABELLA", "guard-breaking intent header must identify its direct skill name")
+	check("stripping 6 Guard" in kick_intent.text and "2 will strike Guard" in kick_intent.text, "guard-breaking intent must expose both guard removal and later damage absorption")
 	if failures > 0:
 		quit(1)
 		return

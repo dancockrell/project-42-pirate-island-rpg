@@ -51,6 +51,8 @@ func enemy_intent(subjects: Array, facts: Dictionary) -> Dictionary:
 	var target_name := name_at(subjects, 1)
 	var skill := skill_name(facts.get("skill_id", "enemy_action"))
 	var sentence := " [color=#c24e45]INTENT[/color] %s selects %s with %s. The attack carries %d raw damage" % [name_at(subjects, 0), target_name, skill, facts.get("raw_damage", 0)]
+	if int(facts.get("guard_break_amount", 0)) > 0:
+		sentence += " after stripping %d Guard" % facts.get("guard_break_amount", 0)
 	if int(facts.get("guard_absorbed", 0)) > 0:
 		sentence += "; %d will strike Guard and %d will reach Vitality" % [facts.get("guard_absorbed", 0), facts.get("vitality_damage", 0)]
 	else:

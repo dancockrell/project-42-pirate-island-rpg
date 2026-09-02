@@ -42,6 +42,7 @@ func _init() -> void:
 	check(recommendation.available, "native bridge must recommend a command for the active hostile")
 	check(recommendation.target_ids == ["character.heroine.vix"], "Razorbeak must select the most wounded living party member")
 	check(recommendation.rationale == "finish_most_wounded", "enemy rationale must be stable and machine-readable")
+	check(recommendation.guard_break_amount == 0, "native recommendation must expose zero guard break for Rushing Bite")
 	check(recommendation.raw_damage == 16 and recommendation.vitality_damage == 16, "enemy projection must expose exact damage facts")
 	check(recommendation.lethal and recommendation.fatal_intercept_available, "enemy projection must expose lethal and reaction facts")
 	test_condition_cleanse()

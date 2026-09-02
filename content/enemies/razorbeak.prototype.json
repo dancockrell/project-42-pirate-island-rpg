@@ -5,8 +5,40 @@
   "combatRole": "mobile_individual_threat",
   "level": 7,
   "stats": { "vitality": 70, "guard": 3, "initiative": 8, "startingBand": 2 },
-  "skillIds": ["skill.enemy.razorbeak.rushing_bite"],
-  "intent": { "selection": "fixed_prototype", "skillId": "skill.enemy.razorbeak.rushing_bite", "targetRule": "lowest_current_vitality_party_member" },
+  "skillIds": ["skill.enemy.razorbeak.rushing_bite", "skill.enemy.razorbeak.guard_breaking_kick"],
+  "intent": {
+    "selection": "deterministic_priority",
+    "targetRule": "lowest_current_vitality_percentage_then_lowest_guard_then_stable_actor_id",
+    "effectiveRecipientRule": "active_interceptor_else_selected_target",
+    "skillRule": "guard_breaking_kick_when_effective_recipient_guard_is_at_least_4_else_rushing_bite"
+  },
+  "actions": {
+    "skill.enemy.razorbeak.rushing_bite": {
+      "displayName": "Rushing Bite",
+      "rule": "Deal 9 plus level raw damage to the effective recipient.",
+      "animationBeats": [
+        { "atMs": 0, "pose": "Razorbeak lowers its skull, plants both feet and fixes on the target." },
+        { "atMs": 120, "pose": "The hind legs compress while the tail rises to counterbalance the launch." },
+        { "atMs": 240, "pose": "The entire animal crosses the attack lane in a low straight rush." },
+        { "atMs": 390, "pose": "The jaws close at the target line with a short forward impact flash." },
+        { "atMs": 560, "pose": "Razorbeak lands beyond contact, pivots on one foot and returns to its combat stance." }
+      ],
+      "framing": "Keep the full animal, tail, feet, target body, travel lane and impact effect inside the battle safe frame for every beat."
+    },
+    "skill.enemy.razorbeak.guard_breaking_kick": {
+      "displayName": "Guard-Breaking Kick",
+      "rule": "Remove up to 6 Guard from the effective recipient, then deal 6 plus level raw damage through any Guard that remains.",
+      "animationBeats": [
+        { "atMs": 0, "pose": "Razorbeak turns side-on, watches the target and transfers its weight onto the near leg." },
+        { "atMs": 130, "pose": "The tail snaps in the opposite direction while the hips begin a full-body pivot." },
+        { "atMs": 260, "pose": "The far leg extends in a high lateral kick with the heel claw leading." },
+        { "atMs": 360, "pose": "The heel claw strikes the visible guard plane; the guard effect breaks outward in large readable bronze shards." },
+        { "atMs": 500, "pose": "The leg follows through past the target line while the tail stops the spin." },
+        { "atMs": 680, "pose": "Razorbeak lands in a short skid and squares its skull toward the party." }
+      ],
+      "framing": "Keep the full animal, tail tip, both feet, target body, intact guard plane and every broken guard shard inside the battle safe frame for every beat."
+    }
+  },
   "worldPresence": { "wild": true, "penAllowed": false, "packSize": 1, "midnightRespawnEligible": true },
   "text": {
     "firstObservation": "The razorbeak keeps its wounded flank away from Betty. Its feet are coiled for a two-band rush.",

@@ -85,6 +85,7 @@ impl Project42SimulationBridge {
             "actor_id" => decision.actor_id.0.as_str(), "kind" => "use_skill",
             "skill_id" => decision.skill_id.as_str(), "target_ids" => &target_ids,
             "rationale" => decision.rationale.as_str(), "raw_damage" => i64::from(decision.raw_damage),
+            "guard_break_amount" => i64::from(decision.guard_break_amount),
             "guard_absorbed" => i64::from(decision.guard_absorbed),
             "vitality_damage" => i64::from(decision.vitality_damage), "lethal" => decision.lethal,
             "interception_protector_id" => decision.interception_protector_id.as_ref().map(|id| id.0.as_str()).unwrap_or(""),
@@ -227,6 +228,7 @@ fn event_dictionary(
             skill_id,
             target_ids,
             rationale,
+            guard_break_amount,
             raw_damage,
             guard_absorbed,
             vitality_damage,
@@ -241,6 +243,7 @@ fn event_dictionary(
             }
             payload.set("skill_id", skill_id);
             payload.set("rationale", rationale);
+            payload.set("guard_break_amount", i64::from(guard_break_amount));
             payload.set("raw_damage", i64::from(raw_damage));
             payload.set("guard_absorbed", i64::from(guard_absorbed));
             payload.set("vitality_damage", i64::from(vitality_damage));

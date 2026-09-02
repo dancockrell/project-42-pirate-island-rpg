@@ -136,7 +136,27 @@ for (const { file, value } of await readJsonDirectory("enemies")) {
   requireString(value, "displayName", file);
   if (value.worldPresence?.penAllowed !== false) fail(file, "island monsters may not be designed as pen exhibits");
   if (value.worldPresence?.packSize !== 1) fail(file, "prototype enemies must be tuned as individual threats");
-  for (const [index, id] of (value.skillIds ?? []).entries()) reference(id, file, `skillIds[${index}]`);
+  for (const [index, id] of (value.skillIds ?? []).entries()) {
+    reference(id, file, `skillIds[${index}]`);
+    const action = value.actions?.[id];
+    if (!action || typeof action !== "object") {
+      fail(file, `actions must specify ${id}`);
+      continue;
+    }
+    requireString(action, "displayName", file);
+    requireString(action, "rule", file);
+    if (!action.framing?.includes("safe frame")) fail(file, `${id} framing must state its safe-frame requirement`);
+    if (!Array.isArray(action.animationBeats) || action.animationBeats.length < 4) {
+      fail(file, `${id} must declare at least four animation beats`);
+      continue;
+    }
+    let previousAt = -1;
+    for (const [beatIndex, beat] of action.animationBeats.entries()) {
+      if (!Number.isInteger(beat?.atMs) || beat.atMs < previousAt) fail(file, `${id} animationBeats[${beatIndex}].atMs must be an ordered integer`);
+      if (typeof beat?.pose !== "string" || beat.pose.length < 20) fail(file, `${id} animationBeats[${beatIndex}].pose must be an explicit action instruction`);
+      previousAt = beat?.atMs ?? previousAt;
+    }
+  }
 }
 
 for (const { file, value } of await readJsonDirectory("encounters")) {

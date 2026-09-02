@@ -28,6 +28,7 @@ func recommended_enemy_command(command_id: String) -> Dictionary:
 		"skill_id": "skill.enemy.razorbeak.rushing_bite",
 		"target_ids": ["character.heroine.betty"],
 		"rationale": "pressure_active_actor",
+		"guard_break_amount": 0,
 		"raw_damage": 16,
 		"guard_absorbed": 0,
 		"vitality_damage": 16,
@@ -156,7 +157,7 @@ func resolve_enemy_turn() -> Array[Dictionary]:
 	var events: Array[Dictionary] = [make_event("turn_started", ["enemy.raptor.razorbeak.prototype"], {"round": round_number})]
 	events.append(make_event("enemy_intent_declared", ["enemy.raptor.razorbeak.prototype", "character.heroine.betty"], {
 		"skill_id": "skill.enemy.razorbeak.rushing_bite", "intent_name": "Rushing Bite", "target_id": "character.heroine.betty",
-		"rationale": "pressure_active_actor", "raw_damage": 16, "guard_absorbed": mini(16, betty_guard),
+		"rationale": "pressure_active_actor", "guard_break_amount": 0, "raw_damage": 16, "guard_absorbed": mini(16, betty_guard),
 		"vitality_damage": maxi(0, 16 - betty_guard), "lethal": maxi(0, 16 - betty_guard) >= betty_vitality,
 		"interception_protector_id": "", "fatal_intercept_available": false
 	}))
