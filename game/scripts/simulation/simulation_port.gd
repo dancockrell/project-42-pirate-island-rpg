@@ -14,3 +14,6 @@ func start() -> Array[Dictionary]:
 func submit(_command: Dictionary) -> Array[Dictionary]:
 	push_error("SimulationPort.submit is abstract")
 	return []
+
+func recommended_enemy_command(_command_id: String) -> Dictionary:
+	return {"available": false, "reason": "not_implemented"}

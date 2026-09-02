@@ -2,7 +2,7 @@ use godot::prelude::*;
 
 use crate::battle::{
     Actor, Battle, BattleEvent, BattlePhase, BattleSnapshot, BattlefieldEffect, Faction,
-    StatusInstance, StatusKind,
+    RecoveryOpening, StatusInstance, StatusKind,
 };
 use crate::protocol::{CommandEnvelope, CommandKind, PROTOCOL_VERSION};
 
@@ -68,6 +68,29 @@ impl Project42SimulationBridge {
             let error = vdict! { "kind" => "battle_not_created" };
             vdict! { "battle_id" => "", "phase" => "error", "actors" => &actors, "error" => &error }
         })
+    }
+
+    #[func]
+    fn recommended_enemy_command(&self, command_id: GString) -> VarDictionary {
+        let Some(battle) = self.battle.as_ref() else {
+            return vdict! { "available" => false, "reason" => "battle_not_created" };
+        };
+        let Some(decision) = battle.enemy_decision() else {
+            return vdict! { "available" => false, "reason" => "active_actor_is_not_hostile" };
+        };
+        let target_ids: Array<GString> = array![decision.target_id.0.as_str()];
+        vdict! {
+            "available" => true, "protocol_version" => i64::from(PROTOCOL_VERSION),
+            "command_id" => &command_id, "battle_id" => BATTLE_ID,
+            "actor_id" => decision.actor_id.0.as_str(), "kind" => "use_skill",
+            "skill_id" => decision.skill_id.as_str(), "target_ids" => &target_ids,
+            "rationale" => decision.rationale.as_str(), "raw_damage" => i64::from(decision.raw_damage),
+            "guard_break_amount" => i64::from(decision.guard_break_amount),
+            "guard_absorbed" => i64::from(decision.guard_absorbed),
+            "vitality_damage" => i64::from(decision.vitality_damage), "lethal" => decision.lethal,
+            "interception_protector_id" => decision.interception_protector_id.as_ref().map(|id| id.0.as_str()).unwrap_or(""),
+            "fatal_intercept_available" => decision.fatal_intercept_available,
+        }
     }
 }
 
@@ -140,13 +163,17 @@ fn snapshot_dictionary(snapshot: &BattleSnapshot) -> VarDictionary {
     for effect in &snapshot.effects {
         effects.push(&effect_dictionary(effect));
     }
+    let mut recovery_openings = Array::<VarDictionary>::new();
+    for opening in &snapshot.recovery_openings {
+        recovery_openings.push(&recovery_opening_dictionary(opening));
+    }
     let metadata = vdict! { "source" => "rust_gdextension", "authoritative" => true };
     vdict! {
         "protocol_version" => i64::from(PROTOCOL_VERSION), "battle_id" => snapshot.battle_id.as_str(),
         "round" => snapshot.round as i64, "phase" => phase_name(&snapshot.phase),
         "active_actor_id" => snapshot.active_actor_id.as_ref().map(|id| id.0.as_str()).unwrap_or(""),
         "description" => "The razorbeak keeps its wounded flank away from Betty. Its feet are coiled for a two-band rush.",
-        "actors" => &actors, "effects" => &effects, "metadata" => &metadata,
+        "actors" => &actors, "effects" => &effects, "recovery_openings" => &recovery_openings, "metadata" => &metadata,
     }
 }
 
@@ -169,6 +196,10 @@ fn status_dictionary(status: &StatusInstance) -> VarDictionary {
 
 fn effect_dictionary(effect: &BattlefieldEffect) -> VarDictionary {
     vdict! { "effect_id" => effect.instance_id.as_str(), "source_actor_id" => effect.source_actor_id.0.as_str(), "source_skill_id" => effect.source_skill_id.as_str(), "remaining_pulses" => i64::from(effect.remaining_pulses) }
+}
+
+fn recovery_opening_dictionary(opening: &RecoveryOpening) -> VarDictionary {
+    vdict! { "actor_id" => opening.actor_id.0.as_str(), "source_skill_id" => opening.source_skill_id.as_str(), "bonus_raw_damage" => i64::from(opening.bonus_raw_damage) }
 }
 
 fn event_dictionary(
@@ -204,6 +235,14 @@ fn event_dictionary(
             actor_id,
             skill_id,
             target_ids,
+            rationale,
+            guard_break_amount,
+            raw_damage,
+            guard_absorbed,
+            vitality_damage,
+            lethal,
+            interception_protector_id,
+            fatal_intercept_available,
         } => {
             kind = "enemy_intent_declared";
             subject!(actor_id);
@@ -211,6 +250,17 @@ fn event_dictionary(
                 subject!(id);
             }
             payload.set("skill_id", skill_id);
+            payload.set("rationale", rationale);
+            payload.set("guard_break_amount", i64::from(guard_break_amount));
+            payload.set("raw_damage", i64::from(raw_damage));
+            payload.set("guard_absorbed", i64::from(guard_absorbed));
+            payload.set("vitality_damage", i64::from(vitality_damage));
+            payload.set("lethal", lethal);
+            payload.set(
+                "interception_protector_id",
+                interception_protector_id.map(|id| id.0).unwrap_or_default(),
+            );
+            payload.set("fatal_intercept_available", fatal_intercept_available);
         }
         BattleEvent::CommandAccepted {
             command_id: id,
@@ -275,11 +325,13 @@ fn event_dictionary(
             command_id: id,
             actor_id,
             status_id,
+            status_kind,
         } => {
             kind = "status_removed";
             command!(id);
             subject!(actor_id);
             payload.set("status_id", status_id);
+            payload.set("status_kind", status_name(&status_kind));
         }
         BattleEvent::ActorMoved {
             command_id: id,
@@ -393,6 +445,34 @@ fn event_dictionary(
             kind = "battlefield_effect_removed";
             payload.set("effect_id", effect_id);
             payload.set("reason", reason);
+        }
+        BattleEvent::RecoveryOpeningCreated {
+            command_id: id,
+            actor_id,
+            source_skill_id,
+            bonus_raw_damage,
+        } => {
+            kind = "recovery_opening_created";
+            command!(id);
+            subject!(actor_id);
+            payload.set("source_skill_id", source_skill_id);
+            payload.set("bonus_raw_damage", i64::from(bonus_raw_damage));
+        }
+        BattleEvent::RecoveryOpeningConsumed {
+            command_id: id,
+            actor_id,
+            attacker_id,
+            bonus_raw_damage,
+        } => {
+            kind = "recovery_opening_consumed";
+            command!(id);
+            subject!(actor_id);
+            subject!(attacker_id);
+            payload.set("bonus_raw_damage", i64::from(bonus_raw_damage));
+        }
+        BattleEvent::RecoveryOpeningExpired { actor_id } => {
+            kind = "recovery_opening_expired";
+            subject!(actor_id);
         }
         BattleEvent::ActorDefeated {
             command_id: id,

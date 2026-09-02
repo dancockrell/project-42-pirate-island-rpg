@@ -7,7 +7,7 @@ const failures = [];
 const ids = new Map();
 const references = [];
 const supportedTargetRules = new Set(["one_hostile", "one_living_hostile", "one_living_party_member", "ordered_pair_threatened_ally_then_hostile", "automatic_reaction_to_other_party_member_lethal_hit", "all_living_party_members", "one_defeated_party_member_other_than_betty"]);
-const bindableBattleEvents = new Set(["actor_focused", "actor_moved", "damage_applied", "guard_changed", "vitality_changed", "status_removed", "interception_set", "interception_triggered", "reaction_window_opened", "reaction_triggered", "defeat_prevented", "actor_revived", "bonus_turn_granted", "battlefield_effect_created", "battlefield_effect_pulse", "battlefield_effect_removed", "actor_defeated", "turn_ended", "battle_ended"]);
+const bindableBattleEvents = new Set(["actor_focused", "actor_moved", "damage_applied", "guard_changed", "vitality_changed", "status_removed", "interception_set", "interception_triggered", "reaction_window_opened", "reaction_triggered", "defeat_prevented", "actor_revived", "bonus_turn_granted", "battlefield_effect_created", "battlefield_effect_pulse", "battlefield_effect_removed", "recovery_opening_created", "recovery_opening_consumed", "recovery_opening_expired", "actor_defeated", "turn_ended", "battle_ended"]);
 let skillCount = 0;
 let presentationCueCount = 0;
 
@@ -136,7 +136,38 @@ for (const { file, value } of await readJsonDirectory("enemies")) {
   requireString(value, "displayName", file);
   if (value.worldPresence?.penAllowed !== false) fail(file, "island monsters may not be designed as pen exhibits");
   if (value.worldPresence?.packSize !== 1) fail(file, "prototype enemies must be tuned as individual threats");
-  for (const [index, id] of (value.skillIds ?? []).entries()) reference(id, file, `skillIds[${index}]`);
+  for (const [index, id] of (value.skillIds ?? []).entries()) {
+    reference(id, file, `skillIds[${index}]`);
+    if (typeof value.text?.intentTells?.[id] !== "string" || value.text.intentTells[id].length < 40) fail(file, `${id} must have an explicit textual intent tell`);
+    const action = value.actions?.[id];
+    if (!action || typeof action !== "object") {
+      fail(file, `actions must specify ${id}`);
+      continue;
+    }
+    requireString(action, "displayName", file);
+    requireString(action, "rule", file);
+    if (!action.framing?.includes("safe frame")) fail(file, `${id} framing must state its safe-frame requirement`);
+    if (id === "skill.enemy.razorbeak.guard_breaking_kick") {
+      const opening = action.recoveryOpening;
+      if (opening?.createdAfterResolution !== true || opening?.bonusRawDamageOnNextPartyHit !== 6) fail(file, "Guard-Breaking Kick must create the six-damage recovery opening after resolution");
+      if (opening?.consumedBy !== "next_party_damage_action_against_razorbeak" || opening?.expires !== "start_of_razorbeaks_next_turn") fail(file, "Guard-Breaking Kick recovery opening requires explicit consume and expiry rules");
+      if (opening?.stacks !== false) fail(file, "Guard-Breaking Kick recovery opening must not stack");
+      for (const field of ["createdPose", "activeLoop", "consumedResponse", "expiredRecovery"]) {
+        if (typeof opening?.[field] !== "string" || opening[field].length < 60) fail(file, `Guard-Breaking Kick recoveryOpening.${field} must be an explicit animation instruction`);
+      }
+      if (typeof value.text?.recoveryOpening !== "string" || value.text.recoveryOpening.length < 60) fail(file, "Guard-Breaking Kick must have a concrete recovery-opening description");
+    }
+    if (!Array.isArray(action.animationBeats) || action.animationBeats.length < 4) {
+      fail(file, `${id} must declare at least four animation beats`);
+      continue;
+    }
+    let previousAt = -1;
+    for (const [beatIndex, beat] of action.animationBeats.entries()) {
+      if (!Number.isInteger(beat?.atMs) || beat.atMs < previousAt) fail(file, `${id} animationBeats[${beatIndex}].atMs must be an ordered integer`);
+      if (typeof beat?.pose !== "string" || beat.pose.length < 20) fail(file, `${id} animationBeats[${beatIndex}].pose must be an explicit action instruction`);
+      previousAt = beat?.atMs ?? previousAt;
+    }
+  }
 }
 
 for (const { file, value } of await readJsonDirectory("encounters")) {

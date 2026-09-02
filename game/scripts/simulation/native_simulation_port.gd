@@ -40,6 +40,11 @@ func submit(command: Dictionary) -> Array[Dictionary]:
 	}
 	return typed_event_array(bridge.submit_command(normalized))
 
+func recommended_enemy_command(command_id: String) -> Dictionary:
+	if not is_available():
+		return {"available": false, "reason": "native_bridge_unavailable"}
+	return bridge.recommended_enemy_command(command_id)
+
 func typed_event_array(value: Variant) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if value is Array:

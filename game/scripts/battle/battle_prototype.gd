@@ -19,6 +19,7 @@ var catalog := ContentCatalog.new()
 var targeting := TargetingSession.new()
 var animation_director: SkillAnimationDirector
 var placeholder_presenter: Node
+var text_renderer := CombatTextRenderer.new()
 var active_actor_id := "character.heroine.betty"
 var selected_skill_id := ""
 var snapshot_actors: Array = []
@@ -41,6 +42,7 @@ var actor_display_names := {
 }
 
 func _ready() -> void:
+	text_renderer.configure(actor_display_names)
 	if catalog.load_default() != OK:
 		push_error("The battle prototype requires the validated generated content bundle.")
 	animation_director = SkillAnimationDirector.new()
@@ -267,7 +269,7 @@ func submit_skill(skill_id: String, targets: Array) -> void:
 	}
 	await project_command_events(simulation.submit(command))
 
-func project_command_events(events: Array[Dictionary]) -> void:
+func project_command_events(events: Array[Dictionary], run_followups := true) -> void:
 	var index := 0
 	while index < events.size():
 		var event: Dictionary = events[index]
@@ -287,6 +289,32 @@ func project_command_events(events: Array[Dictionary]) -> void:
 	target_label.text = "COMMAND READY"
 	targeting.cancel()
 	selected_skill_id = ""
+	if run_followups:
+		await run_automatic_turns()
+
+func run_automatic_turns() -> void:
+	while active_actor_id != "character.heroine.betty":
+		var command_id := "command.prototype.auto.%s" % Time.get_ticks_usec()
+		var automatic_command := {
+			"command_id": command_id,
+			"battle_id": "battle.prototype.returning_names",
+			"actor_id": active_actor_id,
+			"kind": "use_skill",
+			"skill_id": "skill.system.hold_position",
+			"target_ids": [],
+			"payload": {}
+		}
+		if active_actor_id == "enemy.raptor.razorbeak.prototype":
+			automatic_command = simulation.recommended_enemy_command(command_id)
+			if not automatic_command.get("available", false):
+				description_label.text += " [color=#c24e45]ENEMY DECISION FAILED[/color] %s." % automatic_command.get("reason", "unknown_reason")
+				return
+		var events: Array[Dictionary] = simulation.submit(automatic_command)
+		if events.is_empty() or events[0].get("kind", "") == "command_rejected":
+			for event in events:
+				project_event(event)
+			return
+		await project_command_events(events, false)
 
 func project_snapshot(snapshot: Dictionary) -> void:
 	description_label.text = "[color=#b78a4b]OBSERVED[/color] %s" % snapshot.get("description", "No description supplied.")
@@ -295,49 +323,37 @@ func project_snapshot(snapshot: Dictionary) -> void:
 		update_actor_status(actor)
 
 func project_event(event: Dictionary) -> void:
+	var narration := text_renderer.render(event)
+	apply_narration(narration)
 	match event.get("kind", ""):
-		"battle_started": description_label.text = "[color=#b78a4b]BATTLE STARTED[/color] The card rail is dormant until the simulation names an active actor."
+		"battle_started": pass
 		"turn_started":
 			var actor_id: String = event.subjects[0]
 			active_actor_id = actor_id
 			round_label.text = "DAY 18  •  16:40  •  ROUND %d" % event.payload.round
 			set_card_state(actor_id, "FOCUSED")
 			set_commands_enabled(actor_id == "character.heroine.betty")
-		"command_accepted": description_label.text = "[color=#4fc7b4]ACCEPTED[/color] The simulation accepted %s." % event.payload.skill_id
+		"command_accepted": pass
 		"actor_focused": set_card_state(event.subjects[0], "ACTIVE")
 		"enemy_intent_declared":
-			intent_label.text = "INTENT: RUSHING BITE → BETTY"
-			description_label.text += " [color=#c24e45]INTENT[/color] It lowers its skull and commits to a straight rushing bite."
+			intent_label.text = narration.get("intent", "INTENT: UNKNOWN")
 		"damage_applied":
 			var target_id: String = event.subjects[-1]
-			description_label.text += " The hit deals %d damage; %d vitality remains." % [event.payload.amount, event.payload.remaining_vitality]
 			update_status_values(target_id, event.payload.remaining_vitality)
-		"guard_changed":
-			var guarded_name: String = actor_display_names.get(event.subjects[0], event.subjects[0])
-			description_label.text += " %s gains %d Guard." % [guarded_name, event.payload.delta]
+		"guard_changed": update_guard_values(event.subjects[0], event.payload.total)
 		"vitality_changed":
-			var healed_name: String = actor_display_names.get(event.subjects[0], event.subjects[0])
-			description_label.text += " %s restores %d Vitality and now has %d." % [healed_name, event.payload.delta, event.payload.total]
 			update_status_values(event.subjects[0], event.payload.total)
-		"actor_moved": description_label.text += " Betty crosses from band %d to band %d." % [event.payload.from_band, event.payload.to_band]
-		"interception_set": description_label.text += " Betty takes position in front of Vix and will intercept the next attack aimed at her."
-		"interception_triggered": description_label.text += " Betty receives the attack meant for Vix; the interception is now spent."
-		"reaction_window_opened": description_label.text += " [color=#c24e45]LETHAL HIT DETECTED[/color] The simulation opens a reaction window."
-		"reaction_triggered": description_label.text += " Betty breaks out of the card rail and triggers Fatal Intercept."
-		"defeat_prevented": description_label.text += " The incoming hit is cancelled completely."
-		"battlefield_effect_created": description_label.text += " Betty plants her mace and unrolls the Mobile Infirmary."
-		"battlefield_effect_pulse": description_label.text += " [color=#4fc7b4]INFIRMARY PULSE[/color] Medicine and guard reach every living party member. %d pulse(s) remain." % event.payload.pulses_remaining_after
-		"battlefield_effect_removed": description_label.text += " The Mobile Infirmary folds away: %s." % event.payload.reason
 		"actor_revived":
-			description_label.text += " [color=#4fc7b4]COMBAT REVIVAL[/color] Ayla returns with %d Vitality, zero Guard and no negative conditions." % event.payload.vitality
 			update_status_values(event.subjects[0], event.payload.vitality)
-		"bonus_turn_granted": description_label.text += " Ayla receives an immediate bonus turn; normal initiative will resume after it."
-		"round_started": description_label.text += " [color=#b78a4b]ROUND %d[/color] Both survivors reset their stance." % event.payload.round
 		"battle_ended":
 			set_commands_enabled(false)
 			intent_label.text = "VICTORY" if event.payload.victory else "DEFEAT — MIDNIGHT RETURN PENDING"
-		"command_rejected": description_label.text = "[color=#c24e45]REJECTED[/color] %s" % event.payload.reason
-		_: description_label.text += " [Unknown event: %s]" % event.get("kind", "missing")
+		_: pass
+
+func apply_narration(narration: Dictionary) -> void:
+	match narration.get("mode", "none"):
+		"replace": description_label.text = narration.get("text", "")
+		"append": description_label.text += narration.get("text", "")
 
 func on_animation_beat(skill_id: String, _beat_index: int, beat: Dictionary) -> void:
 	var readable_name := str(beat.get("name", "unnamed_beat")).replace("_", " ").to_upper()
@@ -369,17 +385,18 @@ func update_status_values(id: String, vitality: int) -> void:
 	for actor in snapshot_actors:
 		if str(actor.get("id", "")) == id:
 			actor.vitality = vitality
+			update_actor_status(actor)
 			break
-	if id == "character.heroine.betty" and status_labels.has(id):
-		var card := status_labels[id] as Button
-		card.text = "BETTY\nFIELD MEDIC\nVIT %d/100  •  RESOLVING\n[DUMMY PORTRAIT]" % vitality
-	elif status_labels.has(id):
-		var card := status_labels[id] as Button
-		var state := "DEFEATED" if vitality <= 0 else "READY"
-		card.text = "%s\nVIT %d  •  %s\n[DUMMY PORTRAIT]" % [actor_display_names.get(id, id), vitality, state]
-	elif id == "enemy.raptor.razorbeak.prototype":
+	if id == "enemy.raptor.razorbeak.prototype":
 		var stack := enemy_panel.get_child(0) as VBoxContainer
 		(stack.get_child(2) as Label).text = "DUMMY ENEMY ACTOR\nVIT %d/70 • INDIVIDUAL THREAT" % vitality
+
+func update_guard_values(id: String, guard: int) -> void:
+	for actor in snapshot_actors:
+		if str(actor.get("id", "")) == id:
+			actor.guard = guard
+			update_actor_status(actor)
+			return
 
 func set_card_state(id: String, state: String) -> void:
 	for card_id in card_buttons:
