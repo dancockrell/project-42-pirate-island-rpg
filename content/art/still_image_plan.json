@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "art.still_image_plan.prototype",
+  "productionSkill": "magnific-2d-identity-sheet",
+  "requirements": {
+    "rawSourcePolicy": "preserve_unchanged",
+    "runtimeAdmission": "curated_frames_only",
+    "promptPolicy": "visible_content_only_no_rationale",
+    "identityPolicy": "one_character_one_locked_identity_multiple_views"
+  },
+  "plates": [
+    {
+      "id": "art.plate.betty.production_identity_sheet_v1",
+      "type": "character_identity_sheet",
+      "referenceLedger": "content/art/betty.reference_ledger.json",
+      "sourceAnchors": [
+        "work/art/magnific/betty/betty-body-direction-gpt2.png",
+        "work/art/magnific/betty/betty-equipment-reference-seedream.jpg",
+        "work/art/magnific/betty/betty-palette-reference-seedream.png"
+      ],
+      "consumers": ["art.placeholder.betty.active_actor", "art.placeholder.betty.card_portrait"],
+      "prompt": "One adult woman, Betty, production identity sheet, seven panels on a dark neutral studio background with generous empty margin around every panel: neutral standing front view head to boot soles; combat three-quarter guarded stance; back view showing hair and coat tails; four tight facial-expression close-ups in a row (confident smile, delighted laugh, focused combat stare, worried patient check); weapon orthographic showing the complete short heavy bronze-and-teal medical mace from pommel to impact head; open physician satchel contents laid out (ampoules, bandage roll, sunburst emblem); a color swatch strip for the teal-cream-bronze palette. Slender, slight, agile adult build, modest small chest, narrow hips, fine waist, long lean legs, light functional muscle, warm green eyes, freckles across nose and cheeks, softly pointed chin, lively auburn curls, affectionate confident smile. Cropped teal pirate field-medic outfit with open shoulders, a strip of midriff and long bare thighs, physician satchel with antique-gold sunburst emblem, short heavy striking mace with reinforced bronze neck and luminous glass alchemical chamber. Identical face, hair, proportions, palette and equipment in every panel. Painterly polished 2D anime RPG character-sheet rendering, crisp linework, stable anatomy. No pronounced bust, no hourglass torso, no wide hips, no thick thighs, no bulky physique, no generic wizard-staff proportions, no modern red-cross iconography, no cropped feet, no cropped weapon, no cropped effects, no second character, no background scenery, no text, no logo, no watermark.",
+      "status": "queued"
+    },
+    {
+      "id": "art.plate.razorbeak.production_identity_sheet_v1",
+      "type": "creature_identity_sheet",
+      "referenceLedger": "content/art/razorbeak.reference_ledger.json",
+      "sourceAnchors": [],
+      "consumers": ["art.placeholder.razorbeak.active_actor"],
+      "prompt": "One razorbeak, a wild individual island raptor, production identity sheet, five panels on a dark neutral studio background with generous empty margin around every panel: neutral full-body side view showing complete skull, spine, tail tip and all four feet; rushing-lunge threat pose with a straight forward attack line; skull-lowered stalking tell fixed toward an off-panel target; coiled-haunch pre-lunge tell with weight drawn back onto the legs; jaw-snap display tell with the mouth open. Level-seven mobile predator scale, visible old scarring across the hide consistent with a survivor of prior fights, consistent coloring, feather-and-scale texture and proportions in every panel. One animal only, complete tail and complete feet inside frame in every panel. Painterly polished 2D anime fantasy RPG creature-sheet rendering, crisp linework, stable anatomy. No pen, no cage, no fence, no handler, no rider, no second razorbeak or any other creature, no cropped tail, no cropped feet, no cropped lunge effect, no cute or cartoon-mascot styling, no hatchling read, no background scenery beyond the studio ground, no text, no logo, no watermark.",
+      "status": "queued"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "characterId": "enemy.raptor.razorbeak.prototype",
+  "approvalState": "direction-approved-production-sheet-required",
+  "identityContract": {
+    "speciesRead": "Wild individual island raptor, not a herd or pack animal. Reads as a level-seven mobile threat, not decoration.",
+    "body": "Full body from skull to tail tip, complete tail, complete feet and legs, visible old scarring consistent with a survivor of prior fights rather than a fresh, unmarked animal.",
+    "threatTells": "Skull lowered and fixed toward the weakest stance in the party, weight coiled back onto the haunches for a straight rushing lunge, jaw parted in a snapping display. These three tells describe how the razorbeak signals an incoming Rushing Bite before it commits.",
+    "worldPresence": "Wild and individual: no pen, no cage, no handler, no herd, no other razorbeaks in frame. It is a wilderness encounter that reads as one dangerous animal, not livestock.",
+    "hardRejects": [
+      "penned or caged animal",
+      "second razorbeak or any other creature in frame",
+      "handler or rider",
+      "cropped tail",
+      "cropped feet",
+      "cropped lunge or attack effect",
+      "generic unscarred hatchling read",
+      "cute or cartoon-mascot styling"
+    ]
+  },
+  "references": [],
+  "nextRequiredPlate": {
+    "name": "Razorbeak production identity sheet v1",
+    "views": ["neutral full-body side view", "rushing-lunge threat pose", "skull-lowered stalking tell", "coiled-haunch pre-lunge tell", "jaw-snap display tell"],
+    "safeFrame": "Every view includes the complete tail, both feet and any lunge or bite effect inside the battle safe frame. No required element touches the outer eight percent of the canvas.",
+    "acceptance": [
+      "same individual animal identity (scarring, coloring) in every view",
+      "level-seven threat scale, not a hatchling or mascot read",
+      "at least three distinct readable attack tells across the sheet",
+      "no enclosure, handler or second animal in any view"
+    ]
+  }
+}

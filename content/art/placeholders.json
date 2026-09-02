@@ -28,6 +28,7 @@
       "visibleMark": "DUMMY ENEMY ACTOR",
       "intendedFinal": "One complete individually scarred razorbeak raptor with full tail, feet, threat tell and VFX envelope.",
       "requiredTags": ["full-body", "individual-threat", "wild-dinosaur", "no-crop"],
+      "referenceLedger": "content/art/razorbeak.reference_ledger.json",
       "replacementGate": ["complete tail", "level-seven threat read", "three attack tells", "no enclosure imagery"]
     }
   ]

@@ -239,6 +239,21 @@ for (const [index, reel] of (reelPlan.reels ?? []).entries()) {
   if (reel.aspectRatio !== "16:9") fail(reelPlanFile, `${reel.id} must use 16:9`);
 }
 
+const stillPlanFile = resolve(repo, "content/art/still_image_plan.json");
+const stillPlan = JSON.parse(await readFile(stillPlanFile, "utf8"));
+registerId(stillPlan.id, stillPlanFile);
+if (stillPlan.productionSkill !== "magnific-2d-identity-sheet") fail(stillPlanFile, "productionSkill must name the Magnific identity-sheet contract");
+for (const [index, plate] of (stillPlan.plates ?? []).entries()) {
+  registerId(plate.id, stillPlanFile);
+  for (const field of ["type", "prompt", "status"]) requireString(plate, field, stillPlanFile);
+  if (!plate.id?.startsWith("art.plate.")) fail(stillPlanFile, `plates[${index}].id must use art.plate prefix`);
+  if (forbiddenPromptRationale.test(plate.prompt ?? "")) fail(stillPlanFile, `${plate.id} prompt contains parser-confusing rationale`);
+  if ((plate.prompt ?? "").length < 300) fail(stillPlanFile, `${plate.id} prompt is too short to be a production contract`);
+  if (!Array.isArray(plate.sourceAnchors)) fail(stillPlanFile, `${plate.id} sourceAnchors must be an array`);
+  if (!Array.isArray(plate.consumers) || plate.consumers.length === 0) fail(stillPlanFile, `${plate.id} must name at least one placeholder consumer`);
+  else plate.consumers.forEach((id, consumerIndex) => reference(id, stillPlanFile, `plates[${index}].consumers[${consumerIndex}]`));
+}
+
 const intentionallyExternalPrefixes = ["skill.enemy."];
 for (const item of references) {
   if (!ids.has(item.id) && !intentionallyExternalPrefixes.some(prefix => item.id.startsWith(prefix))) {
@@ -251,4 +266,4 @@ if (failures.length) {
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
-console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${presentationCueCount} presentation cues and ${reelPlan.reels.length} video reels validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
+console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels and ${stillPlan.plates.length} still-image plates validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
