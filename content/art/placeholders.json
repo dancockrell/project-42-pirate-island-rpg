@@ -24,8 +24,8 @@
       "placeholder": true,
       "consumer": "game/scenes/battle/battle_prototype.tscn#ActiveActor",
       "visibleMark": "DUMMY FULL-BODY ACTOR",
-      "intendedFinal": "Complete full-body painterly Betty battle actor with boarding mace and eight-percent VFX safe margin.",
-      "requiredTags": ["adult", "full-body", "sexy-field-medic", "signature-weapon-visible", "no-crop"],
+      "intendedFinal": "Complete full-body premium adult anime-fantasy Betty battle actor. She reads cute and sexy before she reads realistic: slender adult build, small chest, bright green eyes, freckles, auburn curls, cropped white medic blouse, fitted teal corset, short field shorts, tall boots and a bronze-and-glass boarding mace. It is a riggable close-to-final demo with a complete head-to-boot silhouette, named articulated parts, an anchored root pivot and an eight-percent VFX safe margin.",
+      "requiredTags": ["adult", "full-body", "cute-sexy-adult-anime", "slender-small-bust", "signature-weapon-visible", "riggable-parts", "no-crop"],
       "referenceLedger": "content/art/betty.reference_ledger.json",
       "replacementGate": ["approved identity rig", "complete boots and hair", "complete mace", "1920x1080 battle-scale test", "colorblind silhouette review"]
     },
@@ -34,8 +34,8 @@
       "placeholder": true,
       "consumer": "game/scripts/battle/battle_prototype.gd#make_party_card",
       "visibleMark": "DUMMY PORTRAIT",
-      "intendedFinal": "Betty bust portrait with direct eye contact, teal identity accent, readable injury and readiness overlays.",
-      "requiredTags": ["adult", "portrait", "flirtatious-confidence", "card-safe-crop"],
+      "intendedFinal": "Betty card portrait with direct green-eyed eye contact, freckles, auburn curls, a teasing adult smile and teal identity accent. It must stay cute and sexy at card scale while preserving clear injury and readiness overlays.",
+      "requiredTags": ["adult", "portrait", "cute-sexy-adult-anime", "flirtatious-confidence", "card-safe-crop"],
       "referenceLedger": "content/art/betty.reference_ledger.json",
       "replacementGate": ["matches active actor face", "readable at 280x150", "expression set approved"]
     },

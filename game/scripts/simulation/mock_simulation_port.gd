@@ -44,7 +44,7 @@ func create_debug_battle() -> Dictionary:
 		"round": round_number,
 		"phase": "awaiting_actor" if not started else "awaiting_command",
 		"active_actor_id": "character.heroine.betty",
-		"description": "The razorbeak keeps its wounded flank away from Betty. Its feet are coiled for a two-band rush.",
+		"description": "Elven Gate • Late Afternoon",
 		"actors": [
 			actor_snapshot("character.protagonist.captain", "Michael Corrigan", "party", captain_vitality, 96, 1, 0),
 			actor_snapshot("character.heroine.betty", "Betty", "party", betty_vitality, 100, betty_guard, 0),

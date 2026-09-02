@@ -40,6 +40,11 @@ func _draw() -> void:
 		draw_colored_polygon(PackedVector2Array([Vector2(22,55),Vector2(48,55),Vector2(54,100),Vector2(16,100)]), accent)
 		draw_line(Vector2(48,66), Vector2(59,96), Color("d0a85f"), 5)
 		draw_circle(Vector2(60,98), 6, Color("c79a55"))
+		draw_circle(Vector2(31, 33), 5, Color("f7f3de"))
+		draw_circle(Vector2(40, 33), 5, Color("f7f3de"))
+		draw_circle(Vector2(31, 33), 2.5, Color("3b9b82"))
+		draw_circle(Vector2(40, 33), 2.5, Color("3b9b82"))
+		draw_arc(Vector2(35, 36), 9, deg_to_rad(20), deg_to_rad(160), 8, Color("a94f50"), 2)
 	draw_string(ThemeDB.fallback_font, Vector2(s.x - 38, 29), card_rank, HORIZONTAL_ALIGNMENT_LEFT, 30, 13, Color("e4c487"))
 
 func make_box(background: Color, border: Color, width: int, radius: int) -> StyleBoxFlat:

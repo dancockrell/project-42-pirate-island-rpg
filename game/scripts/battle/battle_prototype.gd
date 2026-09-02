@@ -36,6 +36,7 @@ var intent_label: Label
 var round_label: Label
 var target_label: Label
 var action_cue_label: Label
+var command_dock: Control
 var command_buttons: Dictionary = {}
 var actor_display_names := {
 	"character.protagonist.captain": "MICHAEL CORRIGAN",
@@ -85,35 +86,34 @@ func build_screen() -> void:
 	var safe := MarginContainer.new()
 	safe.name = "SafeFrame"
 	safe.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	safe.add_theme_constant_override("margin_left", 38)
-	safe.add_theme_constant_override("margin_right", 38)
-	safe.add_theme_constant_override("margin_top", 30)
-	safe.add_theme_constant_override("margin_bottom", 30)
+	safe.add_theme_constant_override("margin_left", 26)
+	safe.add_theme_constant_override("margin_right", 26)
+	safe.add_theme_constant_override("margin_top", 18)
+	safe.add_theme_constant_override("margin_bottom", 18)
 	add_child(safe)
 	var root := VBoxContainer.new()
-	root.add_theme_constant_override("separation", 14)
+	root.add_theme_constant_override("separation", 10)
 	safe.add_child(root)
 	root.add_child(build_header())
 	root.add_child(build_battle_plane())
-	root.add_child(build_footer())
 
 func build_header() -> Control:
 	var bar := HBoxContainer.new()
-	bar.custom_minimum_size.y = 62
-	var title := make_label("RETURNING NAMES — RECEPTION ROAD", 25, BRONZE)
+	bar.custom_minimum_size.y = 46
+	var title := make_label("RETURNING NAMES  /  RECEPTION ROAD", 22, BRONZE)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.add_child(title)
-	round_label = make_label("DAY 18  •  16:40  •  ROUND 1", 18, CREAM)
+	round_label = make_label("DAY 18  •  16:40  •  ROUND 1", 15, CREAM)
 	bar.add_child(round_label)
 	return bar
 
 func build_battle_plane() -> Control:
 	var plane := HBoxContainer.new()
 	plane.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	plane.add_theme_constant_override("separation", 18)
+	plane.add_theme_constant_override("separation", 12)
 	var cards := VBoxContainer.new()
-	cards.custom_minimum_size.x = 280
-	cards.add_theme_constant_override("separation", 9)
+	cards.custom_minimum_size.x = 252
+	cards.add_theme_constant_override("separation", 8)
 	for item in [
 		["character.protagonist.captain", "MICHAEL", "STEAM CUTTER CAPTAIN", Color("536c79"), "MC", "captain"],
 		["character.heroine.betty", "BETTY", "FIELD MEDIC", Color("2d7770"), "D"]
@@ -124,7 +124,11 @@ func build_battle_plane() -> Control:
 	plane.add_child(cards)
 	var stage := VBoxContainer.new()
 	stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stage.add_theme_constant_override("separation", 12)
+	stage.add_theme_constant_override("separation", 8)
+	var stage_frame := PanelContainer.new()
+	stage_frame.add_theme_stylebox_override("panel", make_stage_box())
+	stage_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stage_frame.custom_minimum_size.y = 390
 	var visual := Control.new()
 	visual.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var paper_stage := PaperStageScript.new()
@@ -135,7 +139,7 @@ func build_battle_plane() -> Control:
 	var actor_row := HBoxContainer.new()
 	actor_row.name = "ActorRow"
 	actor_row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	actor_row.add_theme_constant_override("separation", 18)
+	actor_row.add_theme_constant_override("separation", 4)
 	actor_panel = make_actor_placeholder("presentation.paper_doll.betty.active", TEAL)
 	actor_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actor_row.add_child(actor_panel)
@@ -146,46 +150,52 @@ func build_battle_plane() -> Control:
 	enemy_panel.gui_input.connect(on_enemy_gui_input)
 	actor_row.add_child(enemy_panel)
 	visual.add_child(actor_row)
-	stage.add_child(visual)
+	stage_frame.add_child(visual)
+	stage.add_child(stage_frame)
+	var combat_state := HBoxContainer.new()
+	combat_state.add_theme_constant_override("separation", 12)
 	action_cue_label = make_label("BETTY IS READY", 13, Color("e4b75e"))
+	action_cue_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	action_cue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	action_cue_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	action_cue_label.custom_minimum_size.y = 42
-	stage.add_child(action_cue_label)
-	intent_label = make_label("INTENT: RUSHING BITE  •  16 DAMAGE", 18, DANGER)
+	action_cue_label.custom_minimum_size.y = 26
+	combat_state.add_child(action_cue_label)
+	intent_label = make_label("INTENT: RUSHING BITE  •  16 DAMAGE", 15, DANGER)
+	intent_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	intent_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	stage.add_child(intent_label)
+	combat_state.add_child(intent_label)
+	stage.add_child(combat_state)
 	description_label = RichTextLabel.new()
 	description_label.name = "CombatDescription"
 	description_label.bbcode_enabled = true
 	description_label.fit_content = false
-	description_label.custom_minimum_size.y = 104
-	description_label.add_theme_font_size_override("normal_font_size", 19)
+	description_label.custom_minimum_size.y = 58
+	description_label.add_theme_font_size_override("normal_font_size", 16)
 	description_label.add_theme_color_override("default_color", CREAM)
-	description_label.text = "[color=#b78a4b]OBSERVED[/color] The razorbeak keeps its wounded flank away from Betty. Its feet are coiled for a two-band rush."
+	description_label.text = "[color=#b78a4b]RECEPTION ROAD[/color]  •  ELVEN GATE  •  LATE AFTERNOON"
 	stage.add_child(description_label)
+	command_dock = build_footer()
+	stage.add_child(command_dock)
 	plane.add_child(stage)
 	return plane
 
 func build_footer() -> Control:
-	var footer := VBoxContainer.new()
-	footer.add_theme_constant_override("separation", 8)
-	target_label = make_label("COMMAND READY", 16, BRONZE)
-	target_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var footer := HBoxContainer.new()
+	footer.custom_minimum_size.y = 64
+	footer.add_theme_constant_override("separation", 10)
+	target_label = make_label("BETTY\nD-RANK COMMAND", 12, BRONZE)
+	target_label.custom_minimum_size.x = 150
+	target_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	footer.add_child(target_label)
-	var commands := GridContainer.new()
-	commands.columns = 1
-	commands.custom_minimum_size.y = 72
-	commands.add_theme_constant_override("h_separation", 12)
-	commands.add_theme_constant_override("v_separation", 10)
+	var commands := HBoxContainer.new()
+	commands.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	commands.alignment = BoxContainer.ALIGNMENT_CENTER
 	# This opening encounter is a D-bond Betty encounter. Only the skill she can
 	# actually use belongs in the command area; later bond skills do not appear as
 	# fake controls before their unlock state and battle rules exist.
 	for command in [["skill.betty.guarded_strike", "D  GUARDED STRIKE", true]]:
 		var button := Button.new()
 		button.text = command[1]
-		button.custom_minimum_size = Vector2(238, 72)
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.custom_minimum_size = Vector2(340, 62)
 		button.add_theme_font_size_override("font_size", 15)
 		button.add_theme_color_override("font_color", CREAM)
 		button.add_theme_color_override("font_hover_color", Color("fff0cd"))
@@ -202,10 +212,22 @@ func build_footer() -> Control:
 	footer.add_child(commands)
 	return footer
 
+func make_stage_box() -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color("0d1a19")
+	box.border_color = Color("735d39")
+	box.set_border_width_all(2)
+	box.set_corner_radius_all(10)
+	box.content_margin_left = 8
+	box.content_margin_right = 8
+	box.content_margin_top = 8
+	box.content_margin_bottom = 8
+	return box
+
 func make_party_card(id: String, display_name: String, role: String, accent: Color, rank: String, portrait_kind := "heroine") -> Control:
 	var card := Control.new()
 	card.name = display_name + "Card"
-	card.custom_minimum_size = Vector2(280, 132)
+	card.custom_minimum_size = Vector2(252, 118)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.tooltip_text = "PAPER PORTRAIT — DEVELOPMENT BLOCKOUT\nStable actor ID: %s\nRole: %s\nFuture portrait must preserve card crop, role read, face, hair, outfit palette and readiness overlay." % [id, role]
 	var portrait := PaperCardScript.new()
@@ -218,16 +240,16 @@ func make_party_card(id: String, display_name: String, role: String, accent: Col
 	copy.set_anchors_preset(Control.PRESET_FULL_RECT)
 	copy.offset_left = 74
 	copy.offset_top = 17
-	copy.offset_right = -14
+	copy.offset_right = -10
 	copy.offset_bottom = -18
-	var name_label := make_label(display_name, 18, CREAM)
+	var name_label := make_label(display_name, 16, CREAM)
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	copy.add_child(name_label)
-	var role_label := make_label(role, 11, Color("caa66a"))
+	var role_label := make_label(role, 10, Color("caa66a"))
 	role_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	copy.add_child(role_label)
 	var initial_status := "ECHO DECK\nSTANDBY" if id == "character.protagonist.captain" else "VIT 84/100  •  GRD 0\nREADY"
-	var status_label := make_label(initial_status, 12, Color("d7e0d7"))
+	var status_label := make_label(initial_status, 11, Color("d7e0d7"))
 	status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	copy.add_child(status_label)
 	card.add_child(copy)
@@ -250,7 +272,7 @@ func make_command_box(background: Color, border: Color) -> StyleBoxFlat:
 func make_actor_placeholder(spec_id: String, accent: Color) -> PanelContainer:
 	var spec := catalog.get_registry_entry(spec_id)
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(480, 560)
+	panel.custom_minimum_size = Vector2(320, 360)
 	var stack := VBoxContainer.new()
 	stack.alignment = BoxContainer.ALIGNMENT_CENTER
 	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -404,7 +426,11 @@ func project_event(event: Dictionary) -> void:
 			update_status_values(event.subjects[0], event.payload.vitality)
 		"battle_ended":
 			set_commands_enabled(false)
-			intent_label.text = "VICTORY" if event.payload.victory else "DEFEAT — MIDNIGHT RETURN PENDING"
+			command_dock.visible = false
+			action_cue_label.visible = false
+			intent_label.add_theme_color_override("font_color", TEAL if event.payload.victory else DANGER)
+			intent_label.text = "RAZORBEAK WITHDRAWS" if event.payload.victory else "BETTY IS DOWN"
+			description_label.text = "[color=#4fc7b4]The razorbeak breaks away into the jungle.[/color] The road is quiet for the moment." if event.payload.victory else "[color=#c24e45]Betty falls beneath the elven gate.[/color] The expedition must recover before midnight."
 		_: pass
 
 func apply_narration(narration: Dictionary) -> void:
