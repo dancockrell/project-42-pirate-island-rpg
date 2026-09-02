@@ -1,4 +1,5 @@
 .godot/
+*.import
 godot-rust/target/
 .local-tools/
 tools/node_modules/
