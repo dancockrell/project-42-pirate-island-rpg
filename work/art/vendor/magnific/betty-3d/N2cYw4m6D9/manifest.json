@@ -15,6 +15,7 @@
   "files": {
     "rawVendorExport": "betty_candidate_v1.glb",
     "engineReviewCopy": "game/assets/candidates/betty_3d/betty_candidate_v1.glb",
+    "engineImportedTexture": "game/assets/candidates/betty_3d/betty_candidate_v1_Color_61c06961-0558-4a88-9431-670d0d1ab21d.jpg",
     "sha256": "ACC0B4F4316B41E70D9BF7254D945724C524ECF9B920D6AE3F2BE660D20B218C",
     "bytes": 28645652
   },
