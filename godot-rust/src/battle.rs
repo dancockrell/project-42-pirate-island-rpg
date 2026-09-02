@@ -427,10 +427,6 @@ impl Battle {
                     .then_with(|| left.guard.cmp(&right.guard))
                     .then_with(|| left.id.cmp(&right.id))
             })?;
-        let raw_damage = 9 + i32::from(attacker.level);
-        let guard_absorbed = target.guard.min(raw_damage);
-        let vitality_damage = raw_damage - guard_absorbed;
-        let lethal = vitality_damage >= target.vitality;
         let interception_protector_id = self
             .actors
             .values()
@@ -438,6 +434,14 @@ impl Battle {
                 candidate.is_alive() && candidate.intercepts_for.as_ref() == Some(&target.id)
             })
             .map(|candidate| candidate.id.clone());
+        let damage_recipient = interception_protector_id
+            .as_ref()
+            .and_then(|protector_id| self.actors.get(protector_id))
+            .unwrap_or(target);
+        let raw_damage = 9 + i32::from(attacker.level);
+        let guard_absorbed = damage_recipient.guard.min(raw_damage);
+        let vitality_damage = raw_damage - guard_absorbed;
+        let lethal = vitality_damage >= damage_recipient.vitality;
         let betty_id = ActorId("character.heroine.betty".into());
         let fatal_intercept_available = lethal
             && interception_protector_id.is_none()
@@ -1379,6 +1383,32 @@ mod tests {
         assert_eq!(command.actor_id, decision.actor_id);
         assert_eq!(command.skill_id, decision.skill_id);
         assert_eq!(command.target_ids, vec![decision.target_id]);
+    }
+
+    #[test]
+    fn enemy_projection_uses_the_interceptor_as_the_damage_recipient() {
+        let mut battle = Battle::prototype_vertical_slice();
+        battle.start();
+        battle
+            .submit(SkillCommand {
+                command_id: "set.interception".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.rescue_charge".into(),
+                target_ids: vec![
+                    ActorId("character.heroine.vix".into()),
+                    ActorId("enemy.raptor.razorbeak.prototype".into()),
+                ],
+            })
+            .unwrap();
+        let decision = battle.enemy_decision().expect("razorbeak is active");
+        assert_eq!(decision.target_id, ActorId("character.heroine.vix".into()));
+        assert_eq!(
+            decision.interception_protector_id,
+            Some(ActorId("character.heroine.betty".into()))
+        );
+        assert_eq!(decision.vitality_damage, 16);
+        assert!(!decision.lethal);
+        assert!(!decision.fatal_intercept_available);
     }
     #[test]
     fn rejects_out_of_turn_commands_without_mutation() {
