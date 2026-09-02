@@ -6,7 +6,7 @@
       "id": "presentation.paper_doll.captain.card",
       "placeholderAssetId": "art.placeholder.captain.card_portrait",
       "subjectId": "character.protagonist.captain",
-      "displayName": "MICHAEL CORRIGAN",
+      "displayName": "MICHAEL",
       "dollKind": "adult_human_echo_captain",
       "facing": "right",
       "nativeCanvas": [280, 256],
