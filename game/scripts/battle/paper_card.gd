@@ -35,8 +35,7 @@ func _draw() -> void:
 		draw_colored_polygon(PackedVector2Array([Vector2(22,55),Vector2(48,55),Vector2(54,100),Vector2(16,100)]), accent)
 		draw_line(Vector2(48,66), Vector2(59,96), Color("d0a85f"), 5)
 		draw_circle(Vector2(60,98), 6, Color("c79a55"))
-	draw_string(ThemeDB.fallback_font, Vector2(s.x - 32, 29), card_rank, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color("e4c487"))
-	draw_string(ThemeDB.fallback_font, Vector2(15, s.y - 10), "PAPER PORTRAIT • %s" % display_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color("9ca9a1"))
+	draw_string(ThemeDB.fallback_font, Vector2(s.x - 38, 29), card_rank, HORIZONTAL_ALIGNMENT_LEFT, 30, 13, Color("e4c487"))
 
 func make_box(background: Color, border: Color, width: int, radius: int) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()

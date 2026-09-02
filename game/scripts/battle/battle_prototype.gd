@@ -115,7 +115,7 @@ func build_battle_plane() -> Control:
 	cards.custom_minimum_size.x = 280
 	cards.add_theme_constant_override("separation", 9)
 	for item in [
-		["character.protagonist.captain", "CAPTAIN", "ECHO CAPTAIN", Color("536c79"), "ECHO", "captain"],
+		["character.protagonist.captain", "CAPTAIN", "ECHO CAPTAIN", Color("536c79"), "MC", "captain"],
 		["character.heroine.betty", "BETTY", "FIELD MEDIC", Color("2d7770"), "D"]
 	]:
 		var card := make_party_card(item[0], item[1], item[2], item[3], item[4], item[5] if item.size() > 5 else "heroine")
@@ -152,7 +152,7 @@ func build_battle_plane() -> Control:
 	action_cue_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	action_cue_label.custom_minimum_size.y = 42
 	stage.add_child(action_cue_label)
-	intent_label = make_label("INTENT: OBSERVING", 18, DANGER)
+	intent_label = make_label("INTENT: RUSHING BITE  •  16 DAMAGE", 18, DANGER)
 	intent_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stage.add_child(intent_label)
 	description_label = RichTextLabel.new()
@@ -205,7 +205,7 @@ func build_footer() -> Control:
 func make_party_card(id: String, display_name: String, role: String, accent: Color, rank: String, portrait_kind := "heroine") -> Control:
 	var card := Control.new()
 	card.name = display_name + "Card"
-	card.custom_minimum_size = Vector2(280, 104)
+	card.custom_minimum_size = Vector2(280, 132)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.tooltip_text = "PAPER PORTRAIT — DEVELOPMENT BLOCKOUT\nStable actor ID: %s\nRole: %s\nFuture portrait must preserve card crop, role read, face, hair, outfit palette and readiness overlay." % [id, role]
 	var portrait := PaperCardScript.new()
@@ -265,11 +265,12 @@ func make_actor_placeholder(spec_id: String, accent: Color) -> PanelContainer:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stack.add_child(label)
-	var role := make_label("PAPER-DOLL BLOCKOUT", 10, Color("b9c0a8"))
-	role.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	role.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	role.tooltip_text = "Replacement asset: %s" % spec.get("futureRuntimeAssetId", "missing")
-	stack.add_child(role)
+	var state_text := "VIT 70/70  •  GRD 3" if spec.get("dollKind", "") == "wild_raptor" else "ACTIVE FIGHTER"
+	var state := make_label(state_text, 11, Color("b9c0a8"))
+	state.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	state.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	state.tooltip_text = "Replacement asset: %s" % spec.get("futureRuntimeAssetId", "missing")
+	stack.add_child(state)
 	panel.add_child(stack)
 	return panel
 
