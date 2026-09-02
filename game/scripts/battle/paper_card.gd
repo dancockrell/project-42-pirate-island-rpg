@@ -34,6 +34,8 @@ func _draw() -> void:
 		draw_rect(Rect2(24, 7, 20, 14), Color("4a3928"))
 		draw_line(Vector2(19, 68), Vector2(56, 56), Color("b78948"), 4)
 		draw_circle(Vector2(48, 76), 6, Color("d0a85f"))
+		draw_circle(Vector2(18, 72), 7, Color("9b6f3d"))
+		draw_arc(Vector2(18, 72), 9, deg_to_rad(200), deg_to_rad(340), 8, Color("d0a85f"), 2)
 	else:
 		draw_colored_polygon(PackedVector2Array([Vector2(22,55),Vector2(48,55),Vector2(54,100),Vector2(16,100)]), accent)
 		draw_line(Vector2(48,66), Vector2(59,96), Color("d0a85f"), 5)

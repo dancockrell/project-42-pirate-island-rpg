@@ -16,12 +16,13 @@
       "attachmentAnchors": {
         "hatBrim": [0.38, 0.18],
         "face": [0.38, 0.27],
+        "boilerPressureGauge": [0.58, 0.53],
         "echoCompass": [0.56, 0.64],
-        "carbineReceiver": [0.60, 0.57],
+        "steamCarbineReceiver": [0.60, 0.57],
         "cutlassHilt": [0.65, 0.67]
       },
-      "layerOrder": ["card_shadow", "coat", "shirt", "carbine", "head", "hair", "slouch_hat", "echo_compass", "paper_pins"],
-      "identityInvariants": ["lean adult man", "1850s American frontier silhouette", "weathered slouch hat", "worn dark sea coat from a tea cutter", "prototype repeating carbine visible", "brass echo compass", "complete card-safe silhouette"],
+      "layerOrder": ["card_shadow", "boiler_pack", "coat", "shirt", "steam_carbine", "head", "hair", "slouch_hat", "echo_compass", "paper_pins"],
+      "identityInvariants": ["lean adult man", "1850s American frontier silhouette", "weathered slouch hat", "worn dark sea coat from the Handsome Jack", "compact boiler pack", "steam carbine visible", "brass echo compass", "complete card-safe silhouette"],
       "poseVariable": "standing at rest in the inactive party rail, head angled toward the current fighter",
       "futureRuntimeAssetId": "art.character.captain.card.ready",
       "futureFormat": "transparent lossless card portrait plus engine-ready texture",
