@@ -347,6 +347,40 @@ fn event_dictionary(
             payload.set("status_id", status_id);
             payload.set("status_kind", status_name(&status_kind));
         }
+        BattleEvent::StatusApplied {
+            command_id: id,
+            actor_id,
+            status_id,
+            status_kind,
+            source_id,
+        } => {
+            kind = "status_applied";
+            command!(id);
+            subject!(actor_id);
+            subject!(source_id);
+            payload.set("status_id", status_id);
+            payload.set("status_kind", status_name(&status_kind));
+        }
+        BattleEvent::WardLinePlaced {
+            command_id: id,
+            actor_id,
+            band,
+        } => {
+            kind = "ward_line_placed";
+            command!(id);
+            subject!(actor_id);
+            payload.set("band", i64::from(band));
+        }
+        BattleEvent::WardLineTriggered {
+            command_id: id,
+            attacker_id,
+            protected_id,
+        } => {
+            kind = "ward_line_triggered";
+            command!(id);
+            subject!(attacker_id);
+            subject!(protected_id);
+        }
         BattleEvent::ActorMoved {
             command_id: id,
             actor_id,
@@ -534,6 +568,7 @@ fn status_name(value: &StatusKind) -> &'static str {
         StatusKind::Poisoned => "poisoned",
         StatusKind::Burning => "burning",
         StatusKind::Stunned => "stunned",
+        StatusKind::Staggered => "staggered",
     }
 }
 

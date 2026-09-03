@@ -22,6 +22,7 @@ pub enum StatusKind {
     Poisoned,
     Burning,
     Stunned,
+    Staggered,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -152,6 +153,27 @@ pub enum BattleEvent {
         actor_id: ActorId,
         status_id: String,
         status_kind: StatusKind,
+    },
+    /// Ayla's Ward Line: the first dynamic mid-battle status application in the
+    /// engine. Every other status seen so far is only ever set at actor
+    /// construction or removed; this is a genuinely new status, applied to a
+    /// living target after the battle has started.
+    StatusApplied {
+        command_id: String,
+        actor_id: ActorId,
+        status_id: String,
+        status_kind: StatusKind,
+        source_id: ActorId,
+    },
+    WardLinePlaced {
+        command_id: String,
+        actor_id: ActorId,
+        band: i8,
+    },
+    WardLineTriggered {
+        command_id: String,
+        attacker_id: ActorId,
+        protected_id: ActorId,
     },
     ActorMoved {
         command_id: String,
@@ -312,6 +334,7 @@ pub struct Battle {
     recovery_openings: BTreeMap<ActorId, RecoveryOpening>,
     forced_next_actor: Option<ActorId>,
     forced_turn_resume: Option<(usize, u32)>,
+    active_ward: Option<WardLine>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -319,6 +342,19 @@ struct DamageOutcome {
     amount: i32,
     defeated: bool,
     prevented: bool,
+}
+
+/// Ayla's Ward Line: "place a ward between two adjacent bands; the first enemy
+/// crossing it takes damage and becomes Staggered." No hostile ever moves bands
+/// in this engine, so "crossing" is translated the same way Reach Counter
+/// translated "an enemy entering the Contested band" -- a hostile's declared
+/// attack targeting a party member who shares the warded band. A single ward is
+/// active at a time; placing a new one replaces it, and it consumes itself the
+/// first time it triggers.
+#[derive(Clone, Debug, PartialEq)]
+struct WardLine {
+    source_actor_id: ActorId,
+    band: i8,
 }
 
 impl Battle {
@@ -425,6 +461,7 @@ impl Battle {
             recovery_openings: BTreeMap::new(),
             forced_next_actor: None,
             forced_turn_resume: None,
+            active_ward: None,
         }
     }
 
@@ -605,6 +642,7 @@ impl Battle {
                 | "skill.ayla.safe_passage"
                 | "skill.ayla.curse_dispel"
                 | "skill.ayla.structural_scan"
+                | "skill.ayla.ward_line"
                 | "skill.enemy.razorbeak.rushing_bite"
                 | "skill.enemy.razorbeak.guard_breaking_kick"
                 | "skill.system.hold_position"
@@ -646,7 +684,8 @@ impl Battle {
             "skill.betty.rescue_charge" => 2,
             "skill.betty.mobile_infirmary"
             | "skill.system.hold_position"
-            | "skill.ayla.safe_passage" => 0,
+            | "skill.ayla.safe_passage"
+            | "skill.ayla.ward_line" => 0,
             _ => 1,
         };
         if command.target_ids.len() != expected_targets {
@@ -673,6 +712,7 @@ impl Battle {
             "skill.betty.mobile_infirmary"
                 | "skill.system.hold_position"
                 | "skill.ayla.safe_passage"
+                | "skill.ayla.ward_line"
         ) {
             self.phase = BattlePhase::Resolving;
             let mut events = vec![
@@ -792,6 +832,10 @@ impl Battle {
             }
             "skill.ayla.structural_scan" => {
                 return self.resolve_structural_scan(command, events);
+            }
+            "skill.ayla.ward_line" => {
+                self.resolve_ward_line(command, events);
+                return Ok(());
             }
             "skill.system.hold_position" => {
                 let actor = self
@@ -996,6 +1040,44 @@ impl Battle {
                 from_band,
                 to_band: ayla_band,
             });
+        }
+    }
+
+    /// Places (or replaces) the single active ward at Ayla's current band. See
+    /// `WardLine` for the "crossing" translation; the trigger itself lives in
+    /// `apply_damage`, alongside Reach Counter's structurally identical check.
+    fn resolve_ward_line(&mut self, command: &SkillCommand, events: &mut Vec<BattleEvent>) {
+        let ayla = self.actors.get(&command.actor_id).expect("actor checked");
+        let band = ayla.band;
+        self.active_ward = Some(WardLine {
+            source_actor_id: command.actor_id.clone(),
+            band,
+        });
+        events.push(BattleEvent::WardLinePlaced {
+            command_id: command.command_id.clone(),
+            actor_id: command.actor_id.clone(),
+            band,
+        });
+    }
+
+    /// The engine's first genuinely dynamic status application -- every other
+    /// status is only ever set at actor construction or removed by a skill.
+    fn apply_status(
+        &mut self,
+        command_id: &str,
+        target_id: &ActorId,
+        status: StatusInstance,
+        events: &mut Vec<BattleEvent>,
+    ) {
+        events.push(BattleEvent::StatusApplied {
+            command_id: command_id.to_owned(),
+            actor_id: target_id.clone(),
+            status_id: status.id.clone(),
+            status_kind: status.kind.clone(),
+            source_id: status.source_id.clone(),
+        });
+        if let Some(target) = self.actors.get_mut(target_id) {
+            target.statuses.push(status);
         }
     }
 
@@ -1333,6 +1415,51 @@ impl Battle {
             self.resolving_reaction = false;
         }
 
+        // Ward Line: the first hostile attack targeting a party member in the
+        // warded band takes damage and becomes Staggered, then the ward is spent.
+        let ward_triggered = allow_reactions
+            && !self.resolving_reaction
+            && source_is_hostile
+            && target_faction == Faction::Party
+            && self
+                .active_ward
+                .as_ref()
+                .is_some_and(|ward| ward.band == target_band);
+        if ward_triggered {
+            let ward = self.active_ward.take().expect("checked above");
+            events.push(BattleEvent::WardLineTriggered {
+                command_id: command_id.into(),
+                attacker_id: source_id.clone(),
+                protected_id: target_id.clone(),
+            });
+            let ayla_level = self
+                .actors
+                .get(&ward.source_actor_id)
+                .map(|ayla| ayla.level)
+                .unwrap_or(0);
+            self.resolving_reaction = true;
+            self.apply_damage(
+                command_id,
+                &ward.source_actor_id,
+                source_id,
+                8 + i32::from(ayla_level),
+                false,
+                events,
+            );
+            self.apply_status(
+                command_id,
+                source_id,
+                StatusInstance {
+                    id: format!("status.ward_line.staggered.{command_id}"),
+                    kind: StatusKind::Staggered,
+                    remaining_rounds: 1,
+                    source_id: ward.source_actor_id,
+                },
+                events,
+            );
+            self.resolving_reaction = false;
+        }
+
         let opens_reaction = allow_reactions
             && !self.resolving_reaction
             && would_defeat
@@ -1525,6 +1652,7 @@ fn status_priority(kind: &StatusKind) -> u8 {
         StatusKind::Burning => 1,
         StatusKind::Poisoned => 2,
         StatusKind::Bleeding => 3,
+        StatusKind::Staggered => 4,
     }
 }
 
@@ -2981,6 +3109,203 @@ mod tests {
             event,
             BattleEvent::ReactionTriggered { skill_id, .. } if skill_id == "skill.ayla.reach_counter"
         )));
+        assert_eq!(
+            battle
+                .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+                .unwrap()
+                .vitality,
+            50
+        );
+    }
+
+    #[test]
+    fn ward_line_damages_and_staggers_the_first_hostile_attacking_the_warded_band() {
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 60, 0, 30);
+        ayla.band = 1;
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 1);
+        betty.band = 1;
+        let enemy = actor(
+            "enemy.raptor.razorbeak.prototype",
+            Faction::Hostile,
+            4,
+            50,
+            0,
+            20,
+        );
+        let mut battle = Battle::new("battle.ward_line", [ayla, betty, enemy]);
+        battle.start();
+
+        let placed = battle
+            .submit(SkillCommand {
+                command_id: "place_ward".into(),
+                actor_id: ActorId("character.heroine.ayla".into()),
+                skill_id: "skill.ayla.ward_line".into(),
+                target_ids: vec![],
+            })
+            .unwrap();
+        assert!(
+            placed
+                .iter()
+                .any(|event| matches!(event, BattleEvent::WardLinePlaced { band: 1, .. }))
+        );
+
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "enemy.bite".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .unwrap();
+
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::WardLineTriggered { .. }))
+        );
+        assert!(events.iter().any(|event| matches!(
+            event,
+            BattleEvent::StatusApplied {
+                status_kind: StatusKind::Staggered,
+                ..
+            }
+        )));
+        let enemy = battle
+            .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+            .unwrap();
+        assert_eq!(enemy.vitality, 50 - (8 + 3));
+        assert!(
+            enemy
+                .statuses
+                .iter()
+                .any(|status| status.kind == StatusKind::Staggered)
+        );
+    }
+
+    #[test]
+    fn ward_line_is_spent_after_its_first_trigger_and_does_not_retrigger() {
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 60, 0, 30);
+        ayla.band = 1;
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 1);
+        betty.band = 1;
+        let enemy = actor(
+            "enemy.raptor.razorbeak.prototype",
+            Faction::Hostile,
+            4,
+            50,
+            0,
+            20,
+        );
+        let mut battle = Battle::new("battle.ward_line_spent", [ayla, betty, enemy]);
+        battle.start();
+
+        battle
+            .submit(SkillCommand {
+                command_id: "place_ward".into(),
+                actor_id: ActorId("character.heroine.ayla".into()),
+                skill_id: "skill.ayla.ward_line".into(),
+                target_ids: vec![],
+            })
+            .unwrap();
+        let first_events = battle
+            .submit(SkillCommand {
+                command_id: "first_bite".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .unwrap();
+        assert!(
+            first_events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::WardLineTriggered { .. }))
+        );
+        let vitality_after_first = battle
+            .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+            .unwrap()
+            .vitality;
+        let statuses_after_first = battle
+            .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+            .unwrap()
+            .statuses
+            .len();
+
+        battle
+            .submit(SkillCommand {
+                command_id: "betty_holds".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.system.hold_position".into(),
+                target_ids: vec![],
+            })
+            .unwrap();
+        battle
+            .submit(SkillCommand {
+                command_id: "ayla_holds".into(),
+                actor_id: ActorId("character.heroine.ayla".into()),
+                skill_id: "skill.system.hold_position".into(),
+                target_ids: vec![],
+            })
+            .unwrap();
+        let second_events = battle
+            .submit(SkillCommand {
+                command_id: "second_bite".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .unwrap();
+
+        assert!(
+            !second_events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::WardLineTriggered { .. }))
+        );
+        let enemy_after_second = battle
+            .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+            .unwrap();
+        assert_eq!(enemy_after_second.vitality, vitality_after_first);
+        assert_eq!(enemy_after_second.statuses.len(), statuses_after_first);
+    }
+
+    #[test]
+    fn ward_line_does_not_trigger_when_no_ward_is_active() {
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 60, 0, 30);
+        ayla.band = 1;
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty.band = 1;
+        let enemy = actor(
+            "enemy.raptor.razorbeak.prototype",
+            Faction::Hostile,
+            4,
+            50,
+            0,
+            20,
+        );
+        let mut battle = Battle::new("battle.no_ward", [ayla, betty, enemy]);
+        battle.start();
+
+        battle
+            .submit(SkillCommand {
+                command_id: "ayla_holds".into(),
+                actor_id: ActorId("character.heroine.ayla".into()),
+                skill_id: "skill.system.hold_position".into(),
+                target_ids: vec![],
+            })
+            .unwrap();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "bite".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .unwrap();
+
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::WardLineTriggered { .. }))
+        );
         assert_eq!(
             battle
                 .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
