@@ -93,6 +93,8 @@ pub enum ExpeditionError {
     IllegalRoute { route_id: String },
     NoPendingEncounter,
     MidnightBlockedByPendingEncounter,
+    NotAtEstate,
+    InsufficientSupplies { needed: u32, available: u32 },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -109,6 +111,19 @@ pub enum EncounterOutcome {
     Victory,
     Defeat,
     Retreat,
+}
+
+/// B4: the one real estate consequence -- an infirmary recovery. Not a generic
+/// base-building tree; one actual action with one actual cost.
+const ESTATE_LOCATION_ID: &str = "location.black_beach.estate";
+const ESTATE_REST_MEDICINE_COST: u32 = 1;
+const ESTATE_REST_VITALITY_RESTORED: i32 = 20;
+const ESTATE_UPGRADE_INFIRMARY_RESTED: &str = "estate.upgrade.infirmary_rested";
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct EstateRestOutcome {
+    pub healed_character_ids: Vec<String>,
+    pub medicine_spent: u32,
 }
 
 impl ExpeditionState {
@@ -334,7 +349,56 @@ impl ExpeditionState {
                     .map(|id| format!("inspect:{id}")),
             );
         }
+        if self.can_rest_at_estate() {
+            commands.push("rest_at_estate".to_owned());
+        }
         commands
+    }
+
+    fn can_rest_at_estate(&self) -> bool {
+        self.active_location_id == ESTATE_LOCATION_ID
+            && self.supplies.medicine >= ESTATE_REST_MEDICINE_COST
+            && !self
+                .household_progress
+                .estate_upgrades
+                .contains(ESTATE_UPGRADE_INFIRMARY_RESTED)
+    }
+
+    /// B4: the one real estate consequence after Reception Terrace -- an infirmary
+    /// recovery. Rejects, without mutating state, unless the party is actually at
+    /// the estate and has medicine to spend. Spends the medicine, heals every
+    /// tracked character up to their max Vitality and clears `injured`, then
+    /// records `estate.upgrade.infirmary_rested` as a material tactical fact:
+    /// once recorded it removes `rest_at_estate` from
+    /// `legal_next_commands_with_geography` for the rest of the day, and the fact
+    /// itself survives a save/reload.
+    pub fn rest_at_estate(&mut self) -> Result<EstateRestOutcome, ExpeditionError> {
+        if self.active_location_id != ESTATE_LOCATION_ID {
+            return Err(ExpeditionError::NotAtEstate);
+        }
+        if self.supplies.medicine < ESTATE_REST_MEDICINE_COST {
+            return Err(ExpeditionError::InsufficientSupplies {
+                needed: ESTATE_REST_MEDICINE_COST,
+                available: self.supplies.medicine,
+            });
+        }
+
+        self.supplies.medicine -= ESTATE_REST_MEDICINE_COST;
+        let mut healed_character_ids = Vec::new();
+        for (id, character) in self.character_states.iter_mut() {
+            character.vitality =
+                (character.vitality + ESTATE_REST_VITALITY_RESTORED).min(character.max_vitality);
+            character.injured = false;
+            healed_character_ids.push(id.clone());
+        }
+        self.household_progress
+            .estate_upgrades
+            .insert(ESTATE_UPGRADE_INFIRMARY_RESTED.to_owned());
+
+        Ok(EstateRestOutcome {
+            healed_character_ids,
+            medicine_spent: ESTATE_REST_MEDICINE_COST,
+        })
     }
 
     /// B3: Midnight as a single atomic transaction, delegating the deterministic
@@ -833,5 +897,132 @@ mod tests {
         assert_eq!(state.time_segment, restored.time_segment);
         assert_eq!(state.named_person_memory, restored.named_person_memory);
         assert_eq!(state.habitat_states, restored.habitat_states);
+    }
+
+    fn wounded_captain() -> CharacterState {
+        CharacterState {
+            vitality: 30,
+            max_vitality: 60,
+            statuses: Vec::new(),
+            injured: true,
+        }
+    }
+
+    #[test]
+    fn resting_at_the_estate_spends_medicine_and_heals_without_exceeding_max() {
+        let mut state = fixture();
+        state.active_location_id = "location.black_beach.estate".into();
+        state.supplies.medicine = 3;
+        state
+            .character_states
+            .insert("character.protagonist.captain".into(), wounded_captain());
+
+        let outcome = state.rest_at_estate().expect("resolves");
+
+        assert_eq!(outcome.medicine_spent, 1);
+        assert_eq!(state.supplies.medicine, 2);
+        assert_eq!(
+            outcome.healed_character_ids,
+            vec!["character.protagonist.captain".to_owned()]
+        );
+        let captain = &state.character_states["character.protagonist.captain"];
+        assert_eq!(captain.vitality, 50);
+        assert!(!captain.injured);
+        assert!(
+            state
+                .household_progress
+                .estate_upgrades
+                .contains("estate.upgrade.infirmary_rested")
+        );
+    }
+
+    #[test]
+    fn resting_at_the_estate_never_heals_past_max_vitality() {
+        let mut state = fixture();
+        state.active_location_id = "location.black_beach.estate".into();
+        state.supplies.medicine = 1;
+        state.character_states.insert(
+            "character.protagonist.captain".into(),
+            CharacterState {
+                vitality: 55,
+                max_vitality: 60,
+                statuses: Vec::new(),
+                injured: true,
+            },
+        );
+
+        state.rest_at_estate().expect("resolves");
+
+        assert_eq!(
+            state.character_states["character.protagonist.captain"].vitality,
+            60
+        );
+    }
+
+    #[test]
+    fn resting_away_from_the_estate_is_rejected_without_mutation() {
+        let mut state = fixture();
+        state.supplies.medicine = 3;
+        let before = state.clone();
+
+        let result = state.rest_at_estate();
+
+        assert_eq!(result, Err(ExpeditionError::NotAtEstate));
+        assert_eq!(state, before);
+    }
+
+    #[test]
+    fn resting_without_medicine_is_rejected_without_mutation() {
+        let mut state = fixture();
+        state.active_location_id = "location.black_beach.estate".into();
+        state.supplies.medicine = 0;
+        let before = state.clone();
+
+        let result = state.rest_at_estate();
+
+        assert_eq!(
+            result,
+            Err(ExpeditionError::InsufficientSupplies {
+                needed: 1,
+                available: 0
+            })
+        );
+        assert_eq!(state, before);
+    }
+
+    #[test]
+    fn resting_is_a_one_time_material_fact_reflected_in_legal_state_data() {
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+        state.active_location_id = "location.black_beach.estate".into();
+        state.supplies.medicine = 1;
+
+        let before = state.legal_next_commands_with_geography(&geography);
+        assert!(before.contains(&"rest_at_estate".to_owned()));
+
+        state.rest_at_estate().expect("resolves");
+
+        let after = state.legal_next_commands_with_geography(&geography);
+        assert!(!after.contains(&"rest_at_estate".to_owned()));
+    }
+
+    #[test]
+    fn the_estate_upgrade_fact_survives_save_and_reload() {
+        let mut state = fixture();
+        state.active_location_id = "location.black_beach.estate".into();
+        state.supplies.medicine = 1;
+        state.rest_at_estate().expect("resolves");
+
+        let restored = ExpeditionState::from_json(&state.to_json()).expect("round trip parses");
+        assert_eq!(
+            state.household_progress.estate_upgrades,
+            restored.household_progress.estate_upgrades
+        );
+        assert!(
+            restored
+                .household_progress
+                .estate_upgrades
+                .contains("estate.upgrade.infirmary_rested")
+        );
     }
 }
