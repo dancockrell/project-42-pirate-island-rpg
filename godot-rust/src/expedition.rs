@@ -85,6 +85,11 @@ pub struct ExpeditionState {
     /// written before this field existed still load at the same `save_version`.
     #[serde(default)]
     pub daily_spawn_records: BTreeMap<String, SpawnedMonster>,
+    /// What holds each habitat after dark, keyed by the habitat's own `region_id`
+    /// (the `.night` suffix Midnight Return needs for a distinct instance ID is
+    /// stripped here). Empty for habitats with nothing nocturnal unlocked yet.
+    #[serde(default)]
+    pub nightly_spawn_records: BTreeMap<String, SpawnedMonster>,
     pub discoveries: BTreeSet<String>,
     pub household_progress: HouseholdProgress,
     pub pending_encounter: Option<EncounterState>,
@@ -158,6 +163,7 @@ impl ExpeditionState {
             named_person_memory: BTreeMap::new(),
             habitat_states: BTreeMap::new(),
             daily_spawn_records: BTreeMap::new(),
+            nightly_spawn_records: BTreeMap::new(),
             discoveries: BTreeSet::new(),
             household_progress: HouseholdProgress {
                 estate_upgrades: BTreeSet::new(),
@@ -298,7 +304,15 @@ impl ExpeditionState {
         if !holds_today {
             return None;
         }
-        let monster = self.daily_spawn_records.get(&habitat.region_id)?;
+        // After dark the habitat's night holder answers instead, when it has one.
+        // The same road is a different proposition at Dusk than it was at noon.
+        let monster = if crate::habitat::is_night(&self.time_segment) {
+            self.nightly_spawn_records
+                .get(&habitat.region_id)
+                .or_else(|| self.daily_spawn_records.get(&habitat.region_id))?
+        } else {
+            self.daily_spawn_records.get(&habitat.region_id)?
+        };
 
         self.pending_encounter = Some(EncounterState {
             encounter_id: format!("encounter.{}", monster.instance_id),
@@ -506,11 +520,18 @@ impl ExpeditionState {
         for (id, person) in clock.named_people {
             self.named_person_memory.insert(id, person.death_memory);
         }
-        // Yesterday's individuals are gone; today's ledger is exactly what this
-        // transaction materialized.
+        // Yesterday's individuals are gone; today's ledgers are exactly what this
+        // transaction materialized. A `.night` region carries the habitat's after-dark
+        // holder and is filed under the habitat's own region, so the two never collide.
         self.daily_spawn_records.clear();
+        self.nightly_spawn_records.clear();
         for event in &events {
             if let WorldEvent::MonsterMaterialized { region_id, monster } = event {
+                if let Some(base_region) = crate::habitat::base_region_of_night(region_id) {
+                    self.nightly_spawn_records
+                        .insert(base_region.to_owned(), monster.clone());
+                    continue;
+                }
                 self.habitat_states.insert(
                     region_id.clone(),
                     HabitatState {
@@ -524,6 +545,18 @@ impl ExpeditionState {
         }
 
         Ok(events)
+    }
+
+    /// Midnight against a habitat registry rather than hand-built rules. The day
+    /// gate has to be read from the day the transaction is about to *become*, not
+    /// the one it is leaving, and only the state knows that -- so this computes the
+    /// rules itself instead of leaving every caller to remember the off-by-one.
+    pub fn resolve_midnight_in(
+        &mut self,
+        habitats: &Habitats,
+    ) -> Result<Vec<WorldEvent>, ExpeditionError> {
+        let rules = habitats.spawn_rules(self.campaign_day + 1);
+        self.resolve_midnight(&rules)
     }
 
     /// Derives "alive today" from the death memory alone -- `named_person_memory`
@@ -1108,9 +1141,7 @@ mod tests {
         let geography = Geography::black_beach_vertical_slice();
         let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
         let mut state = fixture();
-        state
-            .resolve_midnight(&habitats.spawn_rules())
-            .expect("resolves");
+        state.resolve_midnight_in(&habitats).expect("resolves");
         state.active_location_id = "location.black_beach.reception_terrace".into();
         (geography, habitats, state)
     }
@@ -1169,9 +1200,7 @@ mod tests {
         assert!(state.begin_encounter(&geography, &habitats).is_none());
 
         // The next midnight puts a new individual there and reopens it.
-        state
-            .resolve_midnight(&habitats.spawn_rules())
-            .expect("resolves");
+        state.resolve_midnight_in(&habitats).expect("resolves");
         assert!(state.begin_encounter(&geography, &habitats).is_some());
     }
 

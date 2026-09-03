@@ -23,5 +23,8 @@ pub use expedition::{
 pub use geography::{
     Geography, LocationRecord, PersistencePolicy, ReturnPolicy, RouteKind, RouteOption,
 };
-pub use habitat::{ActionPriority, EncounterRank, HabitatRecord, Habitats, ThreatProfile};
+pub use habitat::{
+    ActionPriority, CreatureFamily, EncounterRank, HabitatRecord, Habitats, RosterEntry,
+    ThreatProfile,
+};
 pub use world::{DeathMemory, NamedPerson, SpawnRule, SpawnedMonster, WorldClock, WorldEvent};
