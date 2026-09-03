@@ -51,6 +51,10 @@ pub struct RouteOption {
     pub time_cost_minutes: u32,
     pub supply_cost: u32,
     pub risk_level: u8,
+    /// D3's truth-space gate: this route is illegal until this observation
+    /// (an `ExpeditionState::discoveries` entry) has been made. `None` means
+    /// the route carries no such gate.
+    pub required_discovery_id: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -144,12 +148,87 @@ impl Geography {
                 id: "location.black_beach.processional_ramp".into(),
                 region_id: "world.region.black_beach".into(),
                 display_name: "Processional Ramp".into(),
-                exits: vec!["route.processional_ramp.to_reception_terrace".into()],
+                exits: vec![
+                    "route.processional_ramp.to_reception_terrace".into(),
+                    "route.processional_ramp.to_tomb_threshold".into(),
+                ],
                 observation_ids: vec!["observation.processional_ramp.collapsed_arch".into()],
                 interaction_anchor_ids: vec![],
                 return_policy: ReturnPolicy::CanRetreatToPrevious,
                 persistence_policy: PersistencePolicy::ResetsOnMidnight,
                 encounter_eligible: false,
+            },
+        );
+        // D3: the Tomb of Returning Names, past the ceremonial approach the
+        // Processional Ramp already establishes. Elven public-purpose plan:
+        // threshold -> reception/truth space -> (gated) archive core, with an
+        // ungated service passage as the recoverable failure branch.
+        locations.insert(
+            "location.tomb.returning_names.threshold".into(),
+            LocationRecord {
+                id: "location.tomb.returning_names.threshold".into(),
+                region_id: "world.region.black_beach".into(),
+                display_name: "Threshold of Returning Names".into(),
+                exits: vec![
+                    "route.tomb_threshold.to_processional_ramp".into(),
+                    "route.tomb_threshold.to_reception".into(),
+                ],
+                observation_ids: vec!["observation.tomb_threshold.sealed_names".into()],
+                interaction_anchor_ids: vec![],
+                return_policy: ReturnPolicy::CanRetreatToPrevious,
+                persistence_policy: PersistencePolicy::ResetsOnMidnight,
+                encounter_eligible: false,
+            },
+        );
+        locations.insert(
+            "location.tomb.returning_names.reception".into(),
+            LocationRecord {
+                id: "location.tomb.returning_names.reception".into(),
+                region_id: "world.region.black_beach".into(),
+                display_name: "Reception of Returning Names".into(),
+                exits: vec![
+                    "route.tomb_reception.to_threshold".into(),
+                    "route.tomb_reception.to_archive_core".into(),
+                    "route.tomb_reception.to_service_passage".into(),
+                ],
+                observation_ids: vec!["observation.tomb_reception.true_name".into()],
+                interaction_anchor_ids: vec![],
+                return_policy: ReturnPolicy::CanRetreatToPrevious,
+                persistence_policy: PersistencePolicy::ResetsOnMidnight,
+                encounter_eligible: false,
+            },
+        );
+        locations.insert(
+            "location.tomb.returning_names.archive_core".into(),
+            LocationRecord {
+                id: "location.tomb.returning_names.archive_core".into(),
+                region_id: "world.region.black_beach".into(),
+                display_name: "Archive Core of Returning Names".into(),
+                exits: vec!["route.tomb_archive_core.to_reception".into()],
+                observation_ids: vec!["observation.tomb_archive_core.the_returning_names".into()],
+                interaction_anchor_ids: vec!["anchor.tomb_archive_core.name_ledger".into()],
+                return_policy: ReturnPolicy::CanRetreatToPrevious,
+                persistence_policy: PersistencePolicy::ResetsOnMidnight,
+                encounter_eligible: false,
+            },
+        );
+        locations.insert(
+            "location.tomb.returning_names.service_passage".into(),
+            LocationRecord {
+                id: "location.tomb.returning_names.service_passage".into(),
+                region_id: "world.region.black_beach".into(),
+                display_name: "Service Passage of Returning Names".into(),
+                exits: vec![
+                    "route.tomb_service_passage.to_reception".into(),
+                    "route.tomb_service_passage.to_threshold".into(),
+                ],
+                observation_ids: vec![
+                    "observation.tomb_service_passage.disturbed_grave_goods".into(),
+                ],
+                interaction_anchor_ids: vec![],
+                return_policy: ReturnPolicy::CanRetreatToPrevious,
+                persistence_policy: PersistencePolicy::ResetsOnMidnight,
+                encounter_eligible: true,
             },
         );
 
@@ -165,9 +244,32 @@ impl Geography {
                         time_cost_minutes: time,
                         supply_cost: supply,
                         risk_level: risk,
+                        required_discovery_id: None,
                     },
                 )
             };
+        let gated_route = |id: &str,
+                           from: &str,
+                           to: &str,
+                           kind: RouteKind,
+                           time: u32,
+                           supply: u32,
+                           risk: u8,
+                           required_discovery_id: &str| {
+            (
+                id.to_owned(),
+                RouteOption {
+                    id: id.into(),
+                    from_location_id: from.into(),
+                    to_location_id: to.into(),
+                    kind,
+                    time_cost_minutes: time,
+                    supply_cost: supply,
+                    risk_level: risk,
+                    required_discovery_id: Some(required_discovery_id.into()),
+                },
+            )
+        };
 
         for (id, option) in [
             route(
@@ -248,6 +350,88 @@ impl Geography {
                 "location.black_beach.reception_terrace",
                 RouteKind::Direct,
                 10,
+                0,
+                2,
+            ),
+            route(
+                "route.processional_ramp.to_tomb_threshold",
+                "location.black_beach.processional_ramp",
+                "location.tomb.returning_names.threshold",
+                RouteKind::Direct,
+                10,
+                0,
+                2,
+            ),
+            route(
+                "route.tomb_threshold.to_processional_ramp",
+                "location.tomb.returning_names.threshold",
+                "location.black_beach.processional_ramp",
+                RouteKind::Direct,
+                10,
+                0,
+                2,
+            ),
+            route(
+                "route.tomb_threshold.to_reception",
+                "location.tomb.returning_names.threshold",
+                "location.tomb.returning_names.reception",
+                RouteKind::Direct,
+                10,
+                0,
+                2,
+            ),
+            route(
+                "route.tomb_reception.to_threshold",
+                "location.tomb.returning_names.reception",
+                "location.tomb.returning_names.threshold",
+                RouteKind::Direct,
+                10,
+                0,
+                2,
+            ),
+            gated_route(
+                "route.tomb_reception.to_archive_core",
+                "location.tomb.returning_names.reception",
+                "location.tomb.returning_names.archive_core",
+                RouteKind::Direct,
+                10,
+                0,
+                2,
+                "observation.tomb_reception.true_name",
+            ),
+            route(
+                "route.tomb_archive_core.to_reception",
+                "location.tomb.returning_names.archive_core",
+                "location.tomb.returning_names.reception",
+                RouteKind::Direct,
+                10,
+                0,
+                2,
+            ),
+            route(
+                "route.tomb_reception.to_service_passage",
+                "location.tomb.returning_names.reception",
+                "location.tomb.returning_names.service_passage",
+                RouteKind::Direct,
+                10,
+                0,
+                3,
+            ),
+            route(
+                "route.tomb_service_passage.to_reception",
+                "location.tomb.returning_names.service_passage",
+                "location.tomb.returning_names.reception",
+                RouteKind::Direct,
+                10,
+                0,
+                3,
+            ),
+            route(
+                "route.tomb_service_passage.to_threshold",
+                "location.tomb.returning_names.service_passage",
+                "location.tomb.returning_names.threshold",
+                RouteKind::Direct,
+                15,
                 0,
                 2,
             ),
@@ -446,6 +630,43 @@ mod tests {
             geography
                 .step_distance("location.black_beach", destination)
                 .unwrap()
+        );
+    }
+
+    #[test]
+    fn the_tomb_archive_core_route_is_gated_on_the_true_name_discovery() {
+        let geography = Geography::black_beach_vertical_slice();
+        let gated = geography
+            .route("route.tomb_reception.to_archive_core")
+            .expect("the gated route exists");
+        assert_eq!(
+            gated.required_discovery_id.as_deref(),
+            Some("observation.tomb_reception.true_name")
+        );
+    }
+
+    #[test]
+    fn the_service_passage_offers_a_clear_return_path_without_the_discovery() {
+        let geography = Geography::black_beach_vertical_slice();
+        let ungated = geography
+            .route("route.tomb_reception.to_service_passage")
+            .expect("the service passage route exists");
+        assert!(ungated.required_discovery_id.is_none());
+        let return_route = geography
+            .route("route.tomb_service_passage.to_threshold")
+            .expect("the service passage returns toward the threshold");
+        assert!(return_route.required_discovery_id.is_none());
+    }
+
+    #[test]
+    fn the_tomb_interior_is_reachable_past_the_processional_ramp() {
+        let geography = Geography::black_beach_vertical_slice();
+        assert_eq!(
+            geography.step_distance(
+                "location.black_beach",
+                "location.tomb.returning_names.archive_core"
+            ),
+            Some(6)
         );
     }
 }

@@ -104,14 +104,33 @@ pub struct ExpeditionState {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExpeditionError {
     MalformedJson(String),
-    FutureSaveVersion { found: u32, current: u32 },
-    InvalidStableId { field: &'static str, value: String },
-    InvalidPartySize { found: usize },
-    IllegalRoute { route_id: String },
+    FutureSaveVersion {
+        found: u32,
+        current: u32,
+    },
+    InvalidStableId {
+        field: &'static str,
+        value: String,
+    },
+    InvalidPartySize {
+        found: usize,
+    },
+    IllegalRoute {
+        route_id: String,
+    },
+    /// D3's truth-space gate: `route_id` requires `discovery_id` in
+    /// `discoveries` and it isn't there yet.
+    MissingDiscovery {
+        route_id: String,
+        discovery_id: String,
+    },
     NoPendingEncounter,
     MidnightBlockedByPendingEncounter,
     NotAtEstate,
-    InsufficientSupplies { needed: u32, available: u32 },
+    InsufficientSupplies {
+        needed: u32,
+        available: u32,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -248,6 +267,15 @@ impl ExpeditionState {
                 route_id: route_id.to_owned(),
             })?
             .clone();
+
+        if let Some(discovery_id) = &route.required_discovery_id {
+            if !self.discoveries.contains(discovery_id) {
+                return Err(ExpeditionError::MissingDiscovery {
+                    route_id: route_id.to_owned(),
+                    discovery_id: discovery_id.clone(),
+                });
+            }
+        }
 
         self.advance_time(route.time_cost_minutes);
         self.supplies.rations = self.supplies.rations.saturating_sub(route.supply_cost);
@@ -882,6 +910,101 @@ mod tests {
             }
         );
         assert_eq!(state, before);
+    }
+
+    fn at_tomb_reception(geography: &Geography) -> ExpeditionState {
+        let mut state = fixture();
+        for route_id in [
+            "route.black_beach.to_river_landing",
+            "route.river_landing.safe_road",
+            "route.reception_terrace.to_processional_ramp",
+            "route.processional_ramp.to_tomb_threshold",
+            "route.tomb_threshold.to_reception",
+        ] {
+            state.travel(route_id, geography).expect("legal route");
+        }
+        assert_eq!(
+            state.active_location_id,
+            "location.tomb.returning_names.reception"
+        );
+        state
+    }
+
+    #[test]
+    fn the_archive_core_route_is_rejected_without_the_true_name_discovery() {
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
+        let mut state = at_tomb_reception(&geography);
+        let before = state.clone();
+
+        let error = state
+            .travel("route.tomb_reception.to_archive_core", &geography)
+            .unwrap_err();
+
+        assert_eq!(
+            error,
+            ExpeditionError::MissingDiscovery {
+                route_id: "route.tomb_reception.to_archive_core".into(),
+                discovery_id: "observation.tomb_reception.true_name".into(),
+            }
+        );
+        assert_eq!(state, before);
+    }
+
+    #[test]
+    fn inspecting_the_reception_space_unlocks_the_archive_core_route() {
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
+        let mut state = at_tomb_reception(&geography);
+
+        let observed = state.inspect(&geography);
+        assert!(observed.contains(&"observation.tomb_reception.true_name".to_owned()));
+
+        state
+            .travel("route.tomb_reception.to_archive_core", &geography)
+            .expect("the truth-space discovery unlocks the archive core");
+        assert_eq!(
+            state.active_location_id,
+            "location.tomb.returning_names.archive_core"
+        );
+    }
+
+    #[test]
+    fn the_service_passage_is_reachable_without_the_discovery_and_leads_back_out() {
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
+        let mut state = at_tomb_reception(&geography);
+
+        state
+            .travel("route.tomb_reception.to_service_passage", &geography)
+            .expect("the ungated wrong turn is always legal");
+        assert_eq!(
+            state.active_location_id,
+            "location.tomb.returning_names.service_passage"
+        );
+
+        // The recoverable failure: a clear route leads back toward the
+        // threshold rather than trapping the party in a dead end.
+        state
+            .travel("route.tomb_service_passage.to_threshold", &geography)
+            .expect("the service passage returns toward the threshold");
+        assert_eq!(
+            state.active_location_id,
+            "location.tomb.returning_names.threshold"
+        );
+    }
+
+    #[test]
+    fn the_service_passage_presents_the_same_territorial_guardian_as_the_terrace() {
+        let (geography, habitats, mut state) = at_the_held_terrace();
+        let holder = state.daily_spawn_records["world.region.black_beach.terrace_precinct"]
+            .instance_id
+            .clone();
+        state.active_location_id = "location.tomb.returning_names.service_passage".into();
+
+        let encounter = state
+            .begin_encounter(&geography, &habitats)
+            .expect("the elven site's guardian answers the wrong turn too")
+            .clone();
+
+        assert_eq!(encounter.encounter_id, format!("encounter.{holder}"));
     }
 
     #[test]

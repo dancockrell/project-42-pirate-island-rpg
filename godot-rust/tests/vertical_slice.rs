@@ -114,6 +114,56 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
         .expect("resolves");
     assert!(state.pending_encounter.is_none());
     assert!(state.begin_encounter(&geography, &habitats).is_none());
+
+    // 4a. D3: cross into the Tomb of Returning Names. The archive core is
+    //     gated on the reception space's own truth-telling observation, and
+    //     the party returns to the terrace by the same door it entered.
+    state
+        .travel("route.reception_terrace.to_processional_ramp", &geography)
+        .expect("legal route");
+    state
+        .travel("route.processional_ramp.to_tomb_threshold", &geography)
+        .expect("legal route");
+    state
+        .travel("route.tomb_threshold.to_reception", &geography)
+        .expect("legal route");
+    let archive_core_before_discovery = state
+        .travel("route.tomb_reception.to_archive_core", &geography)
+        .unwrap_err();
+    assert_eq!(
+        archive_core_before_discovery,
+        ExpeditionError::MissingDiscovery {
+            route_id: "route.tomb_reception.to_archive_core".into(),
+            discovery_id: "observation.tomb_reception.true_name".into(),
+        }
+    );
+    let discovered = state.inspect(&geography);
+    assert!(discovered.contains(&"observation.tomb_reception.true_name".to_owned()));
+    state
+        .travel("route.tomb_reception.to_archive_core", &geography)
+        .expect("the truth-space discovery unlocks the archive core");
+    assert_eq!(
+        state.active_location_id,
+        "location.tomb.returning_names.archive_core"
+    );
+    assert_boundary_round_trips(&state);
+    state
+        .travel("route.tomb_archive_core.to_reception", &geography)
+        .expect("legal route");
+    state
+        .travel("route.tomb_reception.to_threshold", &geography)
+        .expect("legal route");
+    state
+        .travel("route.tomb_threshold.to_processional_ramp", &geography)
+        .expect("legal route");
+    state
+        .travel("route.processional_ramp.to_reception_terrace", &geography)
+        .expect("legal route");
+    assert_eq!(
+        state.active_location_id,
+        "location.black_beach.reception_terrace"
+    );
+
     state
         .travel("route.reception_terrace.to_river_landing", &geography)
         .expect("legal route");

@@ -356,6 +356,10 @@ impl Habitats {
                 territory_location_ids: vec![
                     "location.black_beach.reception_terrace".into(),
                     "location.black_beach.processional_ramp".into(),
+                    // D3: the tomb's ungated wrong turn is where the elven
+                    // site's guardians actually answer -- a real encounter,
+                    // not a bespoke danger mechanic.
+                    "location.tomb.returning_names.service_passage".into(),
                 ],
                 drop_table_id: "loot.razorbeak.crested.prototype".into(),
                 return_eligible: true,

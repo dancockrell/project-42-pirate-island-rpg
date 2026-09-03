@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "task_id": "backend-d3-tomb-architecture",
+  "agent": "Claude Code (PR #3)",
+  "summary": "D3: Tomb architecture for the Tomb of Returning Names - approach/threshold/reception/archive-core/service-passage location graph, a discovery-gated route, and a recoverable failure branch wired into the existing habitat/encounter system",
+  "status": "active",
+  "claimed_at": "2026-09-03T15:00:00Z",
+  "updated_at": "2026-09-03T15:00:00Z",
+  "paths": [
+    "godot-rust/src/geography.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/habitat.rs",
+    "godot-rust/src/godot_bridge.rs",
+    "godot-rust/tests/vertical_slice.rs"
+  ],
+  "symbols": [
+    "Geography::black_beach_vertical_slice",
+    "RouteOption::required_discovery_id",
+    "ExpeditionError::MissingDiscovery",
+    "ExpeditionState::travel"
+  ],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [],
+    "notes": "Continues on backend/b0-expedition-state (PR #3) directly after B0-B4, D1, and the undead/hunter escalation (U1-U3), all already shipped on this branch. Scope is backend-only (Rust graph + rules + tests), matching how B1/D1 shipped ahead of the frontend content/world/*.world_cell.json authoring track. PR #2 (feature/ayla-bridge-art) is unrelated heroine/bridge/art work; no other active claim touches geography.rs, expedition.rs or habitat.rs."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
