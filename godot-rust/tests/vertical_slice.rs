@@ -12,6 +12,7 @@ use project42_sim::*;
 #[test]
 fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     let geography = Geography::black_beach_vertical_slice();
+    let habitats = Habitats::black_beach_vertical_slice();
 
     // 1. Start at Black Beach with the Captain and Betty.
     let mut state = ExpeditionState::new(
@@ -28,6 +29,11 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
         medicine: 2,
         coin: 0,
     };
+    // Midnight puts today's individual in every habitat, so the terrace has a
+    // real holder to meet rather than a hand-placed encounter.
+    state
+        .resolve_midnight(&habitats.spawn_rules())
+        .expect("resolves");
     assert_boundary_round_trips(&state);
 
     // 2. Travel by the safe road and persist its actual consequence.
@@ -47,16 +53,17 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     assert_boundary_round_trips(&state);
 
     // 3. Enter Reception Terrace and resolve Guarded Strike against the
-    //    individual Razorbeak through the command/event boundary.
+    //    individual holding it, through the command/event boundary.
     state.inspect(&geography);
-    state.pending_encounter = Some(EncounterState {
-        encounter_id: "encounter.prototype.returning_names".into(),
-        battle_id: "battle.prototype.returning_names".into(),
-    });
+    let battle_id = state
+        .begin_encounter(&geography, &habitats)
+        .expect("the terrace's individual presents an encounter")
+        .battle_id
+        .clone();
     assert_boundary_round_trips(&state);
 
     let mut battle = Battle::new(
-        "battle.prototype.returning_names",
+        battle_id,
         [
             Actor {
                 id: ActorId("character.heroine.betty".into()),
@@ -100,11 +107,13 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     assert!(events.contains(&BattleEvent::BattleEnded { victory: true }));
     assert_eq!(battle.snapshot().phase, BattlePhase::Victory);
 
-    // 4. Persist victory; return to the estate.
+    // 4. Persist victory; the beaten individual no longer holds the terrace
+    //    today, so the party can leave instead of refighting it.
     state
-        .resolve_encounter(EncounterOutcome::Victory, &geography)
+        .resolve_encounter(EncounterOutcome::Victory, &geography, &habitats)
         .expect("resolves");
     assert!(state.pending_encounter.is_none());
+    assert!(state.begin_encounter(&geography, &habitats).is_none());
     state
         .travel("route.reception_terrace.to_river_landing", &geography)
         .expect("legal route");
@@ -149,15 +158,13 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
             last_death_context_id: Some("encounter.prototype.returning_names".into()),
         },
     );
-    let rules = [SpawnRule {
-        region_id: "world.region.black_beach".into(),
-        definition_ids: vec!["enemy.raptor.razorbeak".into()],
-        region_base_level: 5,
-        daily_count: 1,
-        pressure: 0,
-    }];
     let day_before_midnight = state.campaign_day;
-    let midnight_events = state.resolve_midnight(&rules).expect("resolves");
+    let yesterdays_holder = state.daily_spawn_records["world.region.black_beach.terrace_precinct"]
+        .instance_id
+        .clone();
+    let midnight_events = state
+        .resolve_midnight(&habitats.spawn_rules())
+        .expect("resolves");
     assert_eq!(state.campaign_day, day_before_midnight + 1);
     assert!(
         midnight_events
@@ -167,6 +174,11 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     let tomas = &state.named_person_memory["person.villager.tomas"];
     assert_eq!(tomas.killed_by_player_count, 1);
     assert_eq!(tomas.last_death_day, Some(day_before_midnight));
+
+    // The terrace the party cleared yesterday is held by a new individual today.
+    let todays_holder = &state.daily_spawn_records["world.region.black_beach.terrace_precinct"];
+    assert_ne!(todays_holder.instance_id, yesterdays_holder);
+    assert!(!state.habitat_states["world.region.black_beach.terrace_precinct"].cleared_today);
 
     // 7. Save and reload; every legal-state fact from every prior boundary
     //    survives unchanged.

@@ -14,7 +14,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 
 use crate::geography::{Geography, RouteOption};
-use crate::world::{DeathMemory, NamedPerson, SpawnRule, WorldClock, WorldEvent};
+use crate::habitat::Habitats;
+use crate::world::{DeathMemory, NamedPerson, SpawnRule, SpawnedMonster, WorldClock, WorldEvent};
 
 pub const CURRENT_SAVE_VERSION: u32 = 1;
 
@@ -78,6 +79,12 @@ pub struct ExpeditionState {
     pub character_states: BTreeMap<String, CharacterState>,
     pub named_person_memory: BTreeMap<String, DeathMemory>,
     pub habitat_states: BTreeMap<String, HabitatState>,
+    /// The daily spawn ledger `docs/CLAUDE_BACKEND_HANDOFF.md` requires a snapshot
+    /// to reconstruct: which individual currently holds each habitat, keyed by
+    /// `region_id` (one individual per habitat per day). `serde(default)` so saves
+    /// written before this field existed still load at the same `save_version`.
+    #[serde(default)]
+    pub daily_spawn_records: BTreeMap<String, SpawnedMonster>,
     pub discoveries: BTreeSet<String>,
     pub household_progress: HouseholdProgress,
     pub pending_encounter: Option<EncounterState>,
@@ -150,6 +157,7 @@ impl ExpeditionState {
             character_states: BTreeMap::new(),
             named_person_memory: BTreeMap::new(),
             habitat_states: BTreeMap::new(),
+            daily_spawn_records: BTreeMap::new(),
             discoveries: BTreeSet::new(),
             household_progress: HouseholdProgress {
                 estate_upgrades: BTreeSet::new(),
@@ -257,6 +265,48 @@ impl ExpeditionState {
         location.observation_ids.clone()
     }
 
+    /// Starts the encounter the world actually presents here: the individual that
+    /// Midnight Return materialized in the habitat holding this location. Returns
+    /// `None`, without mutating anything, when the current location can't produce
+    /// one -- no encounter is already open, the location must exist and be
+    /// `encounter_eligible`, a habitat's territory must cover it, that habitat must
+    /// have today's individual still uncleared, and the ledger must hold it. The
+    /// encounter's IDs derive from the spawn's `instance_id`, which already encodes
+    /// day, region and slot, so the same campaign day always names the same
+    /// encounter across a save/reload.
+    pub fn begin_encounter(
+        &mut self,
+        geography: &Geography,
+        habitats: &Habitats,
+    ) -> Option<&EncounterState> {
+        if self.pending_encounter.is_some() {
+            return None;
+        }
+        if !geography
+            .location(&self.active_location_id)
+            .is_some_and(|location| location.encounter_eligible)
+        {
+            return None;
+        }
+        let habitat = habitats.habitat_for_location(&self.active_location_id)?;
+        let holds_today = self
+            .habitat_states
+            .get(&habitat.region_id)
+            .is_some_and(|state| {
+                state.last_spawn_day == Some(self.campaign_day) && !state.cleared_today
+            });
+        if !holds_today {
+            return None;
+        }
+        let monster = self.daily_spawn_records.get(&habitat.region_id)?;
+
+        self.pending_encounter = Some(EncounterState {
+            encounter_id: format!("encounter.{}", monster.instance_id),
+            battle_id: format!("battle.{}", monster.instance_id),
+        });
+        self.pending_encounter.as_ref()
+    }
+
     /// B2: resolves the current `pending_encounter` against a `Battle` outcome
     /// (Victory / Defeat / Retreat). Errors, without mutating state, if there is no
     /// pending encounter to resolve. A retreat additionally "updates ExpeditionState,
@@ -264,16 +314,28 @@ impl ExpeditionState {
     /// per B2's proof: it looks up the route that led into the current location (the
     /// entry immediately before it in `route_history`) and, if the graph still has a
     /// route back along that same path, applies its time/supply cost and returns the
-    /// party there. Victory and Defeat only clear the pending encounter -- loot,
-    /// injuries and deeper consequences are content the encounter itself declares,
-    /// not something this method invents.
+    /// party there.
+    ///
+    /// Victory additionally marks that habitat cleared for the day, so the individual
+    /// the party just beat cannot be refought until the next Midnight Return puts a
+    /// new one there. Defeat and Retreat leave it uncleared: the individual still
+    /// holds its territory. Loot and injuries stay out of this -- they are content
+    /// the encounter itself declares, not something this method invents.
     pub fn resolve_encounter(
         &mut self,
         outcome: EncounterOutcome,
         geography: &Geography,
+        habitats: &Habitats,
     ) -> Result<(), ExpeditionError> {
         if self.pending_encounter.is_none() {
             return Err(ExpeditionError::NoPendingEncounter);
+        }
+        if outcome == EncounterOutcome::Victory {
+            if let Some(habitat) = habitats.habitat_for_location(&self.active_location_id) {
+                if let Some(state) = self.habitat_states.get_mut(&habitat.region_id) {
+                    state.cleared_today = true;
+                }
+            }
         }
         if outcome == EncounterOutcome::Retreat {
             let previous_location_id = self
@@ -444,8 +506,11 @@ impl ExpeditionState {
         for (id, person) in clock.named_people {
             self.named_person_memory.insert(id, person.death_memory);
         }
+        // Yesterday's individuals are gone; today's ledger is exactly what this
+        // transaction materialized.
+        self.daily_spawn_records.clear();
         for event in &events {
-            if let WorldEvent::MonsterMaterialized { region_id, .. } = event {
+            if let WorldEvent::MonsterMaterialized { region_id, monster } = event {
                 self.habitat_states.insert(
                     region_id.clone(),
                     HabitatState {
@@ -453,6 +518,8 @@ impl ExpeditionState {
                         cleared_today: false,
                     },
                 );
+                self.daily_spawn_records
+                    .insert(region_id.clone(), monster.clone());
             }
         }
 
@@ -740,7 +807,11 @@ mod tests {
         let geography = crate::geography::Geography::black_beach_vertical_slice();
         let mut state = fixture();
         let error = state
-            .resolve_encounter(EncounterOutcome::Victory, &geography)
+            .resolve_encounter(
+                EncounterOutcome::Victory,
+                &geography,
+                &crate::habitat::Habitats::black_beach_vertical_slice(),
+            )
             .unwrap_err();
         assert_eq!(error, ExpeditionError::NoPendingEncounter);
     }
@@ -748,6 +819,7 @@ mod tests {
     #[test]
     fn victory_and_defeat_only_clear_the_pending_encounter() {
         let geography = crate::geography::Geography::black_beach_vertical_slice();
+        let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
         for outcome in [EncounterOutcome::Victory, EncounterOutcome::Defeat] {
             let mut state = fixture();
             state.pending_encounter = Some(EncounterState {
@@ -756,7 +828,7 @@ mod tests {
             });
             let location_before = state.active_location_id.clone();
             state
-                .resolve_encounter(outcome, &geography)
+                .resolve_encounter(outcome, &geography, &habitats)
                 .expect("resolves");
             assert!(state.pending_encounter.is_none());
             assert_eq!(state.active_location_id, location_before);
@@ -785,7 +857,11 @@ mod tests {
         });
         let rations_before_retreat = state.supplies.rations;
         state
-            .resolve_encounter(EncounterOutcome::Retreat, &geography)
+            .resolve_encounter(
+                EncounterOutcome::Retreat,
+                &geography,
+                &crate::habitat::Habitats::black_beach_vertical_slice(),
+            )
             .expect("resolves");
 
         assert!(state.pending_encounter.is_none());
@@ -1024,5 +1100,125 @@ mod tests {
                 .estate_upgrades
                 .contains("estate.upgrade.infirmary_rested")
         );
+    }
+
+    /// A state standing at the encounter-eligible terrace on a day whose midnight
+    /// has already put an individual in every habitat.
+    fn at_the_held_terrace() -> (Geography, crate::habitat::Habitats, ExpeditionState) {
+        let geography = Geography::black_beach_vertical_slice();
+        let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
+        let mut state = fixture();
+        state
+            .resolve_midnight(&habitats.spawn_rules())
+            .expect("resolves");
+        state.active_location_id = "location.black_beach.reception_terrace".into();
+        (geography, habitats, state)
+    }
+
+    #[test]
+    fn the_individual_holding_an_eligible_location_presents_the_encounter() {
+        let (geography, habitats, mut state) = at_the_held_terrace();
+        let holder = state.daily_spawn_records["world.region.black_beach.terrace_precinct"]
+            .instance_id
+            .clone();
+
+        let encounter = state
+            .begin_encounter(&geography, &habitats)
+            .expect("the terrace is held")
+            .clone();
+
+        assert_eq!(encounter.encounter_id, format!("encounter.{holder}"));
+        assert_eq!(encounter.battle_id, format!("battle.{holder}"));
+        assert_eq!(state.pending_encounter, Some(encounter));
+    }
+
+    #[test]
+    fn a_location_that_is_not_encounter_eligible_presents_nothing() {
+        let (geography, habitats, mut state) = at_the_held_terrace();
+        state.active_location_id = "location.black_beach.estate".into();
+
+        assert!(state.begin_encounter(&geography, &habitats).is_none());
+        assert!(state.pending_encounter.is_none());
+    }
+
+    #[test]
+    fn no_encounter_before_midnight_has_materialized_an_individual() {
+        let geography = Geography::black_beach_vertical_slice();
+        let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
+        let mut state = fixture();
+        state.active_location_id = "location.black_beach.reception_terrace".into();
+
+        assert!(state.begin_encounter(&geography, &habitats).is_none());
+        assert!(state.pending_encounter.is_none());
+    }
+
+    #[test]
+    fn a_cleared_habitat_presents_nothing_until_the_next_midnight() {
+        let (geography, habitats, mut state) = at_the_held_terrace();
+        state
+            .begin_encounter(&geography, &habitats)
+            .expect("the terrace is held");
+        state
+            .resolve_encounter(EncounterOutcome::Victory, &geography, &habitats)
+            .expect("resolves");
+
+        assert!(
+            state.habitat_states["world.region.black_beach.terrace_precinct"].cleared_today,
+            "victory clears the habitat for the day"
+        );
+        assert!(state.begin_encounter(&geography, &habitats).is_none());
+
+        // The next midnight puts a new individual there and reopens it.
+        state
+            .resolve_midnight(&habitats.spawn_rules())
+            .expect("resolves");
+        assert!(state.begin_encounter(&geography, &habitats).is_some());
+    }
+
+    #[test]
+    fn defeat_and_retreat_leave_the_individual_holding_its_territory() {
+        for outcome in [EncounterOutcome::Defeat, EncounterOutcome::Retreat] {
+            let (geography, habitats, mut state) = at_the_held_terrace();
+            state
+                .begin_encounter(&geography, &habitats)
+                .expect("the terrace is held");
+            state
+                .resolve_encounter(outcome, &geography, &habitats)
+                .expect("resolves");
+
+            assert!(
+                !state.habitat_states["world.region.black_beach.terrace_precinct"].cleared_today,
+                "{outcome:?} does not clear the habitat"
+            );
+        }
+    }
+
+    #[test]
+    fn the_spawn_ledger_and_pending_encounter_survive_save_and_reload() {
+        let (geography, habitats, mut state) = at_the_held_terrace();
+        state
+            .begin_encounter(&geography, &habitats)
+            .expect("the terrace is held");
+
+        let restored = ExpeditionState::from_json(&state.to_json()).expect("round trip parses");
+        assert_eq!(state, restored);
+        assert_eq!(restored.daily_spawn_records.len(), 3);
+        assert_eq!(state.pending_encounter, restored.pending_encounter);
+    }
+
+    #[test]
+    fn a_save_written_before_the_spawn_ledger_existed_still_loads() {
+        let mut without_ledger: serde_json::Value =
+            serde_json::from_str(&fixture().to_json()).expect("fixture parses");
+        without_ledger
+            .as_object_mut()
+            .expect("save is an object")
+            .remove("daily_spawn_records")
+            .expect("fixture wrote the field");
+
+        let restored = ExpeditionState::from_json(&without_ledger.to_string())
+            .expect("an older save still loads");
+        assert!(restored.daily_spawn_records.is_empty());
+        assert_eq!(restored.save_version, CURRENT_SAVE_VERSION);
     }
 }

@@ -28,7 +28,7 @@ impl NamedPerson {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SpawnedMonster {
     pub instance_id: String,
     pub definition_id: String,
