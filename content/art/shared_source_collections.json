@@ -2,8 +2,108 @@
   "format": "shared_source_collection_catalog",
   "schemaVersion": 1,
   "purpose": "Compact, committed provenance catalog for local reusable source collections. It intentionally does not ship the raw collection payload.",
-  "sourceCollectionCount": 24,
+  "sourceCollectionCount": 30,
   "sourceCollections": [
+    {
+      "id": "source.collection.cc0.kenney.animated-characters-protagonists",
+      "collectionKey": "animated-characters-protagonists",
+      "title": "Animated Characters Protagonists",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/animated-characters-protagonists",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/animated-characters-protagonists/kenney_animated-characters-protagonists.zip",
+        "filename": "kenney_animated-characters-protagonists.zip",
+        "bytes": 581441,
+        "sha256": "ec3787de70fa2200256848d74201b10f6b6c3126594e9857bf989753312c2b84"
+      },
+      "styleTags": [
+        "characters",
+        "rig",
+        "animation-reference",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "rig",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.animated-characters-retro",
+      "collectionKey": "animated-characters-retro",
+      "title": "Animated Characters Retro",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/animated-characters-retro",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/animated-characters-retro/kenney_animated-characters-retro.zip",
+        "filename": "kenney_animated-characters-retro.zip",
+        "bytes": 706472,
+        "sha256": "1d03f1fb001f3cf629425b69c898df58261a316616220ea25b58bd35298e6882"
+      },
+      "styleTags": [
+        "characters",
+        "rig",
+        "animation-reference",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "rig",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.animated-characters-survivors",
+      "collectionKey": "animated-characters-survivors",
+      "title": "Animated Characters Survivors",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/animated-characters-survivors",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/animated-characters-survivors/kenney_animated-characters-survivors.zip",
+        "filename": "kenney_animated-characters-survivors.zip",
+        "bytes": 718027,
+        "sha256": "fdadced07a0454c9b7f0b46507be6144a072b4d03b4ffa37f225893c76c62845"
+      },
+      "styleTags": [
+        "characters",
+        "rig",
+        "animation-reference",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "rig",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.blocky-characters",
+      "collectionKey": "blocky-characters",
+      "title": "Blocky Characters 2.0",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/blocky-characters",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/blocky-characters/kenney_blocky-characters_20.zip",
+        "filename": "kenney_blocky-characters_20.zip",
+        "bytes": 2148510,
+        "sha256": "5e123859aa0c1598342b600c6db197024a1d63eb9ec531398b310725f589887e"
+      },
+      "styleTags": [
+        "characters",
+        "animated",
+        "placeholder",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "rig",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
     {
       "id": "source.collection.cc0.kenney.building-kit",
       "collectionKey": "building-kit",
@@ -439,6 +539,31 @@
       "state": "local_source_available"
     },
     {
+      "id": "source.collection.cc0.kenney.platformer-kit",
+      "collectionKey": "platformer-kit",
+      "title": "Platformer Kit 4.1",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/platformer-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/platformer-kit/kenney_platformer-kit.zip",
+        "filename": "kenney_platformer-kit.zip",
+        "bytes": 4640135,
+        "sha256": "899605d237367688c6b42e41fff2206c0fb8d626163158294556353f7baa7c1b"
+      },
+      "styleTags": [
+        "prototype",
+        "characters",
+        "platformer",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "props",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
       "id": "source.collection.cc0.kenney.prototype-kit",
       "collectionKey": "prototype-kit",
       "title": "Prototype Kit",
@@ -460,6 +585,31 @@
         "low-poly"
       ],
       "defaultPhysicalType": "props",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.racing-kit",
+      "collectionKey": "racing-kit",
+      "title": "Racing Kit",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/racing-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/racing-kit/kenney_racing-kit.zip",
+        "filename": "kenney_racing-kit.zip",
+        "bytes": 6082755,
+        "sha256": "8a71ea16219315a01d00d5a90c4f6b5c090faddbc56d80ecf727e2b3b853c6c0"
+      },
+      "styleTags": [
+        "modern",
+        "transport",
+        "routes",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "vehicles",
       "ledgerRecord": null,
       "state": "local_source_available"
     },
