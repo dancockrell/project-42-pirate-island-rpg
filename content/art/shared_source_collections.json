@@ -1,0 +1,391 @@
+{
+  "format": "shared_source_collection_catalog",
+  "schemaVersion": 1,
+  "purpose": "Compact, committed provenance catalog for local reusable source collections. It intentionally does not ship the raw collection payload.",
+  "sourceCollectionCount": 16,
+  "sourceCollections": [
+    {
+      "id": "source.collection.cc0.kenney.building-kit",
+      "collectionKey": "building-kit",
+      "title": "Building Kit",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/building-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/building-kit/kenney_building-kit.zip",
+        "filename": "kenney_building-kit.zip",
+        "bytes": 1598905,
+        "sha256": "2740ef5772fb5fb3d7aab881db22d129f6b68afe711b1a79e6d5e9e19cf3eec6"
+      },
+      "styleTags": [
+        "fantasy-neutral",
+        "modular",
+        "tabletop"
+      ],
+      "defaultPhysicalType": "structures",
+      "ledgerRecord": "asset.shared.kenney.building-kit.source",
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.car-kit",
+      "collectionKey": "car-kit",
+      "title": "Car Kit",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/car-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/car-kit/kenney_car-kit.zip",
+        "filename": "kenney_car-kit.zip",
+        "bytes": 4814237,
+        "sha256": "fac7dacac5c7874348cf19729af3ef205f3d366493edaf0a827d93f4fdf3d0c4"
+      },
+      "styleTags": [
+        "modern",
+        "vehicles",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "vehicles",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.city-kit-commercial",
+      "collectionKey": "city-kit-commercial",
+      "title": "City Kit Commercial 2.1",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/city-kit-commercial",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/city-kit-commercial/kenney_city-kit-commercial_2.1.zip",
+        "filename": "kenney_city-kit-commercial_2.1.zip",
+        "bytes": 4096974,
+        "sha256": "f8b09b081c2bb88bcc126e2dec1cb40fd0dad7e7e591b6c26aaefe96fb35276b"
+      },
+      "styleTags": [
+        "modern",
+        "commercial-city",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "structures",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.cube-pets",
+      "collectionKey": "cube-pets",
+      "title": "Cube Pets",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/cube-pets",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/cube-pets/kenney_cube-pets_1.0.zip",
+        "filename": "kenney_cube-pets_1.0.zip",
+        "bytes": 2812444,
+        "sha256": "b3bdc99a2ec92c687b875718c5d01e9231d2711ed0e2845f295b474bb42a1283"
+      },
+      "styleTags": [
+        "cute",
+        "animated",
+        "toy-like"
+      ],
+      "defaultPhysicalType": "fauna",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.factory-kit",
+      "collectionKey": "factory-kit",
+      "title": "Factory Kit 3.0",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/factory-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/factory-kit/kenney_factory-kit_3.0.zip",
+        "filename": "kenney_factory-kit_3.0.zip",
+        "bytes": 4511890,
+        "sha256": "7e31fb2308e90304672bd15cd18fa9d9f02c03731a8cbc57a8e3e1c181dfb0a7"
+      },
+      "styleTags": [
+        "modern",
+        "industrial",
+        "modular"
+      ],
+      "defaultPhysicalType": "industrial",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.furniture-kit",
+      "collectionKey": "furniture-kit",
+      "title": "Furniture Kit",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/furniture-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/furniture-kit/kenney_furniture-kit.zip",
+        "filename": "kenney_furniture-kit.zip",
+        "bytes": 5130729,
+        "sha256": "e67652d0932cee41683f74711c03d3e192a2af9979ef8e6b237711f5482d46b0"
+      },
+      "styleTags": [
+        "interior",
+        "neutral",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "furnishings",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.mini-dungeon",
+      "collectionKey": "mini-dungeon",
+      "title": "Mini Dungeon",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/mini-dungeon",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/mini-dungeon/kenney_mini-dungeon.zip",
+        "filename": "kenney_mini-dungeon.zip",
+        "bytes": 1796820,
+        "sha256": "19c4648680cb1d2e8836cade96cbf9781c0c1f45fbc6d2ce41cee8239a3ec4d8"
+      },
+      "styleTags": [
+        "miniature",
+        "dungeon",
+        "tabletop"
+      ],
+      "defaultPhysicalType": "structures",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.mini-forest",
+      "collectionKey": "mini-forest",
+      "title": "Mini Forest",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/mini-forest",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/mini-forest/kenney_mini-forest_1.0.zip",
+        "filename": "kenney_mini-forest_1.0.zip",
+        "bytes": 1118081,
+        "sha256": "8691614018075a66458e35915b8c358c2e6178648aedadafcdf313b924aa6581"
+      },
+      "styleTags": [
+        "miniature",
+        "forest",
+        "tabletop"
+      ],
+      "defaultPhysicalType": "flora",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.modular-buildings",
+      "collectionKey": "modular-buildings",
+      "title": "Modular Buildings",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/modular-buildings",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/modular-buildings/kenney_modular-buildings.zip",
+        "filename": "kenney_modular-buildings.zip",
+        "bytes": 1825490,
+        "sha256": "47e1614686b4c0fe55190e88b22ff2b8b10935edf61f37f478a9b6a99477edc6"
+      },
+      "styleTags": [
+        "modular",
+        "settlement",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "structures",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.modular-cave-kit",
+      "collectionKey": "modular-cave-kit",
+      "title": "Modular Cave Kit",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/modular-cave-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/modular-cave-kit/kenney_modular-cave-kit_1.0.zip",
+        "filename": "kenney_modular-cave-kit_1.0.zip",
+        "bytes": 7025078,
+        "sha256": "48f37a6d4f241124cd7da17da1c6d4ed1bf1820bb149dcb233fbd5ebdd8ba996"
+      },
+      "styleTags": [
+        "cave",
+        "modular",
+        "fantasy-neutral"
+      ],
+      "defaultPhysicalType": "geology",
+      "ledgerRecord": "asset.shared.kenney.modular-cave-kit.1_0.source",
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.modular-dungeon-kit",
+      "collectionKey": "modular-dungeon-kit",
+      "title": "Modular Dungeon Kit",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/modular-dungeon-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/modular-dungeon-kit/kenney_modular-dungeon-kit_1.0.zip",
+        "filename": "kenney_modular-dungeon-kit_1.0.zip",
+        "bytes": 6886434,
+        "sha256": "dd0aa6776db8912283cdca60161dee6a8839bbda3558eba2ea501419eb5b4623"
+      },
+      "styleTags": [
+        "dungeon",
+        "modular",
+        "fantasy-neutral"
+      ],
+      "defaultPhysicalType": "structures",
+      "ledgerRecord": "asset.shared.kenney.modular-dungeon-kit.1_0.source",
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.modular-space-kit",
+      "collectionKey": "modular-space-kit",
+      "title": "Modular Space Kit 1.0",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/modular-space-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/modular-space-kit/kenney_modular-space-kit_1.0.zip",
+        "filename": "kenney_modular-space-kit_1.0.zip",
+        "bytes": 6966606,
+        "sha256": "f394f7fd9eaf29c9de7e090e55b69926f699841af33b0b116f5cc0088de8a4dc"
+      },
+      "styleTags": [
+        "sci-fi",
+        "space-station",
+        "modular"
+      ],
+      "defaultPhysicalType": "sci-fi",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.nature-kit-2.1",
+      "collectionKey": "nature-kit-2.1",
+      "title": "Nature Kit 2.1",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/nature-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/nature-kit/kenney_nature-kit.zip",
+        "filename": "kenney_nature-kit.zip",
+        "bytes": 10537521,
+        "sha256": "fa7974a0d342bfe63c38664ba9f8ec1a4aab8ea25f099bdc56870e33588c4d9d"
+      },
+      "styleTags": [
+        "fantasy-neutral",
+        "tabletop"
+      ],
+      "defaultPhysicalType": "flora",
+      "ledgerRecord": "asset.shared.kenney.nature-kit.2_1.source",
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.pirate-kit",
+      "collectionKey": "pirate-kit",
+      "title": "Pirate Kit",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/pirate-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/pirate-kit/kenney_pirate-kit.zip",
+        "filename": "kenney_pirate-kit.zip",
+        "bytes": 3154665,
+        "sha256": "667ed2caf92954ddb98f7b7cede831fe99ab75063c26b25e23d32715bee9c943"
+      },
+      "styleTags": [
+        "maritime",
+        "island",
+        "fantasy-adventure"
+      ],
+      "defaultPhysicalType": "maritime",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.space-kit",
+      "collectionKey": "space-kit",
+      "title": "Space Kit",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/space-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/space-kit/kenney_space-kit.zip",
+        "filename": "kenney_space-kit.zip",
+        "bytes": 6677531,
+        "sha256": "d5d7cdf2635ed5a43a9187deaf409b6f47484e402321128341d3c3698e9ef4d9"
+      },
+      "styleTags": [
+        "sci-fi",
+        "space",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "sci-fi",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.survival-kit",
+      "collectionKey": "survival-kit",
+      "title": "Survival Kit",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/survival-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/survival-kit/kenney_survival-kit.zip",
+        "filename": "kenney_survival-kit.zip",
+        "bytes": 1948174,
+        "sha256": "c3586341b5932c87eb43d75d915434f47daed168b17ed36a03e8ca9977c7443e"
+      },
+      "styleTags": [
+        "wilderness",
+        "adventure",
+        "tabletop"
+      ],
+      "defaultPhysicalType": "props",
+      "ledgerRecord": "asset.shared.kenney.survival-kit.source",
+      "state": "local_source_available"
+    }
+  ]
+}
