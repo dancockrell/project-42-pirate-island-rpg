@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "id": "art.ledger.shared_asset_library",
+  "purpose": "Professional shared-asset admission ledger for Project 42, DR Companion, and future licensed client work. Empty until an item has passed individual intake review.",
+  "allowedConsumers": ["project42", "dr-companion", "professional-client"],
+  "sharedRawLicensePolicy": "CC0-1.0 only. Other sources require project-only or access-controlled treatment unless their exact license is independently recorded as redistribution-permitted.",
+  "assetRecords": []
+}

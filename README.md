@@ -25,6 +25,22 @@ Betty's current Magnific images are stored as component references under `work/a
 - `tools/` — TypeScript validation and reporting.
 - `docs/` — implementation contracts for humans and coding agents.
 
+## Shared professional asset platform
+
+This repository is also the home of the **shared tabletop asset platform** used
+by Project 42, DR Companion, and future professional work. It is not a dumping
+ground for downloaded models. `content/art/shared_asset_ledger.json` is the
+machine-validated source of truth for every shared candidate and admitted asset;
+`docs/SHARED_ASSET_PLATFORM.md` defines the legal, visual, technical, and
+project-boundary rules.
+
+The shared library concentrates on neutral, reusable physical vocabulary:
+plants, terrain, stone, wood, roofs, roads, generic architecture, furniture,
+travel props, materials, and neutral effects. Project-specific landmarks,
+characters, race adapters, named weapons, story props, and local visual grammar
+remain in their owning game. A paid source file is never assumed shareable merely
+because both games can use the result.
+
 ## Validation
 
 ```powershell
