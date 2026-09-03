@@ -10,6 +10,7 @@ extends Node3D
 @onready var terrain_and_collision: Node3D = $TerrainAndCollision
 @onready var navigation: Node3D = $Navigation
 @onready var entry_anchors: Node3D = $EntryAnchors
+@onready var interaction_anchors: Node3D = $InteractionAnchors
 @onready var battle_entries: Node3D = $BattleEntries
 @onready var camera_rails: Node3D = $CameraRails
 
@@ -25,6 +26,8 @@ func configure(catalog: ContentCatalog) -> Error:
 		push_error("World cell record has wrong kind: %s" % world_cell_id)
 		return ERR_INVALID_DATA
 	if not _has_named_anchors(record.get("entryAnchors", []), entry_anchors):
+		return ERR_INVALID_DATA
+	if not _has_named_anchors(record.get("interactionAnchors", []), interaction_anchors):
 		return ERR_INVALID_DATA
 	if not _has_named_anchors(record.get("battleEntries", []), battle_entries):
 		return ERR_INVALID_DATA
@@ -42,6 +45,13 @@ func battle_entry(entry_id: String) -> Node3D:
 	var anchor := battle_entries.get_node_or_null(NodePath(entry_id)) as Node3D
 	if anchor == null:
 		push_error("World cell %s is missing battle entry %s" % [world_cell_id, entry_id])
+	return anchor
+
+
+func interaction_anchor(anchor_id: String) -> Node3D:
+	var anchor := interaction_anchors.get_node_or_null(NodePath(anchor_id)) as Node3D
+	if anchor == null:
+		push_error("World cell %s is missing interaction anchor %s" % [world_cell_id, anchor_id])
 	return anchor
 
 

@@ -39,6 +39,10 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Godot world-cell tests failed with exit code $LASTEXITCODE"
     }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/black_beach_route_contract_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot Black Beach route contract tests failed with exit code $LASTEXITCODE"
+    }
     & $GodotExecutable --headless --path (Join-Path $workspace "game") --scene "res://scenes/review/reception_terrace_setpiece_review.tscn" --quit-after 2
     if ($LASTEXITCODE -ne 0) {
         throw "Godot Reception Terrace setpiece review scene failed with exit code $LASTEXITCODE"

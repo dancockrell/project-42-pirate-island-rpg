@@ -1,0 +1,39 @@
+{
+  "id": "world.cell.processional_ramp",
+  "kind": "world_cell",
+  "regionId": "world.region.black_beach",
+  "displayName": "Processional Ramp",
+  "visualShell": {
+    "runtimePath": "res://assets/world/black_beach/processional_ramp.glb",
+    "status": "procedural_blockout_pending_baked_scene",
+    "requiredFeatures": ["steep ceremonial ramp", "massive elven bronze gate", "wet jungle walls", "broken stair segments", "deep tomb threshold"],
+    "prohibitedFeatures": ["smooth modern stairs", "colonial manor facade", "open stadium arena"]
+  },
+  "collisionScene": "res://scenes/world/black_beach/processional_ramp_collision.tscn",
+  "navigationScene": "res://scenes/world/black_beach/processional_ramp_navigation.tscn",
+  "cameraRailId": "camera.exploration.processional_ramp",
+  "entryAnchors": [
+    {"id": "entry.processional_ramp.reception_terrace", "positionMetres": [-11.0, 0.0, 8.0], "facingDegrees": 18, "role": "terrace_route"},
+    {"id": "entry.processional_ramp.tomb_threshold", "positionMetres": [13.0, 0.0, -7.0], "facingDegrees": 198, "role": "future_site_route"}
+  ],
+  "interactionAnchors": [
+    {"id": "interact.processional_ramp.name_plaque", "role": "inspect", "actionId": "action.processional_ramp.inspect_name_plaque"},
+    {"id": "interact.processional_ramp.tomb_threshold", "role": "locked_departure", "actionId": "action.processional_ramp.assess_tomb_gate"}
+  ],
+  "portals": [
+    {"id": "world.portal.processional_ramp_to_reception_terrace", "fromAnchorId": "entry.processional_ramp.reception_terrace", "targetCellId": "world.cell.reception_terrace", "targetAnchorId": "entry.reception_terrace.processional_ramp", "travelMode": "on_foot", "returnRule": "always"}
+  ],
+  "battleEntries": [
+    {"id": "battle_entry.processional_ramp.stair_break", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [1.0, 0.0, 1.5], "returnAnchorId": "entry.processional_ramp.reception_terrace", "safeRetreatAnchorId": "entry.processional_ramp.tomb_threshold", "status": "future_spawn_socket"}
+  ],
+  "explorationActions": [
+    {"id": "action.processional_ramp.inspect_name_plaque", "type": "inspect", "result": "discover.returning_names.plaque", "once": true},
+    {"id": "action.processional_ramp.assess_tomb_gate", "type": "locked_departure", "result": "gate.tomb.threshold_locked", "once": false}
+  ],
+  "readableDescriptions": [
+    {"id": "location.processional_ramp.plaque", "text": "The ramp was cut for a procession of honored dead. Bronze name plaques line the wet stone, and several bear scratches where someone has tried to remove names that keep returning."},
+    {"id": "location.processional_ramp.threshold", "text": "At the top of the ramp, a sealed inner door sits under a fractured bronze arch. It is a destination beyond the first route, not an empty backdrop or a doorway the party can fake open."}
+  ],
+  "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
+  "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 2, "browserPerformanceGate": "pending", "releaseLegal": false}
+}

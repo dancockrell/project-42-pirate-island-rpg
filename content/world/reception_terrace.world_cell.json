@@ -13,14 +13,24 @@
   "navigationScene": "res://scenes/world/black_beach/reception_terrace_navigation.tscn",
   "cameraRailId": "camera.exploration.reception_terrace",
   "entryAnchors": [
-    {"id": "entry.reception_terrace.shipwreck_trail", "positionMetres": [-16.0, 0.0, 8.0], "facingDegrees": 12, "role": "region_arrival"},
-    {"id": "entry.reception_terrace.estate_gate", "positionMetres": [15.0, 0.0, -7.0], "facingDegrees": 188, "role": "estate_route"}
+    {"id": "entry.reception_terrace.river_road", "positionMetres": [-16.0, 0.0, 8.0], "facingDegrees": 12, "role": "safe_road_arrival"},
+    {"id": "entry.reception_terrace.jungle_edge", "positionMetres": [-12.0, 0.0, 11.0], "facingDegrees": 33, "role": "jungle_edge_arrival"},
+    {"id": "entry.reception_terrace.processional_ramp", "positionMetres": [15.0, 0.0, -7.0], "facingDegrees": 188, "role": "ramp_route"}
+  ],
+  "interactionAnchors": [
+    {"id": "interact.reception_terrace.claw_marks", "role": "inspect", "actionId": "action.reception_terrace.inspect_claw_marks"},
+    {"id": "interact.reception_terrace.processional_ramp", "role": "depart", "actionId": "action.reception_terrace.climb_processional_ramp"}
   ],
   "portals": [
-    {"id": "world.portal.reception_terrace_to_shipwreck_trail", "fromAnchorId": "entry.reception_terrace.shipwreck_trail", "targetCellId": "world.cell.shipwreck_trail", "targetAnchorId": "entry.shipwreck_trail.reception_terrace", "status": "planned"}
+    {"id": "world.portal.reception_terrace_to_river_landing", "fromAnchorId": "entry.reception_terrace.river_road", "targetCellId": "world.cell.river_landing", "targetAnchorId": "entry.river_landing.reception_road", "travelMode": "on_foot", "returnRule": "always"},
+    {"id": "world.portal.reception_terrace_to_processional_ramp", "fromAnchorId": "entry.reception_terrace.processional_ramp", "targetCellId": "world.cell.processional_ramp", "targetAnchorId": "entry.processional_ramp.reception_terrace", "travelMode": "on_foot", "returnRule": "allowed_while_no_pending_encounter"}
   ],
   "battleEntries": [
-    {"id": "battle_entry.reception_terrace.razorbeak", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [1.5, 0.0, 0.8], "returnAnchorId": "entry.reception_terrace.shipwreck_trail", "safeRetreatAnchorId": "entry.reception_terrace.estate_gate"}
+    {"id": "battle_entry.reception_terrace.razorbeak", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [1.5, 0.0, 0.8], "returnAnchorId": "entry.reception_terrace.river_road", "safeRetreatAnchorId": "entry.reception_terrace.processional_ramp", "status": "vertical_slice_encounter"}
+  ],
+  "explorationActions": [
+    {"id": "action.reception_terrace.inspect_claw_marks", "type": "inspect", "result": "discover.razorbeak.territory", "once": true},
+    {"id": "action.reception_terrace.climb_processional_ramp", "type": "travel", "portalId": "world.portal.reception_terrace_to_processional_ramp", "once": false}
   ],
   "readableDescriptions": [
     {"id": "location.reception_terrace.arrival", "text": "The terrace was built to receive a procession. Vines now use its bronze-green seams as ladders, and the carved gate beyond it has watched enough storms to look patient."},

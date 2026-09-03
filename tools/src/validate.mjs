@@ -177,7 +177,8 @@ for (const { file, value } of await readJsonDirectory("encounters")) {
   if (value.presentation?.inactivePartyMode !== "card_rail" || value.presentation?.activeActorMode !== "full_body_battle_plane") fail(file, "encounter must preserve the card-to-active combat contract");
 }
 
-for (const { file, value } of await readJsonDirectory("world")) {
+const worldRecords = await readJsonDirectory("world");
+for (const { file, value } of worldRecords) {
   if (value.kind === "world_region") {
     requireString(value, "displayName", file);
     requireString(value, "description", file);
@@ -203,11 +204,43 @@ for (const { file, value } of await readJsonDirectory("world")) {
       if (!Array.isArray(anchor.positionMetres) || anchor.positionMetres.length !== 3 || anchor.positionMetres.some(component => typeof component !== "number")) fail(file, `entryAnchors[${index}].positionMetres must be three numeric metres`);
       if (!Number.isInteger(anchor.facingDegrees) || anchor.facingDegrees < 0 || anchor.facingDegrees >= 360) fail(file, `entryAnchors[${index}].facingDegrees must be 0 through 359`);
     }
+    const entryAnchorIds = new Set((value.entryAnchors ?? []).map(anchor => anchor?.id));
+    if (!Array.isArray(value.interactionAnchors) || value.interactionAnchors.length < 2) fail(file, "world cell requires two or more interaction anchors");
+    else for (const [index, anchor] of value.interactionAnchors.entries()) {
+      requireString(anchor, "id", file);
+      requireString(anchor, "role", file);
+      requireString(anchor, "actionId", file);
+    }
+    if (!Array.isArray(value.portals) || value.portals.length === 0) fail(file, "world cell requires one or more explicit portals");
+    else for (const [index, portal] of value.portals.entries()) {
+      for (const field of ["id", "fromAnchorId", "targetAnchorId", "travelMode", "returnRule"]) requireString(portal, field, file);
+      reference(portal.targetCellId, file, `portals[${index}].targetCellId`);
+      if (!entryAnchorIds.has(portal.fromAnchorId)) fail(file, `portals[${index}].fromAnchorId must name an entry anchor in this cell`);
+      if (!new Set(["on_foot", "safe_road", "jungle_edge"]).has(portal.travelMode)) fail(file, `portals[${index}].travelMode is unsupported`);
+      if (!new Set(["always", "allowed_while_no_pending_encounter"]).has(portal.returnRule)) fail(file, `portals[${index}].returnRule is unsupported`);
+    }
     if (!Array.isArray(value.battleEntries) || value.battleEntries.length === 0) fail(file, "world cell requires one or more battle entries");
     else for (const [index, entry] of value.battleEntries.entries()) {
       requireString(entry, "id", file);
       reference(entry.encounterId, file, `battleEntries[${index}].encounterId`);
       for (const field of ["returnAnchorId", "safeRetreatAnchorId"]) requireString(entry, field, file);
+      if (!entryAnchorIds.has(entry.returnAnchorId)) fail(file, `battleEntries[${index}].returnAnchorId must name an entry anchor in this cell`);
+      if (!entryAnchorIds.has(entry.safeRetreatAnchorId)) fail(file, `battleEntries[${index}].safeRetreatAnchorId must name an entry anchor in this cell`);
+    }
+    if (!Array.isArray(value.explorationActions) || value.explorationActions.length < 2) fail(file, "world cell requires two or more real exploration actions");
+    else for (const [index, action] of value.explorationActions.entries()) {
+      requireString(action, "id", file);
+      requireString(action, "type", file);
+      if (typeof action.once !== "boolean") fail(file, `explorationActions[${index}].once must be boolean`);
+      if (!new Set(["inspect", "travel", "recover", "route_choice", "locked_departure"]).has(action.type)) fail(file, `explorationActions[${index}].type is unsupported`);
+      if (action.type === "travel") {
+        requireString(action, "portalId", file);
+        if (!(value.portals ?? []).some(portal => portal.id === action.portalId)) fail(file, `explorationActions[${index}].portalId must name a portal in this cell`);
+      }
+      if (action.type === "route_choice") {
+        if (!Array.isArray(action.choices) || action.choices.length < 2) fail(file, `explorationActions[${index}].choices must offer two or more portals`);
+        else for (const portalId of action.choices) if (!(value.portals ?? []).some(portal => portal.id === portalId)) fail(file, `explorationActions[${index}].choices references a portal outside this cell`);
+      }
     }
     if (!Array.isArray(value.readableDescriptions) || value.readableDescriptions.length < value.admission?.descriptionCountMinimum) fail(file, "world cell must include every required readable description");
     else for (const [index, description] of value.readableDescriptions.entries()) {
@@ -219,6 +252,17 @@ for (const { file, value } of await readJsonDirectory("world")) {
     if (value.trigger !== "midnight_flash") fail(file, "spawn rule trigger must be midnight_flash");
     if (value.grouping?.designRule !== "individual_threat") fail(file, "daily spawns must use individual_threat tuning");
     for (const [index, id] of (value.definitionIds ?? []).entries()) reference(id, file, `definitionIds[${index}]`);
+  }
+}
+
+const worldCellsById = new Map(worldRecords.filter(({ value }) => value.kind === "world_cell").map(({ file, value }) => [value.id, { file, value }]));
+for (const { file, value } of worldCellsById.values()) {
+  for (const [index, portal] of (value.portals ?? []).entries()) {
+    const target = worldCellsById.get(portal.targetCellId);
+    if (!target) continue;
+    if (!(target.value.entryAnchors ?? []).some(anchor => anchor.id === portal.targetAnchorId)) {
+      fail(file, `portals[${index}].targetAnchorId must exist in target cell ${portal.targetCellId}`);
+    }
   }
 }
 
