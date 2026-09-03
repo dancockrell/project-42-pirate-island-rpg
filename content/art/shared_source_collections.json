@@ -2,7 +2,7 @@
   "format": "shared_source_collection_catalog",
   "schemaVersion": 1,
   "purpose": "Compact, committed provenance catalog for local reusable source collections. It intentionally does not ship the raw collection payload.",
-  "sourceCollectionCount": 20,
+  "sourceCollectionCount": 24,
   "sourceCollections": [
     {
       "id": "source.collection.cc0.kenney.building-kit",
@@ -49,6 +49,31 @@
         "low-poly"
       ],
       "defaultPhysicalType": "vehicles",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.castle-kit",
+      "collectionKey": "castle-kit",
+      "title": "Castle Kit 2.0",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/castle-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/castle-kit/kenney_castle-kit.zip",
+        "filename": "kenney_castle-kit.zip",
+        "bytes": 2232589,
+        "sha256": "921f3f73927bb23106cae34bc21d5ab4b033a9fc120475e96f714a406e3169df"
+      },
+      "styleTags": [
+        "medieval",
+        "fortification",
+        "fantasy-neutral",
+        "tabletop"
+      ],
+      "defaultPhysicalType": "structures",
       "ledgerRecord": null,
       "state": "local_source_available"
     },
@@ -194,6 +219,31 @@
         "low-poly"
       ],
       "defaultPhysicalType": "furnishings",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.mini-characters",
+      "collectionKey": "mini-characters",
+      "title": "Mini Characters",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/mini-characters",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/mini-characters/kenney_mini-characters.zip",
+        "filename": "kenney_mini-characters.zip",
+        "bytes": 2403059,
+        "sha256": "9e1d48e6d7b8479ebbe84df71eb5bd8e1b3f0da546dea641890dccc8a02d0999"
+      },
+      "styleTags": [
+        "characters",
+        "animated",
+        "placeholder",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "rig",
       "ledgerRecord": null,
       "state": "local_source_available"
     },
@@ -385,6 +435,56 @@
         "fantasy-adventure"
       ],
       "defaultPhysicalType": "maritime",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.prototype-kit",
+      "collectionKey": "prototype-kit",
+      "title": "Prototype Kit",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/prototype-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/prototype-kit/kenney_prototype-kit.zip",
+        "filename": "kenney_prototype-kit.zip",
+        "bytes": 2961396,
+        "sha256": "213b522fb12bcc9b9ac66c4f7581f7c74623293272212e40a70c39936ad3da95"
+      },
+      "styleTags": [
+        "prototype",
+        "neutral",
+        "animated",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "props",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.retro-fantasy-kit",
+      "collectionKey": "retro-fantasy-kit",
+      "title": "Retro Fantasy Kit 2.0",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/retro-fantasy-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/retro-fantasy-kit/kenney_retro-fantasy-kit.zip",
+        "filename": "kenney_retro-fantasy-kit.zip",
+        "bytes": 2024232,
+        "sha256": "d3462b453018d0d150406d85af3c4ae1322ceef8f1754c4eb4e6355adfeaab0f"
+      },
+      "styleTags": [
+        "fantasy",
+        "medieval",
+        "settlement",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "structures",
       "ledgerRecord": null,
       "state": "local_source_available"
     },
