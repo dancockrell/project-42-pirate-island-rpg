@@ -2,7 +2,7 @@
   "format": "shared_source_collection_catalog",
   "schemaVersion": 1,
   "purpose": "Compact, committed provenance catalog for local reusable source collections. It intentionally does not ship the raw collection payload.",
-  "sourceCollectionCount": 30,
+  "sourceCollectionCount": 33,
   "sourceCollections": [
     {
       "id": "source.collection.cc0.kenney.animated-characters-protagonists",
@@ -76,6 +76,31 @@
         "low-poly"
       ],
       "defaultPhysicalType": "rig",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.blaster-kit",
+      "collectionKey": "blaster-kit",
+      "title": "Blaster Kit 2.1",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/blaster-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/blaster-kit/kenney_blaster-kit_2.1.zip",
+        "filename": "kenney_blaster-kit_2.1.zip",
+        "bytes": 1724676,
+        "sha256": "91e3093e95427d59625e7e2ce2d0399b861600160fd0b4ada7714796b67cea8c"
+      },
+      "styleTags": [
+        "sci-fi",
+        "weapons",
+        "props",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "props",
       "ledgerRecord": null,
       "state": "local_source_available"
     },
@@ -295,6 +320,31 @@
         "modular"
       ],
       "defaultPhysicalType": "industrial",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.food-kit",
+      "collectionKey": "food-kit",
+      "title": "Food Kit 2.0",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/food-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/food-kit/kenney_food-kit.zip",
+        "filename": "kenney_food-kit.zip",
+        "bytes": 4606270,
+        "sha256": "cdad90853682499b94c9fda2f87678b24bfd8f3264e0ed323f6b6a27fd7c6f6f"
+      },
+      "styleTags": [
+        "food",
+        "interior",
+        "market",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "props",
       "ledgerRecord": null,
       "state": "local_source_available"
     },
@@ -684,6 +734,31 @@
       ],
       "defaultPhysicalType": "props",
       "ledgerRecord": "asset.shared.kenney.survival-kit.source",
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.tower-defense-kit",
+      "collectionKey": "tower-defense-kit",
+      "title": "Tower Defense Kit 2.1",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/tower-defense-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/tower-defense-kit/kenney_tower-defense-kit.zip",
+        "filename": "kenney_tower-defense-kit.zip",
+        "bytes": 5404433,
+        "sha256": "d4c887680b709218315e4e1c17ae18c160635dcdfc4199763eeba97c02c77f00"
+      },
+      "styleTags": [
+        "medieval",
+        "defense",
+        "routes",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "structures",
+      "ledgerRecord": null,
       "state": "local_source_available"
     },
     {
