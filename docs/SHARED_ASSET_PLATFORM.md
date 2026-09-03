@@ -75,19 +75,24 @@ geometry.
 ## 3. Repository layout
 
 ```text
-content/art/shared_asset_ledger.json    # source of truth; committed
-docs/SHARED_ASSET_PLATFORM.md           # this contract
-work/art/vendor/                        # ignored; paid/vendor source caches
-work/art/generated/                     # ignored; raw generation sources
-game/assets/shared/                     # admitted Project 42 derivatives only
-<DR Companion>/godot/assets/            # admitted DR-specific derivatives only
+content/art/shared_asset_ledger.json    # committed admission/provenance ledger
+content/art/shared_source_collections.json # committed local-source provenance catalog
+docs/SHARED_ASSET_PLATFORM.md           # asset legal/style contract
+docs/SHARED_ASSET_INTEGRATION_PROTOCOL.md # consumer selection and proof contract
+resource-packs/                         # ignored local source + derivative working library
+work/art/vendor/                        # ignored paid/vendor source caches
+work/art/generated/                     # ignored raw generation sources
+<consumer project>/assets/              # only named, admitted consumer derivatives
 ```
 
-Do not commit a bulk downloaded pack merely because it appears useful. Admit a
-coherent, reviewed subset with deterministic identifiers. Large approved source
-files use the repository's approved large-file workflow rather than ordinary
-Git history; before that workflow exists, preserve them outside Git and retain
-their hashes in the ledger.
+Do not commit a bulk downloaded pack merely because it appears useful. The
+local `resource-packs/` directory is the fast shared working inventory;
+committed catalogs preserve source and review evidence. Admit a coherent,
+reviewed subset with deterministic identifiers into a consumer only when it
+passes the integration protocol. Large approved source files use the
+repository's approved large-file workflow rather than ordinary Git history;
+before that workflow exists, preserve them outside Git and retain their hashes
+in the ledger.
 
 ## 4. Asset admission gates
 
