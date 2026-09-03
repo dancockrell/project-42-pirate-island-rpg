@@ -3,9 +3,9 @@
   "task_id": "elizabethan-port-town-pack",
   "agent": "codex-root",
   "summary": "Build a reusable, machine-readable Elizabethan Atlantic port-town set pack and Godot proof scene",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-03T16:00:00Z",
-  "updated_at": "2026-09-03T16:00:00Z",
+  "updated_at": "2026-09-03T16:42:00Z",
   "paths": [
     "resource-packs/geometry/settlement/elizabethan-atlantic-port-town-v1/",
     "resource-packs/build-local-library-index.mjs",
@@ -26,7 +26,17 @@
     "notes": "Frontend and shared-set work only. Claude retains backend authority. Uses existing SetpieceMeshFactory and canonical Godot verification runner instead of creating parallel systems. The untracked locked simulation DLL is outside scope and remains untouched."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "be1095f",
+    "checks": [
+      "tools/verify-godot.ps1: passed, including review scene and town contract test",
+      "node resource-packs/build-local-library-index.mjs: passed, indexed 3139 assets, 14 assemblies and 12 population archetypes",
+      "all pack JSON and provenance JSON parse: passed",
+      "all 25 canonical source asset paths exist: passed",
+      "GPU review capture through game/tools/capture_review_scene.gd: passed at 1280x720",
+      "visual composition inspection: passed after tightening camera; harbor, market spine, civic core, specialist yards, housing, memorial and gate read in one frame",
+      "headless MovieWriter capture: failed because Godot dummy renderer crashed on texture read; replaced by verified GPU capture path",
+      "git diff --cached --check: passed",
+      "staged secret scan: passed, 2247 added lines checked"
+    ]
   }
 }
