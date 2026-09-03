@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "task_id": "backend-p0-unify-expedition-spines",
+  "agent": "Claude Code (PR #3)",
+  "summary": "Reconcile the two independent godot-rust/src/expedition.rs implementations into one spine: this branch's deep simulation (geography, habitats, day/night rosters, hunters, tomb, midnight, estate) merged with codex/battle-frontend-vertical-slice's Godot campaign bridge, authored route graph, encounter triggers and resolved-encounter ledger",
+  "status": "active",
+  "claimed_at": "2026-09-03T16:00:00Z",
+  "updated_at": "2026-09-03T16:00:00Z",
+  "paths": [
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/geography.rs",
+    "godot-rust/src/godot_bridge.rs",
+    "godot-rust/src/lib.rs",
+    "godot-rust/Cargo.toml",
+    "tools/src/validate.mjs",
+    "game/"
+  ],
+  "symbols": [
+    "ExpeditionState",
+    "ExpeditionError",
+    "Geography",
+    "RouteOption",
+    "PortalDefinition",
+    "RouteGraph",
+    "EncounterTriggerDefinition",
+    "ExpeditionState::travel",
+    "ExpeditionState::begin_encounter"
+  ],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": ["codex/battle-frontend-vertical-slice"],
+    "notes": "AGENTS.md section 0 forbids two things that answer the same question. godot-rust/src/expedition.rs was written independently on backend/b0-expedition-state and on codex/battle-frontend-vertical-slice; neither is on main, our merge-base is 2588b25 (16 commits back on their side, 32 on mine), and nine type names collide outright (ExpeditionState, ExpeditionError, TimeSegment, RouteStep, SupplyState, CharacterState, HabitatState, HouseholdProgress, EncounterState). Their branch carries no claim record. Their work is preserved by integration, not replaced: their branch is not modified and this reconciliation happens on mine. Concept-by-concept ownership, decided on merit rather than by author: this branch's ExpeditionState and Geography/RouteOption survive (strict superset of state fields; routes already carry kind, time and supply cost, risk and D3's required_discovery_id gate); their resolved_encounter_ids, EncounterState.estate_upgrade_id, EncounterTriggerDefinition, TravelBlockedByEncounter rule and their whole godot_bridge.rs campaign class survive, because each solves a problem this branch does not. Their data-driven graph construction (RouteGraph built from authored portals passed in through the bridge) is kept as a constructor on Geography beside the existing black_beach_vertical_slice fixture, since a hardcoded Rust fixture cannot be the only source of the world."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
