@@ -281,6 +281,14 @@ pub enum BattleError {
         expected_actor_id: ActorId,
         actual_actor_id: ActorId,
     },
+    /// U3: the shared enemy skill vocabulary (`grasping_strike`, `dread_gaze`) is
+    /// not locked to one exact actor the way Razorbeak's or a heroine's signature
+    /// skills are -- any individual creature record may declare them -- but it is
+    /// still owner-checked: only a hostile actor may submit one.
+    HostileSkillUsedByNonHostile {
+        skill_id: String,
+        actor_id: ActorId,
+    },
     UnsupportedSkill(String),
     RetreatNotAllowed,
     IllegalRetreatActor(ActorId),
@@ -635,6 +643,8 @@ impl Battle {
                 | "skill.betty.combat_revival"
                 | "skill.enemy.razorbeak.rushing_bite"
                 | "skill.enemy.razorbeak.guard_breaking_kick"
+                | "skill.enemy.undead.grasping_strike"
+                | "skill.enemy.eldritch.dread_gaze"
                 | "skill.system.hold_position"
                 | "skill.system.retreat"
         ) {
@@ -655,6 +665,19 @@ impl Battle {
                     actual_actor_id: command.actor_id,
                 });
             }
+        }
+        // The shared enemy skill vocabulary (U3) isn't locked to one exact actor
+        // the way Razorbeak's or a heroine's signature skills are -- any hostile
+        // creature record may declare `grasping_strike` or `dread_gaze` -- but it
+        // is still owner-checked: only a hostile actor may submit one.
+        if command.skill_id.starts_with("skill.enemy.")
+            && !command.skill_id.starts_with("skill.enemy.razorbeak.")
+            && actor.faction != Faction::Hostile
+        {
+            return Err(BattleError::HostileSkillUsedByNonHostile {
+                skill_id: command.skill_id,
+                actor_id: command.actor_id,
+            });
         }
         if command.skill_id == "skill.betty.combat_revival"
             && actor
@@ -759,6 +782,8 @@ impl Battle {
             | "skill.betty.healing_impact"
             | "skill.enemy.razorbeak.rushing_bite"
             | "skill.enemy.razorbeak.guard_breaking_kick"
+            | "skill.enemy.undead.grasping_strike"
+            | "skill.enemy.eldritch.dread_gaze"
                 if actor.faction == target.faction =>
             {
                 return Err(BattleError::FriendlyFire {
@@ -842,11 +867,15 @@ impl Battle {
             }
             "skill.betty.guarded_strike"
             | "skill.enemy.razorbeak.rushing_bite"
-            | "skill.enemy.razorbeak.guard_breaking_kick" => {}
+            | "skill.enemy.razorbeak.guard_breaking_kick"
+            | "skill.enemy.undead.grasping_strike"
+            | "skill.enemy.eldritch.dread_gaze" => {}
             other => return Err(BattleError::UnsupportedSkill(other.to_owned())),
         }
         let mut target_id = command.target_ids[0].clone();
-        if command.skill_id.starts_with("skill.enemy.razorbeak.") {
+        // Any hostile attack in this shared shape can be redirected onto an
+        // active interceptor, not only Razorbeak's own two skills.
+        if command.skill_id.starts_with("skill.enemy.") {
             let protected_id = target_id.clone();
             let protector_id = self
                 .actors
@@ -869,9 +898,18 @@ impl Battle {
                 target_id = protector_id;
             }
         }
-        if command.skill_id == "skill.enemy.razorbeak.guard_breaking_kick" {
+        // Dread Gaze reuses the same "strip Guard, then hit through what's left"
+        // shape Guard-Breaking Kick already established, at a smaller amount and
+        // without a Recovery Opening -- a dreadful stare unravels composure, it
+        // doesn't leave a physical opening to punish.
+        let guard_strip = match command.skill_id.as_str() {
+            "skill.enemy.razorbeak.guard_breaking_kick" => 6,
+            "skill.enemy.eldritch.dread_gaze" => 4,
+            _ => 0,
+        };
+        if guard_strip > 0 {
             let target = self.actors.get_mut(&target_id).expect("target checked");
-            let guard_lost = target.guard.min(6);
+            let guard_lost = target.guard.min(guard_strip);
             target.guard -= guard_lost;
             events.push(BattleEvent::GuardChanged {
                 command_id: command.command_id.clone(),
@@ -2750,5 +2788,163 @@ mod tests {
             BattleError::IllegalRetreatActor(ActorId("enemy.raptor.razorbeak.prototype".into()))
         );
         assert_eq!(battle.snapshot(), before);
+    }
+
+    #[test]
+    fn grasping_strike_deals_the_shared_enemy_strike_damage_through_guard() {
+        let betty = actor("character.heroine.betty", Faction::Party, 3, 100, 5, 12);
+        let wight = actor(
+            "enemy.undead.tomb_wight.prototype",
+            Faction::Hostile,
+            6,
+            50,
+            0,
+            20,
+        );
+        let mut battle = Battle::new("battle.grasping_strike", [wight, betty]);
+        battle.start();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "grasp".into(),
+                actor_id: ActorId("enemy.undead.tomb_wight.prototype".into()),
+                skill_id: "skill.enemy.undead.grasping_strike".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .unwrap();
+        // 9 + level(6) = 15 raw damage; 5 Guard absorbed, 10 gets through.
+        assert!(events.iter().any(|event| matches!(
+            event,
+            BattleEvent::DamageApplied { target_id, amount: 10, .. }
+                if target_id.0 == "character.heroine.betty"
+        )));
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.betty".into()))
+                .unwrap()
+                .vitality,
+            90
+        );
+    }
+
+    #[test]
+    fn dread_gaze_strips_up_to_four_guard_then_hits_through_the_remainder() {
+        let betty = actor("character.heroine.betty", Faction::Party, 3, 100, 6, 12);
+        let tide_spawn = actor(
+            "enemy.eldritch.tide_spawn.prototype",
+            Faction::Hostile,
+            9,
+            60,
+            0,
+            20,
+        );
+        let mut battle = Battle::new("battle.dread_gaze", [tide_spawn, betty]);
+        battle.start();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "gaze".into(),
+                actor_id: ActorId("enemy.eldritch.tide_spawn.prototype".into()),
+                skill_id: "skill.enemy.eldritch.dread_gaze".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .unwrap();
+        // Guard 6, stripped by 4, leaves 2. Raw damage 9 + level(9) = 18; the
+        // remaining 2 Guard absorbs 2 (and is itself spent doing so), 16 gets
+        // through.
+        assert!(events.iter().any(|event| matches!(
+            event,
+            BattleEvent::GuardChanged {
+                delta: -4,
+                total: 2,
+                ..
+            }
+        )));
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::DamageApplied { amount: 16, .. }))
+        );
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.betty".into()))
+                .unwrap()
+                .guard,
+            0
+        );
+    }
+
+    #[test]
+    fn a_party_actor_cannot_submit_a_shared_enemy_skill_without_mutation() {
+        let betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        let wight = actor(
+            "enemy.undead.tomb_wight.prototype",
+            Faction::Hostile,
+            6,
+            50,
+            0,
+            5,
+        );
+        let mut battle = Battle::new("battle.hostile_lock", [betty, wight]);
+        battle.start();
+        let before = battle.snapshot();
+        let error = battle
+            .submit(SkillCommand {
+                command_id: "illegal".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.enemy.undead.grasping_strike".into(),
+                target_ids: vec![ActorId("enemy.undead.tomb_wight.prototype".into())],
+            })
+            .unwrap_err();
+        assert_eq!(
+            error,
+            BattleError::HostileSkillUsedByNonHostile {
+                skill_id: "skill.enemy.undead.grasping_strike".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+            }
+        );
+        assert_eq!(battle.snapshot(), before);
+    }
+
+    #[test]
+    fn a_shared_enemy_skill_can_be_redirected_onto_an_active_interceptor() {
+        let betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 30);
+        let vix = actor("character.heroine.vix", Faction::Party, 3, 80, 0, 1);
+        let wight = actor(
+            "enemy.undead.tomb_wight.prototype",
+            Faction::Hostile,
+            6,
+            50,
+            0,
+            20,
+        );
+        let mut battle = Battle::new("battle.grasp_redirect", [betty, vix, wight]);
+        battle.start();
+        battle
+            .submit(SkillCommand {
+                command_id: "set.interception".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.rescue_charge".into(),
+                target_ids: vec![
+                    ActorId("character.heroine.vix".into()),
+                    ActorId("enemy.undead.tomb_wight.prototype".into()),
+                ],
+            })
+            .unwrap();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "grasp.redirect".into(),
+                actor_id: ActorId("enemy.undead.tomb_wight.prototype".into()),
+                skill_id: "skill.enemy.undead.grasping_strike".into(),
+                target_ids: vec![ActorId("character.heroine.vix".into())],
+            })
+            .unwrap();
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::InterceptionTriggered { .. }))
+        );
+        assert!(events.iter().any(|event| matches!(
+            event,
+            BattleEvent::DamageApplied { target_id, .. } if target_id.0 == "character.heroine.betty"
+        )));
     }
 }

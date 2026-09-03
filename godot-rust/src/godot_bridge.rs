@@ -548,6 +548,7 @@ fn battle_error_code(value: &crate::battle::BattleError) -> &'static str {
         IllegalSelfTarget { .. } => "illegal_self_target",
         IllegalTargetCount { .. } => "illegal_target_count",
         SkillOwnerMismatch { .. } => "skill_owner_mismatch",
+        HostileSkillUsedByNonHostile { .. } => "hostile_skill_used_by_non_hostile",
         UnsupportedSkill(_) => "unsupported_skill",
         RetreatNotAllowed => "retreat_not_allowed",
         IllegalRetreatActor(_) => "illegal_retreat_actor",

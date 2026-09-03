@@ -1422,7 +1422,6 @@ mod tests {
     #[test]
     fn the_party_can_outrun_a_hunter_by_staying_ahead_of_it() {
         let geography = crate::geography::Geography::black_beach_vertical_slice();
-        let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
         let mut state = fixture();
         // Place a hunter as far away as the graph allows, by hand, so this test
         // does not depend on the spawn roll actually landing.
