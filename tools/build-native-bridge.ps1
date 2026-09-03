@@ -15,7 +15,7 @@ if ($LASTEXITCODE -ne 0) { throw "Rust GDExtension build failed with exit code $
 $profile = if ($Configuration -eq "release") { "release" } else { "debug" }
 $source = Join-Path $workspace "godot-rust\target\$profile\project42_sim.dll"
 $destinationDirectory = Join-Path $workspace "game\bin\windows"
-$destinationName = if ($Configuration -eq "release") { "project42_sim.windows.expedition_v3_release.x86_64.dll" } else { "project42_sim.windows.expedition_v3_debug.x86_64.dll" }
+$destinationName = if ($Configuration -eq "release") { "project42_sim.windows.expedition_v4_release.x86_64.dll" } else { "project42_sim.windows.expedition_v4_debug.x86_64.dll" }
 $destination = Join-Path $destinationDirectory $destinationName
 
 if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "Expected native library was not produced: $source" }

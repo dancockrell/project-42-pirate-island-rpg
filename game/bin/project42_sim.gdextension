@@ -4,5 +4,5 @@ compatibility_minimum = "4.2"
 reloadable = false
 
 [libraries]
-windows.debug.x86_64 = "res://bin/windows/project42_sim.windows.expedition_v3_debug.x86_64.dll"
-windows.release.x86_64 = "res://bin/windows/project42_sim.windows.expedition_v3_release.x86_64.dll"
+windows.debug.x86_64 = "res://bin/windows/project42_sim.windows.expedition_v4_debug.x86_64.dll"
+windows.release.x86_64 = "res://bin/windows/project42_sim.windows.expedition_v4_release.x86_64.dll"

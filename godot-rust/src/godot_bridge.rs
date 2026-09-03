@@ -263,7 +263,7 @@ impl Project42ExpeditionBridge {
         let snapshot = battle.snapshot();
         if ended {
             if let Some(state) = self.state.as_mut() {
-                state.pending_encounter = None;
+                state.resolve_pending_encounter();
             }
         }
         expedition_battle_records(&mut self.battle_sequence, events, Some(snapshot))
@@ -430,6 +430,10 @@ fn expedition_state_dictionary(state: &ExpeditionState, graph: &RouteGraph) -> V
             }
         })
         .unwrap_or_default();
+    let mut resolved_encounter_ids = Array::<GString>::new();
+    for encounter_id in &state.resolved_encounter_ids {
+        resolved_encounter_ids.push(&GString::from(encounter_id.as_str()));
+    }
     let mut result = vdict! {
         "configured" => true,
         "save_version" => i64::from(state.save_version),
@@ -441,6 +445,7 @@ fn expedition_state_dictionary(state: &ExpeditionState, graph: &RouteGraph) -> V
         "legal_route_commands" => &legal_commands,
         "travel_blocked_reason" => error.map(|value| expedition_error_code(&value)).unwrap_or(""),
         "pending_encounter" => &pending_encounter,
+        "resolved_encounter_ids" => &resolved_encounter_ids,
     };
     result.set("metadata", &metadata);
     result

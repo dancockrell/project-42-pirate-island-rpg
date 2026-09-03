@@ -42,7 +42,7 @@ func _ready() -> void:
 		show_startup_failure("The expedition could not start: %s." % str(latest_snapshot.get("error", "unknown_error")))
 		return
 	build_screen()
-	project_snapshot(latest_snapshot, "Michael and Betty reach the black shore below the wreck of the Handsome Jack.")
+	project_snapshot(latest_snapshot, initial_status_message(latest_snapshot))
 
 
 func build_screen() -> void:
@@ -141,13 +141,13 @@ func project_snapshot(snapshot: Dictionary, message: String) -> void:
 	var segment := str(snapshot.get("time_segment", "dawn")).to_upper()
 	day_label.text = "DAY %d  •  %s" % [day, segment]
 	location_label.text = str(cell.get("displayName", "UNKNOWN LOCATION")).to_upper()
-	description_label.text = make_description(cell)
+	description_label.text = make_description(cell, snapshot)
 	route_board.configure(catalog, snapshot)
 	populate_routes(cell, snapshot)
 	status_label.text = message
 
 
-func make_description(cell: Dictionary) -> String:
+func make_description(cell: Dictionary, snapshot: Dictionary) -> String:
 	var descriptions: Array = cell.get("readableDescriptions", [])
 	if descriptions.is_empty():
 		return "[color=#c24e45]AUTHORED OBSERVATION MISSING[/color]"
@@ -156,7 +156,30 @@ func make_description(cell: Dictionary) -> String:
 	var text := "[color=#b78a4b]OBSERVATION[/color]\n%s" % str(primary.get("text", ""))
 	if not secondary.is_empty():
 		text += "\n\n[color=#9eb0a7]%s[/color]" % str(secondary.get("text", ""))
+	for entry in cell.get("battleEntries", []):
+		if not entry is Dictionary:
+			continue
+		var encounter_id := str(entry.get("encounterId", ""))
+		if resolved_encounter_ids(snapshot).has(encounter_id):
+			var aftermath := str(entry.get("aftermathDescription", ""))
+			if not aftermath.is_empty():
+				text += "\n\n[color=#55c9ac]AFTERMATH[/color]\n%s" % aftermath
 	return text
+
+
+func resolved_encounter_ids(snapshot: Dictionary) -> Dictionary:
+	var ids: Dictionary = {}
+	for encounter_id in snapshot.get("resolved_encounter_ids", []):
+		ids[str(encounter_id)] = true
+	return ids
+
+
+func initial_status_message(snapshot: Dictionary) -> String:
+	if resolved_encounter_ids(snapshot).has("encounter.prototype.returning_names") and str(snapshot.get("active_location_id", "")) == "world.cell.reception_terrace":
+		return "TERRACE CLEAR  •  RAZORBEAK DRIVEN OFF  •  ROUTES OPEN"
+	if str(snapshot.get("active_location_id", "")) == "world.cell.black_beach":
+		return "Michael and Betty reach the black shore below the wreck of the Handsome Jack."
+	return "ARRIVAL STATE RESTORED  •  %s" % str(snapshot.get("active_location_id", "unknown_location")).replace("world.cell.", "").replace("_", " ").to_upper()
 
 
 func populate_routes(cell: Dictionary, snapshot: Dictionary) -> void:

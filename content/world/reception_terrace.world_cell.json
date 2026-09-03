@@ -26,7 +26,7 @@
     {"id": "world.portal.reception_terrace_to_processional_ramp", "fromAnchorId": "entry.reception_terrace.processional_ramp", "targetCellId": "world.cell.processional_ramp", "targetAnchorId": "entry.processional_ramp.reception_terrace", "travelMode": "on_foot", "returnRule": "allowed_while_no_pending_encounter"}
   ],
   "battleEntries": [
-    {"id": "battle_entry.reception_terrace.razorbeak", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [1.5, 0.0, 0.8], "returnAnchorId": "entry.reception_terrace.river_road", "safeRetreatAnchorId": "entry.reception_terrace.processional_ramp", "status": "vertical_slice_encounter"}
+    {"id": "battle_entry.reception_terrace.razorbeak", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [1.5, 0.0, 0.8], "returnAnchorId": "entry.reception_terrace.river_road", "safeRetreatAnchorId": "entry.reception_terrace.processional_ramp", "status": "vertical_slice_encounter", "aftermathDescription": "The razorbeak has fled into the jungle. The broken lane is clear, and the processional ramp is open."}
   ],
   "explorationActions": [
     {"id": "action.reception_terrace.inspect_claw_marks", "type": "inspect", "result": "discover.razorbeak.territory", "once": true},

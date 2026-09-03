@@ -106,6 +106,11 @@ pub struct ExpeditionState {
     pub discoveries: BTreeSet<String>,
     pub household_progress: HouseholdProgress,
     pub pending_encounter: Option<EncounterState>,
+    /// Stable encounter IDs resolved in this campaign. This is simulation
+    /// state, not a UI flag: it prevents an authored one-time encounter from
+    /// re-arming after a save/reload or a later return to its location.
+    #[serde(default)]
+    pub resolved_encounter_ids: BTreeSet<String>,
     pub rng_seed: u64,
 }
 
@@ -222,6 +227,7 @@ impl ExpeditionState {
                 bond_ranks: BTreeMap::new(),
             },
             pending_encounter: None,
+            resolved_encounter_ids: BTreeSet::new(),
             rng_seed: seed,
         };
         state.validate()?;
@@ -313,13 +319,25 @@ impl ExpeditionState {
             arrived_on_day: self.campaign_day,
             arrived_segment: self.time_segment.clone(),
         });
-        if let Some(trigger) = graph.encounter_trigger_for(&self.active_location_id) {
+        if let Some(trigger) = graph.encounter_trigger_for(&self.active_location_id)
+            && !self.resolved_encounter_ids.contains(&trigger.encounter_id)
+        {
             self.pending_encounter = Some(EncounterState {
                 encounter_id: trigger.encounter_id.clone(),
                 battle_id: trigger.battle_id.clone(),
             });
         }
         Ok(())
+    }
+
+    /// Records the outcome of the one pending encounter. The battle subsystem
+    /// chooses when an outcome exists; expedition state owns the durable world
+    /// consequence and the resulting legal-route query.
+    pub fn resolve_pending_encounter(&mut self) -> Option<EncounterState> {
+        let encounter = self.pending_encounter.take()?;
+        self.resolved_encounter_ids
+            .insert(encounter.encounter_id.clone());
+        Some(encounter)
     }
 }
 
@@ -543,6 +561,65 @@ mod tests {
                 encounter_id: "encounter.prototype.returning_names".into(),
             })
         );
+    }
+
+    #[test]
+    fn resolved_authored_encounter_stays_resolved_after_return_and_save_reload() {
+        let mut portals: Vec<PortalDefinition> =
+            route_fixture().portals_by_id.into_values().collect();
+        portals.push(PortalDefinition {
+            id: "world.portal.reception_terrace_to_river_landing".into(),
+            from_location_id: "world.cell.reception_terrace".into(),
+            target_location_id: "world.cell.river_landing".into(),
+            travel_mode: "on_foot".into(),
+        });
+        let graph = RouteGraph::with_encounter_triggers(
+            portals,
+            vec![EncounterTriggerDefinition {
+                location_id: "world.cell.reception_terrace".into(),
+                encounter_id: "encounter.prototype.returning_names".into(),
+                battle_id: "battle.prototype.returning_names".into(),
+            }],
+        )
+        .expect("trigger graph constructs");
+        let mut state = fixture();
+        state
+            .travel(&graph, "world.portal.black_beach_to_damaged_estate")
+            .expect("estate arrival is legal");
+        state
+            .travel(&graph, "world.portal.damaged_estate_to_river_landing")
+            .expect("river arrival is legal");
+        state
+            .travel(
+                &graph,
+                "world.portal.river_landing_to_reception_terrace_safe_road",
+            )
+            .expect("terrace arrival is legal");
+        let resolved = state
+            .resolve_pending_encounter()
+            .expect("terrace encounter is pending");
+        assert_eq!(resolved.encounter_id, "encounter.prototype.returning_names");
+        assert!(state.pending_encounter.is_none());
+        assert!(
+            state
+                .resolved_encounter_ids
+                .contains("encounter.prototype.returning_names")
+        );
+        let restored =
+            ExpeditionState::from_json(&state.to_json()).expect("resolved state reloads");
+        assert_eq!(restored, state);
+        let mut returned = restored;
+        returned
+            .travel(&graph, "world.portal.reception_terrace_to_river_landing")
+            .expect("cleared terrace permits departure");
+        returned
+            .travel(
+                &graph,
+                "world.portal.river_landing_to_reception_terrace_safe_road",
+            )
+            .expect("cleared terrace permits a later return");
+        assert!(returned.pending_encounter.is_none());
+        assert!(returned.legal_route_commands(&graph).is_ok());
     }
 
     #[test]

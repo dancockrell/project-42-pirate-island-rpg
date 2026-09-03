@@ -48,7 +48,7 @@ The current authored trigger names `battle.prototype.returning_names`. Godot nev
 
 ## Build outputs
 
-The Rust library emits both `rlib` for engine-independent tests and `cdylib` for Godot. `tools/build-native-bridge.ps1` builds the selected configuration and copies the verified Windows library to `game/bin/windows/`. `game/bin/project42_sim.gdextension` maps debug and release libraries separately. The active pair is named `expedition_v3`: it accepts the JSON expedition configuration, creates a pending encounter only from the content entry explicitly marked `vertical_slice_encounter`, then owns the battle created through that pending handoff. The versioned filenames prevent a running Godot process from holding an obsolete DLL while a new native contract is being verified. Godot import is part of `tools/verify-godot.ps1`, because a compiled DLL that the editor has not registered is not a usable bridge.
+The Rust library emits both `rlib` for engine-independent tests and `cdylib` for Godot. `tools/build-native-bridge.ps1` builds the selected configuration and copies the verified Windows library to `game/bin/windows/`. `game/bin/project42_sim.gdextension` maps debug and release libraries separately. The active pair is named `expedition_v4`: it accepts the JSON expedition configuration, creates a pending encounter only from the content entry explicitly marked `vertical_slice_encounter`, then owns the battle created through that pending handoff. Resolved encounter IDs are durable expedition state; a resolved authored encounter will not re-arm after a later arrival. The versioned filenames prevent a running Godot process from holding an obsolete DLL while a new native contract is being verified. Godot import is part of `tools/verify-godot.ps1`, because a compiled DLL that the editor has not registered is not a usable bridge.
 
 ## Acceptance gates
 
@@ -67,3 +67,4 @@ The bridge milestone is complete only when all of the following are true:
 11. The intent event and the submitted enemy command derive from one Rust `EnemyDecision`, including target, rationale, projected damage, lethality, interception and reaction facts. **Passing.**
 12. A release runtime cannot select `MockSimulationPort`. **Enforced in `BattlePrototype._ready`.**
 13. A Reception Terrace encounter creates its named battle through `CampaignSession`, and the battle screen does not construct an unrelated debug battle. **Covered by `campaign_encounter_port_test.gd`.**
+14. A resolved authored encounter persists through save/load and is excluded from future encounter arming. **Covered by `resolved_authored_encounter_stays_resolved_after_return_and_save_reload`.**

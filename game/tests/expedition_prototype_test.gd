@@ -41,8 +41,17 @@ func _init() -> void:
 	await process_frame
 	check(reloaded_expedition.get_authoritative_snapshot().get("active_location_id") == "world.cell.reception_terrace", "Scene reload must retain the one native campaign location")
 	check(not (reloaded_expedition.get_authoritative_snapshot().get("pending_encounter", {}) as Dictionary).is_empty(), "Scene reload must retain the pending native encounter")
+	var terrace := catalog_record(reloaded_expedition, "world.cell.reception_terrace")
+	var resolved_copy := reloaded_expedition.get_authoritative_snapshot()
+	resolved_copy.pending_encounter = {}
+	resolved_copy.resolved_encounter_ids = ["encounter.prototype.returning_names"]
+	check("AFTERMATH" in reloaded_expedition.make_description(terrace, resolved_copy), "A resolved authored encounter must project its content-authored aftermath")
 	reloaded_expedition.queue_free()
 	finish()
+
+
+func catalog_record(expedition: ExpeditionPrototype, record_id: String) -> Dictionary:
+	return expedition.catalog.get_record(record_id)
 
 
 func check(condition: bool, message: String) -> void:
