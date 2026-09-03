@@ -339,6 +339,68 @@ for (const [index, plate] of (creaturePlan.plates ?? []).entries()) {
   if ((plate.prompt ?? "").length < 300) fail(creaturePlanFile, `${plate.id} prompt is too short to be a production contract`);
 }
 
+const sharedAssetLedgerFile = resolve(repo, "content/art/shared_asset_ledger.json");
+const sharedAssetLedger = JSON.parse(await readFile(sharedAssetLedgerFile, "utf8"));
+registerId(sharedAssetLedger.id, sharedAssetLedgerFile);
+if (sharedAssetLedger.schemaVersion !== 1) fail(sharedAssetLedgerFile, "schemaVersion must be 1");
+const sharedConsumers = new Set(["project42", "dr-companion", "professional-client"]);
+if (!Array.isArray(sharedAssetLedger.allowedConsumers) || sharedAssetLedger.allowedConsumers.length !== sharedConsumers.size || sharedAssetLedger.allowedConsumers.some(value => !sharedConsumers.has(value))) fail(sharedAssetLedgerFile, "allowedConsumers must declare the three supported consuming project classes");
+if (typeof sharedAssetLedger.sharedRawLicensePolicy !== "string" || !sharedAssetLedger.sharedRawLicensePolicy.includes("CC0-1.0")) fail(sharedAssetLedgerFile, "sharedRawLicensePolicy must explicitly reserve raw sharing for CC0-1.0");
+const admittedAssetStatuses = new Set(["candidate", "quarantine", "approved_shared", "approved_project_only", "rejected"]);
+const sharedAssetCategories = new Set(["vegetation", "terrain", "architecture", "prop", "material", "vfx", "rig", "character", "reference"]);
+const ownershipClasses = new Set(["cc0_raw", "paid_source", "account_generated", "project_authored"]);
+const reviewDecisions = new Set(["pending", "approved", "rejected"]);
+for (const [index, asset] of (sharedAssetLedger.assetRecords ?? []).entries()) {
+  const field = `assetRecords[${index}]`;
+  registerId(asset?.id, sharedAssetLedgerFile);
+  if (!admittedAssetStatuses.has(asset?.status)) fail(sharedAssetLedgerFile, `${field}.status is unsupported`);
+  if (!sharedAssetCategories.has(asset?.category)) fail(sharedAssetLedgerFile, `${field}.category is unsupported`);
+  if (!ownershipClasses.has(asset?.ownership)) fail(sharedAssetLedgerFile, `${field}.ownership is unsupported`);
+  const source = asset?.source;
+  for (const key of ["creator", "canonicalUrl", "retrievedOn", "originalFilename", "sha256", "licenseSpdx", "licenseEvidenceUrl", "licenseNotes", "sourceAccess"]) requireString(source ?? {}, key, sharedAssetLedgerFile);
+  if (!source?.canonicalUrl?.startsWith("https://")) fail(sharedAssetLedgerFile, `${field}.source.canonicalUrl must be an HTTPS URL`);
+  if (!(source?.licenseEvidenceUrl?.startsWith("https://") || source?.licenseEvidenceUrl?.startsWith("docs/"))) fail(sharedAssetLedgerFile, `${field}.source.licenseEvidenceUrl must be an HTTPS URL or committed documentation path`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(source?.retrievedOn ?? "")) fail(sharedAssetLedgerFile, `${field}.source.retrievedOn must use YYYY-MM-DD`);
+  if (!/^[a-f0-9]{64}$/.test(source?.sha256 ?? "")) fail(sharedAssetLedgerFile, `${field}.source.sha256 must be a lowercase SHA-256`);
+  if (typeof source?.redistributionAllowed !== "boolean") fail(sharedAssetLedgerFile, `${field}.source.redistributionAllowed must be boolean`);
+  if (!new Set(["repository_raw", "project_local_vendor_cache", "account_controlled"]).has(source?.sourceAccess)) fail(sharedAssetLedgerFile, `${field}.source.sourceAccess is unsupported`);
+  if (!Array.isArray(asset?.consumers) || asset.consumers.length === 0 || asset.consumers.some(consumer => !sharedConsumers.has(consumer))) fail(sharedAssetLedgerFile, `${field}.consumers must name one or more supported consumers`);
+  if (!Array.isArray(asset?.tags) || asset.tags.length < 3) fail(sharedAssetLedgerFile, `${field}.tags needs at least three searchable tags`);
+  const review = asset?.review;
+  for (const key of ["targetCamera", "visualDecision", "technicalDecision"]) requireString(review ?? {}, key, sharedAssetLedgerFile);
+  if (!reviewDecisions.has(review?.visualDecision) || !reviewDecisions.has(review?.technicalDecision)) fail(sharedAssetLedgerFile, `${field}.review decisions are unsupported`);
+  if (!Array.isArray(review?.notes) || review.notes.length === 0) fail(sharedAssetLedgerFile, `${field}.review.notes must record an actual review`);
+  const imported = asset?.import;
+  for (const key of ["sourceFormat", "intendedRuntimeFormat", "pivotAndGroundContact", "materialStrategy", "collisionOrSelection", "lodStrategy"]) requireString(imported ?? {}, key, sharedAssetLedgerFile);
+  if (asset?.status === "approved_shared") {
+    if (asset.ownership !== "cc0_raw" || source?.licenseSpdx !== "CC0-1.0" || source?.redistributionAllowed !== true) fail(sharedAssetLedgerFile, `${field} approved_shared assets must be CC0-1.0 and redistribution-permitted`);
+    if (review?.visualDecision !== "approved" || review?.technicalDecision !== "approved") fail(sharedAssetLedgerFile, `${field} approved_shared assets require approved visual and technical review`);
+  }
+  if ((asset?.ownership === "paid_source" || asset?.ownership === "account_generated") && source?.sourceAccess === "repository_raw") fail(sharedAssetLedgerFile, `${field} paid or account-generated raw sources may not be stored as repository_raw`);
+  if (asset?.ownership === "paid_source" && asset?.status === "approved_shared") fail(sharedAssetLedgerFile, `${field} paid sources may not be marked approved_shared without a separately modeled license exception`);
+}
+
+const sharedSourceCollectionsFile = resolve(repo, "content/art/shared_source_collections.json");
+const sharedSourceCollections = JSON.parse(await readFile(sharedSourceCollectionsFile, "utf8"));
+if (sharedSourceCollections.format !== "shared_source_collection_catalog" || sharedSourceCollections.schemaVersion !== 1) fail(sharedSourceCollectionsFile, "must declare shared_source_collection_catalog format version 1");
+if (!Array.isArray(sharedSourceCollections.sourceCollections) || sharedSourceCollections.sourceCollectionCount !== sharedSourceCollections.sourceCollections.length) fail(sharedSourceCollectionsFile, "sourceCollectionCount must match sourceCollections");
+const sourceCollectionKeys = new Set();
+for (const [index, collection] of (sharedSourceCollections.sourceCollections ?? []).entries()) {
+  const field = `sourceCollections[${index}]`;
+  registerId(collection?.id, sharedSourceCollectionsFile);
+  for (const key of ["collectionKey", "title", "creator", "canonicalUrl", "authoringLineage", "licenseSpdx", "retrievedOn", "defaultPhysicalType", "state"]) requireString(collection ?? {}, key, sharedSourceCollectionsFile);
+  if (!collection?.id?.startsWith("source.collection.")) fail(sharedSourceCollectionsFile, `${field}.id must use source.collection prefix`);
+  if (sourceCollectionKeys.has(collection?.collectionKey)) fail(sharedSourceCollectionsFile, `${field}.collectionKey is duplicated`);
+  sourceCollectionKeys.add(collection?.collectionKey);
+  if (!collection?.canonicalUrl?.startsWith("https://")) fail(sharedSourceCollectionsFile, `${field}.canonicalUrl must be HTTPS`);
+  if (collection?.authoringLineage !== "source_cc0" || collection?.licenseSpdx !== "CC0-1.0") fail(sharedSourceCollectionsFile, `${field} must explicitly remain CC0 source material`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(collection?.retrievedOn ?? "")) fail(sharedSourceCollectionsFile, `${field}.retrievedOn must use YYYY-MM-DD`);
+  const archive = collection?.archive;
+  for (const key of ["localPath", "filename", "sha256"]) requireString(archive ?? {}, key, sharedSourceCollectionsFile);
+  if (!Number.isInteger(archive?.bytes) || archive.bytes <= 0 || !/^[a-f0-9]{64}$/.test(archive?.sha256 ?? "")) fail(sharedSourceCollectionsFile, `${field}.archive must have positive bytes and lowercase SHA-256`);
+  if (!Array.isArray(collection?.styleTags) || collection.styleTags.length < 2) fail(sharedSourceCollectionsFile, `${field}.styleTags needs at least two tags`);
+}
+
 const intentionallyExternalPrefixes = ["skill.enemy."];
 for (const item of references) {
   if (!ids.has(item.id) && !intentionallyExternalPrefixes.some(prefix => item.id.startsWith(prefix))) {
@@ -351,4 +413,4 @@ if (failures.length) {
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
-console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels and ${creaturePlateCount} creature still-image plates validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
+console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);

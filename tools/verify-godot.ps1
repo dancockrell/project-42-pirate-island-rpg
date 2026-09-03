@@ -47,6 +47,14 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Godot Reception Terrace setpiece tests failed with exit code $LASTEXITCODE"
     }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --scene "res://scenes/review/elizabethan_port_town_set_review.tscn" --quit-after 2
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot Elizabethan port-town review scene failed with exit code $LASTEXITCODE"
+    }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/elizabethan_port_town_set_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot Elizabethan port-town contract test failed with exit code $LASTEXITCODE"
+    }
     & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/targeting_session_test.gd"
     if ($LASTEXITCODE -ne 0) {
         throw "Godot targeting-session tests failed with exit code $LASTEXITCODE"

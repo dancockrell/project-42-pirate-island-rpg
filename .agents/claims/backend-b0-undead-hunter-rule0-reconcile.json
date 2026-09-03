@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "task_id": "backend-b0-undead-hunter-rule0-reconcile",
+  "agent": "Claude Code (PR #3)",
+  "summary": "U1-U3: day/night habitat rosters, roaming hunters, and undead/spectral/eldritch creature content + art prompts on backend/b0-expedition-state; reconciled with main's newly adopted AGENTS.md/.agents standard and the shared-asset-ledger validator work merged from main",
+  "status": "completed",
+  "claimed_at": "2026-09-03T12:00:00Z",
+  "updated_at": "2026-09-03T15:10:00Z",
+  "paths": [
+    "godot-rust/src/habitat.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/hunter.rs",
+    "godot-rust/src/geography.rs",
+    "godot-rust/src/battle.rs",
+    "godot-rust/src/godot_bridge.rs",
+    "content/enemies/",
+    "content/art/creature_plan.json",
+    "content/art/placeholders.json",
+    "tools/src/validate.mjs"
+  ],
+  "symbols": [
+    "HabitatRecord::roster",
+    "Hunter",
+    "HunterKind",
+    "Geography::next_step_toward",
+    "BattleError::HostileSkillUsedByNonHostile"
+  ],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [],
+    "notes": "Independently added a full CLAUDE.md plus a Rule 0 banner in every docs/*.md and README.md before origin/main gained AGENTS.md, .github/copilot-instructions.md and this .agents/ ledger for the same no-fork policy. On merging main into backend/b0-expedition-state, adopted the existing/stronger AGENTS.md + .agents/ standard: took main's CLAUDE.md redirect as-is, and reverted every docs/*.md and README.md banner back to its pre-banner content (rule 5: keep instructions local, do not scatter). Verified every reverted file byte-identical to its pre-banner blob except README.md, which legitimately gained main's unrelated Shared professional asset platform section. Also merged tools/src/validate.mjs by hand: kept this branch's creaturePlanFile validation block and main's sharedAssetLedgerFile/sharedSourceCollectionsFile blocks side by side as two complementary, non-competing features, combining both halves of the summary console.log line."
+  },
+  "completion": {
+    "commit": null,
+    "checks": [
+      "grep for banner marker across docs/*.md and README.md: none remain",
+      "diff against pre-banner blob (4361ba8^) for each reverted file: byte-identical except README.md's unrelated concurrent shared-asset-platform section",
+      "node tools/src/validate.mjs: passes with combined creature-plan and shared-asset-ledger validation"
+    ]
+  }
+}

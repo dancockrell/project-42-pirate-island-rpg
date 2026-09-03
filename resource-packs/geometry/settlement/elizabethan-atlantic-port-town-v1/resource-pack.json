@@ -1,0 +1,72 @@
+{
+  "format": "shared_resource_pack",
+  "schemaVersion": 1,
+  "indexKind": "assembly_pack",
+  "id": "resource.geometry.settlement.elizabethan-atlantic-port-town.v1",
+  "title": "Elizabethan Atlantic Port Town Construction Pack",
+  "status": "local_proof_blockout",
+  "search": {
+    "physicalType": ["settlement", "town", "port", "street", "district", "setpiece"],
+    "style": ["stylized 3d", "hand-painted target", "high saturation accents", "dark oak", "limewash", "storybook adventure"],
+    "setting": ["Elizabethan", "Atlantic port", "pirate", "fantasy", "coastal", "early modern"],
+    "camera": ["elevated third-person", "isometric-compatible", "48-degree fov", "district overview"],
+    "technical": ["godot-4", "one-metre units", "modular", "set recipe", "machine-readable", "replaceable visual shell"]
+  },
+  "authoring": {
+    "lineage": "project_derivative",
+    "derivativeKind": "authored settlement recipes and Godot blockout composition over selected CC0 source geometry",
+    "madeBy": "Project 42 / DR Companion shared local asset workspace",
+    "sourceLicense": "CC0-1.0 for listed Kenney source assets; authored metadata and composition remain project work",
+    "mapResearch": "Crossing map family used only to audit town functions and topology; no DragonRealms content is redistributed",
+    "generationPolicy": "Free source packs and Godot geometry first. Low-cost scene-wide paint or style passes may use Magnific. Expensive generation is reserved for approved named characters.",
+    "attribution": "Selected source geometry by Kenney under CC0. Town recipes, taxonomy, composition, metadata, and proof scene authored locally."
+  },
+  "technical": {
+    "engineTarget": "Godot 4.x",
+    "unitScale": "1 unit = 1 metre",
+    "sourceFormats": ["GLB", "Godot procedural mesh"],
+    "runtimeAuthority": "Consuming Godot scenes own collision, navigation, semantic anchors, spawn slots, and IDs. Imported or painted art owns appearance only.",
+    "pivotPolicy": "Architecture pivots at ground contact and grid edge; props at ground-contact center; doors at hinge edge; vessels at waterline center.",
+    "collisionPolicy": "Author simple static collision from gameplay footprint after placement; never trust decorative mesh collision by default.",
+    "lodPolicy": "District shell must remain readable at 42 m. Add LOD only after the twelve-set benchmark is profiled.",
+    "texturePolicy": "Stylized and material-separated, not photoreal. Preserve readable value grouping. Texture atlases may be authored per physical family, never per individual prop."
+  },
+  "review": {
+    "visual": "procedural_proof_pending_human_review",
+    "technical": "contract_and_scene_tests_required",
+    "promotionGate": ["twelve recipes visible", "correct metre scale", "camera readability", "navigation clearance", "day and night check", "provenance complete", "no named-character stand-ins"]
+  },
+  "catalogs": {
+    "townFunctions": "town-functions.json",
+    "setRecipes": "set-recipes.json",
+    "populationArchetypes": "population-archetypes.json",
+    "discoveryRoot": "discovery"
+  },
+  "assets": [
+    {"id": "architecture.timber-frame-bay", "source": "resource-packs/source/cc0/kenney/retro-fantasy-kit/wall-pane-painted-wood-window.glb", "role": "upper timber wall bay", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "architecture.shopfront", "source": "resource-packs/source/cc0/kenney/retro-fantasy-kit/wall-pane-painted-wood-door.glb", "role": "street shop entrance", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "architecture.gable-roof", "source": "resource-packs/source/cc0/kenney/modular-buildings/roof-gable.glb", "role": "primary pitched roof", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "architecture.workshop", "source": "resource-packs/source/cc0/kenney/retro-fantasy-kit/wall-pane-wood-door.glb", "role": "open workshop bay", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "architecture.training-hall", "source": "resource-packs/source/cc0/kenney/retro-fantasy-kit/structure-wall-cross.glb", "role": "covered drill hall frame", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "architecture.lodge", "source": "resource-packs/source/cc0/kenney/modular-buildings/building-sample-house-b.glb", "role": "wilderness lodge shell", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "architecture.civic-hall", "source": "resource-packs/source/cc0/kenney/modular-buildings/building-sample-house-c.glb", "role": "civic hall shell", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "architecture.bell-tower", "source": "resource-packs/source/cc0/kenney/castle-kit/tower-slant-roof.glb", "role": "chapel landmark tower", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "architecture.warehouse", "source": "resource-packs/source/cc0/kenney/retro-fantasy-kit/wall-fortified-paint-window.glb", "role": "masonry warehouse wall", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "architecture.cellar-door", "source": "resource-packs/source/cc0/kenney/pirate-kit/castle-door.glb", "role": "concealed service door", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "maritime.dock", "source": "resource-packs/source/cc0/kenney/pirate-kit/structure-platform-dock.glb", "role": "working quay extension", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "maritime.rowboat", "source": "resource-packs/source/cc0/kenney/pirate-kit/boat-row-large.glb", "role": "ferry and harbor boat", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "maritime.mast", "source": "resource-packs/source/cc0/kenney/pirate-kit/mast-ropes.glb", "role": "shipwright mast and rigging reference", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "furnishings.crate", "source": "resource-packs/source/cc0/kenney/pirate-kit/crate.glb", "role": "cargo and activity cluster", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "furnishings.barrel", "source": "resource-packs/source/cc0/kenney/pirate-kit/barrel.glb", "role": "cargo and service dressing", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "furnishings.bench", "source": "resource-packs/source/cc0/kenney/furniture-kit/bench.glb", "role": "public and training seating", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "furnishings.table", "source": "resource-packs/source/cc0/kenney/furniture-kit/tableCross.glb", "role": "inn and market surface", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "furnishings.workbench", "source": "resource-packs/source/cc0/kenney/survival-kit/workbench.glb", "role": "craft station", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "furnishings.training-dummy", "source": "resource-packs/source/cc0/kenney/survival-kit/signpost-single.glb", "role": "blockout only for training target; replace before admission", "license": "CC0-1.0", "review": "semantic_mismatch_blocked"},
+    {"id": "furnishings.fence", "source": "resource-packs/source/cc0/kenney/nature-kit-2.1/fence_planks.glb", "role": "yard and animal boundary", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "rocks.wall-stone", "source": "resource-packs/source/cc0/kenney/nature-kit-2.1/rock_largeA.glb", "role": "memorial and retaining-wall accent", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "rocks.street-scatter", "source": "resource-packs/source/cc0/kenney/survival-kit/rock-a.glb", "role": "edge and drainage scatter", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "vegetation.street-tree", "source": "resource-packs/source/cc0/kenney/retro-fantasy-kit/tree-large.glb", "role": "civic and residential canopy", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "vegetation.edge-tree", "source": "resource-packs/source/cc0/kenney/survival-kit/tree-tall.glb", "role": "outer trail silhouette", "license": "CC0-1.0", "review": "candidate"},
+    {"id": "vegetation.flower-bed", "source": "resource-packs/source/cc0/kenney/nature-kit-2.1/flower_purpleA.glb", "role": "memorial and household color accent", "license": "CC0-1.0", "review": "candidate"}
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "id": "art.ledger.shared_asset_library",
+  "purpose": "Professional shared-asset intake and admission ledger for Project 42, DR Companion, and future licensed client work. Source-pack candidates precede individual asset review.",
+  "allowedConsumers": ["project42", "dr-companion", "professional-client"],
+  "sharedRawLicensePolicy": "CC0-1.0 only. Other sources require project-only or access-controlled treatment unless their exact license is independently recorded as redistribution-permitted.",
+  "assetRecords": [
+    {
+      "id": "asset.shared.kenney.nature-kit.2_1.source",
+      "status": "candidate",
+      "category": "reference",
+      "ownership": "cc0_raw",
+      "consumers": ["project42", "dr-companion", "professional-client"],
+      "tags": ["nature", "vegetation", "rocks", "foliage", "tabletop", "source-pack"],
+      "source": {
+        "creator": "Kenney",
+        "canonicalUrl": "https://kenney.nl/assets/nature-kit",
+        "retrievedOn": "2026-09-03",
+        "originalFilename": "kenney_nature-kit.zip",
+        "sha256": "fa7974a0d342bfe63c38664ba9f8ec1a4aab8ea25f099bdc56870e33588c4d9d",
+        "licenseSpdx": "CC0-1.0",
+        "licenseEvidenceUrl": "https://kenney.nl/assets/nature-kit",
+        "licenseNotes": "The official Nature Kit page declares Creative Commons CC0. The retrieved archive includes License.txt identifying Nature Kit 2.1 and repeats CC0 1.0 commercial-use permission.",
+        "redistributionAllowed": true,
+        "sourceAccess": "project_local_vendor_cache"
+      },
+      "review": {
+        "targetCamera": "Project 42 third-person tabletop camera and DR Companion room-to-overworld camera",
+        "visualDecision": "pending",
+        "technicalDecision": "pending",
+        "notes": [
+          "Retrieved archive is preserved outside Git at work/art/vendor/kenney/nature-kit and is intentionally ignored.",
+          "Archive inventory: 329 GLB models, companion FBX/OBJ/DAE/STL formats, and PNG source textures; no member is runtime-admitted by this source-pack record.",
+          "First curation pass will test rocks, broadleaf and conifer trees, bushes, ground dressing, cliffs, and bridges at actual camera scale before individual approval."
+        ]
+      },
+      "import": {
+        "sourceFormat": "ZIP source pack containing GLB, FBX, OBJ, DAE, STL, PNG, and license evidence",
+        "intendedRuntimeFormat": "Individual reviewed GLB source files imported by Godot; optimized project derivatives are tracked separately",
+        "pivotAndGroundContact": "Not yet inspected per mesh; each admitted mesh must sit at y=0 or declare a placement offset",
+        "materialStrategy": "Keep simple source colors only where they support the chunky tabletop palette; replace or standardize materials only after camera review",
+        "collisionOrSelection": "No runtime collision, selection, or navigation behavior is granted by a source-pack record",
+        "lodStrategy": "Per-mesh decision after actual scale and count are measured; do not assume all 329 assets are appropriate for runtime use"
+      }
+    },
+    {
+      "id": "asset.shared.kenney.building-kit.source",
+      "status": "candidate",
+      "category": "reference",
+      "ownership": "cc0_raw",
+      "consumers": ["project42", "dr-companion", "professional-client"],
+      "tags": ["building", "architecture", "settlement", "tabletop", "source-pack"],
+      "source": {"creator": "Kenney", "canonicalUrl": "https://kenney.nl/assets/building-kit", "retrievedOn": "2026-09-03", "originalFilename": "kenney_building-kit.zip", "sha256": "2740ef5772fb5fb3d7aab881db22d129f6b68afe711b1a79e6d5e9e19cf3eec6", "licenseSpdx": "CC0-1.0", "licenseEvidenceUrl": "https://kenney.nl/assets/building-kit", "licenseNotes": "Official pack and its included License.txt identify Kenney and Creative Commons CC0 commercial-use permission.", "redistributionAllowed": true, "sourceAccess": "project_local_vendor_cache"},
+      "review": {"targetCamera": "Project 42 tabletop and DR Companion room-to-overworld cameras", "visualDecision": "pending", "technicalDecision": "pending", "notes": ["79 local GLB files retained under game/assets/shared/kenney/building-kit for fast joint development.", "Review structural rhythm, roof/door modularity, and readable selection space before runtime admission."]},
+      "import": {"sourceFormat": "ZIP source pack containing GLB and companion source formats", "intendedRuntimeFormat": "Individual reviewed GLB source files imported by Godot", "pivotAndGroundContact": "Inspect per mesh before admission", "materialStrategy": "Use the shared chunky tabletop palette only after camera review", "collisionOrSelection": "No runtime behavior granted by source-pack intake", "lodStrategy": "Per-mesh decision after scene-scale measurement"}
+    },
+    {
+      "id": "asset.shared.kenney.survival-kit.source",
+      "status": "candidate",
+      "category": "reference",
+      "ownership": "cc0_raw",
+      "consumers": ["project42", "dr-companion", "professional-client"],
+      "tags": ["travel", "camp", "props", "wilderness", "source-pack"],
+      "source": {"creator": "Kenney", "canonicalUrl": "https://kenney.nl/assets/survival-kit", "retrievedOn": "2026-09-03", "originalFilename": "kenney_survival-kit.zip", "sha256": "c3586341b5932c87eb43d75d915434f47daed168b17ed36a03e8ca9977c7443e", "licenseSpdx": "CC0-1.0", "licenseEvidenceUrl": "https://kenney.nl/assets/survival-kit", "licenseNotes": "Official pack and its included License.txt identify Kenney and Creative Commons CC0 commercial-use permission.", "redistributionAllowed": true, "sourceAccess": "project_local_vendor_cache"},
+      "review": {"targetCamera": "Project 42 tabletop and DR Companion room-to-overworld cameras", "visualDecision": "pending", "technicalDecision": "pending", "notes": ["80 local GLB files retained under game/assets/shared/kenney/survival-kit for fast joint development.", "Review camp, travel, container, and neutral prop silhouettes before runtime admission."]},
+      "import": {"sourceFormat": "ZIP source pack containing GLB and companion source formats", "intendedRuntimeFormat": "Individual reviewed GLB source files imported by Godot", "pivotAndGroundContact": "Inspect per mesh before admission", "materialStrategy": "Use the shared chunky tabletop palette only after camera review", "collisionOrSelection": "No runtime behavior granted by source-pack intake", "lodStrategy": "Per-mesh decision after scene-scale measurement"}
+    },
+    {
+      "id": "asset.shared.kenney.modular-cave-kit.1_0.source",
+      "status": "candidate",
+      "category": "reference",
+      "ownership": "cc0_raw",
+      "consumers": ["project42", "dr-companion", "professional-client"],
+      "tags": ["cave", "underground", "modular", "geology", "source-pack"],
+      "source": {"creator": "Kenney", "canonicalUrl": "https://kenney.nl/assets/modular-cave-kit", "retrievedOn": "2026-09-03", "originalFilename": "kenney_modular-cave-kit_1.0.zip", "sha256": "48f37a6d4f241124cd7da17da1c6d4ed1bf1820bb149dcb233fbd5ebdd8ba996", "licenseSpdx": "CC0-1.0", "licenseEvidenceUrl": "https://kenney.nl/assets/modular-cave-kit", "licenseNotes": "Official pack and its included License.txt identify Kenney and Creative Commons CC0 commercial-use permission.", "redistributionAllowed": true, "sourceAccess": "project_local_vendor_cache"},
+      "review": {"targetCamera": "Project 42 tabletop and DR Companion room-to-overworld cameras", "visualDecision": "pending", "technicalDecision": "pending", "notes": ["40 local GLB files retained under game/assets/shared/kenney/modular-cave-kit for fast joint development.", "Review seams, modular orientation, sightlines, and scale before runtime admission."]},
+      "import": {"sourceFormat": "ZIP source pack containing GLB and companion source formats", "intendedRuntimeFormat": "Individual reviewed GLB source files imported by Godot", "pivotAndGroundContact": "Inspect per mesh before admission", "materialStrategy": "Use the shared chunky tabletop palette only after camera review", "collisionOrSelection": "No runtime behavior granted by source-pack intake", "lodStrategy": "Per-mesh decision after scene-scale measurement"}
+    },
+    {
+      "id": "asset.shared.kenney.modular-dungeon-kit.1_0.source",
+      "status": "candidate",
+      "category": "reference",
+      "ownership": "cc0_raw",
+      "consumers": ["project42", "dr-companion", "professional-client"],
+      "tags": ["dungeon", "interior", "modular", "ruin", "source-pack"],
+      "source": {"creator": "Kenney", "canonicalUrl": "https://kenney.nl/assets/modular-dungeon-kit", "retrievedOn": "2026-09-03", "originalFilename": "kenney_modular-dungeon-kit_1.0.zip", "sha256": "dd0aa6776db8912283cdca60161dee6a8839bbda3558eba2ea501419eb5b4623", "licenseSpdx": "CC0-1.0", "licenseEvidenceUrl": "https://kenney.nl/assets/modular-dungeon-kit", "licenseNotes": "Official pack and its included License.txt identify Kenney and Creative Commons CC0 commercial-use permission.", "redistributionAllowed": true, "sourceAccess": "project_local_vendor_cache"},
+      "review": {"targetCamera": "Project 42 tabletop and DR Companion room-to-overworld cameras", "visualDecision": "pending", "technicalDecision": "pending", "notes": ["39 local GLB files retained under game/assets/shared/kenney/modular-dungeon-kit for fast joint development.", "Review room seams, doorway readability, and combat camera occlusion before runtime admission."]},
+      "import": {"sourceFormat": "ZIP source pack containing GLB and companion source formats", "intendedRuntimeFormat": "Individual reviewed GLB source files imported by Godot", "pivotAndGroundContact": "Inspect per mesh before admission", "materialStrategy": "Use the shared chunky tabletop palette only after camera review", "collisionOrSelection": "No runtime behavior granted by source-pack intake", "lodStrategy": "Per-mesh decision after scene-scale measurement"}
+    }
+  ]
+}

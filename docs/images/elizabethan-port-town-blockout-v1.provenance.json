@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "assetId": "review.elizabethan-port-town-blockout.v1",
+  "file": "docs/images/elizabethan-port-town-blockout-v1.png",
+  "kind": "engine_review_capture",
+  "sourceScene": "game/scenes/review/elizabethan_port_town_set_review.tscn",
+  "captureTool": "game/tools/capture_review_scene.gd",
+  "engine": "Godot 4.7.2 stable",
+  "renderer": "OpenGL compatibility",
+  "resolution": [1280, 720],
+  "capturedOn": "2026-09-03",
+  "authoringLineage": "project_authored_procedural_render",
+  "externalAssetsVisible": false,
+  "reviewState": "composition_reviewed",
+  "authority": "Evidence of the current blockout only. This image is not a texture source and does not replace the scene or pack metadata.",
+  "reviewNotes": [
+    "Tightened the camera after the first capture left excessive uninformative ground.",
+    "Harbor, market spine, civic hall, specialized yards, residential mass, and gate are visible in one frame.",
+    "Geometry remains deliberately simple and awaits admitted CC0 replacements plus inexpensive whole-scene style treatment."
+  ]
+}

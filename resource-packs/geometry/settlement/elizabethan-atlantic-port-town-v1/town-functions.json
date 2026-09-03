@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "id": "town-function-vocabulary.v1",
+  "evidence": {
+    "source": "DR Companion local map data: Crossing map family 1, 1a, 1j, 1l, 1m, 2a, 2d, 4, 6, 8, 8a",
+    "use": "functional completeness and route topology only",
+    "excluded": ["DragonRealms proper names", "DragonRealms lore", "room prose", "faction identity", "proprietary art"]
+  },
+  "functions": [
+    {
+      "id": "arrival_and_orientation",
+      "tags": ["gate", "harbor", "road", "wayfinding", "first-visit"],
+      "physicalSignals": ["gate or landing", "guard or harbor post", "town map", "notice board", "destination sightline"],
+      "requiredRelations": ["connects to civic_core", "connects to lodging", "shows one major landmark"]
+    },
+    {
+      "id": "civic_core",
+      "tags": ["town-green", "square", "authority", "public-event", "quest-hub"],
+      "physicalSignals": ["open green or paved square", "town hall", "public board", "speaker platform", "well or fountain"],
+      "requiredRelations": ["central to primary road", "bounded by commerce", "visible route to watch"]
+    },
+    {
+      "id": "market_and_daily_supply",
+      "tags": ["market", "bazaar", "food", "general-store", "social-density"],
+      "physicalSignals": ["stalls", "awnings", "weighing table", "produce crates", "vendor storage", "loading edge"],
+      "requiredRelations": ["faces civic_core", "service route reaches warehouse", "pedestrian circulation remains open"]
+    },
+    {
+      "id": "specialist_craft_and_repair",
+      "tags": ["smith", "armorer", "weapons", "tailor", "carpenter", "workshop"],
+      "physicalSignals": ["open work frontage", "trade sign", "workbench", "material storage", "heat or tool zone", "delivery access"],
+      "requiredRelations": ["clusters on craft_lane", "separated from quiet housing", "connects to supply route"]
+    },
+    {
+      "id": "health_and_field_supply",
+      "tags": ["healer", "herbalist", "apothecary", "clinic", "expedition"],
+      "physicalSignals": ["herb sign", "drying rack", "consultation counter", "secured cabinet", "rear garden"],
+      "requiredRelations": ["reachable from market", "reachable from martial_training", "has private interior"]
+    },
+    {
+      "id": "lodging_food_and_gossip",
+      "tags": ["inn", "tavern", "common-room", "kitchen", "stable", "rumor"],
+      "physicalSignals": ["hanging sign", "public room", "hearth", "kitchen yard", "guest rooms", "stable or coach bay"],
+      "requiredRelations": ["near arrival route", "public frontage and private yard", "night landmark"]
+    },
+    {
+      "id": "martial_training",
+      "tags": ["guild-hall", "militia", "marine", "fighter", "barbarian", "fencing", "training-yard"],
+      "physicalSignals": ["drill yard", "sparring ring", "weapon racks", "instructor station", "recruit board", "spectator edge", "repair bench"],
+      "requiredRelations": ["wide route to gate or quay", "safe viewing boundary", "separate live-fire lane when present"],
+      "skinExamples": ["militia yard", "marine barracks", "fencing academy", "mercenary hall", "clan training court"]
+    },
+    {
+      "id": "wilderness_service",
+      "tags": ["guild-hall", "ranger", "hunter", "scout", "archery", "animal-handling", "fieldcraft"],
+      "physicalSignals": ["lodge", "trail board", "archery lane", "trophy wall", "animal pen", "fieldcraft store", "map table"],
+      "requiredRelations": ["near outer gate", "direct path out of town", "buffered projectile lane"],
+      "skinExamples": ["hunter lodge", "expedition outfitter", "island scout post", "forester compound"]
+    },
+    {
+      "id": "faith_memory_and_death",
+      "tags": ["temple", "shrine", "cemetery", "morgue", "ritual", "resurrection"],
+      "physicalSignals": ["threshold gate", "worship interior", "offering point", "memorial ground", "body receiving door", "quiet garden"],
+      "requiredRelations": ["processional approach", "separated service access", "connects to cemetery or memorial"]
+    },
+    {
+      "id": "law_watch_and_detention",
+      "tags": ["watch", "guard", "justice", "jail", "wanted-board", "checkpoint"],
+      "physicalSignals": ["watch post", "bell", "interview desk", "secure cells", "evidence storage", "public notices"],
+      "requiredRelations": ["controls gate or square", "secure rear route", "sightline over public space"]
+    },
+    {
+      "id": "finance_exchange_and_governance",
+      "tags": ["bank", "exchange", "town-hall", "office", "records", "meeting"],
+      "physicalSignals": ["formal facade", "counter", "record room", "secure vault", "meeting chamber", "messenger entrance"],
+      "requiredRelations": ["faces civic core", "guarded service access", "prominent destination silhouette"]
+    },
+    {
+      "id": "housing_and_household",
+      "tags": ["cottage", "townhouse", "tenement", "manor", "courtyard", "domestic"],
+      "physicalSignals": ["front door", "private threshold", "rear work yard", "laundry", "fuel storage", "upper windows"],
+      "requiredRelations": ["grades from dense center to quiet edge", "rear lanes serve household work", "windows imply occupied rooms"]
+    },
+    {
+      "id": "waterfront_trade_and_ship_service",
+      "tags": ["quay", "pier", "ferry", "shipyard", "dry-dock", "customs", "warehouse", "cargo"],
+      "physicalSignals": ["working quay", "bollards", "crane or hoist", "warehouse", "customs desk", "repair slip", "cargo stacks"],
+      "requiredRelations": ["continuous quay route", "cargo route bypasses market pedestrians", "water edge has safety/readability boundary"]
+    },
+    {
+      "id": "culture_learning_and_spectacle",
+      "tags": ["library", "scriptorium", "theater", "amphitheater", "festival", "school"],
+      "physicalSignals": ["public entrance", "gathering room", "stage or reading focus", "storage", "poster board", "spill-out space"],
+      "requiredRelations": ["near civic core", "supports crowd circulation", "backstage or staff access"]
+    },
+    {
+      "id": "hidden_and_illicit_routes",
+      "tags": ["alley", "tunnel", "escape-route", "thief", "sewer", "smuggling"],
+      "physicalSignals": ["narrow gap", "concealed door", "drain or cellar", "overlook", "alternate exit", "contraband cache"],
+      "requiredRelations": ["loops between two legitimate districts", "entrances readable after discovery", "never a dead decorative corridor"]
+    },
+    {
+      "id": "public_utilities_and_dressing",
+      "tags": ["well", "drainage", "lighting", "refuse", "laundry", "signage", "street-life"],
+      "physicalSignals": ["water point", "gutters", "night lamps", "waste collection", "benches", "signs", "street trees or planters"],
+      "requiredRelations": ["distributed across every district", "supports daily-life vignettes", "does not obstruct navigation"]
+    }
+  ]
+}

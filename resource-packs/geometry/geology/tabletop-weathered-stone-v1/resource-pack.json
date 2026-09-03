@@ -1,0 +1,52 @@
+{
+  "format": "shared_resource_pack",
+  "schemaVersion": 1,
+  "id": "resource.geometry.geology.tabletop-weathered-stone.v1",
+  "title": "Tabletop Weathered Stone",
+  "status": "local_draft",
+  "search": {
+    "physicalType": ["geology", "rock", "stone", "scatter", "terrain dressing"],
+    "style": ["chunky geometric", "tabletop miniature", "low-poly", "matte", "weathered", "readable silhouette"],
+    "setting": ["temperate", "riverbank", "roadside", "cave approach", "ruin exterior"],
+    "camera": ["isometric", "third-person tabletop", "zoomed-out overworld"],
+    "technical": ["godot-4", "glb", "material-override", "static-prop", "noninteractive"]
+  },
+  "authoring": {
+    "lineage": "project_derivative",
+    "derivativeKind": "curated geometry subset plus authored Godot material override; source mesh topology is unchanged",
+    "madeBy": "Project 42 / DR Companion shared local asset workspace",
+    "sourcePackLedgerId": "asset.shared.kenney.nature-kit.2_1.source",
+    "sourceLicense": "CC0-1.0",
+    "sourceLocalRoot": "resource-packs/source/cc0/kenney/nature-kit-2.1",
+    "attribution": "Kenney Nature Kit 2.1; CC0 source geometry. Shared material profile authored locally."
+  },
+  "technical": {
+    "sourceFormat": "GLB",
+    "engineTarget": "Godot 4.x",
+    "materialProfile": "materials/tabletop_weathered_stone.tres",
+    "pivotPolicy": "Use source pivot only after in-engine ground-contact check; placement offsets are not yet admitted.",
+    "collisionPolicy": "No collision or navigation mesh until an individual scene use requires it.",
+    "lodPolicy": "Use directly for tabletop-scale scatter; assess instancing and LOD only after a dense scene benchmark."
+  },
+  "review": {
+    "visual": "pending_in_engine",
+    "technical": "pending_in_engine",
+    "notes": [
+      "This is a local reusable resource pack, not owned by a consuming game.",
+      "Its authored value is the curated set and material treatment, not a claim that the source rocks were remodeled.",
+      "Promote to a committed resource pack only after a Godot scene proves scale, ground contact, material readability, and no adverse camera occlusion."
+    ]
+  },
+  "assets": [
+    {"id": "rock-large-a", "source": "resource-packs/source/cc0/kenney/nature-kit-2.1/rock_largeA.glb", "derivative": "models/rock_largeA.glb", "role": "large anchor"},
+    {"id": "rock-large-b", "source": "resource-packs/source/cc0/kenney/nature-kit-2.1/rock_largeB.glb", "derivative": "models/rock_largeB.glb", "role": "large anchor"},
+    {"id": "rock-large-c", "source": "resource-packs/source/cc0/kenney/nature-kit-2.1/rock_largeC.glb", "derivative": "models/rock_largeC.glb", "role": "large anchor"},
+    {"id": "rock-large-d", "source": "resource-packs/source/cc0/kenney/nature-kit-2.1/rock_largeD.glb", "derivative": "models/rock_largeD.glb", "role": "large anchor"},
+    {"id": "rock-small-a", "source": "resource-packs/source/cc0/kenney/nature-kit-2.1/rock_smallA.glb", "derivative": "models/rock_smallA.glb", "role": "scatter"},
+    {"id": "rock-small-b", "source": "resource-packs/source/cc0/kenney/nature-kit-2.1/rock_smallB.glb", "derivative": "models/rock_smallB.glb", "role": "scatter"},
+    {"id": "rock-small-c", "source": "resource-packs/source/cc0/kenney/nature-kit-2.1/rock_smallC.glb", "derivative": "models/rock_smallC.glb", "role": "scatter"},
+    {"id": "rock-tall-a", "source": "resource-packs/source/cc0/kenney/nature-kit-2.1/rock_tallA.glb", "derivative": "models/rock_tallA.glb", "role": "vertical accent"},
+    {"id": "rock-tall-b", "source": "resource-packs/source/cc0/kenney/nature-kit-2.1/rock_tallB.glb", "derivative": "models/rock_tallB.glb", "role": "vertical accent"},
+    {"id": "rock-tall-c", "source": "resource-packs/source/cc0/kenney/nature-kit-2.1/rock_tallC.glb", "derivative": "models/rock_tallC.glb", "role": "vertical accent"}
+  ]
+}

@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "Tabletop Warm Wood"
+albedo_color = Color(0.37, 0.20, 0.10, 1)
+metallic = 0.0
+roughness = 0.76
+emission_enabled = false
+vertex_color_use_as_albedo = true

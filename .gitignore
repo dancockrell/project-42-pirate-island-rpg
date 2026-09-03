@@ -10,6 +10,8 @@ work/a11y*.json
 work/*.docx
 work/*.pdf
 work/__pycache__/
+/work/art/vendor/
+/work/art/generated/
 /work/quartermaster/
 /work/web-preview/
 *.zip
