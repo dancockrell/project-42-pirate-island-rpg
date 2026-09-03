@@ -34,6 +34,13 @@ func _init() -> void:
 	check(pending_encounter.get("battle_id") == "battle.prototype.returning_names", "Encounter handoff must retain the authored battle ID")
 	check(expedition.get_legal_route_count() == 1, "Pending encounter must replace route controls with one truthful blocked-state message")
 	expedition.queue_free()
+	await process_frame
+	var reloaded_expedition := scene.instantiate() as ExpeditionPrototype
+	root.add_child(reloaded_expedition)
+	await process_frame
+	check(reloaded_expedition.get_authoritative_snapshot().get("active_location_id") == "world.cell.reception_terrace", "Scene reload must retain the one native campaign location")
+	check(not (reloaded_expedition.get_authoritative_snapshot().get("pending_encounter", {}) as Dictionary).is_empty(), "Scene reload must retain the pending native encounter")
+	reloaded_expedition.queue_free()
 	finish()
 
 

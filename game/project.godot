@@ -5,6 +5,10 @@ config_version=5
 config/name="Project 42: Pirate Island RPG"
 run/main_scene="res://scenes/world/expedition_prototype.tscn"
 
+[autoload]
+
+CampaignSession="*res://scripts/campaign/campaign_session.gd"
+
 [display]
 window/size/viewport_width=1920
 window/size/viewport_height=1080

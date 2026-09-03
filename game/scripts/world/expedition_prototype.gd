@@ -17,7 +17,7 @@ const DANGER := Color("c24e45")
 const SEED := 42
 
 var catalog := ContentCatalog.new()
-var expedition: ExpeditionPort
+var campaign_session: Node
 var latest_snapshot: Dictionary = {}
 var title_label: Label
 var day_label: Label
@@ -33,11 +33,11 @@ func _ready() -> void:
 	if catalog.load_default() != OK:
 		show_startup_failure("The validated content bundle is unavailable. Rebuild content before running the expedition.")
 		return
-	if not NativeExpeditionPort.bridge_is_registered():
-		show_startup_failure("The native expedition bridge is unavailable. This screen refuses to invent travel state in GDScript.")
+	campaign_session = get_node_or_null("/root/CampaignSession")
+	if campaign_session == null:
+		show_startup_failure("Campaign session is unavailable. This screen refuses to create a scene-local campaign state.")
 		return
-	expedition = NativeExpeditionPort.new()
-	latest_snapshot = expedition.configure_from_catalog(catalog, SEED)
+	latest_snapshot = campaign_session.begin_if_needed(catalog)
 	if not bool(latest_snapshot.get("configured", false)):
 		show_startup_failure("The expedition could not start: %s." % str(latest_snapshot.get("error", "unknown_error")))
 		return
@@ -203,9 +203,9 @@ func populate_routes(cell: Dictionary, snapshot: Dictionary) -> void:
 
 
 func request_travel(portal_id: String) -> void:
-	if expedition == null:
+	if campaign_session == null:
 		return
-	var result := expedition.travel(portal_id)
+	var result: Dictionary = campaign_session.travel(portal_id)
 	if not bool(result.get("configured", false)):
 		status_label.text = "TRAVEL REFUSED  •  %s" % str(result.get("error", "unknown_error")).to_upper()
 		return
