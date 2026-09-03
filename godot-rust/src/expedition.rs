@@ -91,6 +91,7 @@ pub enum ExpeditionError {
     InvalidStableId { field: &'static str, value: String },
     InvalidPartySize { found: usize },
     IllegalRoute { route_id: String },
+    NoPendingEncounter,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -98,6 +99,15 @@ pub struct TravelOutcome {
     pub arrived_at: String,
     pub time_cost_minutes: u32,
     pub supply_cost: u32,
+}
+
+/// B2: how a battle ended, as reported back through `Battle`'s own `BattlePhase`
+/// (`Victory` / `Defeat` / `Retreated`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EncounterOutcome {
+    Victory,
+    Defeat,
+    Retreat,
 }
 
 impl ExpeditionState {
@@ -229,6 +239,56 @@ impl ExpeditionState {
             self.discoveries.insert(observation_id.clone());
         }
         location.observation_ids.clone()
+    }
+
+    /// B2: resolves the current `pending_encounter` against a `Battle` outcome
+    /// (Victory / Defeat / Retreat). Errors, without mutating state, if there is no
+    /// pending encounter to resolve. A retreat additionally "updates ExpeditionState,
+    /// consumes declared time/cost, and retains any declared injuries or discoveries"
+    /// per B2's proof: it looks up the route that led into the current location (the
+    /// entry immediately before it in `route_history`) and, if the graph still has a
+    /// route back along that same path, applies its time/supply cost and returns the
+    /// party there. Victory and Defeat only clear the pending encounter -- loot,
+    /// injuries and deeper consequences are content the encounter itself declares,
+    /// not something this method invents.
+    pub fn resolve_encounter(
+        &mut self,
+        outcome: EncounterOutcome,
+        geography: &Geography,
+    ) -> Result<(), ExpeditionError> {
+        if self.pending_encounter.is_none() {
+            return Err(ExpeditionError::NoPendingEncounter);
+        }
+        if outcome == EncounterOutcome::Retreat {
+            let previous_location_id = self
+                .route_history
+                .iter()
+                .rev()
+                .nth(1)
+                .map(|step| step.location_id.clone());
+            if let Some(previous_location_id) = previous_location_id {
+                let return_route = self
+                    .legal_routes(geography)
+                    .into_iter()
+                    .find(|route| route.to_location_id == previous_location_id)
+                    .cloned();
+                if let Some(return_route) = return_route {
+                    self.advance_time(return_route.time_cost_minutes);
+                    self.supplies.rations = self
+                        .supplies
+                        .rations
+                        .saturating_sub(return_route.supply_cost);
+                    self.route_history.push(RouteStep {
+                        location_id: return_route.to_location_id.clone(),
+                        arrived_on_day: self.campaign_day,
+                        arrived_segment: self.time_segment.clone(),
+                    });
+                    self.active_location_id = return_route.to_location_id;
+                }
+            }
+        }
+        self.pending_encounter = None;
+        Ok(())
     }
 
     /// A coarse, deterministic clock: every 360 minutes rolls the campaign one time
@@ -539,5 +599,70 @@ mod tests {
         );
         assert!(before.iter().any(|command| command.starts_with("travel:")));
         assert!(before.iter().any(|command| command.starts_with("inspect:")));
+    }
+
+    #[test]
+    fn resolve_encounter_rejects_when_nothing_is_pending() {
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+        let error = state
+            .resolve_encounter(EncounterOutcome::Victory, &geography)
+            .unwrap_err();
+        assert_eq!(error, ExpeditionError::NoPendingEncounter);
+    }
+
+    #[test]
+    fn victory_and_defeat_only_clear_the_pending_encounter() {
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
+        for outcome in [EncounterOutcome::Victory, EncounterOutcome::Defeat] {
+            let mut state = fixture();
+            state.pending_encounter = Some(EncounterState {
+                encounter_id: "encounter.prototype.returning_names".into(),
+                battle_id: "battle.prototype.returning_names".into(),
+            });
+            let location_before = state.active_location_id.clone();
+            state
+                .resolve_encounter(outcome, &geography)
+                .expect("resolves");
+            assert!(state.pending_encounter.is_none());
+            assert_eq!(state.active_location_id, location_before);
+        }
+    }
+
+    #[test]
+    fn retreat_returns_to_the_previous_location_and_consumes_its_route_cost() {
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+        state.supplies.rations = 10;
+        state
+            .travel("route.black_beach.to_river_landing", &geography)
+            .expect("legal route");
+        state
+            .travel("route.river_landing.safe_road", &geography)
+            .expect("legal route");
+        assert_eq!(
+            state.active_location_id,
+            "location.black_beach.reception_terrace"
+        );
+
+        state.pending_encounter = Some(EncounterState {
+            encounter_id: "encounter.prototype.returning_names".into(),
+            battle_id: "battle.prototype.returning_names".into(),
+        });
+        let rations_before_retreat = state.supplies.rations;
+        state
+            .resolve_encounter(EncounterOutcome::Retreat, &geography)
+            .expect("resolves");
+
+        assert!(state.pending_encounter.is_none());
+        assert_eq!(
+            state.active_location_id,
+            "location.black_beach.river_landing"
+        );
+        assert!(state.supplies.rations < rations_before_retreat);
+        assert_eq!(
+            state.route_history.last().unwrap().location_id,
+            "location.black_beach.river_landing"
+        );
     }
 }

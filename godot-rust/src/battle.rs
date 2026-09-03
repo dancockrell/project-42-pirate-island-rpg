@@ -14,6 +14,7 @@ pub enum BattlePhase {
     Resolving,
     Victory,
     Defeat,
+    Retreated,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -233,6 +234,10 @@ pub enum BattleEvent {
     BattleEnded {
         victory: bool,
     },
+    BattleRetreated {
+        command_id: String,
+        actor_id: ActorId,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -277,6 +282,8 @@ pub enum BattleError {
         actual_actor_id: ActorId,
     },
     UnsupportedSkill(String),
+    RetreatNotAllowed,
+    IllegalRetreatActor(ActorId),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -305,6 +312,8 @@ pub struct Battle {
     recovery_openings: BTreeMap<ActorId, RecoveryOpening>,
     forced_next_actor: Option<ActorId>,
     forced_turn_resume: Option<(usize, u32)>,
+    retreat_allowed: bool,
+    resolved_commands: BTreeMap<String, Vec<BattleEvent>>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -418,7 +427,17 @@ impl Battle {
             recovery_openings: BTreeMap::new(),
             forced_next_actor: None,
             forced_turn_resume: None,
+            retreat_allowed: true,
+            resolved_commands: BTreeMap::new(),
         }
+    }
+
+    /// B2: builder for encounters whose stable encounter rule forbids retreat.
+    /// Every battle otherwise allows it, matching the vertical-slice contract's
+    /// current encounters.
+    pub fn with_retreat_allowed(mut self, allowed: bool) -> Self {
+        self.retreat_allowed = allowed;
+        self
     }
 
     pub fn actor(&self, id: &ActorId) -> Option<&Actor> {
@@ -553,8 +572,27 @@ impl Battle {
         events
     }
 
+    /// B2: submitting the same `command_id` against the same authoritative state must
+    /// not double-resolve. The first submission validates and mutates normally; every
+    /// later submission of that exact `command_id` returns the recorded result without
+    /// touching state again, regardless of what has happened to the battle since.
     pub fn submit(&mut self, command: SkillCommand) -> Result<Vec<BattleEvent>, BattleError> {
-        if matches!(self.phase, BattlePhase::Victory | BattlePhase::Defeat) {
+        if let Some(recorded) = self.resolved_commands.get(&command.command_id) {
+            return Ok(recorded.clone());
+        }
+        let command_id = command.command_id.clone();
+        let result = self.submit_uncached(command);
+        if let Ok(events) = &result {
+            self.resolved_commands.insert(command_id, events.clone());
+        }
+        result
+    }
+
+    fn submit_uncached(&mut self, command: SkillCommand) -> Result<Vec<BattleEvent>, BattleError> {
+        if matches!(
+            self.phase,
+            BattlePhase::Victory | BattlePhase::Defeat | BattlePhase::Retreated
+        ) {
             return Err(BattleError::BattleAlreadyEnded);
         }
         if self.phase != BattlePhase::AwaitingCommand {
@@ -598,6 +636,7 @@ impl Battle {
                 | "skill.enemy.razorbeak.rushing_bite"
                 | "skill.enemy.razorbeak.guard_breaking_kick"
                 | "skill.system.hold_position"
+                | "skill.system.retreat"
         ) {
             return Err(BattleError::UnsupportedSkill(command.skill_id));
         }
@@ -632,7 +671,9 @@ impl Battle {
         }
         let expected_targets = match command.skill_id.as_str() {
             "skill.betty.rescue_charge" => 2,
-            "skill.betty.mobile_infirmary" | "skill.system.hold_position" => 0,
+            "skill.betty.mobile_infirmary"
+            | "skill.system.hold_position"
+            | "skill.system.retreat" => 0,
             _ => 1,
         };
         if command.target_ids.len() != expected_targets {
@@ -653,6 +694,26 @@ impl Battle {
             if command.skill_id != "skill.betty.combat_revival" && !target.is_alive() {
                 return Err(BattleError::ActorDefeated(target_id.clone()));
             }
+        }
+        if command.skill_id == "skill.system.retreat" {
+            if !self.retreat_allowed {
+                return Err(BattleError::RetreatNotAllowed);
+            }
+            if actor.faction != Faction::Party {
+                return Err(BattleError::IllegalRetreatActor(command.actor_id));
+            }
+            self.phase = BattlePhase::Retreated;
+            return Ok(vec![
+                BattleEvent::CommandAccepted {
+                    command_id: command.command_id.clone(),
+                    actor_id: command.actor_id.clone(),
+                    skill_id: command.skill_id.clone(),
+                },
+                BattleEvent::BattleRetreated {
+                    command_id: command.command_id.clone(),
+                    actor_id: command.actor_id,
+                },
+            ]);
         }
         if matches!(
             command.skill_id.as_str(),
@@ -2586,6 +2647,108 @@ mod tests {
             })
             .unwrap_err();
         assert!(matches!(error, BattleError::SkillUnavailable { .. }));
+        assert_eq!(battle.snapshot(), before);
+    }
+
+    #[test]
+    fn resubmitting_the_same_command_id_returns_the_recorded_result_without_double_resolving() {
+        let mut battle = prototype();
+        battle.start();
+        let command = SkillCommand {
+            command_id: "command.idempotent.1".into(),
+            actor_id: ActorId("character.heroine.betty".into()),
+            skill_id: "skill.betty.guarded_strike".into(),
+            target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+        };
+        let first = battle.submit(command.clone()).unwrap();
+        let vitality_after_first = battle
+            .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+            .unwrap()
+            .vitality;
+        let second = battle.submit(command).unwrap();
+        assert_eq!(first, second);
+        assert_eq!(
+            battle
+                .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+                .unwrap()
+                .vitality,
+            vitality_after_first
+        );
+    }
+
+    #[test]
+    fn retreat_ends_the_battle_for_an_eligible_party_actor() {
+        let mut battle = prototype();
+        battle.start();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "command.retreat.1".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.system.retreat".into(),
+                target_ids: vec![],
+            })
+            .unwrap();
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::BattleRetreated { .. }))
+        );
+        assert_eq!(battle.snapshot().phase, BattlePhase::Retreated);
+        let error = battle
+            .submit(SkillCommand {
+                command_id: "command.after_retreat".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.guarded_strike".into(),
+                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+            })
+            .unwrap_err();
+        assert_eq!(error, BattleError::BattleAlreadyEnded);
+    }
+
+    #[test]
+    fn retreat_is_rejected_when_the_encounter_forbids_it_without_mutation() {
+        let mut battle = prototype().with_retreat_allowed(false);
+        battle.start();
+        let before = battle.snapshot();
+        let error = battle
+            .submit(SkillCommand {
+                command_id: "command.retreat.forbidden".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.system.retreat".into(),
+                target_ids: vec![],
+            })
+            .unwrap_err();
+        assert_eq!(error, BattleError::RetreatNotAllowed);
+        assert_eq!(battle.snapshot(), before);
+    }
+
+    #[test]
+    fn retreat_is_rejected_for_a_hostile_actor_without_mutation() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 20);
+        let enemy = actor(
+            "enemy.raptor.razorbeak.prototype",
+            Faction::Hostile,
+            7,
+            70,
+            3,
+            30,
+        );
+        betty.initiative = 1;
+        let mut battle = Battle::new("battle.retreat_hostile", [betty, enemy]);
+        battle.start();
+        let before = battle.snapshot();
+        let error = battle
+            .submit(SkillCommand {
+                command_id: "command.retreat.hostile".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.system.retreat".into(),
+                target_ids: vec![],
+            })
+            .unwrap_err();
+        assert_eq!(
+            error,
+            BattleError::IllegalRetreatActor(ActorId("enemy.raptor.razorbeak.prototype".into()))
+        );
         assert_eq!(battle.snapshot(), before);
     }
 }

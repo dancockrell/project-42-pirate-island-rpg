@@ -495,6 +495,14 @@ fn event_dictionary(
             kind = "battle_ended";
             payload.set("victory", victory);
         }
+        BattleEvent::BattleRetreated {
+            command_id: id,
+            actor_id,
+        } => {
+            kind = "battle_retreated";
+            command!(id);
+            subject!(actor_id);
+        }
     }
     vdict! { "event_id" => format!("event.native.{sequence:06}"), "command_id" => command_id, "sequence" => sequence as i64, "kind" => kind, "subjects" => &subjects, "payload" => &payload }
 }
@@ -506,6 +514,7 @@ fn phase_name(value: &BattlePhase) -> &'static str {
         BattlePhase::Resolving => "resolving",
         BattlePhase::Victory => "victory",
         BattlePhase::Defeat => "defeat",
+        BattlePhase::Retreated => "retreated",
     }
 }
 fn faction_name(value: &Faction) -> &'static str {
@@ -540,6 +549,8 @@ fn battle_error_code(value: &crate::battle::BattleError) -> &'static str {
         IllegalTargetCount { .. } => "illegal_target_count",
         SkillOwnerMismatch { .. } => "skill_owner_mismatch",
         UnsupportedSkill(_) => "unsupported_skill",
+        RetreatNotAllowed => "retreat_not_allowed",
+        IllegalRetreatActor(_) => "illegal_retreat_actor",
     }
 }
 

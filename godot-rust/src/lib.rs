@@ -16,8 +16,8 @@ pub use battle::{
     BattlefieldEffect, Faction, SkillCommand, StatusInstance, StatusKind,
 };
 pub use expedition::{
-    CharacterState, EncounterState, ExpeditionError, ExpeditionState, HabitatState,
-    HouseholdProgress, RouteStep, SupplyState, TimeSegment, TravelOutcome,
+    CharacterState, EncounterOutcome, EncounterState, ExpeditionError, ExpeditionState,
+    HabitatState, HouseholdProgress, RouteStep, SupplyState, TimeSegment, TravelOutcome,
 };
 pub use geography::{
     Geography, LocationRecord, PersistencePolicy, ReturnPolicy, RouteKind, RouteOption,
