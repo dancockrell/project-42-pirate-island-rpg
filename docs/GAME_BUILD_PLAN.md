@@ -162,6 +162,39 @@ outsider landmark may appear only where its location data says it exists.
 **Exit test:** choose road or jungle edge; advance time; receive distinct
 observation text and an encounter seed tied to that route choice.
 
+#### A3 implementation contract: expedition route board
+
+The default playable scene is `ExpeditionPrototype`. It is not an open-world
+map, a menu full of fake destinations, or a second campaign simulation.
+`NativeExpeditionPort` configures Rust from the validated world-cell records;
+the screen renders `active_location_id`, `campaign_day`, `time_segment`, and
+only the `legal_route_commands` returned by that native snapshot.
+
+```text
+Top:      Michael Corrigan / Black Beach Expedition, day and time segment.
+Left:     Black Beach route board. It shows the five authored cells and their
+          true portal graph. Teal paths are currently legal. Bronze paths are
+          known links. The current cell is the only filled current-location pin.
+Right:    current cell name, its two authored observations, then only legal
+          departures. Each departure identifies destination and travel mode.
+Bottom:   party identity and the Rust authority/save-boundary statement.
+```
+
+The route board never offers a direct click command. Buttons are created from
+the current cell's portal records only after their stable IDs match native
+`travel:<portal_id>` commands. Pressing a button calls `ExpeditionPort.travel`;
+the returned snapshot completely replaces the projected state. An unavailable
+native bridge blocks startup with a literal error rather than inventing a
+browser-only route state. The authored first path is Black Beach → Damaged
+Coastal Estate → River Landing → either safe road or jungle edge → Reception
+Terrace.
+
+**Native reload gate:** the expedition screen is tested against the live Rust
+bridge after the GDExtension DLL is rebuilt and no active Godot process is
+holding the previous DLL. Until then, compilation, content validation, Rust
+route tests, and a truthful blocked-startup path are the only valid evidence;
+do not call the route playable in a process with the old extension loaded.
+
 ## Phase B — Make Reception Terrace a real combat location
 
 ### B1. Location blockout and authored text
