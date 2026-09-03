@@ -129,6 +129,7 @@ func animate_enemy_reaction(motion: String, shake: float) -> void:
 	enemy_tween.tween_property(enemy_panel, "position", target_position, duration)
 	enemy_tween.tween_property(enemy_panel, "rotation", target_rotation, duration)
 	enemy_tween.tween_property(enemy_panel, "modulate", target_modulate, duration)
+	set_paper_reaction(enemy_panel, motion, shake)
 
 func set_paper_pose(panel: PanelContainer, cue: Dictionary) -> void:
 	if panel == null or panel.get_child_count() == 0:
@@ -149,3 +150,13 @@ func reset_paper_pose(panel: PanelContainer) -> void:
 	var doll := stack.get_child(0)
 	if doll.has_method("reset_presentation"):
 		doll.reset_presentation()
+
+func set_paper_reaction(panel: PanelContainer, motion: String, shake: float) -> void:
+	if panel == null or panel.get_child_count() == 0:
+		return
+	var stack := panel.get_child(0)
+	if stack.get_child_count() == 0:
+		return
+	var doll := stack.get_child(0)
+	if doll.has_method("set_reaction"):
+		doll.set_reaction(motion, shake)

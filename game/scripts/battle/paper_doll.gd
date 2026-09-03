@@ -9,6 +9,7 @@ var accent := Color("4fc7b4")
 var paper := Color("e8d7b7")
 var ink := Color("2a211a")
 const PaperBettyRigScript = preload("res://scripts/battle/paper_betty_rig.gd")
+const PaperRazorbeakRigScript = preload("res://scripts/battle/paper_razorbeak_rig.gd")
 ## Anchor dots are available in the inspector/tooltip contract, while the
 ## running game keeps the silhouette clean. Toggle this locally only while
 ## laying out a replacement sprite sheet.
@@ -16,6 +17,7 @@ var show_anchors := false
 var pose_name := "card_ready"
 var vfx_id := "presentation.vfx.none"
 var betty_rig: PaperBettyRig
+var razorbeak_rig
 
 func set_presentation_cue(cue: Dictionary) -> void:
 	pose_name = str(cue.get("pose", "card_ready"))
@@ -31,6 +33,8 @@ func reset_presentation() -> void:
 	vfx_id = "presentation.vfx.none"
 	if betty_rig != null:
 		betty_rig.set_pose("ready_idle")
+	if razorbeak_rig != null:
+		razorbeak_rig.set_pose("ready_idle")
 	queue_redraw()
 
 func configure(next_spec: Dictionary, next_accent: Color) -> void:
@@ -43,16 +47,31 @@ func configure(next_spec: Dictionary, next_accent: Color) -> void:
 		betty_rig.name = "BettyArticulatedPaperRig"
 		add_child(betty_rig)
 		call_deferred("rebuild_betty_rig")
+	elif spec.get("id", "") == "presentation.paper_doll.razorbeak.active":
+		razorbeak_rig = PaperRazorbeakRigScript.new()
+		razorbeak_rig.name = "RazorbeakArticulatedPaperRig"
+		add_child(razorbeak_rig)
+		call_deferred("rebuild_razorbeak_rig")
 	queue_redraw()
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and betty_rig != null:
 		rebuild_betty_rig()
+	if what == NOTIFICATION_RESIZED and razorbeak_rig != null:
+		rebuild_razorbeak_rig()
 
 func rebuild_betty_rig() -> void:
 	if betty_rig != null and size.x > 0.0 and size.y > 0.0:
 		betty_rig.build(size)
 		betty_rig.set_pose(pose_name)
+
+func rebuild_razorbeak_rig() -> void:
+	if razorbeak_rig != null and size.x > 0.0 and size.y > 0.0:
+		razorbeak_rig.build(size)
+
+func set_reaction(motion: String, shake: float) -> void:
+	if razorbeak_rig != null:
+		razorbeak_rig.animate_reaction(motion, shake)
 
 func metadata_tooltip() -> String:
 	return "PAPER DOLL — DEVELOPMENT ONLY\nStable presentation: %s\nSubject: %s\nFuture asset: %s\nCanvas: %s\nSafe padding: %s%%\nGround anchor: %s\nRoot pivot: %s\n\nIdentity invariants:\n• %s\n\nReplacement tests:\n• %s" % [spec.get("id", "missing"), spec.get("subjectId", "missing"), spec.get("futureRuntimeAssetId", "missing"), str(spec.get("nativeCanvas", [])), str(spec.get("safePaddingPercent", 0)), str(spec.get("groundAnchor", [])), str(spec.get("rootPivot", [])), "\n• ".join(PackedStringArray(spec.get("identityInvariants", []))), "\n• ".join(PackedStringArray(spec.get("replacementTests", [])))]
@@ -78,7 +97,7 @@ func _draw() -> void:
 	var interaction_scale := Vector2(.60, .60)
 	var interaction_origin := Vector2(s.x * .20, s.y * .18)
 	draw_set_transform(interaction_origin + body_offset, body_rotation, interaction_scale)
-	if spec.get("dollKind", "") == "wild_raptor":
+	if spec.get("dollKind", "") == "wild_raptor" and razorbeak_rig == null:
 		draw_raptor(s)
 	draw_set_transform(Vector2.ZERO, 0.0)
 	draw_presentation_vfx(s)

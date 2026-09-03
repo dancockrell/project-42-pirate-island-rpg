@@ -63,6 +63,10 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Godot paper-Betty rig tests failed with exit code $LASTEXITCODE"
     }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/paper_razorbeak_rig_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot paper-Razorbeak rig tests failed with exit code $LASTEXITCODE"
+    }
     & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/content_catalog_test.gd"
     if ($LASTEXITCODE -ne 0) {
         throw "Godot content-catalog registry tests failed with exit code $LASTEXITCODE"
