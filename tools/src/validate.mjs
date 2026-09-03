@@ -324,6 +324,21 @@ for (const [index, reel] of (reelPlan.reels ?? []).entries()) {
   if (reel.aspectRatio !== "16:9") fail(reelPlanFile, `${reel.id} must use 16:9`);
 }
 
+const creaturePlanFile = resolve(repo, "content/art/creature_plan.json");
+const creaturePlan = JSON.parse(await readFile(creaturePlanFile, "utf8"));
+registerId(creaturePlan.id, creaturePlanFile);
+if (creaturePlan.productionMethod !== "magnific_still_image_generation") fail(creaturePlanFile, "productionMethod must name the Magnific still-image generation contract");
+let creaturePlateCount = 0;
+for (const [index, plate] of (creaturePlan.plates ?? []).entries()) {
+  creaturePlateCount += 1;
+  registerId(plate.id, creaturePlanFile);
+  for (const field of ["aspectRatio", "prompt", "status"]) requireString(plate, field, creaturePlanFile);
+  if (!plate.id?.startsWith("art.plate.")) fail(creaturePlanFile, `plates[${index}].id must use art.plate prefix`);
+  reference(plate.subjectId, creaturePlanFile, `plates[${index}].subjectId`);
+  if (forbiddenPromptRationale.test(plate.prompt ?? "")) fail(creaturePlanFile, `${plate.id} prompt contains parser-confusing rationale`);
+  if ((plate.prompt ?? "").length < 300) fail(creaturePlanFile, `${plate.id} prompt is too short to be a production contract`);
+}
+
 const intentionallyExternalPrefixes = ["skill.enemy."];
 for (const item of references) {
   if (!ids.has(item.id) && !intentionallyExternalPrefixes.some(prefix => item.id.startsWith(prefix))) {
@@ -336,4 +351,4 @@ if (failures.length) {
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
-console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${presentationCueCount} presentation cues and ${reelPlan.reels.length} video reels validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
+console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels and ${creaturePlateCount} creature still-image plates validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);

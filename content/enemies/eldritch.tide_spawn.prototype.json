@@ -1,0 +1,77 @@
+{
+  "id": "enemy.eldritch.tide_spawn.prototype",
+  "displayName": "Tide Spawn",
+  "species": "elven_containment_breach",
+  "combatRole": "mobile_individual_threat",
+  "level": 11,
+  "stats": {
+    "vitality": 80,
+    "guard": 4,
+    "initiative": 6,
+    "startingBand": 2
+  },
+  "skillIds": [
+    "skill.enemy.eldritch.dread_gaze"
+  ],
+  "intent": {
+    "selection": "deterministic_priority",
+    "targetRule": "lowest_current_vitality_percentage_then_lowest_guard_then_stable_actor_id",
+    "effectiveRecipientRule": "active_interceptor_else_selected_target",
+    "skillRule": "skill.enemy.eldritch.dread_gaze"
+  },
+  "actions": {
+    "skill.enemy.eldritch.dread_gaze": {
+      "displayName": "Dread Gaze",
+      "rule": "Remove up to 4 Guard from the effective recipient, then deal 9 plus level raw damage through any Guard that remains.",
+      "animationBeats": [
+        {
+          "atMs": 0,
+          "pose": "The tide spawn unfolds an eye that should not exist and turns its full attention on the target, motionless."
+        },
+        {
+          "atMs": 200,
+          "pose": "The stare widens past focus; the target's guarded stance visibly begins to waver."
+        },
+        {
+          "atMs": 420,
+          "pose": "A cold pressure crosses the space between them, bending the target's posture inward."
+        },
+        {
+          "atMs": 600,
+          "pose": "The target's guard breaks outward in dim, guttering shards rather than bronze light."
+        },
+        {
+          "atMs": 780,
+          "pose": "The pressure follows through as a raw blow the target has no composure left to absorb."
+        },
+        {
+          "atMs": 960,
+          "pose": "The tide spawn lets the stare go and the air around it settles, ready again."
+        }
+      ],
+      "framing": "Keep the full figure, both hands, the target line and the impact effect inside the battle safe frame for every beat."
+    }
+  },
+  "worldPresence": {
+    "wild": true,
+    "penAllowed": false,
+    "packSize": 1,
+    "midnightRespawnEligible": true
+  },
+  "text": {
+    "firstObservation": "The tide spawn is what the sealed containment channel was built to hold back: a shape the eye keeps sliding off, patient in a way nothing wild should be.",
+    "intentTells": {
+      "skill.enemy.eldritch.dread_gaze": "An eye that should not exist opens somewhere on its unstable shape and fixes on the weakest stance in the party -- a dread gaze beginning."
+    }
+  },
+  "art": {
+    "assetId": "art.placeholder.eldritch.tide_spawn.active_actor",
+    "status": "placeholder",
+    "framing": "Entire unstable form, the open eye and the guard-break effect remain inside the battle safe frame; no cosmic-horror gore."
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "releaseLegal": false
+  }
+}

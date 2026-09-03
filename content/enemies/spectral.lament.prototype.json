@@ -1,0 +1,77 @@
+{
+  "id": "enemy.spectral.lament.prototype",
+  "displayName": "Lament",
+  "species": "returned_mourning_voice",
+  "combatRole": "mobile_individual_threat",
+  "level": 8,
+  "stats": {
+    "vitality": 45,
+    "guard": 1,
+    "initiative": 13,
+    "startingBand": 2
+  },
+  "skillIds": [
+    "skill.enemy.eldritch.dread_gaze"
+  ],
+  "intent": {
+    "selection": "deterministic_priority",
+    "targetRule": "lowest_current_vitality_percentage_then_lowest_guard_then_stable_actor_id",
+    "effectiveRecipientRule": "active_interceptor_else_selected_target",
+    "skillRule": "skill.enemy.eldritch.dread_gaze"
+  },
+  "actions": {
+    "skill.enemy.eldritch.dread_gaze": {
+      "displayName": "Dread Gaze",
+      "rule": "Remove up to 4 Guard from the effective recipient, then deal 9 plus level raw damage through any Guard that remains.",
+      "animationBeats": [
+        {
+          "atMs": 0,
+          "pose": "The lament stops mid-drift and turns its full attention on the target, motionless."
+        },
+        {
+          "atMs": 200,
+          "pose": "The stare sharpens to a fixed point; the target's guarded stance visibly begins to waver."
+        },
+        {
+          "atMs": 420,
+          "pose": "A cold pressure crosses the space between them, bending the target's posture inward."
+        },
+        {
+          "atMs": 600,
+          "pose": "The target's guard breaks outward in dim, guttering shards rather than bronze light."
+        },
+        {
+          "atMs": 780,
+          "pose": "The pressure follows through as a raw blow the target has no composure left to absorb."
+        },
+        {
+          "atMs": 960,
+          "pose": "The lament lets the stare go and the air around it settles, ready again."
+        }
+      ],
+      "framing": "Keep the full figure, both hands, the target line and the impact effect inside the battle safe frame for every beat."
+    }
+  },
+  "worldPresence": {
+    "wild": true,
+    "penAllowed": false,
+    "packSize": 1,
+    "midnightRespawnEligible": true
+  },
+  "text": {
+    "firstObservation": "The lament drifts the processional route it was never able to finish, mouth open on a mourning cry that never quite becomes sound.",
+    "intentTells": {
+      "skill.enemy.eldritch.dread_gaze": "It stops its slow, wordless drift and turns a fixed, hollow stare on the weakest stance in the party -- the opening beat of a dread gaze."
+    }
+  },
+  "art": {
+    "assetId": "art.placeholder.spectral.lament.active_actor",
+    "status": "placeholder",
+    "framing": "Entire translucent figure, the stare's direction and the guard-break effect remain inside the battle safe frame."
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "releaseLegal": false
+  }
+}

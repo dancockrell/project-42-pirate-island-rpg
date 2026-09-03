@@ -1,0 +1,48 @@
+{
+  "id": "art.plan.creature_still_images",
+  "productionMethod": "magnific_still_image_generation",
+  "plates": [
+    {
+      "id": "art.plate.undead.tomb_wight",
+      "subjectId": "enemy.undead.tomb_wight.prototype",
+      "aspectRatio": "3:4",
+      "prompt": "Full-body production identity plate for the Tomb Wight, a returned elven-tomb guardian in Project 42: Pirate Island RPG's 1850s American-frontier-meets-magical-Bronze-Age-elven setting. A gaunt humanoid skeleton wrapped in the tattered remains of funerary linen, bronze grave-goods still fastened at the wrists and collar, joints held together by faint elven preservation glyphs that glow a dim cold blue at the sockets. Bare bone shows through torn wrappings at the ribs and forearms; both hands are empty and open, fingers splayed wide for a grasping strike. Pose: a slow, deliberate half-turn toward camera, weight settled and patient, not a lunging monster. Read as an individual, memorable returned guardian, not a disposable skeleton-pack enemy -- level six threat, full tail-to-toe silhouette, no cropping. Neutral grey studio backdrop, three-quarter front lighting, no environment set dressing. No modern gear, no European-medieval knight armor, no cartoon skull grin.",
+      "status": "queued"
+    },
+    {
+      "id": "art.plate.undead.drowned_bearer",
+      "subjectId": "enemy.undead.drowned_bearer.prototype",
+      "aspectRatio": "3:4",
+      "prompt": "Full-body production identity plate for the Drowned Bearer, a returned river-landing porter in Project 42: Pirate Island RPG's 1850s American-frontier-meets-magical-Bronze-Age-elven setting. A waterlogged humanoid corpse-figure still wearing a wooden porter's carrying yoke across bloated shoulders, skin a pale drowned grey, water sheeting continuously off ragged working clothes, bronze elven waymark tokens still tied at the belt. Both arms rise, fingers spread for a waterlogged grasping strike; the yoke's straps hang empty and swinging. Pose: a heavy, unhurried forward step, water pooling at the feet. Read as an individual, memorable returned porter, not a disposable zombie-horde enemy -- level seven threat, full head-to-boot silhouette, no cropping. Neutral grey studio backdrop, three-quarter front lighting, no environment set dressing. No gore excess, no modern clothing, no cartoon shamble.",
+      "status": "queued"
+    },
+    {
+      "id": "art.plate.spectral.lament",
+      "subjectId": "enemy.spectral.lament.prototype",
+      "aspectRatio": "3:4",
+      "prompt": "Full-body production identity plate for the Lament, a translucent returned mourning spirit in Project 42: Pirate Island RPG's 1850s American-frontier-meets-magical-Bronze-Age-elven setting. A semi-transparent humanoid figure in the drifting remains of funerary mourning cloth, features soft and half-formed except for a fixed, hollow-eyed stare and a mouth held open on a cry that never becomes sound, faint cold-blue elven glyph-light bleeding through where the body should be solid. Pose: motionless mid-drift, then turning that fixed stare directly toward camera for a dread gaze. Read as an individual, memorable returned spirit, not a disposable ghost-swarm enemy -- level eight threat, full figure visible through the translucency, no cropping. Neutral dark studio backdrop with the figure's own glow as the only strong light source, no environment set dressing. No horror-movie jump-scare framing, no cartoon bedsheet ghost.",
+      "status": "queued"
+    },
+    {
+      "id": "art.plate.eldritch.tide_spawn",
+      "subjectId": "enemy.eldritch.tide_spawn.prototype",
+      "aspectRatio": "3:4",
+      "prompt": "Full-body production identity plate for the Tide Spawn, an eldritch containment-breach entity in Project 42: Pirate Island RPG's 1850s American-frontier-meets-magical-Bronze-Age-elven setting. An unstable, faintly bioluminescent shape the eye keeps sliding off -- suggest anatomy through shifting dark-water silhouette and cracked bronze elven containment plating fused into its surface, rather than a fixed, describable body plan. One single unnaturally opened eye is the only stable, readable feature, fixed directly on camera for a dread gaze. Read as an individual, memorable, genuinely alien containment breach -- level eleven threat, full unstable silhouette, no cropping. Neutral dark studio backdrop, cold blue-green rim lighting only, no environment set dressing. No cosmic-horror gore or tentacle-cluster cliche, no readable humanoid face beyond the single eye.",
+      "status": "queued"
+    },
+    {
+      "id": "art.plate.hunter.bounty_tracker",
+      "subjectId": "enemy.hunter.bounty_tracker.prototype",
+      "aspectRatio": "3:4",
+      "prompt": "Full-body production identity plate for the Bounty Tracker, a human frontier pursuer in Project 42: Pirate Island RPG's 1850s American-frontier-meets-magical-Bronze-Age-elven setting. A lean, weathered adult tracker in worn frontier leathers and a low, practical hat, a coil of takedown rope and a plain steel knife at the belt, no magic and no steampunk gear -- a mundane, dangerous professional, not a monster. Pose: crouched low reading a trail, then rising into a controlled takedown-grip stance with both hands reaching forward. Read as an individual, memorable roaming pursuer -- level nine threat, full head-to-boot silhouette, no cropping. Neutral grey studio backdrop, three-quarter front lighting, no environment set dressing. No cartoon bandit caricature, no anachronistic modern clothing.",
+      "status": "queued"
+    },
+    {
+      "id": "art.plate.hunter.revenant",
+      "subjectId": "enemy.hunter.revenant.prototype",
+      "aspectRatio": "3:4",
+      "prompt": "Full-body production identity plate for the Revenant, a returned undying pursuer in Project 42: Pirate Island RPG's 1850s American-frontier-meets-magical-Bronze-Age-elven setting. A gaunt, grey-skinned humanoid figure in the ruined remains of frontier travelling clothes, bronze elven binding-glyphs scarred into both forearms where something once tried and failed to hold it in place, expression fixed and utterly patient. Pose: standing perfectly still, then turning a full, unblinking stare directly toward camera for a dread gaze that never tires. Read as an individual, memorable returned pursuer, distinct from the mundane Bounty Tracker it sometimes follows -- level thirteen threat, full head-to-boot silhouette, no cropping. Neutral dark studio backdrop, cold three-quarter lighting, no environment set dressing. No zombie shamble, no cartoon skeleton, no gore excess.",
+      "status": "queued"
+    }
+  ]
+}

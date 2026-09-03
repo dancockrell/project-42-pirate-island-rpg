@@ -1,0 +1,73 @@
+{
+  "id": "enemy.hunter.bounty_tracker.prototype",
+  "displayName": "Bounty Tracker",
+  "species": "human_frontier_tracker",
+  "combatRole": "roaming_individual_pursuer",
+  "level": 9,
+  "stats": {
+    "vitality": 70,
+    "guard": 5,
+    "initiative": 14,
+    "startingBand": 2
+  },
+  "skillIds": [
+    "skill.enemy.undead.grasping_strike"
+  ],
+  "intent": {
+    "selection": "deterministic_priority",
+    "targetRule": "lowest_current_vitality_percentage_then_lowest_guard_then_stable_actor_id",
+    "effectiveRecipientRule": "active_interceptor_else_selected_target",
+    "skillRule": "skill.enemy.undead.grasping_strike"
+  },
+  "actions": {
+    "skill.enemy.undead.grasping_strike": {
+      "displayName": "Grasping Strike",
+      "rule": "Deal 9 plus level raw damage to the effective recipient.",
+      "animationBeats": [
+        {
+          "atMs": 0,
+          "pose": "The tracker plants both boots and reads the party's stance and fixes on the target with a slow, certain turn."
+        },
+        {
+          "atMs": 180,
+          "pose": "Both arms rise and reach, fingers splaying wide for the controlled takedown grip."
+        },
+        {
+          "atMs": 360,
+          "pose": "The grip closes on the target's nearest limb and the whole body leans into the throw."
+        },
+        {
+          "atMs": 520,
+          "pose": "The target is wrenched off balance as the strike lands at full extension."
+        },
+        {
+          "atMs": 700,
+          "pose": "The tracker releases and settles back into a low, patient ready stance."
+        }
+      ],
+      "framing": "Keep the full figure, both hands, the target line and the impact effect inside the battle safe frame for every beat."
+    }
+  },
+  "worldPresence": {
+    "wild": true,
+    "penAllowed": false,
+    "packSize": 1,
+    "midnightRespawnEligible": true
+  },
+  "text": {
+    "firstObservation": "The bounty tracker followed a real trail here, not a habitat's instinct: boot prints, a cold camp, a paid reason to find this exact party.",
+    "intentTells": {
+      "skill.enemy.undead.grasping_strike": "It reads the party's stances like a professional and reaches for the weakest one with a controlled takedown grip."
+    }
+  },
+  "art": {
+    "assetId": "art.placeholder.hunter.bounty_tracker.active_actor",
+    "status": "placeholder",
+    "framing": "Entire 1850s-frontier tracker figure, gear, both hands and impact effect remain inside the battle safe frame."
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "releaseLegal": false
+  }
+}

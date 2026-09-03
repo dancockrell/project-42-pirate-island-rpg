@@ -1,0 +1,73 @@
+{
+  "id": "enemy.undead.drowned_bearer.prototype",
+  "displayName": "Drowned Bearer",
+  "species": "returned_estuary_porter",
+  "combatRole": "mobile_individual_threat",
+  "level": 7,
+  "stats": {
+    "vitality": 65,
+    "guard": 3,
+    "initiative": 7,
+    "startingBand": 2
+  },
+  "skillIds": [
+    "skill.enemy.undead.grasping_strike"
+  ],
+  "intent": {
+    "selection": "deterministic_priority",
+    "targetRule": "lowest_current_vitality_percentage_then_lowest_guard_then_stable_actor_id",
+    "effectiveRecipientRule": "active_interceptor_else_selected_target",
+    "skillRule": "skill.enemy.undead.grasping_strike"
+  },
+  "actions": {
+    "skill.enemy.undead.grasping_strike": {
+      "displayName": "Grasping Strike",
+      "rule": "Deal 9 plus level raw damage to the effective recipient.",
+      "animationBeats": [
+        {
+          "atMs": 0,
+          "pose": "The bearer turns, water sheeting off its shoulders and fixes on the target with a slow, certain turn."
+        },
+        {
+          "atMs": 180,
+          "pose": "Both arms rise and reach, fingers splaying wide for the waterlogged grip."
+        },
+        {
+          "atMs": 360,
+          "pose": "The grip closes on the target's nearest limb and the whole body leans into the drag."
+        },
+        {
+          "atMs": 520,
+          "pose": "The target is wrenched off balance as the strike lands at full extension."
+        },
+        {
+          "atMs": 700,
+          "pose": "The bearer releases and settles back into a low, patient ready stance."
+        }
+      ],
+      "framing": "Keep the full figure, both hands, the target line and the impact effect inside the battle safe frame for every beat."
+    }
+  },
+  "worldPresence": {
+    "wild": true,
+    "penAllowed": false,
+    "packSize": 1,
+    "midnightRespawnEligible": true
+  },
+  "text": {
+    "firstObservation": "The drowned bearer still wears its porter's yoke, empty now, and still walks the old load-road from the river landing exactly as it did alive.",
+    "intentTells": {
+      "skill.enemy.undead.grasping_strike": "It still carries its porter's yoke across dead shoulders, arms rising toward the weakest stance for a waterlogged grasping strike."
+    }
+  },
+  "art": {
+    "assetId": "art.placeholder.undead.drowned_bearer.active_actor",
+    "status": "placeholder",
+    "framing": "Entire waterlogged figure, yoke, both hands and impact effect remain inside the battle safe frame."
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "releaseLegal": false
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "id": "enemy.hunter.revenant.prototype",
+  "displayName": "Revenant",
+  "species": "returned_undying_pursuer",
+  "combatRole": "roaming_individual_pursuer",
+  "level": 13,
+  "stats": {
+    "vitality": 90,
+    "guard": 6,
+    "initiative": 10,
+    "startingBand": 2
+  },
+  "skillIds": [
+    "skill.enemy.eldritch.dread_gaze"
+  ],
+  "intent": {
+    "selection": "deterministic_priority",
+    "targetRule": "lowest_current_vitality_percentage_then_lowest_guard_then_stable_actor_id",
+    "effectiveRecipientRule": "active_interceptor_else_selected_target",
+    "skillRule": "skill.enemy.eldritch.dread_gaze"
+  },
+  "actions": {
+    "skill.enemy.eldritch.dread_gaze": {
+      "displayName": "Dread Gaze",
+      "rule": "Remove up to 4 Guard from the effective recipient, then deal 9 plus level raw damage through any Guard that remains.",
+      "animationBeats": [
+        {
+          "atMs": 0,
+          "pose": "The revenant stops walking and turns fully toward the party and turns its full attention on the target, motionless."
+        },
+        {
+          "atMs": 200,
+          "pose": "The stare does not blink or waver; the target's guarded stance visibly begins to waver."
+        },
+        {
+          "atMs": 420,
+          "pose": "A cold pressure crosses the space between them, bending the target's posture inward."
+        },
+        {
+          "atMs": 600,
+          "pose": "The target's guard breaks outward in dim, guttering shards rather than bronze light."
+        },
+        {
+          "atMs": 780,
+          "pose": "The pressure follows through as a raw blow the target has no composure left to absorb."
+        },
+        {
+          "atMs": 960,
+          "pose": "The revenant lets the stare go and the air around it settles, ready again."
+        }
+      ],
+      "framing": "Keep the full figure, both hands, the target line and the impact effect inside the battle safe frame for every beat."
+    }
+  },
+  "worldPresence": {
+    "wild": true,
+    "penAllowed": false,
+    "packSize": 1,
+    "midnightRespawnEligible": true
+  },
+  "text": {
+    "firstObservation": "The revenant was beaten before, and it remembers exactly nothing about stopping: the same unhurried approach, the same patient stare, as many times as it takes.",
+    "intentTells": {
+      "skill.enemy.eldritch.dread_gaze": "It stops its unhurried approach and turns its full, unblinking stare on the weakest stance in the party -- a dread gaze that does not tire."
+    }
+  },
+  "art": {
+    "assetId": "art.placeholder.hunter.revenant.active_actor",
+    "status": "placeholder",
+    "framing": "Entire returned pursuer figure, the stare's direction and the guard-break effect remain inside the battle safe frame."
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "releaseLegal": false
+  }
+}
