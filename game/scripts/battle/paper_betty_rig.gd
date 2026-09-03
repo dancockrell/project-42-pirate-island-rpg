@@ -8,9 +8,12 @@ extends Node2D
 
 const SKIN := Color("f1c9ad")
 const AUBURN := Color("8e3d2e")
-const TEAL := Color("237e76")
-const DARK_TEAL := Color("123d40")
-const CREAM := Color("f1e6cf")
+const LEATHER := Color("6d3c29")
+const DARK_LEATHER := Color("34201d")
+const LACE := Color("f1e6cf")
+const TARTAN_GREEN := Color("34533d")
+const TARTAN_NAVY := Color("1f3442")
+const TARTAN_WINE := Color("784446")
 const BOOT := Color("3a2928")
 const BRONZE := Color("b78948")
 const GLASS := Color("5bcabe")
@@ -29,6 +32,8 @@ var coat_right: PaperBettyPiece
 var weapon: PaperBettyPiece
 var satchel: PaperBettyPiece
 var ampoule_rack: PaperBettyPiece
+var home_position := Vector2.ZERO
+var pose_tween: Tween
 
 func build(canvas: Vector2) -> void:
 	for child in get_children():
@@ -42,6 +47,7 @@ func build(canvas: Vector2) -> void:
 	var uniform_scale := minf(canvas.x / 520.0, canvas.y / 560.0) * .94
 	position = Vector2((canvas.x - 520.0 * uniform_scale) * .50, canvas.y * .035)
 	scale = Vector2.ONE * uniform_scale
+	home_position = position
 	torso = add_piece("torso", Vector2(112, 154), Vector2(260, 190), 0.0)
 	coat_left = add_piece("coat_tail", Vector2(70, 125), Vector2(225, 292), 8.0)
 	coat_right = add_piece("coat_tail", Vector2(70, 125), Vector2(296, 292), -8.0)
@@ -90,23 +96,84 @@ func piece_z(kind: String) -> int:
 func set_pose(pose_name: String) -> void:
 	if torso == null:
 		return
-	# All pose changes act on real pivots. The later animation director can use
-	# the same named pieces for tweens, hit stops and hand-authored keyframes.
-	match pose_name:
-		"forward_step":
-			left_leg.rotation_degrees = -18; right_leg.rotation_degrees = 12
-			left_boot.rotation_degrees = -10; right_boot.rotation_degrees = 8
-			left_arm.rotation_degrees = 28; right_arm.rotation_degrees = -48; weapon.rotation_degrees = -58
-		"horizontal_mace_hit":
-			torso.rotation_degrees = -8; left_arm.rotation_degrees = 42; right_arm.rotation_degrees = -72; weapon.rotation_degrees = -26
-			left_leg.rotation_degrees = -11; right_leg.rotation_degrees = 15
-		"mace_cross_body":
-			torso.rotation_degrees = 5; left_arm.rotation_degrees = 20; right_arm.rotation_degrees = -60; weapon.rotation_degrees = -24
-		_:
-			torso.rotation_degrees = 0; left_leg.rotation_degrees = 3; right_leg.rotation_degrees = -4
-			left_boot.rotation_degrees = -1; right_boot.rotation_degrees = 3
-			left_arm.rotation_degrees = 18; right_arm.rotation_degrees = -28; weapon.rotation_degrees = -18
+	if pose_tween != null:
+		pose_tween.kill()
+	apply_pose(pose_name)
+
+func animate_to_pose(pose_name: String, motion := "") -> void:
+	if torso == null:
+		return
+	if pose_tween != null:
+		pose_tween.kill()
+	var target := pose_values(pose_name)
+	pose_tween = create_tween().set_parallel(true)
+	var duration := 0.11
+	if motion == "card_to_battle_plane":
+		duration = 0.16
+	elif motion == "contact_lunge":
+		duration = 0.08
+	elif motion == "battle_plane_to_card":
+		duration = 0.18
+	pose_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	pose_tween.tween_property(self, "position", target.root_position, duration)
+	for property_name in target.rotations:
+		var entry: Dictionary = target.rotations[property_name]
+		pose_tween.tween_property(entry.get("node"), "rotation_degrees", entry.get("value"), duration)
+	if pose_name == "horizontal_mace_hit":
+		# The contact pose is held long enough to read, then the next authored
+		# beat takes control. This is presentation timing only; it never delays
+		# or changes the simulation event sequence.
+		pose_tween.tween_property(self, "modulate", Color("fff6df"), duration * .55)
+		pose_tween.tween_property(self, "modulate", Color.WHITE, duration)
+
+func apply_pose(pose_name: String) -> void:
+	var target := pose_values(pose_name)
+	position = target.root_position
+	for property_name in target.rotations:
+		var entry: Dictionary = target.rotations[property_name]
+		entry.get("node").rotation_degrees = entry.get("value")
 	queue_redraw()
+
+func pose_values(pose_name: String) -> Dictionary:
+	# This table is the blocking contract for the first live combat action. The
+	# result exposes every transform the director is allowed to own, which keeps
+	# the fighter reproducible when paper is replaced by a 2D or 3D rig later.
+	var rotations := {
+		"torso": {"node": torso, "value": 0.0},
+		"coat_left": {"node": coat_left, "value": 8.0},
+		"coat_right": {"node": coat_right, "value": -8.0},
+		"left_leg": {"node": left_leg, "value": 3.0},
+		"right_leg": {"node": right_leg, "value": -4.0},
+		"left_boot": {"node": left_boot, "value": -1.0},
+		"right_boot": {"node": right_boot, "value": 3.0},
+		"left_arm": {"node": left_arm, "value": 18.0},
+		"right_arm": {"node": right_arm, "value": -28.0},
+		"weapon": {"node": weapon, "value": -18.0},
+		"head": {"node": head, "value": 0.0},
+		"hair": {"node": hair, "value": 0.0}
+	}
+	var root_position := home_position
+	match pose_name:
+		"mace_low_guard":
+			rotations.left_arm.value = 24.0; rotations.right_arm.value = -42.0; rotations.weapon.value = -36.0
+			rotations.left_leg.value = -3.0; rotations.right_leg.value = 6.0
+		"forward_step":
+			root_position += Vector2(20, -4)
+			rotations.left_leg.value = -18.0; rotations.right_leg.value = 12.0
+			rotations.left_boot.value = -10.0; rotations.right_boot.value = 8.0
+			rotations.left_arm.value = 28.0; rotations.right_arm.value = -48.0; rotations.weapon.value = -58.0
+			rotations.coat_left.value = 19.0; rotations.coat_right.value = -18.0
+		"horizontal_mace_hit":
+			root_position += Vector2(55, -15)
+			rotations.torso.value = -8.0; rotations.left_arm.value = 42.0; rotations.right_arm.value = -72.0; rotations.weapon.value = -26.0
+			rotations.left_leg.value = -11.0; rotations.right_leg.value = 15.0
+			rotations.coat_left.value = 27.0; rotations.coat_right.value = -27.0
+		"mace_cross_body":
+			root_position += Vector2(29, -3)
+			rotations.torso.value = 5.0; rotations.left_arm.value = 20.0; rotations.right_arm.value = -60.0; rotations.weapon.value = -24.0
+			rotations.left_leg.value = -4.0; rotations.right_leg.value = 8.0
+			rotations.coat_left.value = 15.0; rotations.coat_right.value = -13.0
+	return {"root_position": root_position, "rotations": rotations}
 
 class PaperBettyPiece:
 	extends Node2D
@@ -116,16 +183,25 @@ class PaperBettyPiece:
 	func _draw() -> void:
 		match kind:
 			"torso":
-				draw_colored_polygon(PackedVector2Array([Vector2(-56,-72),Vector2(56,-72),Vector2(49,-16),Vector2(42,24),Vector2(30,52),Vector2(-30,52),Vector2(-42,24),Vector2(-49,-16)]), CREAM)
-				draw_colored_polygon(PackedVector2Array([Vector2(-42,-18),Vector2(42,-18),Vector2(35,42),Vector2(24,49),Vector2(-24,49),Vector2(-35,42)]), TEAL)
+				# Approved Betty blockout: fitted tobacco leather over ivory lace,
+				# dark leather shorts, and one green/navy tartan hip sash. The paper
+				# model preserves costume identity without pretending to be final art.
+				draw_colored_polygon(PackedVector2Array([Vector2(-56,-72),Vector2(56,-72),Vector2(49,-16),Vector2(42,24),Vector2(30,52),Vector2(-30,52),Vector2(-42,24),Vector2(-49,-16)]), LACE)
+				draw_colored_polygon(PackedVector2Array([Vector2(-42,-18),Vector2(42,-18),Vector2(35,34),Vector2(24,42),Vector2(-24,42),Vector2(-35,34)]), LEATHER)
+				draw_colored_polygon(PackedVector2Array([Vector2(-40,35),Vector2(40,35),Vector2(34,55),Vector2(-34,55)]), DARK_LEATHER)
+				draw_rect(Rect2(-42,26,84,13), TARTAN_GREEN, true)
+				draw_line(Vector2(-36,30),Vector2(34,30),TARTAN_NAVY,3)
+				draw_line(Vector2(-28,38),Vector2(30,38),TARTAN_WINE,2)
+				for x in [-25.0, 0.0, 25.0]: draw_line(Vector2(x,26),Vector2(x+7,39),TARTAN_NAVY,2)
 				draw_line(Vector2(0,-13),Vector2(0,38),BRONZE,3)
-				draw_line(Vector2(-24,7),Vector2(24,7),Color("174f4d"),2)
+				draw_line(Vector2(-24,7),Vector2(24,7),Color("2d1d1b"),2)
 				# Open shoulders, blouse folds and fitted corset are separate visual
 				# reads even in a simple paper proxy; do not substitute a box torso.
-				draw_arc(Vector2(-43,-38),16,deg_to_rad(205),deg_to_rad(350),8,CREAM,5,true)
-				draw_arc(Vector2(43,-38),16,deg_to_rad(190),deg_to_rad(335),8,CREAM,5,true)
+				draw_arc(Vector2(-43,-38),16,deg_to_rad(205),deg_to_rad(350),8,LACE,5,true)
+				draw_arc(Vector2(43,-38),16,deg_to_rad(190),deg_to_rad(335),8,LACE,5,true)
 			"coat_tail":
-				draw_colored_polygon(PackedVector2Array([Vector2(-30,-12),Vector2(30,-12),Vector2(42,108),Vector2(-12,96)]), Color("174f4d"))
+				draw_colored_polygon(PackedVector2Array([Vector2(-30,-12),Vector2(30,-12),Vector2(42,108),Vector2(-12,96)]), Color("4a2b25"))
+				draw_line(Vector2(-24,4),Vector2(26,4),BRONZE,2)
 			"leg":
 				draw_line(Vector2.ZERO,Vector2(0,108),SKIN,24,true)
 				draw_line(Vector2(-7,18),Vector2(7,18),Color("e2a98e"),2)

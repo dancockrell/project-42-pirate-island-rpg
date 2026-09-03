@@ -21,7 +21,9 @@ func set_presentation_cue(cue: Dictionary) -> void:
 	pose_name = str(cue.get("pose", "card_ready"))
 	vfx_id = str(cue.get("vfxId", "presentation.vfx.none"))
 	if betty_rig != null:
-		betty_rig.set_pose(pose_name)
+		# Each authored beat moves the same articulated hierarchy. This is the
+		# temporary animation implementation, not a static key-art swap.
+		betty_rig.animate_to_pose(pose_name, str(cue.get("motion", "")))
 	queue_redraw()
 
 func reset_presentation() -> void:
