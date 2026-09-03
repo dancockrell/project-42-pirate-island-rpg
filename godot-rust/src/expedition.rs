@@ -14,7 +14,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 
 use crate::geography::{Geography, RouteOption};
-use crate::world::DeathMemory;
+use crate::world::{DeathMemory, NamedPerson, SpawnRule, WorldClock, WorldEvent};
 
 pub const CURRENT_SAVE_VERSION: u32 = 1;
 
@@ -92,6 +92,7 @@ pub enum ExpeditionError {
     InvalidPartySize { found: usize },
     IllegalRoute { route_id: String },
     NoPendingEncounter,
+    MidnightBlockedByPendingEncounter,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -334,6 +335,75 @@ impl ExpeditionState {
             );
         }
         commands
+    }
+
+    /// B3: Midnight as a single atomic transaction, delegating the deterministic
+    /// return/spawn math to `WorldClock::resolve_midnight` (already proven in
+    /// `world.rs`) rather than reimplementing it here. Rejects, without mutating
+    /// state, if a `pending_encounter` is still open -- midnight cannot resolve
+    /// mid-encounter. On success, advances `campaign_day` by one, resets
+    /// `time_segment` to Dawn, preserves every death-memory fact and counter while
+    /// restoring eligible named people, and records each region's deterministic
+    /// spawn in `habitat_states`.
+    pub fn resolve_midnight(
+        &mut self,
+        rules: &[SpawnRule],
+    ) -> Result<Vec<WorldEvent>, ExpeditionError> {
+        if self.pending_encounter.is_some() {
+            return Err(ExpeditionError::MidnightBlockedByPendingEncounter);
+        }
+
+        let named_people = self
+            .named_person_memory
+            .iter()
+            .map(|(id, memory)| {
+                (
+                    id.clone(),
+                    NamedPerson {
+                        id: id.clone(),
+                        display_name: id.clone(),
+                        alive_today: self.named_person_is_alive(id),
+                        death_memory: memory.clone(),
+                    },
+                )
+            })
+            .collect();
+        let mut clock = WorldClock {
+            day: self.campaign_day,
+            minute_of_day: 0,
+            named_people,
+        };
+        let events = clock.resolve_midnight(rules, self.rng_seed);
+
+        self.campaign_day = clock.day;
+        self.time_segment = TimeSegment::Dawn;
+        for (id, person) in clock.named_people {
+            self.named_person_memory.insert(id, person.death_memory);
+        }
+        for event in &events {
+            if let WorldEvent::MonsterMaterialized { region_id, .. } = event {
+                self.habitat_states.insert(
+                    region_id.clone(),
+                    HabitatState {
+                        last_spawn_day: Some(self.campaign_day),
+                        cleared_today: false,
+                    },
+                );
+            }
+        }
+
+        Ok(events)
+    }
+
+    /// Derives "alive today" from the death memory alone -- `named_person_memory`
+    /// stays exactly the `Map<PersonId, DeathMemory>` shape `docs/GAME_BUILD_PLAN.md`
+    /// section 4.1 specifies, with no separate alive-flag field to keep in sync.
+    fn named_person_is_alive(&self, person_id: &str) -> bool {
+        self.named_person_memory
+            .get(person_id)
+            .map_or(true, |memory| {
+                memory.last_death_day != Some(self.campaign_day)
+            })
     }
 }
 
@@ -664,5 +734,104 @@ mod tests {
             state.route_history.last().unwrap().location_id,
             "location.black_beach.river_landing"
         );
+    }
+
+    fn midnight_rules() -> Vec<SpawnRule> {
+        vec![SpawnRule {
+            region_id: "region.reception_road".into(),
+            definition_ids: vec![
+                "enemy.raptor.razorbeak".into(),
+                "enemy.boar.thunderback".into(),
+            ],
+            region_base_level: 5,
+            daily_count: 2,
+            pressure: 1,
+        }]
+    }
+
+    #[test]
+    fn midnight_advances_the_day_once_and_resets_to_dawn() {
+        let mut state = fixture();
+        state.time_segment = TimeSegment::Dusk;
+        let starting_day = state.campaign_day;
+        state.resolve_midnight(&midnight_rules()).expect("resolves");
+        assert_eq!(state.campaign_day, starting_day + 1);
+        assert_eq!(state.time_segment, TimeSegment::Dawn);
+    }
+
+    #[test]
+    fn a_person_killed_today_returns_alive_with_death_memory_preserved() {
+        let mut state = fixture();
+        state.named_person_memory.insert(
+            "person.villager.tomas".into(),
+            DeathMemory {
+                killed_by_player_count: 1,
+                last_death_day: Some(state.campaign_day),
+                last_death_context_id: Some("encounter.prototype.returning_names".into()),
+            },
+        );
+        assert!(!state.named_person_is_alive("person.villager.tomas"));
+
+        state.resolve_midnight(&midnight_rules()).expect("resolves");
+
+        assert!(state.named_person_is_alive("person.villager.tomas"));
+        let memory = &state.named_person_memory["person.villager.tomas"];
+        assert_eq!(memory.killed_by_player_count, 1);
+        assert_eq!(memory.last_death_day, Some(1));
+        assert_eq!(
+            memory.last_death_context_id.as_deref(),
+            Some("encounter.prototype.returning_names")
+        );
+    }
+
+    #[test]
+    fn midnight_spawns_are_deterministic_for_the_same_seed_and_day() {
+        let mut first = fixture();
+        let mut second = fixture();
+        let left = first.resolve_midnight(&midnight_rules()).expect("resolves");
+        let right = second
+            .resolve_midnight(&midnight_rules())
+            .expect("resolves");
+        assert_eq!(left, right);
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn midnight_records_deterministic_spawns_in_habitat_states() {
+        let mut state = fixture();
+        state.resolve_midnight(&midnight_rules()).expect("resolves");
+        let habitat = state
+            .habitat_states
+            .get("region.reception_road")
+            .expect("habitat recorded");
+        assert_eq!(habitat.last_spawn_day, Some(state.campaign_day));
+        assert!(!habitat.cleared_today);
+    }
+
+    #[test]
+    fn midnight_is_blocked_by_a_pending_encounter_without_mutation() {
+        let mut state = fixture();
+        state.pending_encounter = Some(EncounterState {
+            encounter_id: "encounter.prototype.returning_names".into(),
+            battle_id: "battle.prototype.returning_names".into(),
+        });
+        let before = state.clone();
+        let result = state.resolve_midnight(&midnight_rules());
+        assert_eq!(
+            result,
+            Err(ExpeditionError::MidnightBlockedByPendingEncounter)
+        );
+        assert_eq!(state, before);
+    }
+
+    #[test]
+    fn midnight_result_round_trips_through_save_and_reload() {
+        let mut state = fixture();
+        state.resolve_midnight(&midnight_rules()).expect("resolves");
+        let restored = ExpeditionState::from_json(&state.to_json()).expect("round trip parses");
+        assert_eq!(state.campaign_day, restored.campaign_day);
+        assert_eq!(state.time_segment, restored.time_segment);
+        assert_eq!(state.named_person_memory, restored.named_person_memory);
+        assert_eq!(state.habitat_states, restored.habitat_states);
     }
 }
