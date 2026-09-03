@@ -164,6 +164,14 @@ func make_description(cell: Dictionary, snapshot: Dictionary) -> String:
 			var aftermath := str(entry.get("aftermathDescription", ""))
 			if not aftermath.is_empty():
 				text += "\n\n[color=#55c9ac]AFTERMATH[/color]\n%s" % aftermath
+	for response in cell.get("estateConsequenceResponses", []):
+		if not response is Dictionary:
+			continue
+		var estate_upgrade_id := str(response.get("requiresEstateUpgradeId", ""))
+		if estate_upgrades(snapshot).has(estate_upgrade_id):
+			var response_text := str(response.get("text", ""))
+			if not response_text.is_empty():
+				text += "\n\n[color=#55c9ac]HOUSEHOLD RESULT[/color]\n%s" % response_text
 	return text
 
 
@@ -174,9 +182,18 @@ func resolved_encounter_ids(snapshot: Dictionary) -> Dictionary:
 	return ids
 
 
+func estate_upgrades(snapshot: Dictionary) -> Dictionary:
+	var ids: Dictionary = {}
+	for estate_upgrade_id in snapshot.get("estate_upgrades", []):
+		ids[str(estate_upgrade_id)] = true
+	return ids
+
+
 func initial_status_message(snapshot: Dictionary) -> String:
 	if resolved_encounter_ids(snapshot).has("encounter.prototype.returning_names") and str(snapshot.get("active_location_id", "")) == "world.cell.reception_terrace":
 		return "TERRACE CLEAR  •  RAZORBEAK DRIVEN OFF  •  ROUTES OPEN"
+	if estate_upgrades(snapshot).has("estate_upgrade.river_gate_alarm") and str(snapshot.get("active_location_id", "")) == "world.cell.damaged_estate":
+		return "HOUSEHOLD UPGRADE  •  RIVER GATE ALARM READY"
 	if str(snapshot.get("active_location_id", "")) == "world.cell.black_beach":
 		return "Michael and Betty reach the black shore below the wreck of the Handsome Jack."
 	return "ARRIVAL STATE RESTORED  •  %s" % str(snapshot.get("active_location_id", "unknown_location")).replace("world.cell.", "").replace("_", " ").to_upper()

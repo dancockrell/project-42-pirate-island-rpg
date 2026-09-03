@@ -6,6 +6,7 @@
   "hostileActorIds": ["enemy.raptor.razorbeak.prototype"],
   "entry": { "timeCostMinutes": 0, "startRound": 1, "cameraPreset": "battle.two_actor_full_body" },
   "victory": { "condition": "all_hostiles_defeated", "timeCostMinutes": 20, "lootTableId": "loot.razorbeak.prototype" },
+  "estateConsequence": { "estateUpgradeId": "estate_upgrade.river_gate_alarm", "locationId": "world.cell.damaged_estate", "objectId": "estate_object.river_gate_alarm", "displayName": "River Gate Alarm", "rule": "unlock_when_encounter_resolves" },
   "defeat": { "condition": "all_party_defeated", "advanceToNextMidnight": true, "returnLocationId": "location.estate.infirmary" },
   "presentation": { "inactivePartyMode": "card_rail", "activeActorMode": "full_body_battle_plane", "enemyIntentVisible": true, "combatTextVisible": true },
   "metadata": { "maturity": "vertical_slice", "releaseLegal": false }

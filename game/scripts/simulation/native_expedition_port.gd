@@ -46,11 +46,16 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 			if str(entry.get("status", "")) != "vertical_slice_encounter":
 				continue
 			var encounter := catalog.get_record(str(entry.get("encounterId", "")))
-			encounter_triggers.append({
+			var trigger := {
 				"location_id": str(cell.get("id", "")),
 				"encounter_id": str(encounter.get("id", "")),
 				"battle_id": str(encounter.get("battleId", ""))
-			})
+			}
+			var estate_consequence: Dictionary = encounter.get("estateConsequence", {})
+			var estate_upgrade_id := str(estate_consequence.get("estateUpgradeId", ""))
+			if not estate_upgrade_id.is_empty():
+				trigger["estate_upgrade_id"] = estate_upgrade_id
+			encounter_triggers.append(trigger)
 	var configuration := {
 		"seed": seed,
 		"party_ids": INITIAL_PARTY,

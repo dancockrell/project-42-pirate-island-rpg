@@ -63,6 +63,10 @@ pub struct HouseholdProgress {
 pub struct EncounterState {
     pub encounter_id: String,
     pub battle_id: String,
+    /// Optional authored household result applied when this encounter resolves.
+    /// The battle does not infer upgrades; its trigger carries the stable ID.
+    #[serde(default)]
+    pub estate_upgrade_id: Option<String>,
 }
 
 /// A route is authored outside of the simulation, then supplied to it as a
@@ -83,6 +87,8 @@ pub struct EncounterTriggerDefinition {
     pub location_id: String,
     pub encounter_id: String,
     pub battle_id: String,
+    #[serde(default)]
+    pub estate_upgrade_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -168,6 +174,9 @@ impl RouteGraph {
             require_stable_id("encounter_trigger.location_id", &trigger.location_id)?;
             require_stable_id("encounter_trigger.encounter_id", &trigger.encounter_id)?;
             require_stable_id("encounter_trigger.battle_id", &trigger.battle_id)?;
+            if let Some(estate_upgrade_id) = &trigger.estate_upgrade_id {
+                require_stable_id("encounter_trigger.estate_upgrade_id", estate_upgrade_id)?;
+            }
             if encounter_triggers_by_location
                 .insert(trigger.location_id.clone(), trigger)
                 .is_some()
@@ -325,6 +334,7 @@ impl ExpeditionState {
             self.pending_encounter = Some(EncounterState {
                 encounter_id: trigger.encounter_id.clone(),
                 battle_id: trigger.battle_id.clone(),
+                estate_upgrade_id: trigger.estate_upgrade_id.clone(),
             });
         }
         Ok(())
@@ -337,6 +347,11 @@ impl ExpeditionState {
         let encounter = self.pending_encounter.take()?;
         self.resolved_encounter_ids
             .insert(encounter.encounter_id.clone());
+        if let Some(estate_upgrade_id) = &encounter.estate_upgrade_id {
+            self.household_progress
+                .estate_upgrades
+                .insert(estate_upgrade_id.clone());
+        }
         Some(encounter)
     }
 }
@@ -436,6 +451,7 @@ mod tests {
         at_encounter.pending_encounter = Some(EncounterState {
             encounter_id: "encounter.prototype.returning_names".into(),
             battle_id: "battle.prototype.returning_names".into(),
+            estate_upgrade_id: None,
         });
         let before = at_encounter.legal_next_commands();
         let restored =
@@ -539,6 +555,7 @@ mod tests {
                 location_id: "world.cell.damaged_estate".into(),
                 encounter_id: "encounter.prototype.returning_names".into(),
                 battle_id: "battle.prototype.returning_names".into(),
+                estate_upgrade_id: None,
             }],
         )
         .expect("trigger graph is valid");
@@ -553,6 +570,7 @@ mod tests {
             Some(EncounterState {
                 encounter_id: "encounter.prototype.returning_names".into(),
                 battle_id: "battle.prototype.returning_names".into(),
+                estate_upgrade_id: None,
             })
         );
         assert_eq!(
@@ -579,6 +597,7 @@ mod tests {
                 location_id: "world.cell.reception_terrace".into(),
                 encounter_id: "encounter.prototype.returning_names".into(),
                 battle_id: "battle.prototype.returning_names".into(),
+                estate_upgrade_id: Some("estate_upgrade.river_gate_alarm".into()),
             }],
         )
         .expect("trigger graph constructs");
@@ -604,6 +623,12 @@ mod tests {
             state
                 .resolved_encounter_ids
                 .contains("encounter.prototype.returning_names")
+        );
+        assert!(
+            state
+                .household_progress
+                .estate_upgrades
+                .contains("estate_upgrade.river_gate_alarm")
         );
         let restored =
             ExpeditionState::from_json(&state.to_json()).expect("resolved state reloads");
@@ -655,6 +680,7 @@ mod tests {
         state.pending_encounter = Some(EncounterState {
             encounter_id: "encounter.prototype.returning_names".into(),
             battle_id: "battle.prototype.returning_names".into(),
+            estate_upgrade_id: None,
         });
         assert!(matches!(
             state.legal_route_commands(&graph),

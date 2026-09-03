@@ -35,6 +35,9 @@
     {"id": "location.damaged_estate.veranda", "text": "The estate was built as a coastal refuge, not a fortress. One veranda rail hangs loose after the storm, while the infirmary table, armory alcove and kitchen still make it a usable home base."},
     {"id": "location.damaged_estate.river_gate", "text": "Beyond the garden wall, a narrow stone track drops toward a river landing. The gate can be barred against wandering monsters, but it is not a permanent barrier to the island at night."}
   ],
+  "estateConsequenceResponses": [
+    {"id": "estate_response.damaged_estate.river_gate_alarm", "requiresEstateUpgradeId": "estate_upgrade.river_gate_alarm", "objectId": "estate_object.river_gate_alarm", "text": "Betty has marked the river gate with a simple brass alarm line. A heavy animal crossing the path will wake the household before it reaches the veranda."}
+  ],
   "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 2, "browserPerformanceGate": "pending", "releaseLegal": false}
 }

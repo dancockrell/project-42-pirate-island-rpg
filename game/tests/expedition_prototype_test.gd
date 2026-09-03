@@ -46,6 +46,12 @@ func _init() -> void:
 	resolved_copy.pending_encounter = {}
 	resolved_copy.resolved_encounter_ids = ["encounter.prototype.returning_names"]
 	check("AFTERMATH" in reloaded_expedition.make_description(terrace, resolved_copy), "A resolved authored encounter must project its content-authored aftermath")
+	var estate := catalog_record(reloaded_expedition, "world.cell.damaged_estate")
+	var estate_copy := resolved_copy.duplicate(true)
+	estate_copy.active_location_id = "world.cell.damaged_estate"
+	estate_copy.estate_upgrades = ["estate_upgrade.river_gate_alarm"]
+	check("HOUSEHOLD RESULT" in reloaded_expedition.make_description(estate, estate_copy), "The Estate must project its authored response to the native household upgrade")
+	check("RIVER GATE ALARM" in reloaded_expedition.initial_status_message(estate_copy), "The Estate status must name the unlocked household change")
 	reloaded_expedition.queue_free()
 	finish()
 

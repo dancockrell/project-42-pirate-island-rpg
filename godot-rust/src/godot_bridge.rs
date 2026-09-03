@@ -257,11 +257,11 @@ impl Project42ExpeditionBridge {
                 );
             }
         };
-        let ended = events
+        let victory = events
             .iter()
-            .any(|event| matches!(event, BattleEvent::BattleEnded { .. }));
+            .any(|event| matches!(event, BattleEvent::BattleEnded { victory: true }));
         let snapshot = battle.snapshot();
-        if ended {
+        if victory {
             if let Some(state) = self.state.as_mut() {
                 state.resolve_pending_encounter();
             }
@@ -427,12 +427,17 @@ fn expedition_state_dictionary(state: &ExpeditionState, graph: &RouteGraph) -> V
             vdict! {
                 "encounter_id" => encounter.encounter_id.as_str(),
                 "battle_id" => encounter.battle_id.as_str(),
+                "estate_upgrade_id" => encounter.estate_upgrade_id.as_deref().unwrap_or(""),
             }
         })
         .unwrap_or_default();
     let mut resolved_encounter_ids = Array::<GString>::new();
     for encounter_id in &state.resolved_encounter_ids {
         resolved_encounter_ids.push(&GString::from(encounter_id.as_str()));
+    }
+    let mut estate_upgrades = Array::<GString>::new();
+    for estate_upgrade_id in &state.household_progress.estate_upgrades {
+        estate_upgrades.push(&GString::from(estate_upgrade_id.as_str()));
     }
     let mut result = vdict! {
         "configured" => true,
@@ -446,6 +451,7 @@ fn expedition_state_dictionary(state: &ExpeditionState, graph: &RouteGraph) -> V
         "travel_blocked_reason" => error.map(|value| expedition_error_code(&value)).unwrap_or(""),
         "pending_encounter" => &pending_encounter,
         "resolved_encounter_ids" => &resolved_encounter_ids,
+        "estate_upgrades" => &estate_upgrades,
     };
     result.set("metadata", &metadata);
     result
