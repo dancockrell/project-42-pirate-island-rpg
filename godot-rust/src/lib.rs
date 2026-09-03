@@ -4,6 +4,7 @@
 
 pub mod battle;
 pub mod expedition;
+pub mod geography;
 pub mod protocol;
 pub mod world;
 
@@ -16,6 +17,9 @@ pub use battle::{
 };
 pub use expedition::{
     CharacterState, EncounterState, ExpeditionError, ExpeditionState, HabitatState,
-    HouseholdProgress, RouteStep, SupplyState, TimeSegment,
+    HouseholdProgress, RouteStep, SupplyState, TimeSegment, TravelOutcome,
+};
+pub use geography::{
+    Geography, LocationRecord, PersistencePolicy, ReturnPolicy, RouteKind, RouteOption,
 };
 pub use world::{DeathMemory, NamedPerson, SpawnRule, SpawnedMonster, WorldClock, WorldEvent};

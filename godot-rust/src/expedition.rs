@@ -13,6 +13,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
+use crate::geography::{Geography, RouteOption};
 use crate::world::DeathMemory;
 
 pub const CURRENT_SAVE_VERSION: u32 = 1;
@@ -89,6 +90,14 @@ pub enum ExpeditionError {
     FutureSaveVersion { found: u32, current: u32 },
     InvalidStableId { field: &'static str, value: String },
     InvalidPartySize { found: usize },
+    IllegalRoute { route_id: String },
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct TravelOutcome {
+    pub arrived_at: String,
+    pub time_cost_minutes: u32,
+    pub supply_cost: u32,
 }
 
 impl ExpeditionState {
@@ -170,6 +179,102 @@ impl ExpeditionState {
             None => vec![format!("depart_location:{}", self.active_location_id)],
         }
     }
+
+    /// B1: the routes departing the current location, per the supplied `Geography`.
+    pub fn legal_routes<'a>(&self, geography: &'a Geography) -> Vec<&'a RouteOption> {
+        geography.routes_from(&self.active_location_id)
+    }
+
+    /// B1's real travel command. Rejects a route that doesn't depart the current
+    /// location without mutating state -- the same "reject before mutation"
+    /// discipline `battle.rs` uses for illegal commands. On success, applies the
+    /// route's time/supply cost, records a `RouteStep`, and updates the active
+    /// location.
+    pub fn travel(
+        &mut self,
+        route_id: &str,
+        geography: &Geography,
+    ) -> Result<TravelOutcome, ExpeditionError> {
+        let route = geography
+            .route(route_id)
+            .filter(|route| route.from_location_id == self.active_location_id)
+            .ok_or_else(|| ExpeditionError::IllegalRoute {
+                route_id: route_id.to_owned(),
+            })?
+            .clone();
+
+        self.advance_time(route.time_cost_minutes);
+        self.supplies.rations = self.supplies.rations.saturating_sub(route.supply_cost);
+        self.route_history.push(RouteStep {
+            location_id: route.to_location_id.clone(),
+            arrived_on_day: self.campaign_day,
+            arrived_segment: self.time_segment.clone(),
+        });
+        self.active_location_id = route.to_location_id.clone();
+
+        Ok(TravelOutcome {
+            arrived_at: self.active_location_id.clone(),
+            time_cost_minutes: route.time_cost_minutes,
+            supply_cost: route.supply_cost,
+        })
+    }
+
+    /// B1's observation query. Records every observation at the current location
+    /// as a discovery (idempotent -- `discoveries` is a set) and returns their IDs.
+    pub fn inspect(&mut self, geography: &Geography) -> Vec<String> {
+        let Some(location) = geography.location(&self.active_location_id) else {
+            return Vec::new();
+        };
+        for observation_id in &location.observation_ids {
+            self.discoveries.insert(observation_id.clone());
+        }
+        location.observation_ids.clone()
+    }
+
+    /// A coarse, deterministic clock: every 360 minutes rolls the campaign one time
+    /// segment forward, and a roll past Midnight advances `campaign_day`. Minimal by
+    /// design -- B3 (Midnight Return) owns the actual midnight transaction; this only
+    /// keeps `campaign_day`/`time_segment` honest for route time costs.
+    fn advance_time(&mut self, minutes: u32) {
+        const MINUTES_PER_SEGMENT: u32 = 360;
+        let mut remaining = minutes;
+        while remaining >= MINUTES_PER_SEGMENT {
+            remaining -= MINUTES_PER_SEGMENT;
+            self.time_segment = match self.time_segment {
+                TimeSegment::Dawn => TimeSegment::Day,
+                TimeSegment::Day => TimeSegment::Dusk,
+                TimeSegment::Dusk => TimeSegment::Midnight,
+                TimeSegment::Midnight => {
+                    self.campaign_day += 1;
+                    TimeSegment::Dawn
+                }
+            };
+        }
+    }
+
+    /// The real, geography-aware version of `legal_next_commands`: departing routes
+    /// plus observations at the current location, or the pending encounter alone if
+    /// one is active. `legal_next_commands` (no geography) stays as the minimal,
+    /// geography-independent stub B0 already proved round-trips a save/reload.
+    pub fn legal_next_commands_with_geography(&self, geography: &Geography) -> Vec<String> {
+        if let Some(encounter) = &self.pending_encounter {
+            return vec![format!("resolve_encounter:{}", encounter.encounter_id)];
+        }
+        let mut commands: Vec<String> = self
+            .legal_routes(geography)
+            .into_iter()
+            .map(|route| format!("travel:{}", route.id))
+            .collect();
+        if let Some(location) = geography.location(&self.active_location_id) {
+            commands.extend(
+                location
+                    .observation_ids
+                    .iter()
+                    .map(|id| format!("inspect:{id}")),
+            );
+        }
+        commands
+    }
 }
 
 fn require_stable_id(field: &'static str, value: &str) -> Result<(), ExpeditionError> {
@@ -199,7 +304,7 @@ mod tests {
                 "character.protagonist.captain".into(),
                 "character.heroine.betty".into(),
             ],
-            "world.cell.black_beach",
+            "location.black_beach",
         )
         .expect("fixture constructs");
         state.named_person_memory.insert(
@@ -303,5 +408,136 @@ mod tests {
             ExpeditionState::new(1, five, "world.cell.black_beach").unwrap_err(),
             ExpeditionError::InvalidPartySize { found: 5 }
         );
+    }
+
+    #[test]
+    fn inspect_records_the_current_locations_observations_as_discoveries() {
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+        let observed = state.inspect(&geography);
+        assert_eq!(
+            observed,
+            vec!["observation.black_beach.wreck_of_handsome_jack".to_owned()]
+        );
+        assert!(
+            state
+                .discoveries
+                .contains("observation.black_beach.wreck_of_handsome_jack")
+        );
+    }
+
+    #[test]
+    fn safe_road_and_jungle_edge_apply_distinct_time_and_supply_consequences() {
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
+
+        let mut via_safe_road = fixture();
+        via_safe_road.supplies.rations = 10;
+        via_safe_road
+            .travel("route.black_beach.to_river_landing", &geography)
+            .expect("legal route");
+        let safe_outcome = via_safe_road
+            .travel("route.river_landing.safe_road", &geography)
+            .expect("legal route");
+
+        let mut via_jungle_edge = fixture();
+        via_jungle_edge.supplies.rations = 10;
+        via_jungle_edge
+            .travel("route.black_beach.to_river_landing", &geography)
+            .expect("legal route");
+        let jungle_outcome = via_jungle_edge
+            .travel("route.river_landing.jungle_edge", &geography)
+            .expect("legal route");
+
+        assert_eq!(
+            via_safe_road.active_location_id,
+            "location.black_beach.reception_terrace"
+        );
+        assert_eq!(
+            via_jungle_edge.active_location_id,
+            "location.black_beach.reception_terrace"
+        );
+        assert_ne!(
+            safe_outcome.time_cost_minutes,
+            jungle_outcome.time_cost_minutes
+        );
+        assert_ne!(safe_outcome.supply_cost, jungle_outcome.supply_cost);
+        assert_ne!(
+            via_safe_road.supplies.rations,
+            via_jungle_edge.supplies.rations
+        );
+        assert_eq!(via_safe_road.route_history.len(), 2);
+        assert_eq!(via_jungle_edge.route_history.len(), 2);
+    }
+
+    #[test]
+    fn reception_terrace_is_encounter_eligible_and_black_beach_is_not() {
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
+        assert!(
+            !geography
+                .location("location.black_beach")
+                .unwrap()
+                .encounter_eligible
+        );
+        assert!(
+            geography
+                .location("location.black_beach.reception_terrace")
+                .unwrap()
+                .encounter_eligible
+        );
+    }
+
+    #[test]
+    fn travel_rejects_a_route_not_departing_the_current_location_without_mutation() {
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+        let before = state.clone();
+        let error = state
+            .travel("route.river_landing.safe_road", &geography)
+            .expect_err("Black Beach cannot use a river-landing route directly");
+        assert_eq!(
+            error,
+            ExpeditionError::IllegalRoute {
+                route_id: "route.river_landing.safe_road".into()
+            }
+        );
+        assert_eq!(state, before);
+    }
+
+    #[test]
+    fn travel_rejects_an_unknown_route_id_without_mutation() {
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+        let before = state.clone();
+        let error = state
+            .travel("route.does_not_exist", &geography)
+            .unwrap_err();
+        assert_eq!(
+            error,
+            ExpeditionError::IllegalRoute {
+                route_id: "route.does_not_exist".into()
+            }
+        );
+        assert_eq!(state, before);
+    }
+
+    #[test]
+    fn boundary_save_reload_preserves_legal_next_commands_after_a_route_choice() {
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+        state
+            .travel("route.black_beach.to_river_landing", &geography)
+            .expect("legal route");
+        state
+            .travel("route.river_landing.jungle_edge", &geography)
+            .expect("legal route");
+
+        let before = state.legal_next_commands_with_geography(&geography);
+        let restored = ExpeditionState::from_json(&state.to_json()).expect("round trip parses");
+        assert_eq!(
+            before,
+            restored.legal_next_commands_with_geography(&geography)
+        );
+        assert!(before.iter().any(|command| command.starts_with("travel:")));
+        assert!(before.iter().any(|command| command.starts_with("inspect:")));
     }
 }
