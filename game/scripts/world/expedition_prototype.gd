@@ -172,6 +172,16 @@ func populate_routes(cell: Dictionary, snapshot: Dictionary) -> void:
 		pending.custom_minimum_size.y = 78
 		pending.tooltip_text = "Authoritative encounter handoff. Travel is blocked until the named battle resolves.\nEncounter: %s\nBattle: %s" % [encounter_id, battle_id]
 		route_list.add_child(pending)
+		var engage := Button.new()
+		engage.name = "EngagePendingEncounter"
+		engage.custom_minimum_size.y = 62
+		engage.text = "ENGAGE  •  %s" % encounter_id.trim_prefix("encounter.").replace("_", " ").to_upper()
+		engage.tooltip_text = "Enter the authored battle declared by this native campaign state.\nEncounter: %s\nBattle: %s" % [encounter_id, battle_id]
+		engage.add_theme_font_size_override("font_size", 14)
+		engage.add_theme_stylebox_override("normal", make_route_box(Color("41251f"), DANGER))
+		engage.add_theme_stylebox_override("hover", make_route_box(Color("61332a"), BRONZE))
+		engage.pressed.connect(enter_pending_battle)
+		route_list.add_child(engage)
 		return
 	var legal: Dictionary = {}
 	for command in snapshot.get("legal_route_commands", []):
@@ -215,6 +225,13 @@ func request_travel(portal_id: String) -> void:
 	if not pending_encounter.is_empty():
 		message = "CONTACT  •  %s" % str(pending_encounter.get("encounter_id", "UNKNOWN ENCOUNTER")).replace("encounter.", "").replace("_", " ").to_upper()
 	project_snapshot(result, message)
+
+
+func enter_pending_battle() -> void:
+	if campaign_session == null or not campaign_session.has_pending_encounter():
+		status_label.text = "ENCOUNTER HANDOFF UNAVAILABLE"
+		return
+	get_tree().change_scene_to_file("res://scenes/battle/battle_prototype.tscn")
 
 
 func get_authoritative_snapshot() -> Dictionary:

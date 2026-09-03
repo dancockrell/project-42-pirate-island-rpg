@@ -32,6 +32,10 @@ struct Project42ExpeditionBridge {
     state: Option<ExpeditionState>,
     #[init(val = RouteGraph::default())]
     graph: RouteGraph,
+    #[init(val = None)]
+    battle: Option<Battle>,
+    #[init(val = 0)]
+    battle_sequence: u64,
 }
 
 /// A deliberately narrow, string-based GDExtension boundary. Godot prepares
@@ -170,6 +174,167 @@ impl Project42ExpeditionBridge {
         }
         expedition_state_dictionary(state, &self.graph)
     }
+
+    /// Starts only the battle declared by the current pending expedition
+    /// encounter. Godot may display the returned snapshot; it cannot name a
+    /// different battle or synthesize one when no encounter is pending.
+    #[func]
+    fn begin_pending_battle(&mut self) -> VarDictionary {
+        let Some(state) = self.state.as_ref() else {
+            return battle_error_snapshot("expedition_not_configured");
+        };
+        let Some(encounter) = state.pending_encounter.as_ref() else {
+            return battle_error_snapshot("no_pending_encounter");
+        };
+        if encounter.battle_id != BATTLE_ID {
+            return battle_error_snapshot("unsupported_pending_battle");
+        }
+        self.battle_sequence = 0;
+        self.battle = Some(Battle::prototype_vertical_slice());
+        snapshot_dictionary(&self.battle.as_ref().expect("battle assigned").snapshot())
+    }
+
+    #[func]
+    fn start_pending_battle(&mut self) -> Array<VarDictionary> {
+        let Some(battle) = self.battle.as_mut() else {
+            return expedition_battle_rejection(
+                &mut self.battle_sequence,
+                "",
+                "battle_not_created",
+            );
+        };
+        let events = battle.start();
+        expedition_battle_records(&mut self.battle_sequence, events, Some(battle.snapshot()))
+    }
+
+    #[func]
+    fn submit_pending_command(&mut self, command: VarDictionary) -> Array<VarDictionary> {
+        let command_id = field_string(&command, "command_id").unwrap_or_default();
+        let envelope = match command_envelope(&command) {
+            Ok(value) => value,
+            Err(reason) => {
+                return expedition_battle_rejection(&mut self.battle_sequence, &command_id, reason);
+            }
+        };
+        if envelope.battle_id != BATTLE_ID {
+            return expedition_battle_rejection(
+                &mut self.battle_sequence,
+                &command_id,
+                "battle_id_mismatch",
+            );
+        }
+        let skill_command = match envelope.into_skill_command() {
+            Ok(value) => value,
+            Err(crate::protocol::ProtocolError::UnsupportedVersion { .. }) => {
+                return expedition_battle_rejection(
+                    &mut self.battle_sequence,
+                    &command_id,
+                    "unsupported_protocol_version",
+                );
+            }
+            Err(_) => {
+                return expedition_battle_rejection(
+                    &mut self.battle_sequence,
+                    &command_id,
+                    "invalid_command_envelope",
+                );
+            }
+        };
+        let Some(battle) = self.battle.as_mut() else {
+            return expedition_battle_rejection(
+                &mut self.battle_sequence,
+                &command_id,
+                "battle_not_created",
+            );
+        };
+        let events = match battle.submit(skill_command) {
+            Ok(events) => events,
+            Err(error) => {
+                return expedition_battle_rejection(
+                    &mut self.battle_sequence,
+                    &command_id,
+                    battle_error_code(&error),
+                );
+            }
+        };
+        let ended = events
+            .iter()
+            .any(|event| matches!(event, BattleEvent::BattleEnded { .. }));
+        let snapshot = battle.snapshot();
+        if ended {
+            if let Some(state) = self.state.as_mut() {
+                state.pending_encounter = None;
+            }
+        }
+        expedition_battle_records(&mut self.battle_sequence, events, Some(snapshot))
+    }
+
+    #[func]
+    fn pending_battle_snapshot(&self) -> VarDictionary {
+        self.battle
+            .as_ref()
+            .map(|battle| snapshot_dictionary(&battle.snapshot()))
+            .unwrap_or_else(|| battle_error_snapshot("battle_not_created"))
+    }
+
+    #[func]
+    fn recommended_pending_enemy_command(&self, command_id: GString) -> VarDictionary {
+        let Some(battle) = self.battle.as_ref() else {
+            return vdict! { "available" => false, "reason" => "battle_not_created" };
+        };
+        let Some(decision) = battle.enemy_decision() else {
+            return vdict! { "available" => false, "reason" => "active_actor_is_not_hostile" };
+        };
+        let target_ids: Array<GString> = array![decision.target_id.0.as_str()];
+        vdict! {
+            "available" => true, "protocol_version" => i64::from(PROTOCOL_VERSION),
+            "command_id" => &command_id, "battle_id" => BATTLE_ID,
+            "actor_id" => decision.actor_id.0.as_str(), "kind" => "use_skill",
+            "skill_id" => decision.skill_id.as_str(), "target_ids" => &target_ids,
+            "rationale" => decision.rationale.as_str(), "raw_damage" => i64::from(decision.raw_damage),
+            "guard_break_amount" => i64::from(decision.guard_break_amount),
+            "guard_absorbed" => i64::from(decision.guard_absorbed),
+            "vitality_damage" => i64::from(decision.vitality_damage), "lethal" => decision.lethal,
+            "interception_protector_id" => decision.interception_protector_id.as_ref().map(|id| id.0.as_str()).unwrap_or(""),
+            "fatal_intercept_available" => decision.fatal_intercept_available,
+        }
+    }
+}
+
+fn expedition_battle_records(
+    sequence: &mut u64,
+    events: Vec<BattleEvent>,
+    snapshot: Option<BattleSnapshot>,
+) -> Array<VarDictionary> {
+    let mut records = Array::new();
+    for event in events {
+        *sequence += 1;
+        records.push(&event_dictionary(event, *sequence, snapshot.as_ref()));
+    }
+    records
+}
+
+fn expedition_battle_rejection(
+    sequence: &mut u64,
+    command_id: &str,
+    reason: &str,
+) -> Array<VarDictionary> {
+    *sequence += 1;
+    let subjects = Array::<GString>::new();
+    let payload = vdict! { "reason" => reason };
+    let mut records = Array::new();
+    records.push(&vdict! {
+        "event_id" => format!("event.expedition.{:06}", sequence),
+        "command_id" => command_id, "sequence" => *sequence as i64,
+        "kind" => "command_rejected", "subjects" => &subjects, "payload" => &payload,
+    });
+    records
+}
+
+fn battle_error_snapshot(reason: &str) -> VarDictionary {
+    let actors = VarArray::new();
+    let error = vdict! { "kind" => reason };
+    vdict! { "battle_id" => "", "phase" => "error", "actors" => &actors, "error" => &error }
 }
 
 impl Project42SimulationBridge {

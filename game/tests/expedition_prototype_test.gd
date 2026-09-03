@@ -32,7 +32,8 @@ func _init() -> void:
 	var pending_encounter: Dictionary = expedition.get_authoritative_snapshot().get("pending_encounter", {})
 	check(pending_encounter.get("encounter_id") == "encounter.prototype.returning_names", "Reception Terrace must arm its authored Razorbeak encounter")
 	check(pending_encounter.get("battle_id") == "battle.prototype.returning_names", "Encounter handoff must retain the authored battle ID")
-	check(expedition.get_legal_route_count() == 1, "Pending encounter must replace route controls with one truthful blocked-state message")
+	check(expedition.get_legal_route_count() == 2, "Pending encounter must replace route controls with its handoff record and one real engage action")
+	check(expedition.route_list.get_node_or_null("EngagePendingEncounter") != null, "Pending encounter must expose its authored engage action")
 	expedition.queue_free()
 	await process_frame
 	var reloaded_expedition := scene.instantiate() as ExpeditionPrototype

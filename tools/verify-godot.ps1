@@ -47,6 +47,10 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Godot expedition-prototype tests failed with exit code $LASTEXITCODE"
     }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/campaign_encounter_port_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot campaign-encounter-port tests failed with exit code $LASTEXITCODE"
+    }
     & $GodotExecutable --headless --path (Join-Path $workspace "game") --scene "res://scenes/review/reception_terrace_setpiece_review.tscn" --quit-after 2
     if ($LASTEXITCODE -ne 0) {
         throw "Godot Reception Terrace setpiece review scene failed with exit code $LASTEXITCODE"

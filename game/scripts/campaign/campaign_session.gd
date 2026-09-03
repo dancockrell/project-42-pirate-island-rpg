@@ -45,6 +45,54 @@ func pending_encounter() -> Dictionary:
 	return latest_snapshot.get("pending_encounter", {}).duplicate(true)
 
 
+func has_pending_encounter() -> bool:
+	return not pending_encounter().is_empty()
+
+
+## Campaign encounters are created by the exact native expedition bridge that
+## armed them. The scene layer cannot substitute a battle ID or create a
+## disconnected debug fight while a campaign handoff is active.
+func begin_pending_battle() -> Dictionary:
+	if expedition == null or expedition.bridge == null:
+		return battle_unavailable_snapshot("campaign_session_uninitialized")
+	return expedition.bridge.begin_pending_battle()
+
+
+func start_pending_battle() -> Array[Dictionary]:
+	if expedition == null or expedition.bridge == null:
+		return [battle_unavailable_event("campaign_session_uninitialized")]
+	return typed_event_array(expedition.bridge.start_pending_battle())
+
+
+func submit_pending_battle(command: Dictionary) -> Array[Dictionary]:
+	if expedition == null or expedition.bridge == null:
+		return [battle_unavailable_event("campaign_session_uninitialized")]
+	var normalized := {
+		"protocol_version": int(command.get("protocol_version", 1)),
+		"command_id": str(command.get("command_id", "")),
+		"battle_id": str(command.get("battle_id", "")),
+		"actor_id": str(command.get("actor_id", "")),
+		"kind": str(command.get("kind", "")),
+		"skill_id": str(command.get("skill_id", "")),
+		"target_ids": Array(command.get("target_ids", []), TYPE_STRING, "", null)
+	}
+	var events := typed_event_array(expedition.bridge.submit_pending_command(normalized))
+	latest_snapshot = expedition.snapshot()
+	return events
+
+
+func recommended_pending_enemy_command(command_id: String) -> Dictionary:
+	if expedition == null or expedition.bridge == null:
+		return {"available": false, "reason": "campaign_session_uninitialized"}
+	return expedition.bridge.recommended_pending_enemy_command(command_id)
+
+
+func pending_battle_snapshot() -> Dictionary:
+	if expedition == null or expedition.bridge == null:
+		return battle_unavailable_snapshot("campaign_session_uninitialized")
+	return expedition.bridge.pending_battle_snapshot()
+
+
 func reset_for_test() -> void:
 	expedition = null
 	catalog = null
@@ -57,3 +105,20 @@ func unavailable_state() -> Dictionary:
 		"error": "campaign_session_uninitialized",
 		"metadata": {"source": "campaign_session", "authoritative": false}
 	}
+
+
+func typed_event_array(value: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if value is Array:
+		for event in value:
+			if event is Dictionary:
+				result.append(event)
+	return result
+
+
+func battle_unavailable_snapshot(reason: String) -> Dictionary:
+	return {"battle_id": "", "phase": "error", "actors": [], "error": {"kind": reason}}
+
+
+func battle_unavailable_event(reason: String) -> Dictionary:
+	return {"event_id": "event.campaign.unavailable", "sequence": 0, "kind": "command_rejected", "subjects": [], "payload": {"reason": reason}}

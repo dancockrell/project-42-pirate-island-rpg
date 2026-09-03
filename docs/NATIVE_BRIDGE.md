@@ -2,7 +2,7 @@
 
 ## Purpose and ownership
 
-`Project42SimulationBridge` is the only Godot-visible Rust class. It owns one `Battle` instance for the vertical slice. `NativeSimulationPort` owns the bridge object on the Godot side. Battle scenes talk only to `SimulationPort`. This prevents engine nodes, animation code, content files, and UI widgets from acquiring their own partial simulation state.
+Two Rust classes are visible to Godot. `Project42SimulationBridge` owns the standalone debug battle used by isolated presentation tests. `Project42ExpeditionBridge` owns the persistent expedition state and, when that state declares an encounter, the battle created for that exact handoff. `NativeSimulationPort` owns the former; `CampaignSession` owns the latter. Battle scenes still speak only to `SimulationPort`. This prevents engine nodes, animation code, content files, and UI widgets from acquiring partial simulation state.
 
 ## Pinned compatibility decision
 
@@ -30,9 +30,25 @@ Every command contains `protocol_version`, `command_id`, `battle_id`, `actor_id`
 
 Every event contains `event_id`, `command_id` when applicable, monotonically increasing `sequence`, `kind`, `subjects`, and `payload`. Event payloads contain primitive values and stable IDs. They never contain Godot node paths, localized prose, or asset paths.
 
+## Campaign encounter handoff
+
+Class name: `Project42ExpeditionBridge`
+
+The campaign bridge accepts a validated route and encounter configuration, owns legal travel plus arrival state, then permits these battle calls only while its `pending_encounter` record exists:
+
+| Method | Input | Output | Mutation |
+| --- | --- | --- | --- |
+| `begin_pending_battle` | none | snapshot `Dictionary` | creates the battle named by `pending_encounter.battle_id` |
+| `start_pending_battle` | none | typed `Array[Dictionary]` | starts that retained battle |
+| `submit_pending_command` | command `Dictionary` | typed `Array[Dictionary]` | resolves a command against that retained battle |
+| `recommended_pending_enemy_command` | command ID `String` | command plus decision facts | none |
+| `pending_battle_snapshot` | none | snapshot `Dictionary` | none |
+
+The current authored trigger names `battle.prototype.returning_names`. Godot never passes a battle ID into `begin_pending_battle`; native code compares the pending stable ID before creating the supported vertical-slice battle. On `battle_ended`, native code clears the pending encounter, so returning to the world restores legal travel only after an outcome has been recorded.
+
 ## Build outputs
 
-The Rust library emits both `rlib` for engine-independent tests and `cdylib` for Godot. `tools/build-native-bridge.ps1` builds the selected configuration and copies the verified Windows library to `game/bin/windows/`. `game/bin/project42_sim.gdextension` maps debug and release libraries separately. The active pair is named `expedition_v2`: it accepts the JSON expedition configuration, then creates a pending encounter only from the content entry explicitly marked `vertical_slice_encounter`. Godot import is part of `tools/verify-godot.ps1`, because a compiled DLL that the editor has not registered is not a usable bridge.
+The Rust library emits both `rlib` for engine-independent tests and `cdylib` for Godot. `tools/build-native-bridge.ps1` builds the selected configuration and copies the verified Windows library to `game/bin/windows/`. `game/bin/project42_sim.gdextension` maps debug and release libraries separately. The active pair is named `expedition_v3`: it accepts the JSON expedition configuration, creates a pending encounter only from the content entry explicitly marked `vertical_slice_encounter`, then owns the battle created through that pending handoff. The versioned filenames prevent a running Godot process from holding an obsolete DLL while a new native contract is being verified. Godot import is part of `tools/verify-godot.ps1`, because a compiled DLL that the editor has not registered is not a usable bridge.
 
 ## Acceptance gates
 
@@ -50,3 +66,4 @@ The bridge milestone is complete only when all of the following are true:
 10. The prototype drives non-player turns through ordinary native commands: the razorbeak uses Rushing Bite, while party members without executable kits use the explicit temporary `Hold Position` action. A full Betty-to-enemy-to-support-to-Betty initiative cycle no longer freezes after the first player command. **Passing.**
 11. The intent event and the submitted enemy command derive from one Rust `EnemyDecision`, including target, rationale, projected damage, lethality, interception and reaction facts. **Passing.**
 12. A release runtime cannot select `MockSimulationPort`. **Enforced in `BattlePrototype._ready`.**
+13. A Reception Terrace encounter creates its named battle through `CampaignSession`, and the battle screen does not construct an unrelated debug battle. **Covered by `campaign_encounter_port_test.gd`.**
