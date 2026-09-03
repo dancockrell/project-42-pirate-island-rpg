@@ -4,5 +4,44 @@
   "purpose": "Professional shared-asset admission ledger for Project 42, DR Companion, and future licensed client work. Empty until an item has passed individual intake review.",
   "allowedConsumers": ["project42", "dr-companion", "professional-client"],
   "sharedRawLicensePolicy": "CC0-1.0 only. Other sources require project-only or access-controlled treatment unless their exact license is independently recorded as redistribution-permitted.",
-  "assetRecords": []
+  "assetRecords": [
+    {
+      "id": "asset.shared.kenney.nature-kit.2_1.source",
+      "status": "candidate",
+      "category": "reference",
+      "ownership": "cc0_raw",
+      "consumers": ["project42", "dr-companion", "professional-client"],
+      "tags": ["nature", "vegetation", "rocks", "foliage", "tabletop", "source-pack"],
+      "source": {
+        "creator": "Kenney",
+        "canonicalUrl": "https://kenney.nl/assets/nature-kit",
+        "retrievedOn": "2026-09-03",
+        "originalFilename": "kenney_nature-kit.zip",
+        "sha256": "fa7974a0d342bfe63c38664ba9f8ec1a4aab8ea25f099bdc56870e33588c4d9d",
+        "licenseSpdx": "CC0-1.0",
+        "licenseEvidenceUrl": "https://kenney.nl/assets/nature-kit",
+        "licenseNotes": "The official Nature Kit page declares Creative Commons CC0. The retrieved archive includes License.txt identifying Nature Kit 2.1 and repeats CC0 1.0 commercial-use permission.",
+        "redistributionAllowed": true,
+        "sourceAccess": "project_local_vendor_cache"
+      },
+      "review": {
+        "targetCamera": "Project 42 third-person tabletop camera and DR Companion room-to-overworld camera",
+        "visualDecision": "pending",
+        "technicalDecision": "pending",
+        "notes": [
+          "Retrieved archive is preserved outside Git at work/art/vendor/kenney/nature-kit and is intentionally ignored.",
+          "Archive inventory: 329 GLB models, companion FBX/OBJ/DAE/STL formats, and PNG source textures; no member is runtime-admitted by this source-pack record.",
+          "First curation pass will test rocks, broadleaf and conifer trees, bushes, ground dressing, cliffs, and bridges at actual camera scale before individual approval."
+        ]
+      },
+      "import": {
+        "sourceFormat": "ZIP source pack containing GLB, FBX, OBJ, DAE, STL, PNG, and license evidence",
+        "intendedRuntimeFormat": "Individual reviewed GLB source files imported by Godot; optimized project derivatives are tracked separately",
+        "pivotAndGroundContact": "Not yet inspected per mesh; each admitted mesh must sit at y=0 or declare a placement offset",
+        "materialStrategy": "Keep simple source colors only where they support the chunky tabletop palette; replace or standardize materials only after camera review",
+        "collisionOrSelection": "No runtime collision, selection, or navigation behavior is granted by a source-pack record",
+        "lodStrategy": "Per-mesh decision after actual scale and count are measured; do not assume all 329 assets are appropriate for runtime use"
+      }
+    }
+  ]
 }

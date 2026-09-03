@@ -32,6 +32,16 @@ Every asset is registered in `content/art/shared_asset_ledger.json` before it
 is used in a consumer project. The ledger is validated by `npm run validate` in
 `tools/`.
 
+### Source-pack intake is not runtime admission
+
+A `reference` record may document a retrieved source pack before its contents
+are individually chosen. It must still name the exact canonical page, the
+retrieved archive's SHA-256, license evidence, and its ignored local cache.
+That record proves where a cohort came from; it does **not** make every model in
+the cohort usable in either game. A runtime candidate needs its own record and
+camera-scale review, and an approved runtime asset needs the normal visual and
+technical decisions.
+
 ### Raw shared source
 
 Only assets whose original license explicitly permits commercial use,
