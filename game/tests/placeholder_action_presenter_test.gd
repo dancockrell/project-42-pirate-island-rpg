@@ -3,6 +3,9 @@ extends SceneTree
 const PlaceholderActionPresenterScript = preload("res://scripts/battle/placeholder_action_presenter.gd")
 
 func _initialize() -> void:
+	call_deferred("run")
+
+func run() -> void:
 	var actor := PanelContainer.new()
 	actor.size = Vector2(480, 560)
 	var enemy := PanelContainer.new()
@@ -26,6 +29,7 @@ func _initialize() -> void:
 		"shake": 0.35,
 		"frameSubjects": ["betty", "mace", "target", "impact_arc"]
 	})
+	await create_timer(.12).timeout
 	assert(label.text == "HORIZONTAL MACE HIT  •  BRONZE TEAL IMPACT ARC")
 	assert("Safe frame: betty, mace, target, impact_arc" in label.tooltip_text)
 	assert("VFX purpose: Shows the mace contact" in label.tooltip_text)
