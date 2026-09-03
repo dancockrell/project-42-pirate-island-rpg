@@ -65,6 +65,22 @@ pub struct EncounterState {
     pub battle_id: String,
 }
 
+/// A route is authored outside of the simulation, then supplied to it as a
+/// small deterministic graph. The simulation owns which portal is legal and
+/// what a successful trip changes; Godot owns only presentation and input.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PortalDefinition {
+    pub id: String,
+    pub from_location_id: String,
+    pub target_location_id: String,
+    pub travel_mode: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RouteGraph {
+    portals_by_id: BTreeMap<String, PortalDefinition>,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ExpeditionState {
     pub save_version: u32,
@@ -89,6 +105,39 @@ pub enum ExpeditionError {
     FutureSaveVersion { found: u32, current: u32 },
     InvalidStableId { field: &'static str, value: String },
     InvalidPartySize { found: usize },
+    DuplicatePortal { id: String },
+    UnknownPortal { id: String },
+    PortalUnavailable { portal_id: String, active_location_id: String },
+    TravelBlockedByEncounter { encounter_id: String },
+}
+
+impl RouteGraph {
+    pub fn new(portals: Vec<PortalDefinition>) -> Result<Self, ExpeditionError> {
+        let mut portals_by_id = BTreeMap::new();
+        for portal in portals {
+            require_stable_id("portal.id", &portal.id)?;
+            require_stable_id("portal.from_location_id", &portal.from_location_id)?;
+            require_stable_id("portal.target_location_id", &portal.target_location_id)?;
+            if portals_by_id.contains_key(&portal.id) {
+                return Err(ExpeditionError::DuplicatePortal {
+                    id: portal.id,
+                });
+            }
+            portals_by_id.insert(portal.id.clone(), portal);
+        }
+        Ok(Self { portals_by_id })
+    }
+
+    pub fn portal(&self, portal_id: &str) -> Option<&PortalDefinition> {
+        self.portals_by_id.get(portal_id)
+    }
+
+    pub fn portals_from(&self, location_id: &str) -> Vec<&PortalDefinition> {
+        self.portals_by_id
+            .values()
+            .filter(|portal| portal.from_location_id == location_id)
+            .collect()
+    }
 }
 
 impl ExpeditionState {
@@ -170,6 +219,48 @@ impl ExpeditionState {
             None => vec![format!("depart_location:{}", self.active_location_id)],
         }
     }
+
+    /// Returns stable, player-addressable travel commands for the active cell.
+    /// Ordering is by portal ID, never authoring-folder order or UI order.
+    pub fn legal_route_commands(&self, graph: &RouteGraph) -> Result<Vec<String>, ExpeditionError> {
+        if let Some(encounter) = &self.pending_encounter {
+            return Err(ExpeditionError::TravelBlockedByEncounter {
+                encounter_id: encounter.encounter_id.clone(),
+            });
+        }
+        Ok(graph
+            .portals_from(&self.active_location_id)
+            .into_iter()
+            .map(|portal| format!("travel:{}", portal.id))
+            .collect())
+    }
+
+    /// Applies one graph-validated trip. It records an arrival boundary that
+    /// survives save/reload and never mutates party resources as a hidden UI
+    /// side effect. Route hazards and encounter rolls are later transactions.
+    pub fn travel(&mut self, graph: &RouteGraph, portal_id: &str) -> Result<(), ExpeditionError> {
+        if let Some(encounter) = &self.pending_encounter {
+            return Err(ExpeditionError::TravelBlockedByEncounter {
+                encounter_id: encounter.encounter_id.clone(),
+            });
+        }
+        let portal = graph.portal(portal_id).ok_or_else(|| ExpeditionError::UnknownPortal {
+            id: portal_id.to_owned(),
+        })?;
+        if portal.from_location_id != self.active_location_id {
+            return Err(ExpeditionError::PortalUnavailable {
+                portal_id: portal.id.clone(),
+                active_location_id: self.active_location_id.clone(),
+            });
+        }
+        self.active_location_id = portal.target_location_id.clone();
+        self.route_history.push(RouteStep {
+            location_id: self.active_location_id.clone(),
+            arrived_on_day: self.campaign_day,
+            arrived_segment: self.time_segment.clone(),
+        });
+        Ok(())
+    }
 }
 
 fn require_stable_id(field: &'static str, value: &str) -> Result<(), ExpeditionError> {
@@ -214,6 +305,36 @@ mod tests {
             .discoveries
             .insert("discovery.reception_terrace.elven_marker".into());
         state
+    }
+
+    fn route_fixture() -> RouteGraph {
+        RouteGraph::new(vec![
+            PortalDefinition {
+                id: "world.portal.black_beach_to_damaged_estate".into(),
+                from_location_id: "world.cell.black_beach".into(),
+                target_location_id: "world.cell.damaged_estate".into(),
+                travel_mode: "on_foot".into(),
+            },
+            PortalDefinition {
+                id: "world.portal.damaged_estate_to_river_landing".into(),
+                from_location_id: "world.cell.damaged_estate".into(),
+                target_location_id: "world.cell.river_landing".into(),
+                travel_mode: "on_foot".into(),
+            },
+            PortalDefinition {
+                id: "world.portal.river_landing_to_reception_terrace_safe_road".into(),
+                from_location_id: "world.cell.river_landing".into(),
+                target_location_id: "world.cell.reception_terrace".into(),
+                travel_mode: "safe_road".into(),
+            },
+            PortalDefinition {
+                id: "world.portal.river_landing_to_reception_terrace_jungle_edge".into(),
+                from_location_id: "world.cell.river_landing".into(),
+                target_location_id: "world.cell.reception_terrace".into(),
+                travel_mode: "jungle_edge".into(),
+            },
+        ])
+        .expect("route fixture constructs")
     }
 
     #[test]
@@ -303,5 +424,69 @@ mod tests {
             ExpeditionState::new(1, five, "world.cell.black_beach").unwrap_err(),
             ExpeditionError::InvalidPartySize { found: 5 }
         );
+    }
+
+    #[test]
+    fn route_commands_are_location_scoped_and_ordered() {
+        let mut state = fixture();
+        let graph = route_fixture();
+        assert_eq!(
+            state.legal_route_commands(&graph).expect("shore has a route"),
+            vec!["travel:world.portal.black_beach_to_damaged_estate"]
+        );
+        state
+            .travel(&graph, "world.portal.black_beach_to_damaged_estate")
+            .expect("first trip is legal");
+        state
+            .travel(&graph, "world.portal.damaged_estate_to_river_landing")
+            .expect("second trip is legal");
+        assert_eq!(
+            state.legal_route_commands(&graph).expect("landing has two routes"),
+            vec![
+                "travel:world.portal.river_landing_to_reception_terrace_jungle_edge",
+                "travel:world.portal.river_landing_to_reception_terrace_safe_road"
+            ]
+        );
+    }
+
+    #[test]
+    fn travel_persists_arrival_and_rejects_wrong_portals() {
+        let mut state = fixture();
+        let graph = route_fixture();
+        let error = state
+            .travel(&graph, "world.portal.damaged_estate_to_river_landing")
+            .unwrap_err();
+        assert_eq!(
+            error,
+            ExpeditionError::PortalUnavailable {
+                portal_id: "world.portal.damaged_estate_to_river_landing".into(),
+                active_location_id: "world.cell.black_beach".into()
+            }
+        );
+        state
+            .travel(&graph, "world.portal.black_beach_to_damaged_estate")
+            .expect("first trip is legal");
+        let restored = ExpeditionState::from_json(&state.to_json()).expect("arrival saves");
+        assert_eq!(restored.active_location_id, "world.cell.damaged_estate");
+        assert_eq!(restored.route_history.len(), 1);
+        assert_eq!(restored.route_history[0].location_id, "world.cell.damaged_estate");
+    }
+
+    #[test]
+    fn pending_encounter_blocks_route_commands_and_travel() {
+        let mut state = fixture();
+        let graph = route_fixture();
+        state.pending_encounter = Some(EncounterState {
+            encounter_id: "encounter.prototype.returning_names".into(),
+            battle_id: "battle.prototype.returning_names".into(),
+        });
+        assert!(matches!(
+            state.legal_route_commands(&graph),
+            Err(ExpeditionError::TravelBlockedByEncounter { .. })
+        ));
+        assert!(matches!(
+            state.travel(&graph, "world.portal.black_beach_to_damaged_estate"),
+            Err(ExpeditionError::TravelBlockedByEncounter { .. })
+        ));
     }
 }

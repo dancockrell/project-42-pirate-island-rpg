@@ -5,6 +5,7 @@ use crate::battle::{
     RecoveryOpening, StatusInstance, StatusKind,
 };
 use crate::protocol::{CommandEnvelope, CommandKind, PROTOCOL_VERSION};
+use crate::expedition::{ExpeditionError, ExpeditionState, PortalDefinition, RouteGraph, TimeSegment};
 
 const BATTLE_ID: &str = "battle.prototype.returning_names";
 
@@ -15,6 +16,18 @@ struct Project42SimulationBridge {
     battle: Option<Battle>,
     #[init(val = 0)]
     sequence: u64,
+}
+
+/// Engine-facing route adapter. Godot supplies the already-validated portal
+/// records from its generated content bundle; Rust then owns legality, state
+/// mutation and save-compatible arrival history.
+#[derive(GodotClass)]
+#[class(init, base=RefCounted)]
+struct Project42ExpeditionBridge {
+    #[init(val = None)]
+    state: Option<ExpeditionState>,
+    #[init(val = RouteGraph::default())]
+    graph: RouteGraph,
 }
 
 #[godot_api]
@@ -94,6 +107,56 @@ impl Project42SimulationBridge {
     }
 }
 
+#[godot_api]
+impl Project42ExpeditionBridge {
+    #[func]
+    fn configure(
+        &mut self,
+        seed: i64,
+        party_ids: Array<GString>,
+        active_location_id: GString,
+        portals: Array<VarDictionary>,
+    ) -> VarDictionary {
+        let definitions = match portals
+            .iter_shared()
+            .map(|portal| portal_definition(&portal))
+            .collect::<Result<Vec<_>, _>>()
+        {
+            Ok(value) => value,
+            Err(reason) => return expedition_error_dictionary(reason),
+        };
+        self.graph = match RouteGraph::new(definitions) {
+            Ok(graph) => graph,
+            Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
+        };
+        let members = party_ids.iter_shared().map(|id| id.to_string()).collect();
+        self.state = match ExpeditionState::new(seed as u64, members, active_location_id.to_string()) {
+            Ok(state) => Some(state),
+            Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
+        };
+        expedition_state_dictionary(self.state.as_ref().expect("state assigned"), &self.graph)
+    }
+
+    #[func]
+    fn snapshot(&self) -> VarDictionary {
+        self.state
+            .as_ref()
+            .map(|state| expedition_state_dictionary(state, &self.graph))
+            .unwrap_or_else(|| expedition_error_dictionary("expedition_not_configured"))
+    }
+
+    #[func]
+    fn travel(&mut self, portal_id: GString) -> VarDictionary {
+        let Some(state) = self.state.as_mut() else {
+            return expedition_error_dictionary("expedition_not_configured");
+        };
+        if let Err(error) = state.travel(&self.graph, &portal_id.to_string()) {
+            return expedition_error_dictionary(expedition_error_code(&error));
+        }
+        expedition_state_dictionary(state, &self.graph)
+    }
+}
+
 impl Project42SimulationBridge {
     fn records(&mut self, events: Vec<BattleEvent>) -> Array<VarDictionary> {
         let snapshot = self.battle.as_ref().map(Battle::snapshot);
@@ -152,6 +215,82 @@ fn field_string(value: &VarDictionary, key: &str) -> Option<String> {
         .get(key)
         .and_then(|v| v.try_to::<GString>().ok())
         .map(|v| v.to_string())
+}
+
+fn portal_definition(value: &VarDictionary) -> Result<PortalDefinition, &'static str> {
+    Ok(PortalDefinition {
+        id: field_string(value, "id").ok_or("portal_id_missing")?,
+        from_location_id: field_string(value, "from_location_id").ok_or("portal_from_location_missing")?,
+        target_location_id: field_string(value, "target_location_id").ok_or("portal_target_location_missing")?,
+        travel_mode: field_string(value, "travel_mode").ok_or("portal_travel_mode_missing")?,
+    })
+}
+
+fn expedition_state_dictionary(state: &ExpeditionState, graph: &RouteGraph) -> VarDictionary {
+    let mut party_ids = Array::<GString>::new();
+    for id in &state.party_ids {
+        let value = GString::from(id.as_str());
+        party_ids.push(&value);
+    }
+    let mut route_history = Array::<VarDictionary>::new();
+    for step in &state.route_history {
+        route_history.push(&vdict! {
+            "location_id" => step.location_id.as_str(),
+            "arrived_on_day" => i64::from(step.arrived_on_day),
+            "arrived_segment" => time_segment_name(&step.arrived_segment),
+        });
+    }
+    let mut legal_commands = Array::<GString>::new();
+    let error = state.legal_route_commands(graph).err();
+    if error.is_none() {
+        for command in state.legal_route_commands(graph).expect("already checked") {
+            let value = GString::from(command.as_str());
+            legal_commands.push(&value);
+        }
+    }
+    let metadata = vdict! { "source" => "rust_gdextension", "authoritative" => true };
+    let mut result = vdict! {
+        "configured" => true,
+        "save_version" => i64::from(state.save_version),
+        "campaign_day" => i64::from(state.campaign_day),
+        "time_segment" => time_segment_name(&state.time_segment),
+        "active_location_id" => state.active_location_id.as_str(),
+        "party_ids" => &party_ids,
+        "route_history" => &route_history,
+        "legal_route_commands" => &legal_commands,
+        "travel_blocked_reason" => error.map(|value| expedition_error_code(&value)).unwrap_or(""),
+    };
+    result.set("metadata", &metadata);
+    result
+}
+
+fn expedition_error_dictionary(reason: &str) -> VarDictionary {
+    let metadata = vdict! { "source" => "rust_gdextension", "authoritative" => true };
+    let mut result = vdict! { "configured" => false, "error" => reason };
+    result.set("metadata", &metadata);
+    result
+}
+
+fn time_segment_name(value: &TimeSegment) -> &'static str {
+    match value {
+        TimeSegment::Dawn => "dawn",
+        TimeSegment::Day => "day",
+        TimeSegment::Dusk => "dusk",
+        TimeSegment::Midnight => "midnight",
+    }
+}
+
+fn expedition_error_code(value: &ExpeditionError) -> &'static str {
+    match value {
+        ExpeditionError::MalformedJson(_) => "malformed_json",
+        ExpeditionError::FutureSaveVersion { .. } => "future_save_version",
+        ExpeditionError::InvalidStableId { .. } => "invalid_stable_id",
+        ExpeditionError::InvalidPartySize { .. } => "invalid_party_size",
+        ExpeditionError::DuplicatePortal { .. } => "duplicate_portal",
+        ExpeditionError::UnknownPortal { .. } => "unknown_portal",
+        ExpeditionError::PortalUnavailable { .. } => "portal_unavailable",
+        ExpeditionError::TravelBlockedByEncounter { .. } => "travel_blocked_by_encounter",
+    }
 }
 
 fn snapshot_dictionary(snapshot: &BattleSnapshot) -> VarDictionary {

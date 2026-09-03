@@ -16,6 +16,6 @@ pub use battle::{
 };
 pub use expedition::{
     CharacterState, EncounterState, ExpeditionError, ExpeditionState, HabitatState,
-    HouseholdProgress, RouteStep, SupplyState, TimeSegment,
+    HouseholdProgress, PortalDefinition, RouteGraph, RouteStep, SupplyState, TimeSegment,
 };
 pub use world::{DeathMemory, NamedPerson, SpawnRule, SpawnedMonster, WorldClock, WorldEvent};
