@@ -5,6 +5,7 @@
 pub mod battle;
 pub mod expedition;
 pub mod geography;
+pub mod habitat;
 pub mod protocol;
 pub mod world;
 
@@ -22,4 +23,5 @@ pub use expedition::{
 pub use geography::{
     Geography, LocationRecord, PersistencePolicy, ReturnPolicy, RouteKind, RouteOption,
 };
+pub use habitat::{ActionPriority, EncounterRank, HabitatRecord, Habitats, ThreatProfile};
 pub use world::{DeathMemory, NamedPerson, SpawnRule, SpawnedMonster, WorldClock, WorldEvent};
