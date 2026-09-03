@@ -6,6 +6,7 @@ pub mod battle;
 pub mod expedition;
 pub mod geography;
 pub mod habitat;
+pub mod hunter;
 pub mod protocol;
 pub mod world;
 
@@ -27,4 +28,5 @@ pub use habitat::{
     ActionPriority, CreatureFamily, EncounterRank, HabitatRecord, Habitats, RosterEntry,
     ThreatProfile,
 };
+pub use hunter::{Hunter, HunterKind};
 pub use world::{DeathMemory, NamedPerson, SpawnRule, SpawnedMonster, WorldClock, WorldEvent};

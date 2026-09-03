@@ -262,6 +262,11 @@ impl Geography {
         self.locations.get(id)
     }
 
+    /// Every location's stable ID, in stable order.
+    pub fn all_location_ids(&self) -> impl Iterator<Item = &str> {
+        self.locations.keys().map(String::as_str)
+    }
+
     pub fn route(&self, id: &str) -> Option<&RouteOption> {
         self.routes.get(id)
     }
@@ -271,5 +276,176 @@ impl Geography {
             .values()
             .filter(|route| route.from_location_id == location_id)
             .collect()
+    }
+
+    /// The first route of a shortest path from `from` to `to`, or `None` when the
+    /// two are the same place or nothing connects them.
+    ///
+    /// Breadth-first over `routes_from`, counting steps rather than minutes: a
+    /// pursuer closes ground in moves, and the shortest-in-time road is not always
+    /// the shortest-in-moves one. Both the frontier and the tie-break run in stable
+    /// route-ID order, so a chase is reproducible from the same save.
+    pub fn next_step_toward(&self, from: &str, to: &str) -> Option<&RouteOption> {
+        if from == to {
+            return None;
+        }
+        // Each frontier entry remembers the first route taken to reach it, so the
+        // answer falls out of the search rather than needing a second walk back.
+        let mut visited: BTreeMap<&str, ()> = BTreeMap::new();
+        let mut frontier: Vec<(&str, &RouteOption)> = Vec::new();
+        visited.insert(from, ());
+        for route in self.routes_from(from) {
+            if route.to_location_id == to {
+                return Some(route);
+            }
+            if visited.insert(route.to_location_id.as_str(), ()).is_none() {
+                frontier.push((route.to_location_id.as_str(), route));
+            }
+        }
+        while !frontier.is_empty() {
+            let mut next_frontier: Vec<(&str, &RouteOption)> = Vec::new();
+            for (location, first_step) in &frontier {
+                for route in self.routes_from(location) {
+                    if route.to_location_id == to {
+                        return Some(first_step);
+                    }
+                    if visited.insert(route.to_location_id.as_str(), ()).is_none() {
+                        next_frontier.push((route.to_location_id.as_str(), first_step));
+                    }
+                }
+            }
+            frontier = next_frontier;
+        }
+        None
+    }
+
+    /// Steps from `from` to `to` along a shortest path, `None` when unreachable.
+    /// Used to place a hunter as far from the party as the graph allows.
+    pub fn step_distance(&self, from: &str, to: &str) -> Option<usize> {
+        if from == to {
+            return Some(0);
+        }
+        let mut visited: BTreeMap<&str, ()> = BTreeMap::new();
+        let mut frontier: Vec<&str> = vec![from];
+        visited.insert(from, ());
+        let mut steps = 0usize;
+        while !frontier.is_empty() {
+            steps += 1;
+            let mut next_frontier: Vec<&str> = Vec::new();
+            for location in &frontier {
+                for route in self.routes_from(location) {
+                    if route.to_location_id == to {
+                        return Some(steps);
+                    }
+                    if visited.insert(route.to_location_id.as_str(), ()).is_none() {
+                        next_frontier.push(route.to_location_id.as_str());
+                    }
+                }
+            }
+            frontier = next_frontier;
+        }
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn next_step_toward_a_neighbor_is_the_direct_route() {
+        let geography = Geography::black_beach_vertical_slice();
+        let step = geography
+            .next_step_toward("location.black_beach", "location.black_beach.estate")
+            .expect("adjacent locations connect");
+        assert_eq!(step.id, "route.black_beach.to_estate");
+    }
+
+    #[test]
+    fn next_step_toward_a_distant_location_is_the_first_hop_of_a_shortest_path() {
+        let geography = Geography::black_beach_vertical_slice();
+        let step = geography
+            .next_step_toward(
+                "location.black_beach",
+                "location.black_beach.reception_terrace",
+            )
+            .expect("the terrace is reachable");
+        // The first hop out of Black Beach toward the terrace is the river landing
+        // leg; either river route from there is a legal second hop, but this call
+        // only answers for the first one.
+        assert_eq!(step.to_location_id, "location.black_beach.river_landing");
+    }
+
+    #[test]
+    fn next_step_toward_the_same_location_is_none() {
+        let geography = Geography::black_beach_vertical_slice();
+        assert!(
+            geography
+                .next_step_toward("location.black_beach", "location.black_beach")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn next_step_toward_an_unreachable_location_is_none() {
+        let geography = Geography::black_beach_vertical_slice();
+        assert!(
+            geography
+                .next_step_toward("location.black_beach", "location.nowhere")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn step_distance_matches_the_actual_shortest_path_length() {
+        let geography = Geography::black_beach_vertical_slice();
+        assert_eq!(
+            geography.step_distance("location.black_beach", "location.black_beach"),
+            Some(0)
+        );
+        assert_eq!(
+            geography.step_distance("location.black_beach", "location.black_beach.estate"),
+            Some(1)
+        );
+        assert_eq!(
+            geography.step_distance(
+                "location.black_beach",
+                "location.black_beach.reception_terrace"
+            ),
+            Some(2)
+        );
+        assert_eq!(
+            geography.step_distance(
+                "location.black_beach",
+                "location.black_beach.processional_ramp"
+            ),
+            Some(3)
+        );
+        assert_eq!(
+            geography.step_distance("location.black_beach", "location.nowhere"),
+            None
+        );
+    }
+
+    #[test]
+    fn following_next_step_toward_repeatedly_actually_arrives() {
+        let geography = Geography::black_beach_vertical_slice();
+        let destination = "location.black_beach.processional_ramp";
+        let mut current = "location.black_beach".to_owned();
+        let mut hops = 0;
+        while current != destination {
+            let step = geography
+                .next_step_toward(&current, destination)
+                .expect("still reachable each hop");
+            current = step.to_location_id.clone();
+            hops += 1;
+            assert!(hops <= 10, "pursuit should not loop forever on this graph");
+        }
+        assert_eq!(
+            hops,
+            geography
+                .step_distance("location.black_beach", destination)
+                .unwrap()
+        );
     }
 }

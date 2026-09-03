@@ -31,7 +31,9 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     };
     // Midnight puts today's individual in every habitat, so the terrace has a
     // real holder to meet rather than a hand-placed encounter.
-    state.resolve_midnight_in(&habitats).expect("resolves");
+    state
+        .resolve_midnight_in(&geography, &habitats)
+        .expect("resolves");
     assert_boundary_round_trips(&state);
 
     // 2. Travel by the safe road and persist its actual consequence.
@@ -160,7 +162,9 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     let yesterdays_holder = state.daily_spawn_records["world.region.black_beach.terrace_precinct"]
         .instance_id
         .clone();
-    let midnight_events = state.resolve_midnight_in(&habitats).expect("resolves");
+    let midnight_events = state
+        .resolve_midnight_in(&geography, &habitats)
+        .expect("resolves");
     assert_eq!(state.campaign_day, day_before_midnight + 1);
     assert!(
         midnight_events

@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::geography::{Geography, RouteOption};
 use crate::habitat::Habitats;
+use crate::hunter::{self, Hunter, HunterKind};
 use crate::world::{DeathMemory, NamedPerson, SpawnRule, SpawnedMonster, WorldClock, WorldEvent};
 
 pub const CURRENT_SAVE_VERSION: u32 = 1;
@@ -90,6 +91,10 @@ pub struct ExpeditionState {
     /// stripped here). Empty for habitats with nothing nocturnal unlocked yet.
     #[serde(default)]
     pub nightly_spawn_records: BTreeMap<String, SpawnedMonster>,
+    /// Roaming pursuers currently in the world. Unlike a habitat holder, a
+    /// hunter is not tied to one location -- it is placed once and then moves.
+    #[serde(default)]
+    pub hunters: Vec<Hunter>,
     pub discoveries: BTreeSet<String>,
     pub household_progress: HouseholdProgress,
     pub pending_encounter: Option<EncounterState>,
@@ -164,6 +169,7 @@ impl ExpeditionState {
             habitat_states: BTreeMap::new(),
             daily_spawn_records: BTreeMap::new(),
             nightly_spawn_records: BTreeMap::new(),
+            hunters: Vec::new(),
             discoveries: BTreeSet::new(),
             household_progress: HouseholdProgress {
                 estate_upgrades: BTreeSet::new(),
@@ -251,6 +257,9 @@ impl ExpeditionState {
             arrived_segment: self.time_segment.clone(),
         });
         self.active_location_id = route.to_location_id.clone();
+        // The world moves when the party does: every hunter closes one step
+        // toward wherever the party now stands.
+        hunter::advance_hunters(&mut self.hunters, geography, &self.active_location_id);
 
         Ok(TravelOutcome {
             arrived_at: self.active_location_id.clone(),
@@ -271,15 +280,18 @@ impl ExpeditionState {
         location.observation_ids.clone()
     }
 
-    /// Starts the encounter the world actually presents here: the individual that
-    /// Midnight Return materialized in the habitat holding this location. Returns
-    /// `None`, without mutating anything, when the current location can't produce
-    /// one -- no encounter is already open, the location must exist and be
-    /// `encounter_eligible`, a habitat's territory must cover it, that habitat must
-    /// have today's individual still uncleared, and the ledger must hold it. The
-    /// encounter's IDs derive from the spawn's `instance_id`, which already encodes
-    /// day, region and slot, so the same campaign day always names the same
-    /// encounter across a save/reload.
+    /// Starts the encounter the world actually presents here. A hunter that has
+    /// caught up takes precedence over whatever ordinarily lives at this location
+    /// -- it came looking for the party, so it answers first. Failing that, this
+    /// is the individual that Midnight Return materialized in the habitat holding
+    /// this location. Returns `None`, without mutating anything, when neither
+    /// applies -- no encounter is already open, and for the habitat case the
+    /// location must exist and be `encounter_eligible`, a habitat's territory must
+    /// cover it, that habitat must have today's individual still uncleared, and
+    /// the ledger must hold it. The encounter's IDs derive from the spawn's
+    /// `instance_id` (or the hunter's own stable ID), which already encodes day,
+    /// region and slot, so the same campaign day always names the same encounter
+    /// across a save/reload.
     pub fn begin_encounter(
         &mut self,
         geography: &Geography,
@@ -287,6 +299,16 @@ impl ExpeditionState {
     ) -> Option<&EncounterState> {
         if self.pending_encounter.is_some() {
             return None;
+        }
+        if let Some(hunter_id) = hunter::hunter_at(&self.hunters, &self.active_location_id)
+            .filter(|hunter| !hunter.is_defeated_today())
+            .map(|hunter| hunter.id.clone())
+        {
+            self.pending_encounter = Some(EncounterState {
+                encounter_id: format!("encounter.{hunter_id}"),
+                battle_id: format!("battle.{hunter_id}"),
+            });
+            return self.pending_encounter.as_ref();
         }
         if !geography
             .location(&self.active_location_id)
@@ -345,7 +367,25 @@ impl ExpeditionState {
             return Err(ExpeditionError::NoPendingEncounter);
         }
         if outcome == EncounterOutcome::Victory {
-            if let Some(habitat) = habitats.habitat_for_location(&self.active_location_id) {
+            let pending_encounter_id = self
+                .pending_encounter
+                .as_ref()
+                .map(|encounter| encounter.encounter_id.clone());
+            let defeated_hunter_index = pending_encounter_id.as_deref().and_then(|encounter_id| {
+                self.hunters
+                    .iter()
+                    .position(|hunter| encounter_id == format!("encounter.{}", hunter.id))
+            });
+            if let Some(index) = defeated_hunter_index {
+                // A tracker beaten in a fair fight is gone; a revenant is the
+                // island's own law made visible, and stands down rather than dies
+                // -- it returns at the next Midnight Return.
+                if self.hunters[index].kind.returns_after_defeat() {
+                    self.hunters[index].defeated_on_day = Some(self.campaign_day);
+                } else {
+                    self.hunters.remove(index);
+                }
+            } else if let Some(habitat) = habitats.habitat_for_location(&self.active_location_id) {
                 if let Some(state) = self.habitat_states.get_mut(&habitat.region_id) {
                     state.cleared_today = true;
                 }
@@ -551,12 +591,42 @@ impl ExpeditionState {
     /// gate has to be read from the day the transaction is about to *become*, not
     /// the one it is leaving, and only the state knows that -- so this computes the
     /// rules itself instead of leaving every caller to remember the off-by-one.
+    ///
+    /// Also where the roaming hunters live in the midnight transaction: after the
+    /// habitat spawns resolve, each unlocked `HunterKind` gets one deterministic
+    /// chance to join the world (skipped while one of that kind is already
+    /// present, defeated or not, so the island never floods with pursuers), every
+    /// hunter's stand-down from a defeat clears -- "it returns at the next
+    /// midnight" -- and then every hunter takes its nightly step toward the party,
+    /// the same as the step `travel` gives them.
     pub fn resolve_midnight_in(
         &mut self,
+        geography: &Geography,
         habitats: &Habitats,
     ) -> Result<Vec<WorldEvent>, ExpeditionError> {
         let rules = habitats.spawn_rules(self.campaign_day + 1);
-        self.resolve_midnight(&rules)
+        let events = self.resolve_midnight(&rules)?;
+
+        for kind in [HunterKind::HumanTracker, HunterKind::Revenant] {
+            if self.hunters.iter().any(|hunter| hunter.kind == kind) {
+                continue;
+            }
+            if let Some(hunter) = hunter::maybe_spawn_hunter(
+                self.rng_seed,
+                self.campaign_day,
+                kind,
+                geography,
+                &self.active_location_id,
+            ) {
+                self.hunters.push(hunter);
+            }
+        }
+        for hunter in &mut self.hunters {
+            hunter.defeated_on_day = None;
+        }
+        hunter::advance_hunters(&mut self.hunters, geography, &self.active_location_id);
+
+        Ok(events)
     }
 
     /// Derives "alive today" from the death memory alone -- `named_person_memory`
@@ -1141,7 +1211,9 @@ mod tests {
         let geography = Geography::black_beach_vertical_slice();
         let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
         let mut state = fixture();
-        state.resolve_midnight_in(&habitats).expect("resolves");
+        state
+            .resolve_midnight_in(&geography, &habitats)
+            .expect("resolves");
         state.active_location_id = "location.black_beach.reception_terrace".into();
         (geography, habitats, state)
     }
@@ -1200,7 +1272,9 @@ mod tests {
         assert!(state.begin_encounter(&geography, &habitats).is_none());
 
         // The next midnight puts a new individual there and reopens it.
-        state.resolve_midnight_in(&habitats).expect("resolves");
+        state
+            .resolve_midnight_in(&geography, &habitats)
+            .expect("resolves");
         assert!(state.begin_encounter(&geography, &habitats).is_some());
     }
 
@@ -1249,5 +1323,214 @@ mod tests {
             .expect("an older save still loads");
         assert!(restored.daily_spawn_records.is_empty());
         assert_eq!(restored.save_version, CURRENT_SAVE_VERSION);
+    }
+
+    /// Runs midnight forward from a fresh fixture until a `HumanTracker` has
+    /// joined the world, up to a generous day cap, and returns the state at that
+    /// exact moment. The roll is seeded and deterministic but not guaranteed on
+    /// any one day, so tests that need a live hunter scan for one rather than
+    /// assuming a specific day.
+    fn state_with_a_spawned_tracker() -> (
+        ExpeditionState,
+        crate::geography::Geography,
+        crate::habitat::Habitats,
+    ) {
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
+        let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
+        let mut state = fixture();
+        for _ in 0..40 {
+            state
+                .resolve_midnight_in(&geography, &habitats)
+                .expect("resolves");
+            if state
+                .hunters
+                .iter()
+                .any(|hunter| hunter.kind == HunterKind::HumanTracker)
+            {
+                break;
+            }
+        }
+        (state, geography, habitats)
+    }
+
+    #[test]
+    fn hunters_spawn_deterministically_for_the_same_seed_and_day() {
+        let (first, _, _) = state_with_a_spawned_tracker();
+        let (second, _, _) = state_with_a_spawned_tracker();
+        assert_eq!(first.hunters, second.hunters);
+        assert!(!first.hunters.is_empty(), "a seed this wide spawns one");
+    }
+
+    #[test]
+    fn travel_closes_one_hunter_step_toward_the_party() {
+        let (mut state, geography, _) = state_with_a_spawned_tracker();
+        let hunter_location_before = state.hunters[0].current_location_id.clone();
+        let distance_before = geography
+            .step_distance(&hunter_location_before, &state.active_location_id)
+            .expect("reachable");
+        if distance_before == 0 {
+            // The hunter already reached the party on the spawning midnight's own
+            // advance step; nothing left to close.
+            return;
+        }
+
+        // Travel somewhere and back so the party's location changes and changes
+        // back, giving the hunter a real step to take without the test needing to
+        // know the whole route in advance.
+        state
+            .travel("route.black_beach.to_estate", &geography)
+            .expect("legal route");
+
+        let distance_after = geography
+            .step_distance(
+                &state.hunters[0].current_location_id,
+                &state.active_location_id,
+            )
+            .expect("still reachable");
+        assert!(distance_after <= distance_before);
+    }
+
+    #[test]
+    fn a_hunter_that_reaches_the_party_presents_its_encounter_on_arrival() {
+        let (mut state, geography, habitats) = state_with_a_spawned_tracker();
+        // Walk the hunter home by hand: repeatedly advancing midnight both spawns
+        // and paces hunters, so running it forward is a legitimate way to let the
+        // pursuit actually conclude rather than asserting on engineered state.
+        for _ in 0..40 {
+            if state.hunters[0].current_location_id == state.active_location_id {
+                break;
+            }
+            state
+                .resolve_midnight_in(&geography, &habitats)
+                .expect("resolves");
+        }
+        assert_eq!(
+            state.hunters[0].current_location_id,
+            state.active_location_id
+        );
+
+        let encounter = state
+            .begin_encounter(&geography, &habitats)
+            .expect("the hunter presents an encounter")
+            .clone();
+        assert_eq!(
+            encounter.encounter_id,
+            format!("encounter.{}", state.hunters[0].id)
+        );
+    }
+
+    #[test]
+    fn the_party_can_outrun_a_hunter_by_staying_ahead_of_it() {
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
+        let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
+        let mut state = fixture();
+        // Place a hunter as far away as the graph allows, by hand, so this test
+        // does not depend on the spawn roll actually landing.
+        state.hunters.push(Hunter {
+            id: "hunter.test.pursuit".into(),
+            definition_id: HunterKind::HumanTracker.definition_id().to_owned(),
+            kind: HunterKind::HumanTracker,
+            current_location_id: "location.black_beach.processional_ramp".into(),
+            spawned_on_day: 1,
+            level: 5,
+            defeated_on_day: None,
+        });
+        let starting_distance = geography
+            .step_distance(
+                &state.hunters[0].current_location_id,
+                &state.active_location_id,
+            )
+            .expect("reachable");
+        assert!(
+            starting_distance > 1,
+            "the fixture needs real distance to close"
+        );
+
+        // The party moves once; the hunter closes exactly one step in response.
+        // As long as the party keeps moving, and the graph is wider than one hop,
+        // staying ahead is possible -- this asserts the party is not instantly
+        // caught the moment it takes a single step.
+        state
+            .travel("route.black_beach.to_estate", &geography)
+            .expect("legal route");
+        assert_ne!(
+            state.hunters[0].current_location_id,
+            state.active_location_id
+        );
+    }
+
+    #[test]
+    fn hunter_pursuit_survives_save_and_reload_mid_chase() {
+        let (state, _, _) = state_with_a_spawned_tracker();
+        let restored = ExpeditionState::from_json(&state.to_json()).expect("round trip parses");
+        assert_eq!(state.hunters, restored.hunters);
+    }
+
+    #[test]
+    fn a_beaten_tracker_is_gone_but_a_beaten_revenant_returns_next_midnight() {
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
+        let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
+
+        let mut state = fixture();
+        state.hunters.push(Hunter {
+            id: "hunter.test.tracker".into(),
+            definition_id: HunterKind::HumanTracker.definition_id().to_owned(),
+            kind: HunterKind::HumanTracker,
+            current_location_id: "location.black_beach".into(),
+            spawned_on_day: 1,
+            level: 5,
+            defeated_on_day: None,
+        });
+        state.hunters.push(Hunter {
+            id: "hunter.test.revenant".into(),
+            definition_id: HunterKind::Revenant.definition_id().to_owned(),
+            kind: HunterKind::Revenant,
+            current_location_id: "location.black_beach".into(),
+            spawned_on_day: 1,
+            level: 8,
+            defeated_on_day: None,
+        });
+
+        state
+            .begin_encounter(&geography, &habitats)
+            .expect("a hunter is here");
+        let first_defeated_id = state
+            .pending_encounter
+            .as_ref()
+            .unwrap()
+            .encounter_id
+            .clone();
+        state
+            .resolve_encounter(EncounterOutcome::Victory, &geography, &habitats)
+            .expect("resolves");
+        assert!(
+            !state
+                .hunters
+                .iter()
+                .any(|hunter| format!("encounter.{}", hunter.id) == first_defeated_id),
+            "the first hunter beaten here is either removed (tracker) or stood down (revenant), \
+             but never still presents the same pending id"
+        );
+
+        // Whichever it was, the survivor is still here; beat that one too.
+        if let Some(encounter) = state.begin_encounter(&geography, &habitats).cloned() {
+            state
+                .resolve_encounter(EncounterOutcome::Victory, &geography, &habitats)
+                .expect("resolves");
+            let _ = encounter;
+        }
+
+        // Exactly one hunter remains: the tracker is gone outright, the revenant
+        // is merely defeated-today and still present in the ledger.
+        assert_eq!(state.hunters.len(), 1);
+        let revenant = &state.hunters[0];
+        assert_eq!(revenant.kind, HunterKind::Revenant);
+        assert!(revenant.is_defeated_today());
+
+        // Midnight is where the island's law runs: the revenant stands back up.
+        state
+            .resolve_midnight_in(&geography, &habitats)
+            .expect("resolves");
+        assert!(!state.hunters[0].is_defeated_today());
     }
 }

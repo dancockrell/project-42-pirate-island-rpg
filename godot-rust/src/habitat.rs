@@ -504,6 +504,7 @@ mod tests {
     #[test]
     fn midnight_materializes_exactly_one_individual_per_habitat() {
         let habitats = Habitats::black_beach_vertical_slice();
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
         let mut state = ExpeditionState::new(
             11,
             vec!["character.heroine.betty".into()],
@@ -511,7 +512,9 @@ mod tests {
         )
         .expect("fresh campaign constructs");
 
-        let events = state.resolve_midnight_in(&habitats).expect("resolves");
+        let events = state
+            .resolve_midnight_in(&geography, &habitats)
+            .expect("resolves");
 
         let spawned: Vec<_> = events
             .iter()
@@ -539,6 +542,7 @@ mod tests {
     #[test]
     fn the_apex_habitat_spawns_a_higher_level_individual_than_the_ordinary_one() {
         let habitats = Habitats::black_beach_vertical_slice();
+        let geography = crate::geography::Geography::black_beach_vertical_slice();
         let mut state = ExpeditionState::new(
             11,
             vec!["character.heroine.betty".into()],
@@ -546,7 +550,9 @@ mod tests {
         )
         .expect("fresh campaign constructs");
 
-        let events = state.resolve_midnight_in(&habitats).expect("resolves");
+        let events = state
+            .resolve_midnight_in(&geography, &habitats)
+            .expect("resolves");
 
         let level_in = |region: &str| {
             events
@@ -675,7 +681,9 @@ mod tests {
         )
         .expect("fresh campaign constructs");
         state.campaign_day = 8;
-        state.resolve_midnight_in(&habitats).expect("resolves");
+        state
+            .resolve_midnight_in(&geography, &habitats)
+            .expect("resolves");
 
         let region = "world.region.black_beach.terrace_precinct";
         assert!(state.daily_spawn_records.contains_key(region));

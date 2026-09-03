@@ -150,7 +150,9 @@ impl WorldClock {
     }
 }
 
-fn mix_seed(mut seed: u64, day: u32, region_id: &str, slot: u8) -> u64 {
+/// Shared deterministic mixer: reused by `hunter.rs` for its own seeded-per-day
+/// decisions rather than growing a second copy of the same reproducibility rule.
+pub(crate) fn mix_seed(mut seed: u64, day: u32, region_id: &str, slot: u8) -> u64 {
     seed ^= u64::from(day).wrapping_mul(0x9E37_79B9_7F4A_7C15);
     seed ^= u64::from(slot) << 32;
     for byte in region_id.bytes() {
