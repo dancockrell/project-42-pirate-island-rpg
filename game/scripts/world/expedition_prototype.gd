@@ -162,6 +162,17 @@ func make_description(cell: Dictionary) -> String:
 func populate_routes(cell: Dictionary, snapshot: Dictionary) -> void:
 	for child in route_list.get_children():
 		child.queue_free()
+	var pending_encounter: Dictionary = snapshot.get("pending_encounter", {})
+	if not pending_encounter.is_empty():
+		var encounter_id := str(pending_encounter.get("encounter_id", ""))
+		var battle_id := str(pending_encounter.get("battle_id", ""))
+		var pending := make_label("ENCOUNTER PENDING\n%s\n%s" % [encounter_id.to_upper(), battle_id.to_upper()], 14, DANGER)
+		pending.name = "PendingEncounter"
+		pending.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		pending.custom_minimum_size.y = 78
+		pending.tooltip_text = "Authoritative encounter handoff. Travel is blocked until the named battle resolves.\nEncounter: %s\nBattle: %s" % [encounter_id, battle_id]
+		route_list.add_child(pending)
+		return
 	var legal: Dictionary = {}
 	for command in snapshot.get("legal_route_commands", []):
 		var command_text := str(command)
@@ -199,7 +210,11 @@ func request_travel(portal_id: String) -> void:
 		status_label.text = "TRAVEL REFUSED  •  %s" % str(result.get("error", "unknown_error")).to_upper()
 		return
 	var destination := catalog.get_record(str(result.get("active_location_id", "")))
-	project_snapshot(result, "ARRIVED  •  %s" % str(destination.get("displayName", "UNKNOWN LOCATION")).to_upper())
+	var pending_encounter: Dictionary = result.get("pending_encounter", {})
+	var message := "ARRIVED  •  %s" % str(destination.get("displayName", "UNKNOWN LOCATION")).to_upper()
+	if not pending_encounter.is_empty():
+		message = "CONTACT  •  %s" % str(pending_encounter.get("encounter_id", "UNKNOWN ENCOUNTER")).replace("encounter.", "").replace("_", " ").to_upper()
+	project_snapshot(result, message)
 
 
 func get_authoritative_snapshot() -> Dictionary:

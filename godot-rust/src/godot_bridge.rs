@@ -5,7 +5,8 @@ use crate::battle::{
     RecoveryOpening, StatusInstance, StatusKind,
 };
 use crate::expedition::{
-    ExpeditionError, ExpeditionState, PortalDefinition, RouteGraph, TimeSegment,
+    EncounterTriggerDefinition, ExpeditionError, ExpeditionState, PortalDefinition, RouteGraph,
+    TimeSegment,
 };
 use crate::protocol::{CommandEnvelope, CommandKind, PROTOCOL_VERSION};
 use serde::Deserialize;
@@ -43,6 +44,7 @@ struct ExpeditionConfiguration {
     party_ids: Vec<String>,
     active_location_id: String,
     portals: Vec<PortalDefinition>,
+    encounter_triggers: Vec<EncounterTriggerDefinition>,
 }
 
 #[godot_api]
@@ -132,7 +134,10 @@ impl Project42ExpeditionBridge {
             Ok(value) => value,
             Err(_) => return expedition_error_dictionary("expedition_configuration_invalid"),
         };
-        self.graph = match RouteGraph::new(configuration.portals) {
+        self.graph = match RouteGraph::with_encounter_triggers(
+            configuration.portals,
+            configuration.encounter_triggers,
+        ) {
             Ok(graph) => graph,
             Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
         };
@@ -250,6 +255,16 @@ fn expedition_state_dictionary(state: &ExpeditionState, graph: &RouteGraph) -> V
         }
     }
     let metadata = vdict! { "source" => "rust_gdextension", "authoritative" => true };
+    let pending_encounter = state
+        .pending_encounter
+        .as_ref()
+        .map(|encounter| {
+            vdict! {
+                "encounter_id" => encounter.encounter_id.as_str(),
+                "battle_id" => encounter.battle_id.as_str(),
+            }
+        })
+        .unwrap_or_default();
     let mut result = vdict! {
         "configured" => true,
         "save_version" => i64::from(state.save_version),
@@ -260,6 +275,7 @@ fn expedition_state_dictionary(state: &ExpeditionState, graph: &RouteGraph) -> V
         "route_history" => &route_history,
         "legal_route_commands" => &legal_commands,
         "travel_blocked_reason" => error.map(|value| expedition_error_code(&value)).unwrap_or(""),
+        "pending_encounter" => &pending_encounter,
     };
     result.set("metadata", &metadata);
     result
@@ -288,6 +304,7 @@ fn expedition_error_code(value: &ExpeditionError) -> &'static str {
         ExpeditionError::InvalidStableId { .. } => "invalid_stable_id",
         ExpeditionError::InvalidPartySize { .. } => "invalid_party_size",
         ExpeditionError::DuplicatePortal { .. } => "duplicate_portal",
+        ExpeditionError::DuplicateEncounterTrigger => "duplicate_encounter_trigger",
         ExpeditionError::UnknownPortal { .. } => "unknown_portal",
         ExpeditionError::PortalUnavailable { .. } => "portal_unavailable",
         ExpeditionError::TravelBlockedByEncounter { .. } => "travel_blocked_by_encounter",

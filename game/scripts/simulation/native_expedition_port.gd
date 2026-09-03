@@ -32,6 +32,7 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 		return unavailable_state()
 	var region := catalog.get_record("world.region.black_beach")
 	var portals: Array[Dictionary] = []
+	var encounter_triggers: Array[Dictionary] = []
 	for cell_id in region.get("worldCellIds", []):
 		var cell := catalog.get_record(str(cell_id))
 		for portal in cell.get("portals", []):
@@ -41,11 +42,21 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 				"target_location_id": str(portal.get("targetCellId", "")),
 				"travel_mode": str(portal.get("travelMode", ""))
 			})
+		for entry in cell.get("battleEntries", []):
+			if str(entry.get("status", "")) != "vertical_slice_encounter":
+				continue
+			var encounter := catalog.get_record(str(entry.get("encounterId", "")))
+			encounter_triggers.append({
+				"location_id": str(cell.get("id", "")),
+				"encounter_id": str(encounter.get("id", "")),
+				"battle_id": str(encounter.get("battleId", ""))
+			})
 	var configuration := {
 		"seed": seed,
 		"party_ids": INITIAL_PARTY,
 		"active_location_id": INITIAL_LOCATION_ID,
-		"portals": portals
+		"portals": portals,
+		"encounter_triggers": encounter_triggers
 	}
 	return bridge.configure(JSON.stringify(configuration))
 

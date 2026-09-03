@@ -15,7 +15,8 @@ pub use battle::{
     BattlefieldEffect, Faction, SkillCommand, StatusInstance, StatusKind,
 };
 pub use expedition::{
-    CharacterState, EncounterState, ExpeditionError, ExpeditionState, HabitatState,
-    HouseholdProgress, PortalDefinition, RouteGraph, RouteStep, SupplyState, TimeSegment,
+    CharacterState, EncounterState, EncounterTriggerDefinition, ExpeditionError, ExpeditionState,
+    HabitatState, HouseholdProgress, PortalDefinition, RouteGraph, RouteStep, SupplyState,
+    TimeSegment,
 };
 pub use world::{DeathMemory, NamedPerson, SpawnRule, SpawnedMonster, WorldClock, WorldEvent};

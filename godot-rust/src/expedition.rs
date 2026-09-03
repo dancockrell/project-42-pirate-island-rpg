@@ -76,9 +76,19 @@ pub struct PortalDefinition {
     pub travel_mode: String,
 }
 
+/// One authored location-to-battle boundary. Content decides which entry is
+/// live; the expedition state decides when it becomes pending.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EncounterTriggerDefinition {
+    pub location_id: String,
+    pub encounter_id: String,
+    pub battle_id: String,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RouteGraph {
     portals_by_id: BTreeMap<String, PortalDefinition>,
+    encounter_triggers_by_location: BTreeMap<String, EncounterTriggerDefinition>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -116,6 +126,7 @@ pub enum ExpeditionError {
     DuplicatePortal {
         id: String,
     },
+    DuplicateEncounterTrigger,
     UnknownPortal {
         id: String,
     },
@@ -130,6 +141,13 @@ pub enum ExpeditionError {
 
 impl RouteGraph {
     pub fn new(portals: Vec<PortalDefinition>) -> Result<Self, ExpeditionError> {
+        Self::with_encounter_triggers(portals, Vec::new())
+    }
+
+    pub fn with_encounter_triggers(
+        portals: Vec<PortalDefinition>,
+        encounter_triggers: Vec<EncounterTriggerDefinition>,
+    ) -> Result<Self, ExpeditionError> {
         let mut portals_by_id = BTreeMap::new();
         for portal in portals {
             require_stable_id("portal.id", &portal.id)?;
@@ -140,7 +158,22 @@ impl RouteGraph {
             }
             portals_by_id.insert(portal.id.clone(), portal);
         }
-        Ok(Self { portals_by_id })
+        let mut encounter_triggers_by_location = BTreeMap::new();
+        for trigger in encounter_triggers {
+            require_stable_id("encounter_trigger.location_id", &trigger.location_id)?;
+            require_stable_id("encounter_trigger.encounter_id", &trigger.encounter_id)?;
+            require_stable_id("encounter_trigger.battle_id", &trigger.battle_id)?;
+            if encounter_triggers_by_location
+                .insert(trigger.location_id.clone(), trigger)
+                .is_some()
+            {
+                return Err(ExpeditionError::DuplicateEncounterTrigger);
+            }
+        }
+        Ok(Self {
+            portals_by_id,
+            encounter_triggers_by_location,
+        })
     }
 
     pub fn portal(&self, portal_id: &str) -> Option<&PortalDefinition> {
@@ -152,6 +185,10 @@ impl RouteGraph {
             .values()
             .filter(|portal| portal.from_location_id == location_id)
             .collect()
+    }
+
+    pub fn encounter_trigger_for(&self, location_id: &str) -> Option<&EncounterTriggerDefinition> {
+        self.encounter_triggers_by_location.get(location_id)
     }
 }
 
@@ -276,6 +313,12 @@ impl ExpeditionState {
             arrived_on_day: self.campaign_day,
             arrived_segment: self.time_segment.clone(),
         });
+        if let Some(trigger) = graph.encounter_trigger_for(&self.active_location_id) {
+            self.pending_encounter = Some(EncounterState {
+                encounter_id: trigger.encounter_id.clone(),
+                battle_id: trigger.battle_id.clone(),
+            });
+        }
         Ok(())
     }
 }
@@ -467,6 +510,38 @@ mod tests {
                 "travel:world.portal.river_landing_to_reception_terrace_jungle_edge",
                 "travel:world.portal.river_landing_to_reception_terrace_safe_road"
             ]
+        );
+    }
+
+    #[test]
+    fn authored_location_trigger_arms_one_pending_encounter_after_arrival() {
+        let graph = RouteGraph::with_encounter_triggers(
+            route_fixture().portals_by_id.into_values().collect(),
+            vec![EncounterTriggerDefinition {
+                location_id: "world.cell.damaged_estate".into(),
+                encounter_id: "encounter.prototype.returning_names".into(),
+                battle_id: "battle.prototype.returning_names".into(),
+            }],
+        )
+        .expect("trigger graph is valid");
+        let mut state = fixture();
+
+        state
+            .travel(&graph, "world.portal.black_beach_to_damaged_estate")
+            .expect("arrival is legal");
+
+        assert_eq!(
+            state.pending_encounter,
+            Some(EncounterState {
+                encounter_id: "encounter.prototype.returning_names".into(),
+                battle_id: "battle.prototype.returning_names".into(),
+            })
+        );
+        assert_eq!(
+            state.legal_route_commands(&graph),
+            Err(ExpeditionError::TravelBlockedByEncounter {
+                encounter_id: "encounter.prototype.returning_names".into(),
+            })
         );
     }
 

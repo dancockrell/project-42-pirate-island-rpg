@@ -29,6 +29,10 @@ func _init() -> void:
 	check(expedition.get_legal_route_count() == 3, "River Landing must project its three legal native routes")
 	expedition.request_travel("world.portal.river_landing_to_reception_terrace_safe_road")
 	check(expedition.get_authoritative_snapshot().get("active_location_id") == "world.cell.reception_terrace", "safe road must arrive at Reception Terrace")
+	var pending_encounter: Dictionary = expedition.get_authoritative_snapshot().get("pending_encounter", {})
+	check(pending_encounter.get("encounter_id") == "encounter.prototype.returning_names", "Reception Terrace must arm its authored Razorbeak encounter")
+	check(pending_encounter.get("battle_id") == "battle.prototype.returning_names", "Encounter handoff must retain the authored battle ID")
+	check(expedition.get_legal_route_count() == 1, "Pending encounter must replace route controls with one truthful blocked-state message")
 	expedition.queue_free()
 	finish()
 
