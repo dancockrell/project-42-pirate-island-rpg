@@ -2,7 +2,7 @@
   "format": "shared_source_collection_catalog",
   "schemaVersion": 1,
   "purpose": "Compact, committed provenance catalog for local reusable source collections. It intentionally does not ship the raw collection payload.",
-  "sourceCollectionCount": 16,
+  "sourceCollectionCount": 20,
   "sourceCollections": [
     {
       "id": "source.collection.cc0.kenney.building-kit",
@@ -71,6 +71,55 @@
         "modern",
         "commercial-city",
         "low-poly"
+      ],
+      "defaultPhysicalType": "structures",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.city-kit-roads",
+      "collectionKey": "city-kit-roads",
+      "title": "City Kit Roads",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/city-kit-roads",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/city-kit-roads/kenney_city-kit-roads.zip",
+        "filename": "kenney_city-kit-roads.zip",
+        "bytes": 2849382,
+        "sha256": "22058af3d68173a7cf9bda9f0e243a8cef6bd68168c302ebc76327063849674e"
+      },
+      "styleTags": [
+        "modern",
+        "city",
+        "roads",
+        "modular"
+      ],
+      "defaultPhysicalType": "routes",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.city-kit-suburban",
+      "collectionKey": "city-kit-suburban",
+      "title": "City Kit Suburban 2.0",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/city-kit-suburban",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/city-kit-suburban/kenney_city-kit-suburban_20.zip",
+        "filename": "kenney_city-kit-suburban_20.zip",
+        "bytes": 3038740,
+        "sha256": "5869c35cf30b1c87bdb2d197b6d325eebadd2ef08ea27f04797e8e08d77a9a39"
+      },
+      "styleTags": [
+        "modern",
+        "suburban",
+        "city"
       ],
       "defaultPhysicalType": "structures",
       "ledgerRecord": null,
@@ -385,6 +434,54 @@
       ],
       "defaultPhysicalType": "props",
       "ledgerRecord": "asset.shared.kenney.survival-kit.source",
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.train-kit",
+      "collectionKey": "train-kit",
+      "title": "Train Kit",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/train-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/train-kit/kenney_train-kit.zip",
+        "filename": "kenney_train-kit.zip",
+        "bytes": 5266588,
+        "sha256": "cf50d77e8cbacbf38dd50826d4bce5392db8e4f67373d3c4e583b0ed0e474475"
+      },
+      "styleTags": [
+        "modern",
+        "transport",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "vehicles",
+      "ledgerRecord": null,
+      "state": "local_source_available"
+    },
+    {
+      "id": "source.collection.cc0.kenney.watercraft-kit",
+      "collectionKey": "watercraft-kit",
+      "title": "Watercraft Kit",
+      "creator": "Kenney",
+      "canonicalUrl": "https://kenney.nl/assets/watercraft-kit",
+      "authoringLineage": "source_cc0",
+      "licenseSpdx": "CC0-1.0",
+      "retrievedOn": "2026-09-03",
+      "archive": {
+        "localPath": "work/art/vendor/kenney/watercraft-kit/kenney_watercraft-pack.zip",
+        "filename": "kenney_watercraft-pack.zip",
+        "bytes": 1870991,
+        "sha256": "cd1470c1cf441c7f46d0944ae6d0d897242365dc97677c5079b3238965d659f3"
+      },
+      "styleTags": [
+        "maritime",
+        "transport",
+        "low-poly"
+      ],
+      "defaultPhysicalType": "maritime",
+      "ledgerRecord": null,
       "state": "local_source_available"
     }
   ]
