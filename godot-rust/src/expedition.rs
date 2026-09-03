@@ -68,7 +68,7 @@ pub struct EncounterState {
 /// A route is authored outside of the simulation, then supplied to it as a
 /// small deterministic graph. The simulation owns which portal is legal and
 /// what a successful trip changes; Godot owns only presentation and input.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PortalDefinition {
     pub id: String,
     pub from_location_id: String,
@@ -102,13 +102,30 @@ pub struct ExpeditionState {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExpeditionError {
     MalformedJson(String),
-    FutureSaveVersion { found: u32, current: u32 },
-    InvalidStableId { field: &'static str, value: String },
-    InvalidPartySize { found: usize },
-    DuplicatePortal { id: String },
-    UnknownPortal { id: String },
-    PortalUnavailable { portal_id: String, active_location_id: String },
-    TravelBlockedByEncounter { encounter_id: String },
+    FutureSaveVersion {
+        found: u32,
+        current: u32,
+    },
+    InvalidStableId {
+        field: &'static str,
+        value: String,
+    },
+    InvalidPartySize {
+        found: usize,
+    },
+    DuplicatePortal {
+        id: String,
+    },
+    UnknownPortal {
+        id: String,
+    },
+    PortalUnavailable {
+        portal_id: String,
+        active_location_id: String,
+    },
+    TravelBlockedByEncounter {
+        encounter_id: String,
+    },
 }
 
 impl RouteGraph {
@@ -119,9 +136,7 @@ impl RouteGraph {
             require_stable_id("portal.from_location_id", &portal.from_location_id)?;
             require_stable_id("portal.target_location_id", &portal.target_location_id)?;
             if portals_by_id.contains_key(&portal.id) {
-                return Err(ExpeditionError::DuplicatePortal {
-                    id: portal.id,
-                });
+                return Err(ExpeditionError::DuplicatePortal { id: portal.id });
             }
             portals_by_id.insert(portal.id.clone(), portal);
         }
@@ -244,9 +259,11 @@ impl ExpeditionState {
                 encounter_id: encounter.encounter_id.clone(),
             });
         }
-        let portal = graph.portal(portal_id).ok_or_else(|| ExpeditionError::UnknownPortal {
-            id: portal_id.to_owned(),
-        })?;
+        let portal = graph
+            .portal(portal_id)
+            .ok_or_else(|| ExpeditionError::UnknownPortal {
+                id: portal_id.to_owned(),
+            })?;
         if portal.from_location_id != self.active_location_id {
             return Err(ExpeditionError::PortalUnavailable {
                 portal_id: portal.id.clone(),
@@ -431,7 +448,9 @@ mod tests {
         let mut state = fixture();
         let graph = route_fixture();
         assert_eq!(
-            state.legal_route_commands(&graph).expect("shore has a route"),
+            state
+                .legal_route_commands(&graph)
+                .expect("shore has a route"),
             vec!["travel:world.portal.black_beach_to_damaged_estate"]
         );
         state
@@ -441,7 +460,9 @@ mod tests {
             .travel(&graph, "world.portal.damaged_estate_to_river_landing")
             .expect("second trip is legal");
         assert_eq!(
-            state.legal_route_commands(&graph).expect("landing has two routes"),
+            state
+                .legal_route_commands(&graph)
+                .expect("landing has two routes"),
             vec![
                 "travel:world.portal.river_landing_to_reception_terrace_jungle_edge",
                 "travel:world.portal.river_landing_to_reception_terrace_safe_road"
@@ -469,7 +490,10 @@ mod tests {
         let restored = ExpeditionState::from_json(&state.to_json()).expect("arrival saves");
         assert_eq!(restored.active_location_id, "world.cell.damaged_estate");
         assert_eq!(restored.route_history.len(), 1);
-        assert_eq!(restored.route_history[0].location_id, "world.cell.damaged_estate");
+        assert_eq!(
+            restored.route_history[0].location_id,
+            "world.cell.damaged_estate"
+        );
     }
 
     #[test]

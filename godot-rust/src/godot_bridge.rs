@@ -4,8 +4,11 @@ use crate::battle::{
     Actor, Battle, BattleEvent, BattlePhase, BattleSnapshot, BattlefieldEffect, Faction,
     RecoveryOpening, StatusInstance, StatusKind,
 };
+use crate::expedition::{
+    ExpeditionError, ExpeditionState, PortalDefinition, RouteGraph, TimeSegment,
+};
 use crate::protocol::{CommandEnvelope, CommandKind, PROTOCOL_VERSION};
-use crate::expedition::{ExpeditionError, ExpeditionState, PortalDefinition, RouteGraph, TimeSegment};
+use serde::Deserialize;
 
 const BATTLE_ID: &str = "battle.prototype.returning_names";
 
@@ -28,6 +31,18 @@ struct Project42ExpeditionBridge {
     state: Option<ExpeditionState>,
     #[init(val = RouteGraph::default())]
     graph: RouteGraph,
+}
+
+/// A deliberately narrow, string-based GDExtension boundary. Godot prepares
+/// this payload from the validated content catalog; Rust parses and validates
+/// the values before mutating expedition state. This avoids treating Godot's
+/// typed Array variants as a backend protocol.
+#[derive(Deserialize)]
+struct ExpeditionConfiguration {
+    seed: u64,
+    party_ids: Vec<String>,
+    active_location_id: String,
+    portals: Vec<PortalDefinition>,
 }
 
 #[godot_api]
@@ -110,27 +125,22 @@ impl Project42SimulationBridge {
 #[godot_api]
 impl Project42ExpeditionBridge {
     #[func]
-    fn configure(
-        &mut self,
-        seed: i64,
-        party_ids: Array<GString>,
-        active_location_id: GString,
-        portals: Array<VarDictionary>,
-    ) -> VarDictionary {
-        let definitions = match portals
-            .iter_shared()
-            .map(|portal| portal_definition(&portal))
-            .collect::<Result<Vec<_>, _>>()
-        {
+    fn configure(&mut self, configuration_json: GString) -> VarDictionary {
+        let configuration = match serde_json::from_str::<ExpeditionConfiguration>(
+            &configuration_json.to_string(),
+        ) {
             Ok(value) => value,
-            Err(reason) => return expedition_error_dictionary(reason),
+            Err(_) => return expedition_error_dictionary("expedition_configuration_invalid"),
         };
-        self.graph = match RouteGraph::new(definitions) {
+        self.graph = match RouteGraph::new(configuration.portals) {
             Ok(graph) => graph,
             Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
         };
-        let members = party_ids.iter_shared().map(|id| id.to_string()).collect();
-        self.state = match ExpeditionState::new(seed as u64, members, active_location_id.to_string()) {
+        self.state = match ExpeditionState::new(
+            configuration.seed,
+            configuration.party_ids,
+            configuration.active_location_id,
+        ) {
             Ok(state) => Some(state),
             Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
         };
@@ -215,15 +225,6 @@ fn field_string(value: &VarDictionary, key: &str) -> Option<String> {
         .get(key)
         .and_then(|v| v.try_to::<GString>().ok())
         .map(|v| v.to_string())
-}
-
-fn portal_definition(value: &VarDictionary) -> Result<PortalDefinition, &'static str> {
-    Ok(PortalDefinition {
-        id: field_string(value, "id").ok_or("portal_id_missing")?,
-        from_location_id: field_string(value, "from_location_id").ok_or("portal_from_location_missing")?,
-        target_location_id: field_string(value, "target_location_id").ok_or("portal_target_location_missing")?,
-        travel_mode: field_string(value, "travel_mode").ok_or("portal_travel_mode_missing")?,
-    })
 }
 
 fn expedition_state_dictionary(state: &ExpeditionState, graph: &RouteGraph) -> VarDictionary {

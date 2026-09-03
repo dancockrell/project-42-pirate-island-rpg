@@ -32,7 +32,7 @@ Every event contains `event_id`, `command_id` when applicable, monotonically inc
 
 ## Build outputs
 
-The Rust library emits both `rlib` for engine-independent tests and `cdylib` for Godot. `tools/build-native-bridge.ps1` builds the selected configuration and copies the verified Windows library to `game/bin/windows/`. `game/bin/project42_sim.gdextension` maps debug and release libraries separately. Godot import is part of `tools/verify-godot.ps1`, because a compiled DLL that the editor has not registered is not a usable bridge.
+The Rust library emits both `rlib` for engine-independent tests and `cdylib` for Godot. `tools/build-native-bridge.ps1` builds the selected configuration and copies the verified Windows library to `game/bin/windows/`. `game/bin/project42_sim.gdextension` maps debug and release libraries separately. The active pair is named `expedition_v1`: it marks the first bridge revision that accepts a single JSON expedition configuration payload rather than relying on Godot typed-array coercion. Godot import is part of `tools/verify-godot.ps1`, because a compiled DLL that the editor has not registered is not a usable bridge.
 
 ## Acceptance gates
 

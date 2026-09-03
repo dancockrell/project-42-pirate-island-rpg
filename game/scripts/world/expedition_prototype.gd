@@ -206,6 +206,16 @@ func get_authoritative_snapshot() -> Dictionary:
 	return latest_snapshot.duplicate(true)
 
 
+func get_legal_route_count() -> int:
+	if route_list == null:
+		return 0
+	var count := 0
+	for child in route_list.get_children():
+		if not child.is_queued_for_deletion():
+			count += 1
+	return count
+
+
 func show_startup_failure(reason: String) -> void:
 	add_child(make_rect(DEEP))
 	var label := make_label("EXPEDITION STARTUP BLOCKED\n\n%s" % reason, 20, DANGER)

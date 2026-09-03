@@ -41,7 +41,13 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 				"target_location_id": str(portal.get("targetCellId", "")),
 				"travel_mode": str(portal.get("travelMode", ""))
 			})
-	return bridge.configure(seed, INITIAL_PARTY, INITIAL_LOCATION_ID, portals)
+	var configuration := {
+		"seed": seed,
+		"party_ids": INITIAL_PARTY,
+		"active_location_id": INITIAL_LOCATION_ID,
+		"portals": portals
+	}
+	return bridge.configure(JSON.stringify(configuration))
 
 
 func snapshot() -> Dictionary:
