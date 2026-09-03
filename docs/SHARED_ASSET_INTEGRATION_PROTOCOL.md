@@ -19,7 +19,7 @@ There are two places to look, and they mean different things.
 
 | Surface | Location | Purpose | May a game ship it? |
 | --- | --- | --- | --- |
-| Local resource library | `resource-packs/` | Fast working inventory of raw CC0 source collections and curated derivatives. Search `library.local.json`; it is intentionally worktree-local. | No. A hit is a candidate, not automatic runtime permission. |
+| Shared resource library | `resource-packs/` | Repository-backed inventory of raw CC0 source collections and curated derivatives. Search `library.local.json`. | No. A hit is a candidate, not automatic runtime permission. |
 | Committed provenance catalog | `content/art/shared_source_collections.json` and `content/art/shared_asset_ledger.json` | Durable proof of source, license, archive hash, review status, and consumer scope. | Only when the individual asset record has passed every admission gate. |
 
 Do not make `game/assets/shared/` the discovery surface. A consuming project

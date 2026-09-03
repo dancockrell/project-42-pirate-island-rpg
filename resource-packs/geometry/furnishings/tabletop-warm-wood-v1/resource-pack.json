@@ -1,0 +1,48 @@
+{
+  "format": "shared_resource_pack",
+  "schemaVersion": 1,
+  "id": "resource.geometry.furnishings.tabletop-warm-wood.v1",
+  "title": "Tabletop Warm Wood Furnishings",
+  "status": "local_draft",
+  "search": {
+    "physicalType": ["furnishings", "interior prop", "wood furniture", "room dressing"],
+    "style": ["chunky geometric", "tabletop miniature", "low-poly", "matte", "warm wood", "neutral interior"],
+    "setting": ["home", "inn", "guild room", "shop", "library", "cabin", "tavern"],
+    "camera": ["isometric", "third-person tabletop", "zoomed-out room"],
+    "technical": ["godot-4", "glb", "material-override", "static-prop", "noninteractive"]
+  },
+  "authoring": {
+    "lineage": "project_derivative",
+    "derivativeKind": "curated generic-furniture subset plus authored Godot warm-wood material override; source mesh topology is unchanged",
+    "madeBy": "Project 42 / DR Companion shared local asset workspace",
+    "sourcePack": "resource-packs/source/cc0/kenney/furniture-kit",
+    "sourceLicense": "CC0-1.0",
+    "attribution": "Kenney Furniture Kit; CC0 source geometry. Shared material profile authored locally."
+  },
+  "technical": {
+    "sourceFormat": "GLB",
+    "engineTarget": "Godot 4.x",
+    "materialProfile": "materials/tabletop_warm_wood.tres",
+    "pivotPolicy": "Use source pivot only after in-engine ground-contact check.",
+    "collisionPolicy": "No collision or navigation mesh until an individual scene use requires it.",
+    "lodPolicy": "Use directly for tabletop-scale interiors; assess instancing only after a furnished-room benchmark."
+  },
+  "review": {
+    "visual": "pending_in_engine",
+    "technical": "pending_in_engine",
+    "notes": [
+      "Neutral source choices avoid television, bathroom, and overtly modern furniture variants.",
+      "Promote only after a real room proves material readability, scale, and clean selection silhouettes."
+    ]
+  },
+  "assets": [
+    {"id": "bench", "source": "resource-packs/source/cc0/kenney/furniture-kit/bench.glb", "derivative": "models/bench.glb", "role": "seating"},
+    {"id": "bookcase-closed", "source": "resource-packs/source/cc0/kenney/furniture-kit/bookcaseClosed.glb", "derivative": "models/bookcaseClosed.glb", "role": "storage"},
+    {"id": "bookcase-open", "source": "resource-packs/source/cc0/kenney/furniture-kit/bookcaseOpen.glb", "derivative": "models/bookcaseOpen.glb", "role": "storage"},
+    {"id": "chair", "source": "resource-packs/source/cc0/kenney/furniture-kit/chair.glb", "derivative": "models/chair.glb", "role": "seating"},
+    {"id": "chair-rounded", "source": "resource-packs/source/cc0/kenney/furniture-kit/chairRounded.glb", "derivative": "models/chairRounded.glb", "role": "seating"},
+    {"id": "table", "source": "resource-packs/source/cc0/kenney/furniture-kit/table.glb", "derivative": "models/table.glb", "role": "surface"},
+    {"id": "table-round", "source": "resource-packs/source/cc0/kenney/furniture-kit/tableRound.glb", "derivative": "models/tableRound.glb", "role": "surface"},
+    {"id": "table-cross", "source": "resource-packs/source/cc0/kenney/furniture-kit/tableCross.glb", "derivative": "models/tableCross.glb", "role": "surface"}
+  ]
+}
