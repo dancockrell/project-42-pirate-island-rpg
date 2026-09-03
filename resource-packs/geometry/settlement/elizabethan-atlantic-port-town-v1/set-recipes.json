@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "id": "elizabethan-atlantic-port-town.set-recipes.v1",
+  "units": "metres",
+  "globalRules": {
+    "gameplayCamera": {"pitchDegrees": 42, "fovDegrees": 48, "reviewDistanceMetres": [22, 42]},
+    "navigation": {"soloMinimumWidth": 1.2, "partyMinimumWidth": 2.4, "combatMinimumDiameter": 8.0, "cargoLaneWidth": 4.0},
+    "building": {"ordinaryDoorHeight": 2.1, "groundFloorHeight": 3.0, "upperFloorHeight": 2.6, "streetWallHeightRange": [5.6, 9.5]},
+    "composition": ["one primary landmark", "one visible onward route", "one activity cluster", "one environmental story per camera view"],
+    "replacementRule": "Art may replace a named visual section only. Preserve footprint, entrances, gameplay anchors, character slots, navigation clearance, and semantic IDs."
+  },
+  "recipes": [
+    {
+      "id": "arrival_gate_and_watch",
+      "functionRefs": ["arrival_and_orientation", "law_watch_and_detention"],
+      "footprint": [30, 24],
+      "landmark": "two-storey timber gatehouse with sea-green clock and watch bell",
+      "adjacentTo": ["merchant_high_street", "martial_training_yard", "wilderness_lodge"],
+      "zones": ["arrival apron", "gate throat", "inspection bay", "watch room", "holding room", "town-side orientation pocket"],
+      "anchors": ["arrival_spawn", "guard_dialogue", "wanted_board", "gate_control", "fast_travel", "night_respawn_flash"],
+      "population": ["watch captain", "two guards", "messenger", "new arrival", "porter"],
+      "assetRefs": ["architecture.timber-frame-bay", "architecture.gable-roof", "routes.cobble-road", "furnishings.notice-board", "furnishings.barrel", "vegetation.street-tree"]
+    },
+    {
+      "id": "market_green",
+      "functionRefs": ["civic_core", "market_and_daily_supply", "culture_learning_and_spectacle"],
+      "footprint": [38, 34],
+      "landmark": "octagonal stone well beneath striped market awnings",
+      "adjacentTo": ["merchant_high_street", "town_hall_and_exchange", "coaching_inn_courtyard"],
+      "zones": ["open green", "hard-paved market edge", "speaker step", "well queue", "performance pocket", "vendor loading edge"],
+      "anchors": ["quest_board", "public_speech", "festival_stage", "well_use", "market_vendor", "crowd_event"],
+      "population": ["six vendors", "town crier", "musician", "children", "shoppers", "off-duty sailors"],
+      "assetRefs": ["routes.cobble-plaza", "architecture.market-stall", "furnishings.well", "furnishings.crate", "furnishings.barrel", "furnishings.bench", "vegetation.planter"]
+    },
+    {
+      "id": "merchant_high_street",
+      "functionRefs": ["market_and_daily_supply", "specialist_craft_and_repair", "housing_and_household"],
+      "footprint": [48, 22],
+      "landmark": "projecting clock-sign above a bent row of timber shopfronts",
+      "adjacentTo": ["arrival_gate_and_watch", "market_green", "craft_lane"],
+      "zones": ["six-metre street", "arcaded shop edge", "door pockets", "rear service lane", "upper residences"],
+      "anchors": ["general_store", "tailor", "bookseller", "jeweler", "street_encounter", "upper_window_event"],
+      "population": ["shopkeepers", "apprentices", "customers", "delivery porter", "watch patrol"],
+      "assetRefs": ["architecture.timber-frame-bay", "architecture.shopfront", "architecture.gable-roof", "routes.cobble-road", "furnishings.hanging-sign", "furnishings.awning", "furnishings.crate"]
+    },
+    {
+      "id": "craft_lane",
+      "functionRefs": ["specialist_craft_and_repair", "health_and_field_supply", "public_utilities_and_dressing"],
+      "footprint": [36, 20],
+      "landmark": "smithy chimney and open forge frontage at the lane bend",
+      "adjacentTo": ["merchant_high_street", "riverside_warehouse", "martial_training_yard"],
+      "zones": ["narrow public lane", "smithy apron", "carpenter shed", "herbalist shop", "shared delivery yard", "drainage channel"],
+      "anchors": ["weapon_repair", "armor_repair", "crafting", "healer_shop", "delivery_event", "roof_chase"],
+      "population": ["smith", "striker", "carpenter", "herbalist", "two apprentices", "customer"],
+      "assetRefs": ["architecture.workshop", "architecture.chimney", "routes.cobble-lane", "furnishings.workbench", "furnishings.tool-rack", "furnishings.drying-rack", "furnishings.barrel"]
+    },
+    {
+      "id": "coaching_inn_courtyard",
+      "functionRefs": ["lodging_food_and_gossip", "housing_and_household"],
+      "footprint": [34, 30],
+      "landmark": "three-storey inn gallery enclosing a lantern-lit stable court",
+      "adjacentTo": ["arrival_gate_and_watch", "market_green", "residential_close"],
+      "zones": ["street taproom", "guest wing", "kitchen yard", "stable", "coach bay", "private gallery", "service gate"],
+      "anchors": ["rent_room", "meal", "rumor_table", "stable_service", "companion_scene", "night_social"],
+      "population": ["innkeeper", "cook", "server", "stablehand", "travelers", "local regulars"],
+      "assetRefs": ["architecture.inn-wing", "architecture.gallery", "architecture.gable-roof", "routes.courtyard", "furnishings.table", "furnishings.bench", "furnishings.barrel", "furnishings.lantern"]
+    },
+    {
+      "id": "martial_training_yard",
+      "functionRefs": ["martial_training", "specialist_craft_and_repair"],
+      "footprint": [36, 32],
+      "landmark": "open timber drill hall facing a sand sparring court",
+      "adjacentTo": ["arrival_gate_and_watch", "craft_lane", "quay_and_customs"],
+      "zones": ["formation court", "sparring ring", "fencing strip", "covered weapon racks", "instructor porch", "spectator rail", "repair corner"],
+      "anchors": ["trainer", "skill_trial", "sparring_duel", "formation_drill", "equipment_check", "recruit_board"],
+      "population": ["instructor", "four recruits", "two veterans", "armorer", "spectators"],
+      "assetRefs": ["architecture.training-hall", "routes.sand-yard", "furnishings.weapon-rack", "furnishings.training-dummy", "furnishings.spectator-rail", "furnishings.bench"]
+    },
+    {
+      "id": "wilderness_lodge",
+      "functionRefs": ["wilderness_service", "health_and_field_supply"],
+      "footprint": [40, 28],
+      "landmark": "green-roofed lodge with antler sign and tall trail beacon",
+      "adjacentTo": ["arrival_gate_and_watch", "residential_close", "outer_trail"],
+      "zones": ["map room", "outfitter porch", "archery lane", "animal pen", "trophy wall", "herb garden", "trail gate"],
+      "anchors": ["trail_board", "scout_trainer", "archery_trial", "animal_service", "expedition_supply", "outer_route"],
+      "population": ["scoutmaster", "two hunters", "fletcher", "animal keeper", "expedition recruits"],
+      "assetRefs": ["architecture.lodge", "architecture.gable-roof", "routes.dirt-trail", "furnishings.target", "furnishings.fence", "furnishings.map-table", "vegetation.herb-bed", "vegetation.edge-tree"]
+    },
+    {
+      "id": "town_hall_and_exchange",
+      "functionRefs": ["finance_exchange_and_governance", "law_watch_and_detention", "civic_core"],
+      "footprint": [34, 26],
+      "landmark": "stone ground floor and ornate timber council chamber with cupola",
+      "adjacentTo": ["market_green", "merchant_high_street", "temple_close"],
+      "zones": ["public steps", "exchange counter", "council chamber", "record office", "vault", "messenger court", "secure rear door"],
+      "anchors": ["currency_exchange", "governor_dialogue", "bounty_turnin", "records", "council_event", "vault_encounter"],
+      "population": ["clerk", "cashier", "two guards", "councilor", "petitioners", "messenger"],
+      "assetRefs": ["architecture.civic-hall", "architecture.cupola", "routes.formal-steps", "furnishings.counter", "furnishings.notice-board", "furnishings.bench", "furnishings.lantern"]
+    },
+    {
+      "id": "temple_close_and_memorial",
+      "functionRefs": ["faith_memory_and_death", "culture_learning_and_spectacle"],
+      "footprint": [42, 34],
+      "landmark": "white chapel tower above a walled resurrection memorial garden",
+      "adjacentTo": ["town_hall_and_exchange", "residential_close", "hidden_alley_loop"],
+      "zones": ["processional lane", "chapel nave", "shrine court", "memorial garden", "morgue receiving door", "keeper house", "quiet cloister"],
+      "anchors": ["shrine", "resurrection_explanation", "death_memory_conversation", "memorial_record", "healer", "midnight_observation"],
+      "population": ["keeper", "healer", "mourner", "returned townsfolk", "groundskeeper"],
+      "assetRefs": ["architecture.chapel", "architecture.bell-tower", "routes.processional-path", "furnishings.memorial-stone", "furnishings.bench", "rocks.wall-stone", "vegetation.cypress", "vegetation.flower-bed"]
+    },
+    {
+      "id": "quay_and_customs",
+      "functionRefs": ["waterfront_trade_and_ship_service", "arrival_and_orientation", "law_watch_and_detention"],
+      "footprint": [54, 30],
+      "landmark": "stone customs house and timber cargo crane above the main quay",
+      "adjacentTo": ["riverside_warehouse", "shipwright_yard", "market_green", "martial_training_yard"],
+      "zones": ["public quay", "cargo lane", "customs queue", "inspection shed", "ferry landing", "crane sweep", "water safety edge"],
+      "anchors": ["boat_travel", "customs_dialogue", "cargo_contract", "smuggling_check", "fishing", "harbor_encounter"],
+      "population": ["harbormaster", "customs clerk", "two marines", "stevedores", "sailors", "ferry passengers"],
+      "assetRefs": ["architecture.customs-house", "maritime.dock", "maritime.crane", "maritime.rowboat", "routes.cargo-lane", "furnishings.bollard", "furnishings.crate", "furnishings.barrel"]
+    },
+    {
+      "id": "shipwright_yard",
+      "functionRefs": ["waterfront_trade_and_ship_service", "specialist_craft_and_repair"],
+      "footprint": [56, 38],
+      "landmark": "sloped repair slip framing a half-built cutter hull",
+      "adjacentTo": ["quay_and_customs", "riverside_warehouse", "outer_water"],
+      "zones": ["repair slip", "saw shed", "rope walk", "mast yard", "boiler workshop", "timber stack", "launch edge"],
+      "anchors": ["ship_repair", "steampunk_upgrade", "crafting_contract", "launch_event", "workshop_dialogue", "salvage_delivery"],
+      "population": ["master shipwright", "carpenters", "rigger", "boiler mechanic", "laborers", "ship owner"],
+      "assetRefs": ["architecture.ship-shed", "maritime.dock", "maritime.mast", "maritime.hull-ribs", "furnishings.timber-stack", "furnishings.rope-coil", "furnishings.crate", "furnishings.barrel"]
+    },
+    {
+      "id": "riverside_warehouse",
+      "functionRefs": ["waterfront_trade_and_ship_service", "hidden_and_illicit_routes"],
+      "footprint": [44, 26],
+      "landmark": "red-brick bonded warehouse with river hoist and stepped gables",
+      "adjacentTo": ["quay_and_customs", "shipwright_yard", "craft_lane", "hidden_alley_loop"],
+      "zones": ["cargo court", "warehouse floor", "secure cage", "office loft", "river hoist", "cellar", "rear alley"],
+      "anchors": ["warehouse_vendor", "cargo_pickup", "contraband_cache", "cellar_route", "ambush", "roof_access"],
+      "population": ["factor", "clerk", "porters", "guard", "smuggler contact"],
+      "assetRefs": ["architecture.warehouse", "architecture.stepped-gable", "maritime.hoist", "routes.cargo-court", "furnishings.crate", "furnishings.barrel", "furnishings.rope-coil"]
+    },
+    {
+      "id": "residential_close",
+      "functionRefs": ["housing_and_household", "public_utilities_and_dressing"],
+      "footprint": [46, 36],
+      "landmark": "shared laundry court under a leaning row of colorful upper stories",
+      "adjacentTo": ["coaching_inn_courtyard", "temple_close_and_memorial", "wilderness_lodge", "hidden_alley_loop"],
+      "zones": ["front stoops", "shared court", "rear work yards", "laundry line", "wood store", "kitchen gardens", "upper galleries"],
+      "anchors": ["resident_dialogue", "household_scene", "delivery", "window_event", "night_patrol", "return_home"],
+      "population": ["families", "artisan household", "laundress", "elder", "children", "off-duty adventurer"],
+      "assetRefs": ["architecture.timber-frame-bay", "architecture.gable-roof", "routes.courtyard", "furnishings.laundry-line", "furnishings.woodpile", "furnishings.barrel", "vegetation.kitchen-garden"]
+    },
+    {
+      "id": "hidden_alley_loop",
+      "functionRefs": ["hidden_and_illicit_routes", "public_utilities_and_dressing"],
+      "footprint": [42, 18],
+      "landmark": "covered bridge linking upper storeys above a crooked drain alley",
+      "adjacentTo": ["riverside_warehouse", "residential_close", "temple_close_and_memorial", "market_green"],
+      "zones": ["public alley mouth", "blind bend", "cellar door", "covered bridge", "drain culvert", "roof ladder", "second exit"],
+      "anchors": ["secret_discovery", "smuggler_dialogue", "escape_route", "thief_cache", "stealth_encounter", "roof_chase"],
+      "population": ["delivery worker", "street cat", "lookout", "hidden contact"],
+      "assetRefs": ["architecture.covered-bridge", "architecture.cellar-door", "routes.cobble-alley", "routes.drain-channel", "furnishings.crate", "furnishings.barrel", "furnishings.ladder"]
+    }
+  ]
+}

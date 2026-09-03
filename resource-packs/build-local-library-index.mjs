@@ -6,6 +6,7 @@ const root = resolve(import.meta.dirname);
 const repo = resolve(root, "..");
 const sourceRoot = resolve(root, "source/cc0/kenney");
 const out = resolve(root, "library.local.json");
+const sourceCatalogPath = resolve(repo, "content/art/shared_source_collections.json");
 
 const packs = {
   "nature-kit-2.1": { title: "Nature Kit 2.1", source: "https://kenney.nl/assets/nature-kit", ledger: "asset.shared.kenney.nature-kit.2_1.source", vendorFolder: "nature-kit", styleTags: ["fantasy-neutral", "tabletop"], defaultType: "flora" },
@@ -43,23 +44,35 @@ const packs = {
   "blaster-kit": { title: "Blaster Kit 2.1", source: "https://kenney.nl/assets/blaster-kit", styleTags: ["sci-fi", "weapons", "props", "low-poly"], defaultType: "props" }
 };
 
+const sourceCatalog = JSON.parse(await readFile(sourceCatalogPath, "utf8"));
+const sourceCollectionsByKey = new Map((sourceCatalog.sourceCollections ?? []).map(collection => [collection.collectionKey, collection]));
 const sourcePackRecords = {};
 for (const [packId, pack] of Object.entries(packs)) {
   const vendorFolder = resolve(repo, "work/art/vendor/kenney", pack.vendorFolder ?? packId);
-  const archiveName = (await readdir(vendorFolder)).find(name => name.endsWith(".zip"));
-  if (!archiveName) throw new Error(`Missing source archive for ${packId} in ${vendorFolder}`);
-  const archive = await readFile(resolve(vendorFolder, archiveName));
+  const catalogRecord = sourceCollectionsByKey.get(packId);
+  let archiveRecord = catalogRecord?.archive ?? null;
+  try {
+    const archiveName = (await readdir(vendorFolder)).find(name => name.endsWith(".zip"));
+    if (archiveName) {
+      const archive = await readFile(resolve(vendorFolder, archiveName));
+      archiveRecord = {
+        localPath: relative(repo, resolve(vendorFolder, archiveName)).replaceAll("\\", "/"),
+        filename: archiveName,
+        bytes: archive.length,
+        sha256: createHash("sha256").update(archive).digest("hex")
+      };
+    }
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  if (!archiveRecord) throw new Error(`Missing archive provenance for ${packId} in both vendor cache and ${relative(repo, sourceCatalogPath)}`);
   sourcePackRecords[packId] = {
     ...pack,
     authoringLineage: "source_cc0",
     license: "CC0-1.0",
     retrievedOn: "2026-09-03",
-    archive: {
-      localPath: relative(repo, resolve(vendorFolder, archiveName)).replaceAll("\\", "/"),
-      filename: archiveName,
-      bytes: archive.length,
-      sha256: createHash("sha256").update(archive).digest("hex")
-    }
+    archiveAvailability: catalogRecord ? "tracked_provenance" : "local_vendor_cache_only",
+    archive: archiveRecord
   };
 }
 
@@ -103,6 +116,8 @@ for (const [packId, pack] of Object.entries(packs)) {
 }
 const sourceAssetsByPath = new Map(assets.map(asset => [asset.path, asset]));
 const derivativeRoot = resolve(root, "geometry");
+const assemblies = [];
+const populationArchetypes = [];
 for (const relativePackPath of (await readdir(derivativeRoot, { recursive: true })).filter(path => path.endsWith("resource-pack.json")).sort()) {
   const packPath = join(derivativeRoot, relativePackPath);
   const pack = JSON.parse(await readFile(packPath, "utf8"));
@@ -110,6 +125,7 @@ for (const relativePackPath of (await readdir(derivativeRoot, { recursive: true 
   const [physicalType = "derivative", family = "derived-prop"] = pack.search?.physicalType ?? [];
   const derivativeTags = [...new Set(["geometry", "glb", "derivative", "local-authored", physicalType, family, ...(pack.search?.style ?? []), ...(pack.search?.setting ?? []), ...(pack.search?.technical ?? [])])];
   for (const member of pack.assets ?? []) {
+    if (!member.derivative) continue;
     const derivativeFile = resolve(packDirectory, member.derivative);
     const bytes = await readFile(derivativeFile);
     const source = sourceAssetsByPath.get(member.source);
@@ -130,17 +146,60 @@ for (const relativePackPath of (await readdir(derivativeRoot, { recursive: true 
       reviewState: pack.status ?? "local_draft"
     });
   }
+  if (pack.indexKind === "assembly_pack") {
+    const recipesPath = pack.catalogs?.setRecipes ? resolve(packDirectory, pack.catalogs.setRecipes) : null;
+    if (recipesPath) {
+      const recipes = JSON.parse(await readFile(recipesPath, "utf8"));
+      for (const recipe of recipes.recipes ?? []) {
+        assemblies.push({
+          id: `${pack.id}.${recipe.id}`,
+          packId: pack.id,
+          title: recipe.id.replaceAll("_", " "),
+          recipePath: relative(repo, recipesPath).replaceAll("\\", "/"),
+          authoringLineage: pack.authoring?.lineage ?? "project_derivative",
+          license: pack.authoring?.sourceLicense ?? "unknown",
+          functionRefs: recipe.functionRefs ?? [],
+          assetRefs: recipe.assetRefs ?? [],
+          footprintMetres: recipe.footprint ?? [],
+          tags: [...new Set(["assembly", "set-recipe", ...(pack.search?.physicalType ?? []), ...(pack.search?.style ?? []), ...(pack.search?.setting ?? []), ...(recipe.functionRefs ?? [])])],
+          reviewState: pack.status ?? "local_draft"
+        });
+      }
+    }
+    const populationPath = pack.catalogs?.populationArchetypes ? resolve(packDirectory, pack.catalogs.populationArchetypes) : null;
+    if (populationPath) {
+      const population = JSON.parse(await readFile(populationPath, "utf8"));
+      for (const archetype of population.archetypes ?? []) {
+        populationArchetypes.push({
+          id: `${pack.id}.population.${archetype.id}`,
+          packId: pack.id,
+          catalogPath: relative(repo, populationPath).replaceAll("\\", "/"),
+          tags: [...new Set(["population", "rig-contract", ...(archetype.tags ?? []), ...(archetype.spawnFunctions ?? [])])],
+          equipment: archetype.equipment ?? [],
+          activities: archetype.activities ?? [],
+          spawnFunctions: archetype.spawnFunctions ?? [],
+          reviewState: pack.status ?? "local_draft"
+        });
+      }
+    }
+  }
 }
 assets.sort((a, b) => a.id.localeCompare(b.id));
+assemblies.sort((a, b) => a.id.localeCompare(b.id));
+populationArchetypes.sort((a, b) => a.id.localeCompare(b.id));
 if (new Set(assets.map(asset => asset.id)).size !== assets.length) throw new Error("Duplicate resource IDs in local library index");
+if (new Set(assemblies.map(assembly => assembly.id)).size !== assemblies.length) throw new Error("Duplicate assembly IDs in local library index");
+if (new Set(populationArchetypes.map(archetype => archetype.id)).size !== populationArchetypes.length) throw new Error("Duplicate population archetype IDs in local library index");
 const by = key => Object.fromEntries([...new Set(assets.map(asset => asset[key]))].sort().map(value => [value, assets.filter(asset => asset[key] === value).length]));
 const index = {
   format: "shared_resource_library",
   schemaVersion: 1,
   scope: "local shared resource packs; not organized by consumer project",
   sourcePacks: sourcePackRecords,
-  counts: { assets: assets.length, byPhysicalType: by("physicalType"), byFamily: by("family"), byAuthoringLineage: by("authoringLineage") },
-  assets
+  counts: { assets: assets.length, assemblies: assemblies.length, populationArchetypes: populationArchetypes.length, byPhysicalType: by("physicalType"), byFamily: by("family"), byAuthoringLineage: by("authoringLineage") },
+  assets,
+  assemblies,
+  populationArchetypes
 };
 await mkdir(root, { recursive: true });
 await writeFile(out, `${JSON.stringify(index, null, 2)}\n`, "utf8");
