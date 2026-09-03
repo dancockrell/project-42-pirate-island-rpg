@@ -13,7 +13,7 @@ var bridge: Object
 
 
 func _init() -> void:
-	if not ClassDB.can_instantiate(BRIDGE_CLASS):
+	if not ClassDB.class_exists(BRIDGE_CLASS) or not ClassDB.can_instantiate(BRIDGE_CLASS):
 		push_error("%s is unavailable. Build the Rust GDExtension before selecting NativeExpeditionPort." % BRIDGE_CLASS)
 		return
 	bridge = ClassDB.instantiate(BRIDGE_CLASS)
@@ -21,6 +21,10 @@ func _init() -> void:
 
 func is_available() -> bool:
 	return bridge != null
+
+
+static func bridge_is_registered() -> bool:
+	return ClassDB.class_exists(BRIDGE_CLASS) and ClassDB.can_instantiate(BRIDGE_CLASS)
 
 
 func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:

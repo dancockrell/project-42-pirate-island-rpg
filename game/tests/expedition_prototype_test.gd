@@ -8,7 +8,7 @@ var failures := 0
 
 
 func _init() -> void:
-	if not ClassDB.can_instantiate(NativeExpeditionPort.BRIDGE_CLASS):
+	if not NativeExpeditionPort.bridge_is_registered():
 		print("Expedition prototype native test skipped: bridge is not registered in this running Godot process.")
 		quit(0)
 		return

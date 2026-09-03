@@ -33,7 +33,7 @@ func _ready() -> void:
 	if catalog.load_default() != OK:
 		show_startup_failure("The validated content bundle is unavailable. Rebuild content before running the expedition.")
 		return
-	if not ClassDB.can_instantiate(NativeExpeditionPort.BRIDGE_CLASS):
+	if not NativeExpeditionPort.bridge_is_registered():
 		show_startup_failure("The native expedition bridge is unavailable. This screen refuses to invent travel state in GDScript.")
 		return
 	expedition = NativeExpeditionPort.new()
