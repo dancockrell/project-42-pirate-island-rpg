@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "characterId": "character.heroine.betty",
-  "approvalState": "direction-approved-production-sheet-required",
+  "approvalState": "visual-direction-reopened-bible-review-required",
   "identityContract": {
     "adultAgePresentation": "mid-twenties",
     "body": "Slender, slight and agile adult build; modest small chest; narrow hips; fine waist; graceful shoulders; long lean legs; light functional muscle.",
@@ -24,11 +24,32 @@
   },
   "references": [
     {
+      "assetId": "art.reference.project42.battle_ui.01",
+      "file": "work/art/battle-ui.png",
+      "status": "primary-game-facing-visual-authority",
+      "use": ["theatrical battle scale", "high-definition painted fantasy rendering", "dark-bronze framing", "rich ruined-jungle depth", "material contrast", "full-body active-fighter composition"],
+      "doNotUse": ["unimplemented extra combatants", "decorative UI that does not represent runtime state", "direct costume tracing"]
+    },
+    {
+      "assetId": "art.reference.project42.betty_keyframes.01",
+      "file": "work/art/betty-keyframes.png",
+      "status": "primary-motion-authority",
+      "use": ["card-to-active transition", "short boarding mace", "full-body-safe framing", "ready-action-impact-recovery sequence", "alchemical green and gold effect language"],
+      "doNotUse": ["single-frame texture copying", "effects that hide body or weapon"]
+    },
+    {
+      "assetId": "art.reference.project42.heroine_roster.01",
+      "file": "work/art/heroine-roster.png",
+      "status": "supporting-cast-identity-authority",
+      "use": ["adult attractive action silhouettes", "Betty auburn hair", "medic gear", "teal cream bronze family", "short mace identity"],
+      "doNotUse": ["generic studio-fashion posing", "long staff silhouette", "direct anatomy copying without battle-scale test"]
+    },
+    {
       "assetId": "art.reference.betty.magnific.body_direction.01",
       "file": "work/art/magnific/betty/betty-body-direction-gpt2.png",
-      "status": "approved-for-body-and-rendering-direction",
-      "use": ["slender proportions", "small-chest direction", "cute adult face", "fanservice level", "full-body safe framing", "premium anime RPG rendering"],
-      "doNotUse": ["staff-like weapon construction", "weak medical identity", "missing satchel"]
+      "status": "legacy-component-reference-not-current-visual-authority",
+      "use": ["slender proportions", "small-chest direction", "full-body safe framing"],
+      "doNotUse": ["overall visual rendering", "facial identity lock", "costume lock", "staff-like weapon construction", "weak medical identity", "missing satchel"]
     },
     {
       "assetId": "art.reference.betty.magnific.equipment.01",
@@ -45,16 +66,29 @@
       "doNotUse": ["bust size", "hourglass anatomy", "long staff proportions"]
     }
   ],
+  "threeDConversion": {
+    "canonicalInput": null,
+    "canonicalInputStatus": "none-visual-plate-required",
+    "generationGate": "visual-plate-not-approved",
+    "visualAuthorityDocument": "docs/VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md",
+    "prohibitedVisualSources": [
+      "game/scripts/battle/paper_betty_rig.gd",
+      "rejected-or-moderated-image-generation-candidates"
+    ],
+    "requiredDeliverable": "Editable riggable GLB preferred; GLTF with textures acceptable; render-only output is rejected.",
+    "contract": "docs/BETTY_3D_ASSET_CONTRACT.md"
+  },
   "nextRequiredPlate": {
-    "name": "Betty production identity sheet v1",
-    "views": ["neutral front", "combat three-quarter", "back view", "four facial expressions", "weapon orthographic", "open satchel contents", "color swatches"],
-    "safeFrame": "Every body view includes hair, boot soles, both hands and carried equipment. Weapon orthographic includes the complete pommel and impact head. No required element touches the outer eight percent of the canvas.",
+    "name": "Betty game-facing identity plate v1",
+    "views": ["combat three-quarter ready", "neutral front read", "battle-scale inset", "equipment and material callouts"],
+    "safeFrame": "The main figure includes hair, boot soles, both hands, satchel and complete mace. No required element touches the outer twelve percent of the canvas. The battle-scale inset retains face direction, boots, satchel and mace.",
     "acceptance": [
-      "same facial identity in every view",
-      "body follows the approved slender reference",
+      "looks native to battle-ui.png at game scale",
+      "body follows the approved agile slender direction",
       "weapon reads as a striking medical mace",
       "profession remains readable without text",
-      "all anatomy, equipment and effects remain inside frame"
+      "all anatomy, equipment and effects remain inside frame",
+      "visual approval occurs before a turnaround or GLB request"
     ]
   }
 }

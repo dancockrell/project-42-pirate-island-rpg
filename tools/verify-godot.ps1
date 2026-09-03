@@ -27,6 +27,26 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Godot headless verification failed with exit code $LASTEXITCODE"
     }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --scene "res://scenes/review/betty_3d_candidate_review.tscn" --quit-after 2
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot Betty 3D candidate review scene failed with exit code $LASTEXITCODE"
+    }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/battle_3d_staging_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot 3D battle staging tests failed with exit code $LASTEXITCODE"
+    }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/world_cell_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot world-cell tests failed with exit code $LASTEXITCODE"
+    }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --scene "res://scenes/review/reception_terrace_setpiece_review.tscn" --quit-after 2
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot Reception Terrace setpiece review scene failed with exit code $LASTEXITCODE"
+    }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/reception_terrace_setpiece_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot Reception Terrace setpiece tests failed with exit code $LASTEXITCODE"
+    }
     & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/targeting_session_test.gd"
     if ($LASTEXITCODE -ne 0) {
         throw "Godot targeting-session tests failed with exit code $LASTEXITCODE"
@@ -54,6 +74,10 @@ try {
     & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/prototype_turn_cycle_test.gd"
     if ($LASTEXITCODE -ne 0) {
         throw "Godot battle-prototype turn-cycle test failed with exit code $LASTEXITCODE"
+    }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/betty_3d_candidate_contract_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot Betty 3D candidate contract test failed with exit code $LASTEXITCODE"
     }
 } finally {
     $env:APPDATA = $previousAppData

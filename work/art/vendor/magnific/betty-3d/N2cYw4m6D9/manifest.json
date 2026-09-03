@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "assetId": "art.vendor.magnific.betty_3d.candidate_01",
+  "characterId": "character.heroine.betty",
+  "status": "quarantined-static-blocking-candidate",
+  "source": {
+    "vendor": "Magnific",
+    "creationUrl": "https://www.magnific.com/app/3d-scene/N2cYw4m6D9/invite",
+    "generator": "Tripo 3D",
+    "generatorVersion": "unknown-from-export",
+    "downloadedAt": "2026-09-02",
+    "canonicalIdentityInput": "work/art/magnific/betty/betty-body-direction-gpt2.png",
+    "inputApproval": "approved-for-body-and-rendering-direction"
+  },
+  "files": {
+    "rawVendorExport": "betty_candidate_v1.glb",
+    "engineReviewCopy": "game/assets/candidates/betty_3d/betty_candidate_v1.glb",
+    "engineImportedTexture": "game/assets/candidates/betty_3d/betty_candidate_v1_Color_61c06961-0558-4a88-9431-670d0d1ab21d.jpg",
+    "sha256": "ACC0B4F4316B41E70D9BF7254D945724C524ECF9B920D6AE3F2BE660D20B218C",
+    "bytes": 28645652
+  },
+  "structuralInspection": {
+    "container": "glb",
+    "sourceGenerator": "https://tripo3d.ai",
+    "scenes": 1,
+    "nodes": 1,
+    "meshes": 1,
+    "materials": 1,
+    "textures": 1,
+    "skins": 0,
+    "animations": 0,
+    "result": "The export is a textured static mesh. It is useful for camera, silhouette, scale and scene-blocking review only. It does not satisfy the riggable-character delivery requirement."
+  },
+  "admission": {
+    "allowed": [
+      "isolated Godot 3D review scene",
+      "camera-safe-frame check",
+      "stage scale and silhouette comparison"
+    ],
+    "prohibited": [
+      "live battle actor replacement",
+      "skill animation",
+      "paper-rig visual source",
+      "production asset pool"
+    ],
+    "nextRequiredAsset": "A separately rigged Betty GLB with an inspectable skeleton, hand weapon socket, and at least idle, step and short cross-body-strike actions."
+  },
+  "review": {
+    "identityReview": "pending in-engine crop review",
+    "animationReview": "blocked: no skeleton or animation clips in export",
+    "battleAdmission": "rejected until a rigged candidate passes docs/BETTY_3D_ASSET_CONTRACT.md"
+  }
+}

@@ -1,0 +1,42 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/world_cell.gd" id="1_cell"]
+[ext_resource type="PackedScene" path="res://scenes/world/black_beach/reception_terrace_collision.tscn" id="2_collision"]
+[ext_resource type="PackedScene" path="res://scenes/world/black_beach/reception_terrace_navigation.tscn" id="3_navigation"]
+[ext_resource type="PackedScene" path="res://scenes/world/black_beach/reception_terrace_setpiece.tscn" id="4_setpiece"]
+
+[node name="ReceptionTerrace" type="Node3D"]
+script = ExtResource("1_cell")
+world_cell_id = "world.cell.reception_terrace"
+
+[node name="VisualShell" type="Node3D" parent="."]
+metadata/production_state = "procedural-standard-godot-setpiece-active"
+metadata/runtime_path = "res://scenes/world/black_beach/reception_terrace_setpiece.tscn"
+metadata/replacement_contract = "Replace cohesive named setpiece sections only; preserve collision, navigation, entry anchors, battle entries and camera rails."
+
+[node name="ReceptionTerraceSetpiece" parent="VisualShell" instance=ExtResource("4_setpiece")]
+
+[node name="TerrainAndCollision" parent="." instance=ExtResource("2_collision")]
+
+[node name="Navigation" parent="." instance=ExtResource("3_navigation")]
+
+[node name="EntryAnchors" type="Node3D" parent="."]
+
+[node name="entry.reception_terrace.shipwreck_trail" type="Marker3D" parent="EntryAnchors"]
+position = Vector3(-16, 0, 8)
+rotation_degrees = Vector3(0, 12, 0)
+
+[node name="entry.reception_terrace.estate_gate" type="Marker3D" parent="EntryAnchors"]
+position = Vector3(15, 0, -7)
+rotation_degrees = Vector3(0, 188, 0)
+
+[node name="BattleEntries" type="Node3D" parent="."]
+
+[node name="battle_entry.reception_terrace.razorbeak" type="Marker3D" parent="BattleEntries"]
+position = Vector3(1.5, 0, 0.8)
+
+[node name="CameraRails" type="Node3D" parent="."]
+
+[node name="camera.exploration.reception_terrace.start" type="Marker3D" parent="CameraRails"]
+position = Vector3(0, 15, 20)
+rotation_degrees = Vector3(-32, 0, 0)

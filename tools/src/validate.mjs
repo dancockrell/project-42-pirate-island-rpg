@@ -47,7 +47,8 @@ for (const name of (await readdir(characterDir)).filter(name => name.endsWith(".
   requireString(value, "presentationOwner", file);
   if (value.presentationOwner !== "godot-gdscript") fail(file, "presentationOwner must be godot-gdscript");
   if (!Array.isArray(value.tags) || value.tags.length < 3) fail(file, "tags must contain at least three searchable values");
-  if (!Array.isArray(value.skillIds) || value.skillIds.length !== 7) fail(file, "a heroine must declare exactly seven D-through-SSS skills");
+  if (!Array.isArray(value.skillIds)) fail(file, "skillIds must be an array");
+  else if (value.kind === "heroine" && value.skillIds.length !== 7) fail(file, "a heroine must declare exactly seven D-through-SSS skills");
   else value.skillIds.forEach((id, index) => reference(id, file, `skillIds[${index}]`));
   if (!value.art?.accessibilityDescription || value.art.accessibilityDescription.length < 20) fail(file, "art accessibilityDescription is missing or too short");
   if (value.art?.readyIdleMotionId) reference(value.art.readyIdleMotionId, file, "art.readyIdleMotionId");
@@ -190,9 +191,48 @@ for (const { file, value } of await readJsonDirectory("locations")) {
 }
 
 for (const { file, value } of await readJsonDirectory("world")) {
-  if (value.trigger !== "midnight_flash") fail(file, "spawn rule trigger must be midnight_flash");
-  if (value.grouping?.designRule !== "individual_threat") fail(file, "daily spawns must use individual_threat tuning");
-  for (const [index, id] of (value.definitionIds ?? []).entries()) reference(id, file, `definitionIds[${index}]`);
+  if (value.kind === "world_region") {
+    requireString(value, "displayName", file);
+    requireString(value, "description", file);
+    if (!Array.isArray(value.worldCellIds) || value.worldCellIds.length === 0) fail(file, "world region requires at least one worldCellId");
+    else value.worldCellIds.forEach((id, index) => reference(id, file, `worldCellIds[${index}]`));
+  } else if (value.kind === "world_cell") {
+    requireString(value, "displayName", file);
+    reference(value.regionId, file, "regionId");
+    if (!value.visualShell || typeof value.visualShell !== "object") fail(file, "world cell requires a visualShell record");
+    else {
+      requireString(value.visualShell, "runtimePath", file);
+      requireString(value.visualShell, "status", file);
+      if (!value.visualShell.runtimePath.startsWith("res://assets/world/")) fail(file, "world cell visual shell must use an assets/world runtime path");
+      if (!Array.isArray(value.visualShell.requiredFeatures) || value.visualShell.requiredFeatures.length < 4) fail(file, "world cell visual shell requires four or more literal features");
+      if (!Array.isArray(value.visualShell.prohibitedFeatures) || value.visualShell.prohibitedFeatures.length < 3) fail(file, "world cell visual shell requires three or more literal prohibitions");
+    }
+    for (const field of ["collisionScene", "navigationScene", "cameraRailId"]) requireString(value, field, file);
+    if (!value.collisionScene?.startsWith("res://scenes/world/") || !value.navigationScene?.startsWith("res://scenes/world/")) fail(file, "world cell collision and navigation must be separate world scenes");
+    if (!Array.isArray(value.entryAnchors) || value.entryAnchors.length < 2) fail(file, "world cell requires two or more entry anchors");
+    else for (const [index, anchor] of value.entryAnchors.entries()) {
+      requireString(anchor, "id", file);
+      requireString(anchor, "role", file);
+      if (!Array.isArray(anchor.positionMetres) || anchor.positionMetres.length !== 3 || anchor.positionMetres.some(component => typeof component !== "number")) fail(file, `entryAnchors[${index}].positionMetres must be three numeric metres`);
+      if (!Number.isInteger(anchor.facingDegrees) || anchor.facingDegrees < 0 || anchor.facingDegrees >= 360) fail(file, `entryAnchors[${index}].facingDegrees must be 0 through 359`);
+    }
+    if (!Array.isArray(value.battleEntries) || value.battleEntries.length === 0) fail(file, "world cell requires one or more battle entries");
+    else for (const [index, entry] of value.battleEntries.entries()) {
+      requireString(entry, "id", file);
+      reference(entry.encounterId, file, `battleEntries[${index}].encounterId`);
+      for (const field of ["returnAnchorId", "safeRetreatAnchorId"]) requireString(entry, field, file);
+    }
+    if (!Array.isArray(value.readableDescriptions) || value.readableDescriptions.length < value.admission?.descriptionCountMinimum) fail(file, "world cell must include every required readable description");
+    else for (const [index, description] of value.readableDescriptions.entries()) {
+      requireString(description, "id", file);
+      if (typeof description.text !== "string" || description.text.length < 90) fail(file, `readableDescriptions[${index}].text must be at least 90 characters`);
+    }
+    if (value.admission?.collisionSeparatedFromVisualShell !== true || value.admission?.navigationSeparatedFromVisualShell !== true) fail(file, "world cell must separate visual shell, collision and navigation");
+  } else {
+    if (value.trigger !== "midnight_flash") fail(file, "spawn rule trigger must be midnight_flash");
+    if (value.grouping?.designRule !== "individual_threat") fail(file, "daily spawns must use individual_threat tuning");
+    for (const [index, id] of (value.definitionIds ?? []).entries()) reference(id, file, `definitionIds[${index}]`);
+  }
 }
 
 for (const { file, value } of await readJsonDirectory("presentation")) {
@@ -249,6 +289,20 @@ for (const { file, value } of await readJsonDirectory("presentation")) {
       if (entry.importState === "imported" && (typeof entry.runtimePath !== "string" || !entry.runtimePath.startsWith("res://"))) fail(file, `${entry.id} imported assets require a res:// runtimePath`);
       if (entry.approvalState === "approved" && entry.importState !== "imported") fail(file, `${entry.id} cannot be approved before import`);
       if (entry.metadata?.releaseLegal !== false && entry.approvalState !== "approved") fail(file, `${entry.id} unapproved motion must set metadata.releaseLegal=false`);
+    }
+  } else if (value.kind === "paper_doll_registry") {
+    for (const [index, entry] of (value.entries ?? []).entries()) {
+      registerId(entry.id, file);
+      if (!entry.id?.startsWith("presentation.paper_")) fail(file, `entries[${index}].id must use presentation.paper_ prefix`);
+      for (const field of ["placeholderAssetId", "subjectId", "displayName", "dollKind", "facing", "futureRuntimeAssetId", "futureFormat", "poseVariable"]) requireString(entry, field, file);
+      if (!Array.isArray(entry.nativeCanvas) || entry.nativeCanvas.length !== 2 || entry.nativeCanvas.some(value => !Number.isInteger(value) || value < 256)) fail(file, `${entry.id} nativeCanvas must contain two integer dimensions of at least 256`);
+      if (!Number.isInteger(entry.safePaddingPercent) || entry.safePaddingPercent < 8 || entry.safePaddingPercent > 20) fail(file, `${entry.id} safePaddingPercent must be from 8 through 20`);
+      for (const field of ["groundAnchor", "rootPivot"]) if (!Array.isArray(entry[field]) || entry[field].length !== 2 || entry[field].some(value => typeof value !== "number" || value < 0 || value > 1)) fail(file, `${entry.id} ${field} must be a normalized coordinate pair`);
+      if (!entry.attachmentAnchors || Object.keys(entry.attachmentAnchors).length < 3) fail(file, `${entry.id} requires at least three named attachment anchors`);
+      else for (const [name, point] of Object.entries(entry.attachmentAnchors)) if (!Array.isArray(point) || point.length !== 2 || point.some(value => typeof value !== "number" || value < 0 || value > 1)) fail(file, `${entry.id} attachment anchor ${name} must be normalized`);
+      if (!Array.isArray(entry.layerOrder) || entry.layerOrder.length < 5) fail(file, `${entry.id} requires an explicit layer order`);
+      if (!Array.isArray(entry.identityInvariants) || entry.identityInvariants.length < 5) fail(file, `${entry.id} requires at least five identity invariants`);
+      if (!Array.isArray(entry.replacementTests) || entry.replacementTests.length < 4) fail(file, `${entry.id} requires at least four replacement tests`);
     }
   } else {
     fail(file, `unsupported presentation registry kind ${value.kind}`);

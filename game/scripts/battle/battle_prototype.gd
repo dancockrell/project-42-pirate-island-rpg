@@ -2,6 +2,10 @@ class_name BattlePrototype
 extends Control
 
 const PlaceholderActionPresenterScript = preload("res://scripts/battle/placeholder_action_presenter.gd")
+const PaperDollScript = preload("res://scripts/battle/paper_doll.gd")
+const PaperStageScript = preload("res://scripts/battle/paper_stage.gd")
+const PaperCardScript = preload("res://scripts/battle/paper_card.gd")
+const PaperSkillDiamondScript = preload("res://scripts/battle/paper_skill_diamond.gd")
 
 ## Presentation-only prototype. Gameplay truth comes through SimulationPort.
 ## All generated shapes and labels are explicit placeholders registered in
@@ -33,8 +37,10 @@ var intent_label: Label
 var round_label: Label
 var target_label: Label
 var action_cue_label: Label
+var command_dock: Control
 var command_buttons: Dictionary = {}
 var actor_display_names := {
+	"character.protagonist.captain": "MICHAEL CORRIGAN",
 	"character.heroine.betty": "BETTY",
 	"character.heroine.ayla": "AYLA",
 	"character.heroine.vix": "VIX",
@@ -52,7 +58,12 @@ func _ready() -> void:
 	animation_director.event_cued.connect(on_animation_event_cued)
 	animation_director.action_finished.connect(on_animation_finished)
 	add_child(animation_director)
-	if ClassDB.can_instantiate(NativeSimulationPort.BRIDGE_CLASS):
+	if OS.has_feature("web") and OS.is_debug_build():
+		# Browser previews cannot load the Windows Rust extension. They use the
+		# presentation fixture deliberately, without asking ClassDB for a class
+		# that cannot exist in this export.
+		simulation = MockSimulationPort.new()
+	elif ClassDB.can_instantiate(NativeSimulationPort.BRIDGE_CLASS):
 		simulation = NativeSimulationPort.new()
 	elif OS.is_debug_build():
 		push_warning("Rust GDExtension unavailable; using the development-only mock simulation.")
@@ -76,150 +87,227 @@ func build_screen() -> void:
 	var safe := MarginContainer.new()
 	safe.name = "SafeFrame"
 	safe.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	safe.add_theme_constant_override("margin_left", 38)
-	safe.add_theme_constant_override("margin_right", 38)
-	safe.add_theme_constant_override("margin_top", 30)
-	safe.add_theme_constant_override("margin_bottom", 30)
+	safe.add_theme_constant_override("margin_left", 26)
+	safe.add_theme_constant_override("margin_right", 26)
+	safe.add_theme_constant_override("margin_top", 18)
+	safe.add_theme_constant_override("margin_bottom", 18)
 	add_child(safe)
-	var root := VBoxContainer.new()
-	root.add_theme_constant_override("separation", 14)
+	# The Bible's battle screen is one shared theatrical plane. Cards and commands
+	# sit on its lower edge; actors share one floor. There is no decorative top
+	# rail and no slot, diamond or crest without a live game rule behind it.
+	var root := Control.new()
+	root.name = "BattlefieldComposition"
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	safe.add_child(root)
-	root.add_child(build_header())
 	root.add_child(build_battle_plane())
-	root.add_child(build_footer())
 
 func build_header() -> Control:
 	var bar := HBoxContainer.new()
-	bar.custom_minimum_size.y = 62
-	var title := make_label("RETURNING NAMES — RECEPTION ROAD", 25, BRONZE)
+	bar.custom_minimum_size.y = 46
+	var title := make_label("RETURNING NAMES  /  RECEPTION ROAD", 22, BRONZE)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.add_child(title)
-	round_label = make_label("DAY 18  •  16:40  •  ROUND 1", 18, CREAM)
+	round_label = make_label("DAY 18  •  16:40  •  ROUND 1", 15, CREAM)
 	bar.add_child(round_label)
 	return bar
 
 func build_battle_plane() -> Control:
-	var plane := HBoxContainer.new()
-	plane.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	plane.add_theme_constant_override("separation", 18)
-	var cards := VBoxContainer.new()
-	cards.custom_minimum_size.x = 280
-	cards.add_theme_constant_override("separation", 9)
-	for item in [
-		["character.heroine.betty", "BETTY", "FIELD MEDIC", Color("2d7770")],
-		["character.heroine.ayla", "AYLA", "TOMB WARDEN", Color("648243")],
-		["character.heroine.vix", "VIX", "CORSAIR", Color("a05242")],
-		["character.heroine.grisha", "GRISHA", "OFFICER", Color("704339")]
-	]:
-		var card := make_party_card(item[0], item[1], item[2], item[3])
-		cards.add_child(card)
-		card_buttons[item[0]] = card
-	plane.add_child(cards)
-	var stage := VBoxContainer.new()
-	stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stage.add_theme_constant_override("separation", 12)
-	var visual := HBoxContainer.new()
-	visual.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	visual.add_theme_constant_override("separation", 18)
-	actor_panel = make_actor_placeholder("BETTY", "DUMMY FULL-BODY ACTOR\nREPLACE: art.character.betty.battle.base", TEAL)
-	actor_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	visual.add_child(actor_panel)
-	enemy_panel = make_actor_placeholder("RAZORBEAK", "DUMMY ENEMY ACTOR\nLEVEL 7 • INDIVIDUAL THREAT", DANGER)
-	enemy_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	enemy_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	enemy_panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	enemy_panel.gui_input.connect(on_enemy_gui_input)
-	visual.add_child(enemy_panel)
-	stage.add_child(visual)
-	action_cue_label = make_label("DUMMY ACTION CUE — WAITING FOR AUTHORED BEAT", 13, Color("e4b75e"))
-	action_cue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	action_cue_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	action_cue_label.custom_minimum_size.y = 42
-	stage.add_child(action_cue_label)
-	intent_label = make_label("INTENT: OBSERVING", 18, DANGER)
-	intent_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	stage.add_child(intent_label)
+	var plane := Control.new()
+	plane.name = "BattlePlane"
+	plane.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var paper_stage := PaperStageScript.new()
+	paper_stage.name = "PaperStage"
+	paper_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	paper_stage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	plane.add_child(paper_stage)
+	# The only persistent information at the top is information the player can
+	# use: location/time and the current enemy intent. No ornamental meter.
+	round_label = make_label("DAY 18  •  16:40", 15, CREAM)
+	round_label.position = Vector2(34, 28)
+	round_label.size = Vector2(250, 28)
+	plane.add_child(round_label)
 	description_label = RichTextLabel.new()
 	description_label.name = "CombatDescription"
 	description_label.bbcode_enabled = true
 	description_label.fit_content = false
-	description_label.custom_minimum_size.y = 104
-	description_label.add_theme_font_size_override("normal_font_size", 19)
+	description_label.add_theme_font_size_override("normal_font_size", 14)
 	description_label.add_theme_color_override("default_color", CREAM)
-	description_label.text = "[color=#b78a4b]OBSERVED[/color] The razorbeak keeps its wounded flank away from Betty. Its feet are coiled for a two-band rush."
-	stage.add_child(description_label)
-	plane.add_child(stage)
+	description_label.text = "[color=#b78a4b]RECEPTION ROAD[/color]  •  ELVEN GATE  •  LATE AFTERNOON"
+	description_label.position = Vector2(34, 54)
+	description_label.size = Vector2(520, 34)
+	description_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plane.add_child(description_label)
+	intent_label = make_label("RAZORBEAK  •  RUSHING BITE  •  16 DAMAGE", 15, DANGER)
+	intent_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	intent_label.position = Vector2(1170, 48)
+	intent_label.size = Vector2(650, 30)
+	plane.add_child(intent_label)
+	# A foreground active actor, an individual raptor, and a later enemy socket
+	# occupy the same painted floor. Their panels are not half-screen columns.
+	actor_panel = make_actor_placeholder("presentation.paper_doll.betty.active", TEAL)
+	actor_panel.position = Vector2(330, 175)
+	actor_panel.size = Vector2(500, 615)
+	plane.add_child(actor_panel)
+	enemy_panel = make_actor_placeholder("presentation.paper_doll.razorbeak.active", DANGER)
+	enemy_panel.position = Vector2(1080, 330)
+	enemy_panel.size = Vector2(450, 455)
+	enemy_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	enemy_panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	enemy_panel.gui_input.connect(on_enemy_gui_input)
+	plane.add_child(enemy_panel)
+	action_cue_label = make_label("BETTY IS READY", 14, Color("e4b75e"))
+	action_cue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	action_cue_label.position = Vector2(470, 760)
+	action_cue_label.size = Vector2(220, 28)
+	plane.add_child(action_cue_label)
+	# Only present party members receive cards. The prototype does not invent
+	# empty roster slots merely to imitate a reference composition.
+	var cards := HBoxContainer.new()
+	cards.name = "PartyCardRail"
+	cards.position = Vector2(32, 794)
+	cards.size = Vector2(420, 172)
+	cards.add_theme_constant_override("separation", 12)
+	for item in [
+		["character.protagonist.captain", "MICHAEL", "STEAM CUTTER CAPTAIN", Color("536c79"), "MC", "captain"],
+		["character.heroine.betty", "BETTY", "FIELD MEDIC", Color("2d7770"), "D"]
+	]:
+		var card := make_party_card(item[0], item[1], item[2], item[3], item[4], item[5] if item.size() > 5 else "heroine")
+		cards.add_child(card)
+		card_buttons[item[0]] = card
+	plane.add_child(cards)
+	command_dock = build_footer()
+	command_dock.position = Vector2(650, 805)
+	command_dock.size = Vector2(560, 175)
+	plane.add_child(command_dock)
 	return plane
 
 func build_footer() -> Control:
-	var footer := VBoxContainer.new()
-	footer.add_theme_constant_override("separation", 8)
-	target_label = make_label("COMMAND READY", 16, BRONZE)
-	target_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var footer := HBoxContainer.new()
+	footer.custom_minimum_size.y = 166
+	footer.add_theme_constant_override("separation", 10)
+	target_label = make_label("BETTY\nD-RANK", 12, BRONZE)
+	target_label.custom_minimum_size.x = 120
+	target_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	footer.add_child(target_label)
-	var commands := GridContainer.new()
-	commands.columns = 4
-	commands.custom_minimum_size.y = 156
-	commands.add_theme_constant_override("h_separation", 12)
-	commands.add_theme_constant_override("v_separation", 10)
-	for command in [
-		["skill.betty.guarded_strike", "D  GUARDED STRIKE", true],
-		["skill.betty.condition_cleanse", "C  CONDITION CLEANSE", true],
-		["skill.betty.rescue_charge", "B  RESCUE CHARGE", true],
-		["skill.betty.healing_impact", "A  HEALING IMPACT", true],
-		["skill.betty.fatal_intercept", "S  FATAL INTERCEPT\n[AUTOMATIC REACTION]", false],
-		["skill.betty.mobile_infirmary", "SS  MOBILE INFIRMARY", true],
-		["skill.betty.combat_revival", "SSS  COMBAT REVIVAL", true]
-	]:
-		var button := Button.new()
-		button.text = command[1]
-		button.custom_minimum_size = Vector2(238, 66)
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.add_theme_font_size_override("font_size", 15)
-		button.disabled = not command[2]
-		button.tooltip_text = "Stable skill ID: %s%s" % [command[0], " — triggers automatically; it is never a manual command" if not command[2] else ""]
-		button.pressed.connect(func() -> void: begin_skill_targeting(command[0]))
-		commands.add_child(button)
-		command_buttons[command[0]] = button
-	footer.add_child(commands)
+	var command_rows := VBoxContainer.new()
+	command_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	command_rows.add_theme_constant_override("separation", 0)
+	var first_row := HBoxContainer.new()
+	first_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	first_row.add_theme_constant_override("separation", 4)
+	var second_row := HBoxContainer.new()
+	second_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	second_row.add_theme_constant_override("separation", 4)
+	# Seven diamonds correspond exactly to Betty's D through SSS authored skill
+	# records. Six are locked because their named milestones have not occurred;
+	# they are future capabilities, not decorative empty inventory slots.
+	var commands := [
+		["skill.betty.guarded_strike", "D", "Guarded Strike", true],
+		["skill.betty.condition_cleanse", "C", "Condition Cleanse", false],
+		["skill.betty.rescue_charge", "B", "Rescue Charge", false],
+		["skill.betty.healing_impact", "A", "Healing Impact", false],
+		["skill.betty.fatal_intercept", "S", "Fatal Intercept", false],
+		["skill.betty.mobile_infirmary", "SS", "Mobile Infirmary", false],
+		["skill.betty.combat_revival", "SSS", "Combat Revival", false]
+	]
+	for index in commands.size():
+		var command: Array = commands[index]
+		var gem := PaperSkillDiamondScript.new()
+		gem.configure(command[0], command[1], command[2], command[3])
+		gem.command_pressed.connect(func(skill_id: String) -> void: begin_skill_targeting(skill_id))
+		if index < 4:
+			first_row.add_child(gem)
+		else:
+			second_row.add_child(gem)
+		command_buttons[command[0]] = gem
+	command_rows.add_child(first_row)
+	command_rows.add_child(second_row)
+	footer.add_child(command_rows)
 	return footer
 
-func make_party_card(id: String, display_name: String, role: String, accent: Color) -> Button:
-	var card := Button.new()
+func make_stage_box() -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color("0d1a19")
+	box.border_color = Color("735d39")
+	box.set_border_width_all(2)
+	box.set_corner_radius_all(10)
+	box.content_margin_left = 8
+	box.content_margin_right = 8
+	box.content_margin_top = 8
+	box.content_margin_bottom = 8
+	return box
+
+func make_party_card(id: String, display_name: String, role: String, accent: Color, rank: String, portrait_kind := "heroine") -> Control:
+	var card := Control.new()
 	card.name = display_name + "Card"
-	card.custom_minimum_size = Vector2(280, 150)
-	card.text = "%s\n%s\nVIT 84/100  •  READY\n[DUMMY PORTRAIT]" % [display_name, role]
-	card.tooltip_text = "Placeholder portrait. Stable actor ID: %s" % id
-	card.add_theme_color_override("font_color", CREAM)
-	card.add_theme_color_override("font_hover_color", Color.WHITE)
-	card.add_theme_color_override("font_pressed_color", accent)
-	card.pressed.connect(func() -> void: on_party_card_pressed(id, display_name, accent))
-	status_labels[id] = card
+	card.custom_minimum_size = Vector2(190, 146)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.tooltip_text = "PAPER PORTRAIT — DEVELOPMENT BLOCKOUT\nStable actor ID: %s\nRole: %s\nFuture portrait must preserve card crop, role read, face, hair, outfit palette and readiness overlay." % [id, role]
+	var portrait := PaperCardScript.new()
+	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	portrait.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	portrait.configure(display_name, role, accent, rank, portrait_kind)
+	card.add_child(portrait)
+	var copy := VBoxContainer.new()
+	copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.set_anchors_preset(Control.PRESET_FULL_RECT)
+	copy.offset_left = 70
+	copy.offset_top = 20
+	copy.offset_right = -10
+	copy.offset_bottom = -18
+	var name_label := make_label(display_name, 16, CREAM)
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.add_child(name_label)
+	var role_label := make_label(role, 10, Color("caa66a"))
+	role_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.add_child(role_label)
+	var initial_status := "ECHO DECK\nSTANDBY" if id == "character.protagonist.captain" else "VIT 84/100  •  GRD 0\nREADY"
+	var status_label := make_label(initial_status, 11, Color("d7e0d7"))
+	status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.add_child(status_label)
+	card.add_child(copy)
+	if id != "character.protagonist.captain":
+		status_labels[id] = status_label
 	return card
 
-func make_actor_placeholder(display_name: String, replacement: String, accent: Color) -> PanelContainer:
+func make_command_box(background: Color, border: Color) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = background
+	box.border_color = border
+	box.set_border_width_all(2)
+	box.set_corner_radius_all(7)
+	box.shadow_color = Color(0, 0, 0, .35)
+	box.shadow_size = 4
+	box.content_margin_left = 10
+	box.content_margin_right = 10
+	return box
+
+func make_actor_placeholder(spec_id: String, accent: Color) -> PanelContainer:
+	var spec := catalog.get_registry_entry(spec_id)
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(480, 560)
+	# The panel remains the interaction owner for targeting and animation. Its
+	# background is explicitly transparent: a stage actor must not stand inside
+	# a fake poster card.
+	var transparent_panel := StyleBoxEmpty.new()
+	panel.add_theme_stylebox_override("panel", transparent_panel)
+	panel.custom_minimum_size = Vector2(320, 360)
 	var stack := VBoxContainer.new()
 	stack.alignment = BoxContainer.ALIGNMENT_CENTER
-	var silhouette := ColorRect.new()
-	silhouette.custom_minimum_size = Vector2(250, 390)
-	silhouette.color = Color(accent, 0.52)
-	stack.add_child(silhouette)
-	var label := make_label(display_name, 32, accent)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	stack.add_child(label)
-	var dummy := make_label(replacement, 15, Color("e4b75e"))
-	dummy.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	dummy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	stack.add_child(dummy)
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var doll := PaperDollScript.new()
+	doll.name = "PaperDoll"
+	doll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	doll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	doll.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	doll.configure(spec, accent)
+	stack.add_child(doll)
+	# Actor identity and state belong on their compact rail card and in the
+	# useful battle labels. The stage itself shows bodies and action, not a
+	# redundant poster title underneath each figure.
 	panel.add_child(stack)
 	return panel
 
 func select_actor(id: String, display_name: String, accent: Color) -> void:
-	var stack := actor_panel.get_child(0) as VBoxContainer
-	(stack.get_child(0) as ColorRect).color = Color(accent, 0.52)
-	(stack.get_child(1) as Label).text = display_name
 	description_label.text = "[color=#b78a4b]INSPECT[/color] %s is previewed from the card rail. The simulation still owns whose turn it is." % display_name
 
 func on_party_card_pressed(id: String, display_name: String, accent: Color) -> void:
@@ -347,7 +435,11 @@ func project_event(event: Dictionary) -> void:
 			update_status_values(event.subjects[0], event.payload.vitality)
 		"battle_ended":
 			set_commands_enabled(false)
-			intent_label.text = "VICTORY" if event.payload.victory else "DEFEAT — MIDNIGHT RETURN PENDING"
+			command_dock.visible = false
+			action_cue_label.visible = false
+			intent_label.add_theme_color_override("font_color", TEAL if event.payload.victory else DANGER)
+			intent_label.text = "RAZORBEAK WITHDRAWS" if event.payload.victory else "BETTY IS DOWN"
+			description_label.text = "[color=#4fc7b4]The razorbeak breaks away into the jungle.[/color] The road is quiet for the moment." if event.payload.victory else "[color=#c24e45]Betty falls beneath the elven gate.[/color] The expedition must recover before midnight."
 		_: pass
 
 func apply_narration(narration: Dictionary) -> void:
@@ -376,10 +468,10 @@ func on_animation_finished(_skill_id: String) -> void:
 func update_actor_status(actor: Dictionary) -> void:
 	var id: String = actor.id
 	if status_labels.has(id):
-		var card := status_labels[id] as Button
+		var status := status_labels[id] as Label
 		var name: String = actor_display_names.get(id, actor.display_name.to_upper())
 		var state := "DEFEATED" if actor.vitality <= 0 else "READY"
-		card.text = "%s\nVIT %d/%d  •  GRD %d  •  %s\n[DUMMY PORTRAIT]" % [name, actor.vitality, actor.max_vitality, actor.guard, state]
+		status.text = "VIT %d/%d  •  GRD %d\n%s" % [actor.vitality, actor.max_vitality, actor.guard, state]
 
 func update_status_values(id: String, vitality: int) -> void:
 	for actor in snapshot_actors:
@@ -387,9 +479,6 @@ func update_status_values(id: String, vitality: int) -> void:
 			actor.vitality = vitality
 			update_actor_status(actor)
 			break
-	if id == "enemy.raptor.razorbeak.prototype":
-		var stack := enemy_panel.get_child(0) as VBoxContainer
-		(stack.get_child(2) as Label).text = "DUMMY ENEMY ACTOR\nVIT %d/70 • INDIVIDUAL THREAT" % vitality
 
 func update_guard_values(id: String, guard: int) -> void:
 	for actor in snapshot_actors:
@@ -400,18 +489,23 @@ func update_guard_values(id: String, guard: int) -> void:
 
 func set_card_state(id: String, state: String) -> void:
 	for card_id in card_buttons:
-		var card := card_buttons[card_id] as Button
+		var card := card_buttons[card_id] as Control
 		card.modulate = Color.WHITE if card_id == id else Color("9aa5a2")
 		if card_id == id:
 			card.tooltip_text = "Card state: %s. Stable actor ID: %s" % [state, id]
 
 func set_commands_enabled(enabled: bool) -> void:
 	for skill_id in command_buttons:
-		var button := command_buttons[skill_id] as Button
+		var button := command_buttons[skill_id] as PaperSkillDiamond
 		var has_legal_targets := catalog.has(skill_id) and targeting.has_legal_targets(catalog.get_record(skill_id), snapshot_actors)
-		button.disabled = not enabled or not has_legal_targets
+		var unlocks_in_opening: bool = str(skill_id) == "skill.betty.guarded_strike"
+		button.set_command_enabled(enabled and unlocks_in_opening and has_legal_targets)
 		if enabled and not has_legal_targets:
 			button.tooltip_text = "Unavailable in the current authoritative encounter: no legal target exists. Stable skill ID: %s" % skill_id
+
+func is_command_enabled(skill_id: String) -> bool:
+	var diamond := command_buttons.get(skill_id) as PaperSkillDiamond
+	return diamond != null and diamond.command_button != null and not diamond.command_button.disabled
 
 func make_color_rect(color: Color, node_name: String) -> ColorRect:
 	var rect := ColorRect.new()

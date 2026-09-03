@@ -2,7 +2,7 @@
   "id": "encounter.prototype.returning_names",
   "battleId": "battle.prototype.returning_names",
   "locationId": "location.road.reception",
-  "partyActorIds": ["character.heroine.betty"],
+  "partyActorIds": ["character.protagonist.captain", "character.heroine.betty"],
   "hostileActorIds": ["enemy.raptor.razorbeak.prototype"],
   "entry": { "timeCostMinutes": 0, "startRound": 1, "cameraPreset": "battle.two_actor_full_body" },
   "victory": { "condition": "all_hostiles_defeated", "timeCostMinutes": 20, "lootTableId": "loot.razorbeak.prototype" },

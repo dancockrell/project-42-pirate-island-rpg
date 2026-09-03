@@ -14,7 +14,9 @@ func render(event: Dictionary) -> Dictionary:
 	var subjects: Array = event.get("subjects", [])
 	var payload: Dictionary = event.get("payload", {})
 	match kind:
-		"battle_started": return replace("[color=#b78a4b]BATTLE STARTED[/color] The party waits in the card rail until the simulation names an active actor.")
+		# The combat HUD is not an unnamed narrator. Its opening line is a compact
+		# scene datum; actual character speech is authored in dialogue panels.
+		"battle_started": return replace("[color=#b78a4b]RECEPTION ROAD[/color]  •  ELVEN GATE  •  LATE AFTERNOON")
 		"command_accepted": return replace("[color=#4fc7b4]ACCEPTED[/color] %s begins %s." % [name_at(subjects, 0), skill_name(payload.get("skill_id", "unknown_skill"))])
 		"enemy_intent_declared": return enemy_intent(subjects, payload)
 		"damage_applied": return append(" %s hits %s for %d damage; %d Vitality remains." % [name_at(subjects, 0), name_at(subjects, subjects.size() - 1), payload.get("amount", 0), payload.get("remaining_vitality", 0)])

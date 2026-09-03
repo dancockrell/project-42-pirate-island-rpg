@@ -2,22 +2,40 @@
   "schemaVersion": 1,
   "assets": [
     {
+      "id": "art.placeholder.captain.card_portrait",
+      "placeholder": true,
+      "consumer": "game/scripts/battle/battle_prototype.gd#PartyRailCaptain",
+      "visibleMark": "DUMMY CAPTAIN CARD",
+      "intendedFinal": "Complete Captain rail portrait: lean adult inventor-captain of the Handsome Jack, with a clear 1850s American frontier read, weathered slouch hat, worn dark sea coat, compact boiler pack, steam carbine, experimental sidearm, cutlass and brass echo compass.",
+      "requiredTags": ["adult", "male-protagonist", "1850s-frontier", "handsome-jack", "steampunk-inventor", "steam-carbine", "card-portrait", "echo-compass", "no-crop"],
+      "replacementGate": ["approved Captain identity sheet", "readable at rail scale", "costume and compass match active actor when authored"]
+    },
+    {
+      "id": "art.placeholder.captain.active_actor",
+      "placeholder": true,
+      "consumer": "future-game/scenes/battle/protagonist_active_actor",
+      "visibleMark": "DUMMY CAPTAIN FULL-BODY ACTOR",
+      "intendedFinal": "Complete Captain battle actor: lean 1850s American frontier inventor silhouette with slouch hat, sea coat, compact boiler pack, Handsome Jack steam carbine, experimental sidearm, cutlass, echo compass, stable root pivot and generous VFX safe margin.",
+      "requiredTags": ["adult", "male-protagonist", "full-body", "1850s-frontier", "handsome-jack", "steampunk-inventor", "steam-carbine", "echo-weapon", "no-crop"],
+      "replacementGate": ["approved Captain identity rig", "complete boots, head and weapon", "battle safe-frame test"]
+    },
+    {
       "id": "art.placeholder.betty.active_actor",
       "placeholder": true,
       "consumer": "game/scenes/battle/battle_prototype.tscn#ActiveActor",
       "visibleMark": "DUMMY FULL-BODY ACTOR",
-      "intendedFinal": "Complete full-body painterly Betty battle actor with boarding mace and eight-percent VFX safe margin.",
-      "requiredTags": ["adult", "full-body", "sexy-field-medic", "signature-weapon-visible", "no-crop"],
+      "intendedFinal": "Complete full-body premium adult anime-fantasy Betty 3D battle actor. She reads cute and sexy before she reads realistic: slender adult build, small chest, bright green eyes, freckles, auburn curls, cropped white medic blouse, fitted teal corset, short field shorts, tall boots and a bronze-and-glass boarding mace. It has a complete head-to-boot mesh, named skeleton, separate mace at a named hand socket, literal ready/step/Guarded Strike clips, an anchored root pivot and a fifteen-percent VFX safe margin.",
+      "requiredTags": ["adult", "full-body", "cute-sexy-adult-anime", "slender-small-bust", "signature-weapon-visible", "3d-rigged-glb", "named-skeleton", "hand-weapon-socket", "no-crop"],
       "referenceLedger": "content/art/betty.reference_ledger.json",
-      "replacementGate": ["approved identity rig", "complete boots and hair", "complete mace", "1920x1080 battle-scale test", "colorblind silhouette review"]
+      "replacementGate": ["approved 3D identity plate", "rigged GLB with inspectable skeleton", "separate complete mace at hand socket", "ready-step-contact-recovery clip set", "1920x1080 battle-scale test", "colorblind silhouette review"]
     },
     {
       "id": "art.placeholder.betty.card_portrait",
       "placeholder": true,
       "consumer": "game/scripts/battle/battle_prototype.gd#make_party_card",
       "visibleMark": "DUMMY PORTRAIT",
-      "intendedFinal": "Betty bust portrait with direct eye contact, teal identity accent, readable injury and readiness overlays.",
-      "requiredTags": ["adult", "portrait", "flirtatious-confidence", "card-safe-crop"],
+      "intendedFinal": "Betty card portrait with direct green-eyed eye contact, freckles, auburn curls, a teasing adult smile and teal identity accent. It must stay cute and sexy at card scale while preserving clear injury and readiness overlays.",
+      "requiredTags": ["adult", "portrait", "cute-sexy-adult-anime", "flirtatious-confidence", "card-safe-crop"],
       "referenceLedger": "content/art/betty.reference_ledger.json",
       "replacementGate": ["matches active actor face", "readable at 280x150", "expression set approved"]
     },
@@ -30,6 +48,18 @@
       "requiredTags": ["full-body", "individual-threat", "wild-dinosaur", "no-crop"],
       "referenceLedger": "content/art/razorbeak.reference_ledger.json",
       "replacementGate": ["complete tail", "level-seven threat read", "three attack tells", "no enclosure imagery"]
+    },
+    {
+      "id": "art.placeholder.reception_road.stage",
+      "placeholder": true,
+      "consumer": "game/scripts/battle/battle_prototype.gd#PaperStage",
+      "visibleMark": "DUMMY PAPER STAGE",
+      "assetPath": "game/assets/standins/reception_terrace/reception_terrace_backdrop_v1.png",
+      "assetState": "provisional-generated-environment-plate",
+      "source": "Built-in image generation, 2026-09-02. Generated from the approved Reception Terrace composition contract; no reference art was copied into the runtime asset.",
+      "intendedFinal": "Layered 1920x1080 Reception Road battle environment dominated by wild jungle and magical Bronze Age elven funerary masonry.",
+      "requiredTags": ["wild-jungle", "magical-bronze-age", "battle-stage", "layered-depth", "no-colonial-city"],
+      "replacementGate": ["party and hostile standing zones remain readable", "foreground occluders are separate", "battle and exploration geography agree", "no enclosure imagery"]
     }
   ]
 }

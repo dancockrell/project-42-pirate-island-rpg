@@ -36,14 +36,17 @@ func present(cue: Dictionary) -> void:
 	var hit_stop := int(cue.get("hitStopMs", 0))
 	var shake := float(cue.get("shake", 0.0))
 	var frame_subjects: Array = cue.get("frameSubjects", [])
-	cue_label.text = "DUMMY ACTION CUE  •  POSE: %s  •  MOTION: %s  •  CAMERA: %s / %s / %.2fX  •  VFX: %s / %s / %.0fX%.0f%%  •  HIT STOP: %d MS  •  SAFE FRAME: %s" % [pose, motion, camera, camera_mode, camera_zoom, vfx, vfx_anchor, vfx_width, vfx_height, hit_stop, ", ".join(PackedStringArray(frame_subjects))]
-	cue_label.tooltip_text = "VFX purpose: %s\nPersistence: %s\nReduced flash: %s\nAsset: %s\nAudio cue: %s" % [vfx_purpose, "persistent" if vfx_persistence == -1 else "%d ms" % vfx_persistence, str(vfx_record.get("reducedFlashMode", "missing")), str(vfx_record.get("assetStatus", "missing")), str(cue.get("audio", "missing_audio"))]
+	# The game announces the action in player language. Every technical detail
+	# remains on the control tooltip for the art and animation pass.
+	cue_label.text = "%s  •  %s" % [pose, vfx]
+	cue_label.tooltip_text = "Production cue\nPose: %s\nMotion: %s\nCamera: %s / %s / %.2fx\nVFX: %s at %s (%.0fx%.0f%%)\nVFX purpose: %s\nPersistence: %s\nHit stop: %d ms\nSafe frame: %s\nReduced flash: %s\nAsset: %s\nAudio cue: %s" % [pose, motion, camera, camera_mode, camera_zoom, vfx, vfx_anchor, vfx_width, vfx_height, vfx_purpose, "persistent" if vfx_persistence == -1 else "%d ms" % vfx_persistence, hit_stop, ", ".join(PackedStringArray(frame_subjects)), str(vfx_record.get("reducedFlashMode", "missing")), str(vfx_record.get("assetStatus", "missing")), str(cue.get("audio", "missing_audio"))]
 	actor_panel.pivot_offset = actor_panel.size * 0.5
 	enemy_panel.pivot_offset = enemy_panel.size * 0.5
 	actor_panel.scale = Vector2.ONE * clampf(camera_zoom, 0.92, 1.12)
 	actor_panel.modulate = Color("bffdf3") if vfx_id != "presentation.vfx.none" else Color.WHITE
 	enemy_panel.rotation = deg_to_rad(2.5 * shake)
 	enemy_panel.modulate = Color("ffd6bf") if shake > 0.0 else Color.WHITE
+	set_paper_pose(actor_panel, cue)
 	cue_presented.emit(cue.duplicate(true))
 
 func reset() -> void:
@@ -53,3 +56,26 @@ func reset() -> void:
 	if enemy_panel != null:
 		enemy_panel.rotation = 0.0
 		enemy_panel.modulate = Color.WHITE
+		reset_paper_pose(enemy_panel)
+	if actor_panel != null:
+		reset_paper_pose(actor_panel)
+
+func set_paper_pose(panel: PanelContainer, cue: Dictionary) -> void:
+	if panel == null or panel.get_child_count() == 0:
+		return
+	var stack := panel.get_child(0)
+	if stack.get_child_count() == 0:
+		return
+	var doll := stack.get_child(0)
+	if doll.has_method("set_presentation_cue"):
+		doll.set_presentation_cue(cue)
+
+func reset_paper_pose(panel: PanelContainer) -> void:
+	if panel == null or panel.get_child_count() == 0:
+		return
+	var stack := panel.get_child(0)
+	if stack.get_child_count() == 0:
+		return
+	var doll := stack.get_child(0)
+	if doll.has_method("reset_presentation"):
+		doll.reset_presentation()

@@ -1,0 +1,12 @@
+{
+  "id": "world.region.black_beach",
+  "kind": "world_region",
+  "displayName": "Black Beach",
+  "description": "The wreck coast and its jungle approaches. Steam-warped debris, black sand and old elven roadwork make a crowded edge between the sea and the island interior.",
+  "worldCellIds": ["world.cell.reception_terrace"],
+  "metadata": {
+    "implementationOwner": "godot-gdscript-world",
+    "maturity": "3d-production-contract",
+    "releaseLegal": false
+  }
+}
