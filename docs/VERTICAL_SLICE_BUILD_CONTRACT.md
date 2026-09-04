@@ -12,7 +12,7 @@ The player experience must read as an RTS with five embodied characters inside i
 
 - Two connected regions whose visible network contains a loop, a chokepoint, an alternate route, and at least five typed tethers. It must not form three fixed lanes.
 - Michael, one fully authored female investigator, and three selectable rig-ready heroine stand-ins.
-- Three ordinary factions with resource flow, build and production queues, supply, territory, units, and independent bilateral relationships.
+- Four ordinary factions—eastern/wushu fox people, colonial powers, pirates, and elves—with resource flow, build and production queues, supply, territory, units, and independent bilateral relationships.
 - One hidden Cthulhu faction whose utility and unconventional build cycle advance its Day-100 plan.
 - One footprint-valid structure per visible ordinary faction.
 - Two generated adventure sites proving faction identity and structure level change deterministic defenses and loot.

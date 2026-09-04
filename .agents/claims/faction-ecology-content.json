@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "task_id": "faction-ecology-content",
+  "agent": "codex-root",
+  "summary": "Complete the five-faction ecology with production rules, bilateral diplomacy, and deterministic dispatch fixtures",
+  "status": "active",
+  "claimed_at": "2026-09-04T07:00:00Z",
+  "updated_at": "2026-09-04T07:00:00Z",
+  "paths": [
+    "docs/GAME_BUILD_PLAN.md",
+    "docs/ARCHITECTURE.md",
+    "docs/VERTICAL_SLICE_BUILD_CONTRACT.md",
+    "content/schemas/production_rule.schema.json",
+    "content/schemas/diplomacy.schema.json",
+    "content/schemas/dispatch_scenario.schema.json",
+    "content/factions/",
+    "content/sites/",
+    "content/production/",
+    "content/diplomacy/",
+    "content/ai_scenarios/",
+    "tools/src/validate.mjs",
+    "tools/src/build-content-bundle.mjs",
+    "game/generated/content_bundle.json",
+    ".agents/claims/faction-ecology-content.json"
+  ],
+  "symbols": [],
+  "coordination": {
+    "depends_on": ["network-weather-terrain-content"],
+    "conflicts_with": [],
+    "notes": "Adds content records and validators only. Does not overlap the active port-town roof correction or touch the untracked native DLL."
+  },
+  "completion": {"commit": null, "checks": []}
+}

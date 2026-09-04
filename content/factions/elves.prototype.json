@@ -1,0 +1,32 @@
+{
+  "id": "faction.elves.prototype",
+  "kind": "rts_faction",
+  "displayName": "Elves",
+  "playerVisibility": "diegetic_known_facts_only",
+  "economy": {
+    "resourceIds": ["resource.living_wood", "resource.water", "resource.sunlight", "resource.memory"],
+    "incomeModel": "authored_asymmetric",
+    "upkeepEnabled": true,
+    "storageLimited": true
+  },
+  "buildCycle": {
+    "constructionQueues": 1,
+    "productionQueues": 2,
+    "reservesCosts": true,
+    "requiresLegalFootprint": true,
+    "catalogueIds": ["site_archetype.elven.heart_grove", "site_archetype.elven.wayroot"]
+  },
+  "doctrine": {
+    "goal": "Preserve elven control of the island's ancient living infrastructure, reclaim wounded ground, and prevent outsiders or necromantic powers from severing its old network.",
+    "positionResponses": ["expand", "pursue_victory", "consolidate", "migrate", "negotiate", "accept_dependency", "revenge", "last_objective"],
+    "wobbleMaximum": 0.06,
+    "dispatchScoreTerms": ["goal_progress", "target_threat", "faction_hatred", "restoration_opportunity", "expected_loot", "strategic_position", "supply_cost", "travel_risk", "home_defense_deficit", "role_fitness"]
+  },
+  "elimination": {
+    "persistent": true,
+    "recoveryConditions": ["heart_grove_survives", "recoverable_named_seedbearer_survives", "allied_restoration_route_exists"],
+    "formerHoldingTransitions": ["abandoned", "captured", "dismantled", "contested", "corrupted", "reclaimed"],
+    "questPolicy": "successor_recovery_or_honest_closure"
+  },
+  "metadata": {"implementationOwner": "rust-simulation", "maturity": "contract-fixture", "releaseLegal": true, "properNameStatus": "not_authored"}
+}

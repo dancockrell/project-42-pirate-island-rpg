@@ -1,7 +1,7 @@
 {
-  "id": "faction.cthulhu_cult.prototype",
+  "id": "faction.cthulhu.prototype",
   "kind": "rts_faction",
-  "displayName": "The Drowned Concord",
+  "displayName": "Cthulhu Faction",
   "playerVisibility": "diegetic_known_facts_only",
   "economy": {
     "resourceIds": ["resource.ritual_control", "resource.dreams", "resource.corruption"],
@@ -30,5 +30,5 @@
     "formerHoldingTransitions": ["abandoned", "captured", "dismantled", "contested", "corrupted", "reclaimed"],
     "questPolicy": "successor_recovery_or_honest_closure"
   },
-  "metadata": {"implementationOwner": "rust-simulation", "maturity": "contract-fixture", "releaseLegal": true}
+  "metadata": {"implementationOwner": "rust-simulation", "maturity": "contract-fixture", "releaseLegal": true, "properNameStatus": "not_authored"}
 }

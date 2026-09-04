@@ -1,7 +1,7 @@
 {
-  "id": "faction.imperial_forces.prototype",
+  "id": "faction.colonial_powers.prototype",
   "kind": "rts_faction",
-  "displayName": "Imperial Expedition",
+  "displayName": "Colonial Powers",
   "playerVisibility": "diegetic_known_facts_only",
   "economy": {
     "resourceIds": ["resource.provisions", "resource.timber", "resource.iron"],
@@ -14,7 +14,7 @@
     "productionQueues": 2,
     "reservesCosts": true,
     "requiresLegalFootprint": true,
-    "catalogueIds": ["site_archetype.imperial.watch_fort"]
+    "catalogueIds": ["site_archetype.colonial.watch_fort"]
   },
   "doctrine": {
     "goal": "Secure a supplied foothold, control defensible routes, and survive long enough to claim imperial authority over profitable territory.",
@@ -28,5 +28,5 @@
     "formerHoldingTransitions": ["abandoned", "captured", "dismantled", "contested", "corrupted", "reclaimed"],
     "questPolicy": "successor_recovery_or_honest_closure"
   },
-  "metadata": {"implementationOwner": "rust-simulation", "maturity": "contract-fixture", "releaseLegal": true}
+  "metadata": {"implementationOwner": "rust-simulation", "maturity": "contract-fixture", "releaseLegal": true, "properNameStatus": "not_authored"}
 }

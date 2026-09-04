@@ -10,6 +10,9 @@ const supportedTargetRules = new Set(["one_hostile", "one_living_hostile", "one_
 const bindableBattleEvents = new Set(["actor_focused", "actor_moved", "damage_applied", "guard_changed", "vitality_changed", "status_removed", "interception_set", "interception_triggered", "reaction_window_opened", "reaction_triggered", "defeat_prevented", "actor_revived", "bonus_turn_granted", "battlefield_effect_created", "battlefield_effect_pulse", "battlefield_effect_removed", "recovery_opening_created", "recovery_opening_consumed", "recovery_opening_expired", "actor_defeated", "turn_ended", "battle_ended"]);
 let skillCount = 0;
 let presentationCueCount = 0;
+const factionIds = new Set();
+const siteFactionIds = new Set();
+const dispatchFactionIds = new Set();
 
 function fail(file, message) { failures.push(`${relative(repo, file)}: ${message}`); }
 function requireString(record, key, file) {
@@ -178,6 +181,7 @@ for (const { file, value } of await readJsonDirectory("encounters")) {
 }
 
 for (const { file, value } of await readJsonDirectory("factions")) {
+  factionIds.add(value.id);
   if (value.kind !== "rts_faction") fail(file, "kind must be rts_faction");
   requireString(value, "displayName", file);
   if (value.playerVisibility !== "diegetic_known_facts_only") fail(file, "RTS internals must be filtered through diegetic known facts");
@@ -197,10 +201,14 @@ for (const { file, value } of await readJsonDirectory("factions")) {
   if (!Array.isArray(value.elimination?.formerHoldingTransitions) || value.elimination.formerHoldingTransitions.length < 3) fail(file, "elimination requires natural former-holding transitions");
 }
 
+const canonicalFactionIds = ["faction.eastern_fox_people.prototype", "faction.colonial_powers.prototype", "faction.pirates.prototype", "faction.elves.prototype", "faction.cthulhu.prototype"];
+if (factionIds.size !== canonicalFactionIds.length || canonicalFactionIds.some(id => !factionIds.has(id))) fail(resolve(repo, "content/factions"), "faction roster must contain only eastern fox people, colonial powers, pirates, elves and Cthulhu");
+
 const requiredSiteSeedInputs = ["world_seed", "faction_id", "structure_instance_id", "archetype_id", "structure_level", "generation_revision"];
 for (const { file, value } of await readJsonDirectory("sites")) {
   if (value.kind !== "faction_adventure_site") fail(file, "kind must be faction_adventure_site");
   reference(value.factionId, file, "factionId");
+  siteFactionIds.add(value.factionId);
   if (!Number.isInteger(value.level) || value.level < 1 || value.level > 5) fail(file, "site level must be from 1 through 5");
   if (value.loot?.levelBand !== value.level || value.loot?.higherLevelImprovesExpectedValue !== true) fail(file, "loot must use the site level and improve expected value at higher levels");
   for (const field of ["factionFamily", "archetypeFamily"]) requireString(value.loot ?? {}, field, file);
@@ -213,9 +221,56 @@ for (const { file, value } of await readJsonDirectory("sites")) {
   for (const field of ["queueIds", "spawnRuleIds", "allowedActorKinds"]) {
     if (!Array.isArray(value.production?.[field]) || value.production[field].length === 0) fail(file, `site production.${field} requires at least one entry`);
   }
+  for (const [index, id] of (value.production?.spawnRuleIds ?? []).entries()) reference(id, file, `production.spawnRuleIds[${index}]`);
   if (typeof value.production?.rallyPointId !== "string" || !value.production.rallyPointId.startsWith("rally.")) fail(file, "site production requires a stable rally point");
   if (value.metadata?.animationAllowed !== false) fail(file, "current-phase site records must explicitly prohibit animation");
 }
+if (canonicalFactionIds.some(id => !siteFactionIds.has(id))) fail(resolve(repo, "content/sites"), "every canonical faction requires at least one production site fixture");
+
+for (const { file, value } of await readJsonDirectory("production")) {
+  if (value.kind !== "production_rule") fail(file, "kind must be production_rule");
+  for (const field of ["producerArchetypeId", "outputDefinitionId"]) requireString(value, field, file);
+  if (!new Set(["worker", "resident", "vendor", "specialist", "soldier", "monster", "named_hero", "supernatural"]).has(value.actorKind)) fail(file, "actorKind is unsupported");
+  if (!value.costs || Object.keys(value.costs).length === 0 || Object.values(value.costs).some(cost => !Number.isInteger(cost) || cost < 0)) fail(file, "production costs must contain non-negative integer resource amounts");
+  if (!Number.isInteger(value.productionTicks) || value.productionTicks < 1) fail(file, "productionTicks must be positive");
+  if (!Number.isInteger(value.populationUse) || value.populationUse < 0) fail(file, "populationUse must be non-negative");
+  if (value.provenanceRequired !== true || value.initialAssignment !== "await_faction_ai_dispatch") fail(file, "produced actors require provenance and faction AI dispatch");
+}
+
+for (const { file, value } of await readJsonDirectory("diplomacy")) {
+  if (value.kind !== "faction_relationship_matrix" || value.playerReputationSeparate !== true) fail(file, "diplomacy must be a faction matrix separate from player reputation");
+  const listed = new Set(value.factionIds ?? []);
+  if (listed.size !== canonicalFactionIds.length || canonicalFactionIds.some(id => !listed.has(id))) fail(file, "diplomacy must include all five canonical factions exactly once");
+  for (const [index, id] of (value.factionIds ?? []).entries()) reference(id, file, `factionIds[${index}]`);
+  const pairKeys = new Set();
+  for (const [index, relationship] of (value.relationships ?? []).entries()) {
+    if (!listed.has(relationship.a) || !listed.has(relationship.b) || relationship.a === relationship.b) fail(file, `relationships[${index}] must connect two different listed factions`);
+    const key = [relationship.a, relationship.b].sort().join("|");
+    if (pairKeys.has(key)) fail(file, `relationships[${index}] duplicates pair ${key}`);
+    pairKeys.add(key);
+    if (!Number.isInteger(relationship.standing) || relationship.standing < -100 || relationship.standing > 100) fail(file, `relationships[${index}].standing must be from -100 through 100`);
+    if (!Array.isArray(relationship.drivers) || relationship.drivers.length === 0) fail(file, `relationships[${index}] requires relationship drivers`);
+  }
+  if (pairKeys.size !== canonicalFactionIds.length * (canonicalFactionIds.length - 1) / 2) fail(file, "diplomacy must define every bilateral faction pair exactly once");
+}
+
+for (const { file, value } of await readJsonDirectory("ai_scenarios")) {
+  if (value.kind !== "dispatch_scenario" || !Number.isInteger(value.seed)) fail(file, "dispatch scenario requires a stable integer seed");
+  reference(value.actor?.factionId, file, "actor.factionId");
+  dispatchFactionIds.add(value.actor?.factionId);
+  reference(value.actor?.producerSiteId, file, "actor.producerSiteId");
+  if (!Array.isArray(value.candidates) || value.candidates.length < 2) fail(file, "dispatch scenario requires at least two legal candidates");
+  let highest = null;
+  for (const [index, candidate] of (value.candidates ?? []).entries()) {
+    const terms = candidate.scoreTerms ?? {};
+    for (const term of ["goal_progress", "target_threat", "faction_hatred", "expected_loot", "strategic_position", "supply_cost", "travel_risk", "home_defense_deficit", "role_fitness"]) if (typeof terms[term] !== "number") fail(file, `candidates[${index}] requires numeric ${term}`);
+    const calculated = Object.values(terms).reduce((sum, score) => sum + score, 0) + candidate.wobble;
+    if (Math.abs(calculated - candidate.total) > 0.0001) fail(file, `candidates[${index}].total must equal score terms plus wobble`);
+    if (highest === null || candidate.total > highest.total || (candidate.total === highest.total && candidate.actionId.localeCompare(highest.actionId) < 0)) highest = candidate;
+  }
+  if (highest?.actionId !== value.chosenActionId) fail(file, "chosenActionId must be the highest scored candidate with stable-ID tie break");
+}
+if (canonicalFactionIds.some(id => !dispatchFactionIds.has(id))) fail(resolve(repo, "content/ai_scenarios"), "every canonical faction requires at least one deterministic dispatch fixture");
 
 for (const { file, value } of await readJsonDirectory("campaign")) {
   if (value.kind !== "campaign_clock" || value.worldDeadlineDay !== 100) fail(file, "campaign clock must culminate on Day 100");

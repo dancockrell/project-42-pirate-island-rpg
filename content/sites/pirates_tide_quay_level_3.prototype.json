@@ -1,0 +1,34 @@
+{
+  "id": "site.pirates.tide_quay.level_3.prototype",
+  "kind": "faction_adventure_site",
+  "factionId": "faction.pirates.prototype",
+  "archetypeId": "site_archetype.pirates.tide_quay",
+  "level": 3,
+  "footprint": {"hexes": [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1]], "heightLayers": 2},
+  "hooks": {
+    "actorSpawnPointIds": ["spawn.tide_quay.pier", "spawn.tide_quay.market"],
+    "tetherSocketIds": ["socket.tide_quay.waterway", "socket.tide_quay.supply", "socket.tide_quay.hidden_route"],
+    "influenceHookIds": ["influence.tide_quay.smuggler_control"],
+    "stateHookIds": ["state.tide_quay.construction", "state.tide_quay.damage", "state.tide_quay.blockade"]
+  },
+  "production": {
+    "queueIds": ["production_queue.tide_quay.harbor", "production_queue.tide_quay.market"],
+    "spawnRuleIds": ["spawn_rule.tide_quay.deckhands", "spawn_rule.tide_quay.vendors"],
+    "rallyPointId": "rally.tide_quay.pier",
+    "allowedActorKinds": ["worker", "resident", "vendor", "specialist", "soldier", "named_hero"],
+    "dispatchOwner": "faction_ai"
+  },
+  "generation": {
+    "revision": 1,
+    "seedInputs": ["world_seed", "faction_id", "structure_instance_id", "archetype_id", "structure_level", "generation_revision"],
+    "durableUntil": ["upgrade", "capture", "damage_state_change", "corruption", "declared_refresh"]
+  },
+  "loot": {
+    "factionFamily": "pirate_prize_goods",
+    "archetypeFamily": "tide_quay_warehouses",
+    "levelBand": 3,
+    "higherLevelImprovesExpectedValue": true,
+    "distinctiveRewards": ["captured_cargo", "navigation_chart", "smuggler_contact", "boarding_weapon"]
+  },
+  "metadata": {"implementationOwner": "rust-simulation", "artState": "metadata_only", "animationAllowed": false}
+}

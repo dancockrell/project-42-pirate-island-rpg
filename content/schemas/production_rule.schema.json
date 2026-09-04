@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.project42.production_rule",
+  "title": "Building-owned actor production rule",
+  "type": "object",
+  "required": ["id", "kind", "producerArchetypeId", "actorKind", "outputDefinitionId", "costs", "productionTicks", "populationUse", "provenanceRequired", "initialAssignment"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^spawn_rule\\."},
+    "kind": {"const": "production_rule"},
+    "producerArchetypeId": {"type": "string", "pattern": "^site_archetype\\."},
+    "actorKind": {"enum": ["worker", "resident", "vendor", "specialist", "soldier", "monster", "named_hero", "supernatural"]},
+    "outputDefinitionId": {"type": "string", "pattern": "^actor_def\\."},
+    "costs": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "integer", "minimum": 0}},
+    "productionTicks": {"type": "integer", "minimum": 1},
+    "populationUse": {"type": "integer", "minimum": 0},
+    "provenanceRequired": {"const": true},
+    "initialAssignment": {"const": "await_faction_ai_dispatch"},
+    "requirements": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,17 @@
+{
+  "id":"diplomacy.initial_relationships.prototype","kind":"faction_relationship_matrix",
+  "factionIds":["faction.eastern_fox_people.prototype","faction.colonial_powers.prototype","faction.pirates.prototype","faction.elves.prototype","faction.cthulhu.prototype"],
+  "relationships":[
+    {"a":"faction.eastern_fox_people.prototype","b":"faction.colonial_powers.prototype","standing":-15,"state":"rivalry","drivers":["competing_trade_claims","mutual_need_for_river_access"]},
+    {"a":"faction.eastern_fox_people.prototype","b":"faction.pirates.prototype","standing":10,"state":"transactional","drivers":["profitable_smuggling","pirate_unreliability"]},
+    {"a":"faction.eastern_fox_people.prototype","b":"faction.elves.prototype","standing":20,"state":"cautious_respect","drivers":["shared_waterway_stewardship","disputed_ancient_tolls"]},
+    {"a":"faction.eastern_fox_people.prototype","b":"faction.cthulhu.prototype","standing":-45,"state":"hostile","drivers":["corrupted_trade_routes","unexplained_disappearances"]},
+    {"a":"faction.colonial_powers.prototype","b":"faction.pirates.prototype","standing":-55,"state":"hostile","drivers":["piracy","colonial_blockade_policy"]},
+    {"a":"faction.colonial_powers.prototype","b":"faction.elves.prototype","standing":-30,"state":"territorial_conflict","drivers":["colonial_expansion","elven_infrastructure_claims"]},
+    {"a":"faction.colonial_powers.prototype","b":"faction.cthulhu.prototype","standing":-35,"state":"unrecognized_war","drivers":["lost_patrols","cult_infiltration"]},
+    {"a":"faction.pirates.prototype","b":"faction.elves.prototype","standing":-5,"state":"uneasy_neutrality","drivers":["salvage_disputes","occasional_information_trade"]},
+    {"a":"faction.pirates.prototype","b":"faction.cthulhu.prototype","standing":-25,"state":"fearful_opportunism","drivers":["profitable_forbidden_cargo","crew_losses"]},
+    {"a":"faction.elves.prototype","b":"faction.cthulhu.prototype","standing":-80,"state":"existential_war","drivers":["ritual_network_corruption","necromantic_terrain_conversion"]}
+  ],
+  "playerReputationSeparate":true
+}

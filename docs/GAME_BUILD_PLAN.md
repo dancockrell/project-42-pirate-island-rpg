@@ -172,6 +172,8 @@ Actor assets require a stable root, ground anchor, selection bounds, facing cont
 
 Base art families are western fantasy, Bronze-Age mythic mashup, and eastern/wushu fantasy mashup. Mini-kits and overlays specialize elves, treefolk, cult forces, pirates, smugglers, imperial forces, and later factions. Art is admitted only after board-scale silhouette review, isometric fit, metadata validation, provenance review, and an in-context screenshot.
 
+The five strategic factions are the eastern/wushu fox people, colonial powers, pirates, elves, and Cthulhu's faction. These are the complete RTS faction set for the current design. Treefolk, smugglers, cult sects, settlements, and other groups may exist as units, specialists, local populations, subgroups, overlays, or neutral actors; they do not silently become additional map-level factions.
+
 ## Technical ownership
 
 | Concern | Canonical owner |
@@ -241,6 +243,7 @@ All five heroes are controllable, all four women own a playable lead and persona
 - Companion-driven investigations and personal quests.
 - Fixed-view isometric board as spatial and systemic presentation.
 - Real faction economies, build cycles, production, deployment, and territory contest.
+- Exactly five strategic factions: eastern/wushu fox people, colonial powers, pirates, elves, and Cthulhu.
 - Complex branching island network; no fixed three-lane topology.
 - Faction-authored terrain influence and conversion with mechanical effects.
 - Magical weather that increasingly favors necromantic and Cthulhu-aligned systems over time.

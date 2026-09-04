@@ -1,0 +1,34 @@
+{
+  "id": "site.elven.heart_grove.level_4.prototype",
+  "kind": "faction_adventure_site",
+  "factionId": "faction.elves.prototype",
+  "archetypeId": "site_archetype.elven.heart_grove",
+  "level": 4,
+  "footprint": {"hexes": [[0, 0], [1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1]], "heightLayers": 5},
+  "hooks": {
+    "actorSpawnPointIds": ["spawn.heart_grove.root_gate", "spawn.heart_grove.crown"],
+    "tetherSocketIds": ["socket.heart_grove.wayroot", "socket.heart_grove.water", "socket.heart_grove.influence"],
+    "influenceHookIds": ["influence.heart_grove.restoration"],
+    "stateHookIds": ["state.heart_grove.growth", "state.heart_grove.damage", "state.heart_grove.memory"]
+  },
+  "production": {
+    "queueIds": ["production_queue.heart_grove.tenders", "production_queue.heart_grove.guardians"],
+    "spawnRuleIds": ["spawn_rule.heart_grove.tenders", "spawn_rule.heart_grove.guardians"],
+    "rallyPointId": "rally.heart_grove.root_gate",
+    "allowedActorKinds": ["worker", "resident", "specialist", "soldier", "monster", "named_hero"],
+    "dispatchOwner": "faction_ai"
+  },
+  "generation": {
+    "revision": 1,
+    "seedInputs": ["world_seed", "faction_id", "structure_instance_id", "archetype_id", "structure_level", "generation_revision"],
+    "durableUntil": ["upgrade", "capture", "damage_state_change", "corruption", "declared_refresh"]
+  },
+  "loot": {
+    "factionFamily": "elven_living_relics",
+    "archetypeFamily": "heart_grove_memory_chambers",
+    "levelBand": 4,
+    "higherLevelImprovesExpectedValue": true,
+    "distinctiveRewards": ["living_wood", "memory_seed", "restoration_charm", "root_network_map"]
+  },
+  "metadata": {"implementationOwner": "rust-simulation", "artState": "metadata_only", "animationAllowed": false}
+}

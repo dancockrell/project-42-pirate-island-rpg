@@ -1,7 +1,7 @@
 {
   "id": "site.drowned_shrine.level_5.prototype",
   "kind": "faction_adventure_site",
-  "factionId": "faction.cthulhu_cult.prototype",
+  "factionId": "faction.cthulhu.prototype",
   "archetypeId": "site_archetype.cthulhu.drowned_shrine",
   "level": 5,
   "footprint": {"hexes": [[0, 0], [1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]], "heightLayers": 4},

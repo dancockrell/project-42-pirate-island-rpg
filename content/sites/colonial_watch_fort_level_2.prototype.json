@@ -1,20 +1,20 @@
 {
-  "id": "site.imperial_watch_fort.level_2.prototype",
+  "id": "site.colonial.watch_fort.level_2.prototype",
   "kind": "faction_adventure_site",
-  "factionId": "faction.imperial_forces.prototype",
-  "archetypeId": "site_archetype.imperial.watch_fort",
+  "factionId": "faction.colonial_powers.prototype",
+  "archetypeId": "site_archetype.colonial.watch_fort",
   "level": 2,
   "footprint": {"hexes": [[0, 0], [1, 0], [0, 1]], "heightLayers": 2},
   "hooks": {
-    "actorSpawnPointIds": ["spawn.imperial_watch_fort.gate", "spawn.imperial_watch_fort.barracks"],
-    "tetherSocketIds": ["socket.imperial_watch_fort.road", "socket.imperial_watch_fort.supply"],
-    "influenceHookIds": ["influence.imperial_watch_fort.control"],
-    "stateHookIds": ["state.imperial_watch_fort.construction", "state.imperial_watch_fort.damage"]
+    "actorSpawnPointIds": ["spawn.colonial_watch_fort.gate", "spawn.colonial_watch_fort.barracks"],
+    "tetherSocketIds": ["socket.colonial_watch_fort.road", "socket.colonial_watch_fort.supply"],
+    "influenceHookIds": ["influence.colonial_watch_fort.control"],
+    "stateHookIds": ["state.colonial_watch_fort.construction", "state.colonial_watch_fort.damage"]
   },
   "production": {
-    "queueIds": ["production_queue.imperial_watch_fort.garrison"],
-    "spawnRuleIds": ["spawn_rule.imperial_watch_fort.soldiers", "spawn_rule.imperial_watch_fort.vendors"],
-    "rallyPointId": "rally.imperial_watch_fort.gate",
+    "queueIds": ["production_queue.colonial_watch_fort.garrison"],
+    "spawnRuleIds": ["spawn_rule.colonial_watch_fort.soldiers", "spawn_rule.colonial_watch_fort.vendors"],
+    "rallyPointId": "rally.colonial_watch_fort.gate",
     "allowedActorKinds": ["worker", "vendor", "specialist", "soldier", "named_hero"],
     "dispatchOwner": "faction_ai"
   },
@@ -24,7 +24,7 @@
     "durableUntil": ["upgrade", "capture", "damage_state_change", "corruption", "declared_refresh"]
   },
   "loot": {
-    "factionFamily": "imperial_military_stores",
+    "factionFamily": "colonial_military_stores",
     "archetypeFamily": "watch_fort_barracks",
     "levelBand": 2,
     "higherLevelImprovesExpectedValue": true,

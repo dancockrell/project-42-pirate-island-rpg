@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.project42.diplomacy",
+  "title": "Independent bilateral faction relationships",
+  "type": "object",
+  "required": ["id", "kind", "factionIds", "relationships", "playerReputationSeparate"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^diplomacy\\."},
+    "kind": {"const": "faction_relationship_matrix"},
+    "factionIds": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "pattern": "^faction\\."}},
+    "relationships": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["a", "b", "standing", "state", "drivers"], "additionalProperties": true}},
+    "playerReputationSeparate": {"const": true}
+  },
+  "additionalProperties": false
+}

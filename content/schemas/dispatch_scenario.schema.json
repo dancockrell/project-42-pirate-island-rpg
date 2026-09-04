@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.project42.dispatch_scenario",
+  "title": "Deterministic faction actor dispatch fixture",
+  "type": "object",
+  "required": ["id", "kind", "seed", "actor", "candidates", "chosenActionId"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^dispatch_scenario\\."},
+    "kind": {"const": "dispatch_scenario"},
+    "seed": {"type": "integer"},
+    "actor": {"type": "object", "required": ["actorDefinitionId", "factionId", "producerSiteId", "rallyPointId", "role"], "additionalProperties": true},
+    "candidates": {"type": "array", "minItems": 2, "items": {"type": "object", "required": ["actionId", "assignment", "targetNodeId", "scoreTerms", "wobble", "total"], "additionalProperties": true}},
+    "chosenActionId": {"type": "string"}
+  },
+  "additionalProperties": false
+}

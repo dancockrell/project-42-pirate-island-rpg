@@ -3,7 +3,7 @@ import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const repo = resolve(import.meta.dirname, "../..");
-const domains = ["characters", "skills", "enemies", "encounters", "world", "factions", "sites", "campaign", "weather", "presentation"];
+const domains = ["characters", "skills", "enemies", "encounters", "world", "factions", "sites", "production", "diplomacy", "ai_scenarios", "campaign", "weather", "presentation"];
 const records = [];
 
 for (const domain of domains) {

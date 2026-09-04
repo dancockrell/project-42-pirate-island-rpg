@@ -1,0 +1,34 @@
+{
+  "id": "site.eastern_fox_people.river_market.level_2.prototype",
+  "kind": "faction_adventure_site",
+  "factionId": "faction.eastern_fox_people.prototype",
+  "archetypeId": "site_archetype.eastern_fox_people.river_market",
+  "level": 2,
+  "footprint": {"hexes": [[0, 0], [1, 0], [0, 1], [1, -1]], "heightLayers": 3},
+  "hooks": {
+    "actorSpawnPointIds": ["spawn.river_market.quay", "spawn.river_market.court", "spawn.river_market.stalls"],
+    "tetherSocketIds": ["socket.river_market.waterway", "socket.river_market.road", "socket.river_market.supply"],
+    "influenceHookIds": ["influence.river_market.trade"],
+    "stateHookIds": ["state.river_market.construction", "state.river_market.damage", "state.river_market.prestige"]
+  },
+  "production": {
+    "queueIds": ["production_queue.river_market.households", "production_queue.river_market.stalls"],
+    "spawnRuleIds": ["spawn_rule.river_market.porters", "spawn_rule.river_market.vendors"],
+    "rallyPointId": "rally.river_market.court_gate",
+    "allowedActorKinds": ["worker", "resident", "vendor", "specialist", "soldier", "named_hero"],
+    "dispatchOwner": "faction_ai"
+  },
+  "generation": {
+    "revision": 1,
+    "seedInputs": ["world_seed", "faction_id", "structure_instance_id", "archetype_id", "structure_level", "generation_revision"],
+    "durableUntil": ["upgrade", "capture", "damage_state_change", "corruption", "declared_refresh"]
+  },
+  "loot": {
+    "factionFamily": "eastern_fox_people_trade_and_court_goods",
+    "archetypeFamily": "river_market_compounds",
+    "levelBand": 2,
+    "higherLevelImprovesExpectedValue": true,
+    "distinctiveRewards": ["silk_armor", "jade_tally", "river_chart", "court_intelligence"]
+  },
+  "metadata": {"implementationOwner": "rust-simulation", "artState": "metadata_only", "animationAllowed": false}
+}
