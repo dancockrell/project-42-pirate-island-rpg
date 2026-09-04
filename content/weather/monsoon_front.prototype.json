@@ -10,8 +10,8 @@
   },
   "movement": {"adjacency": "island_network_tethers", "durationTicks": 4, "intensityRange": [1, 3], "prefers": ["waterway", "wild"]},
   "factionModifiers": [
-    {"factionId": "faction.imperial_forces.prototype", "effects": {"roadMovementMultiplier": 1.2, "rangedSightMultiplier": 0.8}},
-    {"factionId": "faction.cthulhu_cult.prototype", "effects": {"ritualControlMultiplier": 1.0}}
+    {"factionId": "faction.colonial_powers.prototype", "effects": {"roadMovementMultiplier": 1.2, "rangedSightMultiplier": 0.8}},
+    {"factionId": "faction.cthulhu.prototype", "effects": {"ritualControlMultiplier": 1.0}}
   ],
   "terrainInteractions": [{"terrainFamily": "ordinary_jungle", "effect": "increase_growth"}, {"terrainFamily": "cthulhu_necromantic_rot", "effect": "slow_spread"}],
   "signals": {

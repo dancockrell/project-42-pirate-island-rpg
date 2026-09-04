@@ -10,8 +10,8 @@
   },
   "movement": {"adjacency": "island_network_tethers", "durationTicks": 3, "intensityRange": [1, 4], "prefers": ["ritual", "corrupted", "low_ground"]},
   "factionModifiers": [
-    {"factionId": "faction.cthulhu_cult.prototype", "effects": {"productionSpeedMultiplier": 1.2, "rotSpreadMultiplier": 1.4, "supernaturalReadinessBonus": 1}},
-    {"factionId": "faction.imperial_forces.prototype", "effects": {"supplyCapacityMultiplier": 0.7, "workerProductionMultiplier": 0.8}}
+    {"factionId": "faction.cthulhu.prototype", "effects": {"productionSpeedMultiplier": 1.2, "rotSpreadMultiplier": 1.4, "supernaturalReadinessBonus": 1}},
+    {"factionId": "faction.colonial_powers.prototype", "effects": {"supplyCapacityMultiplier": 0.7, "workerProductionMultiplier": 0.8}}
   ],
   "terrainInteractions": [{"terrainFamily": "cthulhu_necromantic_rot", "effect": "accelerate_spread"}, {"terrainFamily": "burial_ground", "effect": "enable_necromantic_spawn_family"}],
   "signals": {

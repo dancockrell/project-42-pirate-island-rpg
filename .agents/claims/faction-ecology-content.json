@@ -3,7 +3,7 @@
   "task_id": "faction-ecology-content",
   "agent": "codex-root",
   "summary": "Complete the five-faction ecology with production rules, bilateral diplomacy, and deterministic dispatch fixtures",
-  "status": "completed",
+  "status": "active",
   "claimed_at": "2026-09-04T07:00:00Z",
   "updated_at": "2026-09-04T07:50:00Z",
   "paths": [
@@ -18,6 +18,9 @@
     "content/production/",
     "content/diplomacy/",
     "content/ai_scenarios/",
+    "content/weather/monsoon_front.prototype.json",
+    "content/weather/necromantic_miasma.prototype.json",
+    "content/world/terrain_influence.prototype.json",
     "tools/src/validate.mjs",
     "tools/src/build-content-bundle.mjs",
     "game/generated/content_bundle.json",
@@ -30,7 +33,7 @@
     "notes": "Adds content records and validators only. Does not overlap the active port-town roof correction or touch the untracked native DLL."
   },
   "completion": {
-    "commit": "dc90fae",
+    "commit": null,
     "checks": [
       "invented faction name and legacy ID audit: passed",
       "all content/schemas/*.schema.json parse: passed",

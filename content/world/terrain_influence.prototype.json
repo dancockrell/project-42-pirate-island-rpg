@@ -1,7 +1,7 @@
 {
   "id": "terrain_influence.cthulhu.rot.prototype",
   "kind": "terrain_influence",
-  "sourceFactionId": "faction.cthulhu_cult.prototype",
+  "sourceFactionId": "faction.cthulhu.prototype",
   "terrainFamily": "cthulhu_necromantic_rot",
   "spread": {
     "adjacency": "island_network_tethers",
