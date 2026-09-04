@@ -160,9 +160,394 @@ fn mix_seed(mut seed: u64, day: u32, region_id: &str, slot: u8) -> u64 {
     seed ^ (seed >> 29)
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProductionRule {
+    pub id: String,
+    pub producer_archetype_id: String,
+    pub actor_definition_id: String,
+    pub actor_kind: String,
+    pub costs: BTreeMap<String, u32>,
+    pub production_ticks: u32,
+    pub population_use: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProductionOrder {
+    pub id: String,
+    pub rule: ProductionRule,
+    pub remaining_ticks: u32,
+    pub reserved_costs: BTreeMap<String, u32>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FactionBuilding {
+    pub id: String,
+    pub faction_id: String,
+    pub archetype_id: String,
+    pub node_id: String,
+    pub rally_point_id: String,
+    pub operational: bool,
+    pub queue_capacity: usize,
+    pub production_queue: Vec<ProductionOrder>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FactionState {
+    pub id: String,
+    pub resources: BTreeMap<String, u32>,
+    pub population_used: u32,
+    pub population_capacity: u32,
+    /// Maximum absolute fixed-point wobble accepted in one dispatch score.
+    pub wobble_limit: i32,
+    pub buildings: BTreeMap<String, FactionBuilding>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ActorProductionProvenance {
+    pub faction_id: String,
+    pub producer_building_id: String,
+    pub production_rule_id: String,
+    pub reserved_costs: BTreeMap<String, u32>,
+    pub completed_tick: u64,
+    pub rally_point_id: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProducedActor {
+    pub instance_id: String,
+    pub definition_id: String,
+    pub actor_kind: String,
+    pub faction_id: String,
+    pub node_id: String,
+    pub current_assignment_id: Option<String>,
+    pub provenance: ActorProductionProvenance,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct DispatchScore {
+    pub goal_progress: i32,
+    pub target_threat: i32,
+    pub faction_hatred: i32,
+    pub expected_loot: i32,
+    pub strategic_position: i32,
+    pub supply_cost: i32,
+    pub travel_risk: i32,
+    pub home_defense_deficit: i32,
+    pub role_fitness: i32,
+}
+
+impl DispatchScore {
+    pub fn total_without_wobble(&self) -> i32 {
+        self.goal_progress
+            + self.target_threat
+            + self.faction_hatred
+            + self.expected_loot
+            + self.strategic_position
+            + self.supply_cost
+            + self.travel_risk
+            + self.home_defense_deficit
+            + self.role_fitness
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DispatchCandidate {
+    pub action_id: String,
+    pub assignment: String,
+    pub target_node_id: String,
+    pub score: DispatchScore,
+    /// Fixed-point variation authored or generated from the recorded world seed.
+    pub wobble: i32,
+}
+
+impl DispatchCandidate {
+    pub fn total(&self) -> i32 {
+        self.score.total_without_wobble() + self.wobble
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FactionWorldEvent {
+    ProductionQueued {
+        faction_id: String,
+        building_id: String,
+        order_id: String,
+        production_rule_id: String,
+    },
+    ActorProduced {
+        actor: ProducedActor,
+    },
+    ActorAssigned {
+        actor_id: String,
+        faction_id: String,
+        action_id: String,
+        assignment: String,
+        target_node_id: String,
+        total_score: i32,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FactionWorldError {
+    UnknownFaction(String),
+    UnknownBuilding(String),
+    UnknownActor(String),
+    BuildingNotOperational(String),
+    ProducerFactionMismatch,
+    ProducerArchetypeMismatch,
+    QueueFull(String),
+    InvalidProductionTicks,
+    InsufficientPopulation,
+    InsufficientResource {
+        resource_id: String,
+        required: u32,
+        available: u32,
+    },
+    NoDispatchCandidates,
+    WobbleOutOfBounds {
+        action_id: String,
+        wobble: i32,
+        limit: i32,
+    },
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct FactionWorld {
+    pub tick: u64,
+    pub factions: BTreeMap<String, FactionState>,
+    pub actors: BTreeMap<String, ProducedActor>,
+    next_actor_serial: u64,
+    next_order_serial: u64,
+}
+
+impl FactionWorld {
+    pub fn enqueue_production(
+        &mut self,
+        faction_id: &str,
+        building_id: &str,
+        rule: ProductionRule,
+    ) -> Result<FactionWorldEvent, FactionWorldError> {
+        if rule.production_ticks == 0 {
+            return Err(FactionWorldError::InvalidProductionTicks);
+        }
+        let faction = self
+            .factions
+            .get_mut(faction_id)
+            .ok_or_else(|| FactionWorldError::UnknownFaction(faction_id.to_owned()))?;
+        let building = faction
+            .buildings
+            .get(building_id)
+            .ok_or_else(|| FactionWorldError::UnknownBuilding(building_id.to_owned()))?;
+        if building.faction_id != faction_id {
+            return Err(FactionWorldError::ProducerFactionMismatch);
+        }
+        if !building.operational {
+            return Err(FactionWorldError::BuildingNotOperational(
+                building_id.to_owned(),
+            ));
+        }
+        if building.archetype_id != rule.producer_archetype_id {
+            return Err(FactionWorldError::ProducerArchetypeMismatch);
+        }
+        if building.production_queue.len() >= building.queue_capacity {
+            return Err(FactionWorldError::QueueFull(building_id.to_owned()));
+        }
+        if faction.population_used.saturating_add(rule.population_use) > faction.population_capacity
+        {
+            return Err(FactionWorldError::InsufficientPopulation);
+        }
+        for (resource_id, required) in &rule.costs {
+            let available = faction.resources.get(resource_id).copied().unwrap_or(0);
+            if available < *required {
+                return Err(FactionWorldError::InsufficientResource {
+                    resource_id: resource_id.clone(),
+                    required: *required,
+                    available,
+                });
+            }
+        }
+
+        for (resource_id, required) in &rule.costs {
+            *faction.resources.entry(resource_id.clone()).or_default() -= *required;
+        }
+        faction.population_used += rule.population_use;
+        self.next_order_serial += 1;
+        let order_id = format!("production_order.{faction_id}.{}", self.next_order_serial);
+        let event = FactionWorldEvent::ProductionQueued {
+            faction_id: faction_id.to_owned(),
+            building_id: building_id.to_owned(),
+            order_id: order_id.clone(),
+            production_rule_id: rule.id.clone(),
+        };
+        faction
+            .buildings
+            .get_mut(building_id)
+            .expect("building was validated above")
+            .production_queue
+            .push(ProductionOrder {
+                id: order_id,
+                remaining_ticks: rule.production_ticks,
+                reserved_costs: rule.costs.clone(),
+                rule,
+            });
+        Ok(event)
+    }
+
+    pub fn advance_production_tick(&mut self) -> Vec<FactionWorldEvent> {
+        self.tick += 1;
+        let mut completed = Vec::new();
+        for faction in self.factions.values_mut() {
+            for building in faction.buildings.values_mut() {
+                if !building.operational {
+                    continue;
+                }
+                for order in &mut building.production_queue {
+                    order.remaining_ticks = order.remaining_ticks.saturating_sub(1);
+                }
+                let mut pending = Vec::with_capacity(building.production_queue.len());
+                for order in building.production_queue.drain(..) {
+                    if order.remaining_ticks == 0 {
+                        completed.push((
+                            faction.id.clone(),
+                            building.id.clone(),
+                            building.node_id.clone(),
+                            building.rally_point_id.clone(),
+                            order,
+                        ));
+                    } else {
+                        pending.push(order);
+                    }
+                }
+                building.production_queue = pending;
+            }
+        }
+
+        completed.sort_by(|left, right| left.4.id.cmp(&right.4.id));
+        let mut events = Vec::with_capacity(completed.len());
+        for (faction_id, building_id, node_id, rally_point_id, order) in completed {
+            self.next_actor_serial += 1;
+            let actor = ProducedActor {
+                instance_id: format!("actor_instance.{faction_id}.{}", self.next_actor_serial),
+                definition_id: order.rule.actor_definition_id,
+                actor_kind: order.rule.actor_kind,
+                faction_id: faction_id.clone(),
+                node_id,
+                current_assignment_id: None,
+                provenance: ActorProductionProvenance {
+                    faction_id,
+                    producer_building_id: building_id,
+                    production_rule_id: order.rule.id,
+                    reserved_costs: order.reserved_costs,
+                    completed_tick: self.tick,
+                    rally_point_id,
+                },
+            };
+            self.actors.insert(actor.instance_id.clone(), actor.clone());
+            events.push(FactionWorldEvent::ActorProduced { actor });
+        }
+        events
+    }
+
+    pub fn dispatch_actor(
+        &mut self,
+        actor_id: &str,
+        candidates: &[DispatchCandidate],
+    ) -> Result<FactionWorldEvent, FactionWorldError> {
+        if candidates.is_empty() {
+            return Err(FactionWorldError::NoDispatchCandidates);
+        }
+        let actor = self
+            .actors
+            .get(actor_id)
+            .ok_or_else(|| FactionWorldError::UnknownActor(actor_id.to_owned()))?;
+        let faction = self
+            .factions
+            .get(&actor.faction_id)
+            .ok_or_else(|| FactionWorldError::UnknownFaction(actor.faction_id.clone()))?;
+        for candidate in candidates {
+            if candidate.wobble.abs() > faction.wobble_limit {
+                return Err(FactionWorldError::WobbleOutOfBounds {
+                    action_id: candidate.action_id.clone(),
+                    wobble: candidate.wobble,
+                    limit: faction.wobble_limit,
+                });
+            }
+        }
+        let chosen = candidates
+            .iter()
+            .max_by(|left, right| {
+                left.total()
+                    .cmp(&right.total())
+                    .then_with(|| right.action_id.cmp(&left.action_id))
+            })
+            .expect("non-empty candidates checked above");
+        let actor = self
+            .actors
+            .get_mut(actor_id)
+            .expect("actor was validated above");
+        actor.current_assignment_id = Some(chosen.action_id.clone());
+        actor.node_id = chosen.target_node_id.clone();
+        Ok(FactionWorldEvent::ActorAssigned {
+            actor_id: actor_id.to_owned(),
+            faction_id: actor.faction_id.clone(),
+            action_id: chosen.action_id.clone(),
+            assignment: chosen.assignment.clone(),
+            target_node_id: chosen.target_node_id.clone(),
+            total_score: chosen.total(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn production_world() -> FactionWorld {
+        let building = FactionBuilding {
+            id: "site.colonial.watch_fort.instance_1".into(),
+            faction_id: "faction.colonial_powers.prototype".into(),
+            archetype_id: "site_archetype.colonial.watch_fort".into(),
+            node_id: "network_node.river_fork".into(),
+            rally_point_id: "rally.colonial.watch_fort.gate".into(),
+            operational: true,
+            queue_capacity: 2,
+            production_queue: Vec::new(),
+        };
+        let faction = FactionState {
+            id: "faction.colonial_powers.prototype".into(),
+            resources: [
+                ("resource.provisions".into(), 4),
+                ("resource.iron".into(), 2),
+            ]
+            .into_iter()
+            .collect(),
+            population_used: 0,
+            population_capacity: 4,
+            wobble_limit: 5,
+            buildings: [(building.id.clone(), building)].into_iter().collect(),
+        };
+        FactionWorld {
+            factions: [(faction.id.clone(), faction)].into_iter().collect(),
+            ..FactionWorld::default()
+        }
+    }
+
+    fn marine_rule() -> ProductionRule {
+        ProductionRule {
+            id: "spawn_rule.colonial_watch_fort.soldiers".into(),
+            producer_archetype_id: "site_archetype.colonial.watch_fort".into(),
+            actor_definition_id: "actor_def.colonial.line_marine".into(),
+            actor_kind: "soldier".into(),
+            costs: [
+                ("resource.provisions".into(), 2),
+                ("resource.iron".into(), 1),
+            ]
+            .into_iter()
+            .collect(),
+            production_ticks: 2,
+            population_use: 1,
+        }
+    }
 
     #[test]
     fn named_people_return_but_remember_player_caused_deaths() {
@@ -234,5 +619,196 @@ mod tests {
                 .iter()
                 .all(|monster| monster.behavior_tags[1] == "individual-threat")
         );
+    }
+
+    #[test]
+    fn building_reserves_costs_and_produces_an_actor_with_provenance() {
+        let mut world = production_world();
+        let queued = world
+            .enqueue_production(
+                "faction.colonial_powers.prototype",
+                "site.colonial.watch_fort.instance_1",
+                marine_rule(),
+            )
+            .unwrap();
+        assert!(matches!(queued, FactionWorldEvent::ProductionQueued { .. }));
+        let faction = world
+            .factions
+            .get("faction.colonial_powers.prototype")
+            .unwrap();
+        assert_eq!(faction.resources["resource.provisions"], 2);
+        assert_eq!(faction.resources["resource.iron"], 1);
+        assert_eq!(faction.population_used, 1);
+
+        assert!(world.advance_production_tick().is_empty());
+        let events = world.advance_production_tick();
+        let FactionWorldEvent::ActorProduced { actor } = &events[0] else {
+            panic!("second production tick must create the actor")
+        };
+        assert_eq!(actor.definition_id, "actor_def.colonial.line_marine");
+        assert_eq!(actor.node_id, "network_node.river_fork");
+        assert_eq!(
+            actor.provenance.producer_building_id,
+            "site.colonial.watch_fort.instance_1"
+        );
+        assert_eq!(
+            actor.provenance.production_rule_id,
+            "spawn_rule.colonial_watch_fort.soldiers"
+        );
+        assert_eq!(actor.provenance.completed_tick, 2);
+        assert_eq!(actor.provenance.reserved_costs["resource.provisions"], 2);
+        assert_eq!(actor.current_assignment_id, None);
+    }
+
+    #[test]
+    fn rejected_order_does_not_partially_spend_resources_or_population() {
+        let mut world = production_world();
+        let mut expensive = marine_rule();
+        expensive.costs.insert("resource.iron".into(), 99);
+        let before = world.clone();
+        assert_eq!(
+            world
+                .enqueue_production(
+                    "faction.colonial_powers.prototype",
+                    "site.colonial.watch_fort.instance_1",
+                    expensive,
+                )
+                .unwrap_err(),
+            FactionWorldError::InsufficientResource {
+                resource_id: "resource.iron".into(),
+                required: 99,
+                available: 2,
+            }
+        );
+        assert_eq!(world, before);
+    }
+
+    #[test]
+    fn production_is_repeatable_for_the_same_initial_state_and_commands() {
+        let mut left = production_world();
+        let mut right = left.clone();
+        for world in [&mut left, &mut right] {
+            world
+                .enqueue_production(
+                    "faction.colonial_powers.prototype",
+                    "site.colonial.watch_fort.instance_1",
+                    marine_rule(),
+                )
+                .unwrap();
+            world.advance_production_tick();
+        }
+        assert_eq!(
+            left.advance_production_tick(),
+            right.advance_production_tick()
+        );
+        assert_eq!(left, right);
+    }
+
+    fn candidate(
+        action_id: &str,
+        target: &str,
+        strategic_position: i32,
+        wobble: i32,
+    ) -> DispatchCandidate {
+        DispatchCandidate {
+            action_id: action_id.into(),
+            assignment: "reinforce".into(),
+            target_node_id: target.into(),
+            score: DispatchScore {
+                strategic_position,
+                role_fitness: 10,
+                ..DispatchScore::default()
+            },
+            wobble,
+        }
+    }
+
+    fn world_with_produced_actor() -> (FactionWorld, String) {
+        let mut world = production_world();
+        world
+            .enqueue_production(
+                "faction.colonial_powers.prototype",
+                "site.colonial.watch_fort.instance_1",
+                marine_rule(),
+            )
+            .unwrap();
+        world.advance_production_tick();
+        world.advance_production_tick();
+        let actor_id = world.actors.keys().next().unwrap().clone();
+        (world, actor_id)
+    }
+
+    #[test]
+    fn dispatch_chooses_highest_utility_and_moves_the_actor() {
+        let (mut world, actor_id) = world_with_produced_actor();
+        let event = world
+            .dispatch_actor(
+                &actor_id,
+                &[
+                    candidate("dispatch.colonial.raid", "network_node.smuggler_cove", 4, 1),
+                    candidate(
+                        "dispatch.colonial.reinforce",
+                        "network_node.river_fork",
+                        15,
+                        -1,
+                    ),
+                ],
+            )
+            .unwrap();
+        assert!(matches!(
+            event,
+            FactionWorldEvent::ActorAssigned { ref action_id, total_score: 24, .. }
+                if action_id == "dispatch.colonial.reinforce"
+        ));
+        let actor = &world.actors[&actor_id];
+        assert_eq!(actor.node_id, "network_node.river_fork");
+        assert_eq!(
+            actor.current_assignment_id.as_deref(),
+            Some("dispatch.colonial.reinforce")
+        );
+    }
+
+    #[test]
+    fn equal_dispatch_scores_use_stable_action_id_order() {
+        let (mut world, actor_id) = world_with_produced_actor();
+        let event = world
+            .dispatch_actor(
+                &actor_id,
+                &[
+                    candidate("dispatch.zulu", "network_node.black_beach", 10, 0),
+                    candidate("dispatch.alpha", "network_node.river_fork", 10, 0),
+                ],
+            )
+            .unwrap();
+        assert!(matches!(
+            event,
+            FactionWorldEvent::ActorAssigned { ref action_id, .. }
+                if action_id == "dispatch.alpha"
+        ));
+    }
+
+    #[test]
+    fn out_of_bounds_wobble_is_rejected_before_actor_mutation() {
+        let (mut world, actor_id) = world_with_produced_actor();
+        let before = world.actors[&actor_id].clone();
+        assert_eq!(
+            world
+                .dispatch_actor(
+                    &actor_id,
+                    &[candidate(
+                        "dispatch.invalid",
+                        "network_node.river_fork",
+                        10,
+                        6
+                    )],
+                )
+                .unwrap_err(),
+            FactionWorldError::WobbleOutOfBounds {
+                action_id: "dispatch.invalid".into(),
+                wobble: 6,
+                limit: 5,
+            }
+        );
+        assert_eq!(world.actors[&actor_id], before);
     }
 }

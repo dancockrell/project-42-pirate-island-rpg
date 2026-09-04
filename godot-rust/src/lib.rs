@@ -13,4 +13,8 @@ pub use battle::{
     Actor, ActorId, Battle, BattleError, BattleEvent, BattlePhase, BattleSnapshot,
     BattlefieldEffect, Faction, SkillCommand, StatusInstance, StatusKind,
 };
-pub use world::{DeathMemory, NamedPerson, SpawnRule, SpawnedMonster, WorldClock, WorldEvent};
+pub use world::{
+    ActorProductionProvenance, DeathMemory, DispatchCandidate, DispatchScore, FactionBuilding,
+    FactionState, FactionWorld, FactionWorldError, FactionWorldEvent, NamedPerson, ProducedActor,
+    ProductionOrder, ProductionRule, SpawnRule, SpawnedMonster, WorldClock, WorldEvent,
+};
