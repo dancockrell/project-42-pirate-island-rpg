@@ -1,6 +1,8 @@
 # Project 42: Pirate Island RPG
 
-This repository is the executable companion to the design bible. It begins with a deliberately narrow vertical slice: one side-view battle stage, four party cards, one expanded active heroine, one individual monster, functional commands, descriptive combat text, and deterministic rules.
+This repository implements a HaremLit adventure on top of a living, multi-faction RTS simulation of Pirate Island. Michael and four adult female companions are five controllable heroes on one large fixed-view isometric board. The women actively investigate the island, bring competing theories and personal quest lines, and ask the player to direct, equip, protect, and support their work.
+
+The canonical product contract is [docs/GAME_BUILD_PLAN.md](docs/GAME_BUILD_PLAN.md). It supersedes the earlier side-view route-and-battle direction. Existing battle, character, native-bridge, asset, and rig work remains useful technical evidence where it does not conflict with the new authority; implementation already present does not overrule the product decision.
 
 ## Language ownership
 
@@ -13,7 +15,7 @@ This repository is the executable companion to the design bible. It begins with 
 
 The Godot shell loads `Project42SimulationBridge`, the native Rust GDExtension, and submits commands through `NativeSimulationPort`. The bridge owns the authoritative prototype battle and projects typed snapshots and ordered events into Godot dictionaries. A clearly marked mock remains available only when a debug build cannot load the extension; release startup refuses that fallback.
 
-The presentation fixture now exposes all seven of Betty's D-through-SSS skills. `Fatal Intercept` is visibly present but disabled because it is an automatic reaction, not a manual command. The remaining buttons drive deterministic mock event sequences so card focus, multi-target rescue, battlefield effects, revival and bonus-turn presentation can be built before the native bridge is attached. These fixtures are not a second rules implementation and are never release-authoritative.
+The existing side-view presentation fixture exposes Betty's D-through-SSS skills. It is retained as a historical test bed for typed command/event projection and rig experiments, not as the current camera or campaign-loop authority. New production work targets the fixed-view isometric island slice in [docs/VERTICAL_SLICE_BUILD_CONTRACT.md](docs/VERTICAL_SLICE_BUILD_CONTRACT.md).
 
 Betty's current Magnific images are stored as component references under `work/art/magnific/betty/`. Their exact approval boundaries live in `content/art/betty.reference_ledger.json`: one image controls body and rendering direction; two contribute equipment and palette only. None is marked as final production art.
 

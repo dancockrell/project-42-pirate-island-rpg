@@ -1,127 +1,58 @@
-# Project 42: First Vertical Slice Build Contract
+# Project 42: Autonomous Island Vertical Slice
 
-## Purpose
+This contract implements the first slice in [GAME_BUILD_PLAN.md](GAME_BUILD_PLAN.md). That design authority wins over the older side-view battle slice this file replaces.
 
-This is the execution order for the first complete playable proof. It is
-derived from the Design Bible, not from the current prototype screen. The
-slice starts at the Black Beach, reaches the damaged estate, sends a party to
-the Reception Terrace, resolves one dangerous encounter, returns home, and
-persists the result. A feature belongs in this slice only when it strengthens
-that loop.
+## Slice promise
 
-## Non-negotiable player promise
+On one fixed-view isometric board, the player can witness the legible in-world consequences of factions acting autonomously, support a companion-led investigation, and see that choice change the same simulated island. RTS internals remain behind the scenes. The proof is deterministic, recoverable, and animation-free.
 
-The player leads Michael and selected adult heroines through a wild island
-whose danger is readable. Inactive party members remain as compact cards. The
-acting character expands into the same shared battle plane as the enemies,
-performs a clear full-body action, then returns to a card state when the
-combat state permits. Text provides actionable observation, not anonymous
-narration or decorative filler.
+## Required content
 
-## Build order
+- Two connected regions with visible nodes and at least three typed tethers.
+- Michael, one fully authored female investigator, and three selectable rig-ready heroine stand-ins.
+- Three ordinary factions with resource flow, build and production queues, supply, territory, units, and independent bilateral relationships.
+- One hidden Cthulhu faction whose utility and unconventional build cycle advance its Day-100 plan.
+- One footprint-valid structure per visible ordinary faction.
+- Two generated adventure sites proving faction identity and structure level change deterministic defenses and loot.
+- One companion lead with two defensible interpretations and two support choices.
+- One early wrongness effect with prerequisites, advance tell, consequence, aftermath clue, and accessibility substitute.
 
-### 1. Establish one authoritative expedition state
+## Demonstrable flow
 
-Implement one `ExpeditionState` that owns location, time, selected party,
-supplies, injuries, route state, discoveries, encounter state and aftermath.
-The estate, route, site and battle may project this state. No scene is allowed
-to invent a separate copy of the truth.
+1. Load a seeded world and inspect only hero-known territory, structures, relationships, and positions.
+2. Advance at least three decision windows without issuing a command; factions collect resources, progress queues, deploy, and act.
+3. Show those hidden systems through world evidence: a new structure, changed patrol, contested route, shortage, raid aftermath, or abandoned holding—not raw utility numbers.
+4. A board event causes the companion to update a hypothesis and propose a lead.
+5. The player assigns heroes, equipment, access, or political support to one interpretation.
+6. The action consumes time and resolves through Rust into board, relationship, evidence, and heat-ledger changes.
+7. The companion reports what her theory explained, what remains uncertain, and what she wants next.
+8. Save, reload, and replay from the preceding boundary to reproduce the decision and outcome.
 
-**Proof:** a saved state restored at the estate, route, camp, target-selection
-or post-battle boundary produces the same next legal commands and the same
-seeded outcome.
+## Exit gates
 
-### 2. Build the exact playable geography
+- The board remains the sole spatial truth; no route screen duplicates it.
+- Ordinary RTS mechanics use established patterns rather than a bespoke narrative substitute.
+- Utility traces reproduce for the same seed and separate personality weights from bounded wobble.
+- Faction relationships exist independently of player reputation.
+- A faction can be permanently eliminated; former holdings naturally become abandoned, captured, dismantled, contested, corrupted, or reclaimed.
+- Faction, building archetype, level, and stable instance seed deterministically produce distinct site and loot profiles.
+- Quests encountering an eliminated faction choose a validated successor, recovery, or closure path; they do not respawn it.
+- Cthulhu may rationally lose conventional board value while advancing hidden plan state.
+- The player never sees raw stockpiles, queues, utility traces, hidden objectives, or an exact heat value unless that information has been learned in-world.
+- Structure footprints, spawn points, tether sockets, influence hooks, and selection bounds validate.
+- Rebuilding the same unchanged site reproduces its layout and loot seed; changing faction, archetype, or level produces a distinct content profile.
+- The companion, not Michael, authors the lead and interpretations.
+- A baseline policy remains on pace for minimum viable confrontation preparation.
+- Godot verification, Rust tests, content validation, and deterministic bundle regeneration pass.
 
-Implement the first connected graph: Black Beach → damaged coastal estate →
-river landing → Reception Terrace → processional ramp. Each space has a
-stable ID, a visible blockout, entry points, exits, interaction anchors,
-authored text, a return rule and persistence policy.
+## Explicit non-goals
 
-**Proof:** the player can choose the safe road or jungle edge, inspect one
-actionable observation, camp or press onward, and return with a changed
-expedition state.
+- animation;
+- final art;
+- a novel RTS algorithm;
+- the complete faction roster;
+- all four companion quest lines;
+- the final Cthulhu encounter;
+- a broad rewrite of proven command/event combat code.
 
-### 3. Build the battle composition before final art
-
-The battle is one painted side-view field. The acting heroine occupies the
-foreground at a readable but interaction-safe scale. Individual enemies share
-the same floor and may occupy the five positional bands: Party Rear, Party
-Front, Contested, Enemy Front and Enemy Rear. Four active party members appear
-as real cards when inactive; no empty roster slots are drawn.
-
-The UI contains only live information:
-
-- location and time;
-- current enemy intent and known damage/risk;
-- compact party cards with vitality, guard and readiness;
-- the acting character's authored seven-skill D→SSS grid;
-- targeting prompts, retreat rule and event consequences when those systems
-  exist.
-
-No top progress rail, limit-break crest, unlabelled diamond, ornamental corner
-or fake command appears without a stored rule, input behavior and validation.
-
-**Proof:** a screenshot and input recording show Michael plus three heroines
-as cards, one selected actor expanded, one enemy intent, one targetable
-command and complete bodies/weapons/VFX inside the eight-percent safe frame.
-
-### 4. Build paper rigs as production blockouts
-
-Every temporary actor is a hierarchy of independently movable cut-paper pieces
-with a named root, pivots, draw order, socket list and safe frame. Geometry is
-allowed to be simple. It must still communicate the character described in the
-Bible and reference ledger.
-
-Betty requires head, auburn hair, blouse/corset torso, arms, hands, split coat
-tails, satchel, brass ampoule rack, thighs, lower legs, boots and short
-bronze-and-glass boarding mace. Her mace follows her hand; boots follow legs;
-hair follows head. No static beauty image may substitute for the rig.
-
-**Proof:** ready, step, anticipation, contact and recovery poses use the same
-pieces; a pose test demonstrates a parent movement carrying its child pieces.
-
-### 5. Prove the first combat encounter
-
-Use the Reception Terrace encounter with one individual Razorbeak. The first
-implemented player command is Betty's D-rank **Guarded Strike**: sweep across
-the protected ally line, catch the attack, strike one adjacent enemy, gain
-2 Guard for the threatened ally in the same band, then recover in guard.
-
-The encounter includes target selection, legal-target preview, committed
-resolution, visible enemy intent, hit/miss, guard result, damage, enemy reply,
-victory, defeat and retreat handling. The encounter begins and ends in the
-same `ExpeditionState`.
-
-**Proof:** one deterministic browser run demonstrates all command phases and
-the result persists after the return to exploration.
-
-### 6. Prove estate consequence and Midnight Return
-
-The estate presents recovery, an infirmary action, one household beat and a
-changed object or resident response after the expedition. At midnight, the
-Return transaction revives eligible dead named people, records death memory
-and counters, and repopulates active habitats with individually generated
-monsters. These are campaign transactions, never scene reload effects.
-
-**Proof:** kill or down a named fixture, advance to midnight, observe the
-return flash and restore its memory/counter from save data.
-
-### 7. Polish only after loop proof
-
-Final illustrations, animation loops, VFX, sound, expanded cast content and
-more locations follow the proof. Every asset package records identity,
-camera, parts/pivots, pose, framing, source, admission test and replacement
-gate. Every hero skill requires entry, anticipation, contact, consequence and
-recovery boards at game scale.
-
-**Proof:** no visual asset is accepted merely because it is attractive at full
-resolution. It must read at the actual player camera and preserve its complete
-body, weapon, target and effect envelope.
-
-## Current implementation rule
-
-Work only on the earliest incomplete step that blocks the next one. When a
-step changes code or authored data: validate content, run Godot verification,
-inspect the live browser build when the change is visual, commit the focused
-result and push it before proceeding.
+The old battle prototype remains a test bed for existing combat and presentation boundaries. It is not the product slice and receives no new side-view-specific content under this contract.

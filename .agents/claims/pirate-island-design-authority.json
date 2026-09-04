@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "task_id": "pirate-island-design-authority",
+  "agent": "codex-root",
+  "summary": "Replace the obsolete side-view plan with the fixed-isometric autonomous-island design authority and foundational content contracts",
+  "status": "active",
+  "claimed_at": "2026-09-04T05:00:00Z",
+  "updated_at": "2026-09-04T05:00:00Z",
+  "paths": [
+    "README.md",
+    "docs/GAME_BUILD_PLAN.md",
+    "docs/ARCHITECTURE.md",
+    "docs/VERTICAL_SLICE_BUILD_CONTRACT.md",
+    "content/schemas/",
+    "content/world/",
+    "content/factions/",
+    "tools/src/validate.mjs",
+    ".agents/claims/pirate-island-design-authority.json"
+  ],
+  "symbols": [],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [],
+    "notes": "Does not overlap the active port-town roof correction. Existing authored content and shared asset work are preserved; contradictory design prose is replaced or explicitly subordinated to the new authority. The untracked native DLL remains untouched."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}

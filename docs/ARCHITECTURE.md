@@ -1,8 +1,22 @@
 # Architecture contract
 
+## Product authority and migration boundary
+
+[GAME_BUILD_PLAN.md](GAME_BUILD_PLAN.md) is the canonical product authority. The repository is migrating from a side-view route-and-battle prototype to a fixed-view isometric island whose factions run conventional RTS economies and build cycles behind the scenes. Existing battle rules below remain authoritative for the mechanics they actually implement, but their presentation and prototype encounter loop do not define the new product camera, world loop, or milestone order.
+
+Do not build a parallel island runtime beside the existing Rust world model. Extend or replace the current world types in place, preserve one command/event boundary, and move every caller to the resulting canonical structures.
+
 ## Authority
 
-The simulation is the only authority for vitality, guard, composure, initiative, legal targets, costs, hit results, damage, status application, defeat, loot, time advancement, respawn and death memory. Godot submits commands and projects returned events. A visual animation may anticipate an accepted command, but it may not change authoritative state.
+The simulation is the only authority for vitality, guard, composure, initiative, legal targets, costs, hit results, damage, status application, defeat, loot, world time, hidden heat events, confrontation cause, faction resources, build and production queues, supply, territory, influence, diplomacy, elimination, spawns, and persistence. Godot submits commands and projects returned events. Presentation may anticipate an accepted command, but it may not change authoritative state.
+
+## Hidden RTS and player knowledge
+
+Faction simulation uses familiar RTS state: stockpiles, income, upkeep, build catalogues, queues, prerequisites, producers, units, territory, supply, and position-sensitive utility. Full state and decision traces are available to deterministic tests and debug builds. Player-facing projections filter them through hero knowledge. The game shows perceivable consequences—construction, patrols, smoke, scarcity, raids, changed banners, refugees, abandoned holdings, and companion deductions—not omniscient queue or utility panels.
+
+Faction elimination is a durable simulation transition. A faction becomes eliminated only when its authored recovery conditions are exhausted. It does not respawn to satisfy authored content. Structures, resources, routes, and territory remain on the board and are claimed, contested, dismantled, corrupted, abandoned, or reclaimed through the same ordinary simulation. Quests must resolve against current faction state with validated successor, recovery, or closure branches.
+
+Cthulhu implements the same decision interface but not necessarily the same economy or objective. Its action candidates may exchange ritual control, dreams, corruption, sacrifices, or network state to advance the Day-100 plan. Conventional losses can therefore be positive utility without becoming random behavior.
 
 ## Stable identifiers
 

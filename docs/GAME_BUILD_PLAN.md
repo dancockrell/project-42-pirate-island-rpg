@@ -1,406 +1,230 @@
-# Project 42: Pirate Island RPG — Build Plan
+# Project 42: Pirate Island — Design Authority
 
-## 1. The game being built
+**Status:** Accepted direction, 4 September 2026
+**Authority:** This is the canonical product and production contract. If another document, prototype, scene, or asset conflicts with it, this document wins until an explicit recorded decision changes it.
 
-Project 42 is a party-based, side-view tactical RPG about Captain Michael
-Corrigan and the adult women who choose to join his household on a lost,
-dangerous tropical island. Michael is the captain and inventor who survived
-the destruction of the steam-refitted tea cutter *Handsome Jack*. The island
-is predominantly ancient elven magical Bronze Age infrastructure reclaimed by
-jungle. Colonial ports, forts, fox-folk docks and orc institutions exist as
-small foreign footholds; they do not turn the island into a built-up colonial
-city map. Dinosaurs are wild across the island. The party explores, reads the
-world through detailed authored observation text, enters dangerous sites,
-fights individual high-presence threats, returns to an estate, gains allies,
-and changes what can be attempted tomorrow.
+## Product promise
 
-This plan builds one coherent game, in dependency order. A phase is complete
-only when its exit test passes in the running game and its changed files are
-committed and pushed. A sketch, an attractive screenshot or a disconnected
-screen is not completion.
+Project 42 is a HaremLit adventure played on top of a living, multi-faction RTS simulation of a mysterious island. The player commands Michael and four adult female companions as five hero characters on one large, fixed-view isometric board. The island continues to build, spawn, raid, bargain, spread, and decay whether or not the heroes intervene.
 
-## 2. Fixed player-facing promises
+The four women are investigators and quest drivers, not followers waiting for Michael to discover the plot. Each brings observations, theories, questions, requests, competing interpretations, and a personal quest line. The player decides which leads receive time and resources, equips and protects the women pursuing them, resolves disagreements, and chooses how their discoveries change the campaign. Michael leads by judgment and support; he does not replace their agency.
 
-### 2.1 The first playable chapter
+The central mystery is escalating, rule-governed weirdness caused by Cthulhu's plan. Following companion leads and playing reasonably well must be barely but reliably sufficient. Optimization earns control, preparedness, optional truths, allies, and better outcomes; it is never an undeclared entrance fee for a viable ending.
 
-The first chapter begins at Black Beach after the wreck of the *Handsome
-Jack*. Michael reaches the damaged coastal estate, makes it defensible enough
-to function, then leads a party along the river approach to Reception Terrace,
-the first open elven processional site. The chapter ends when the party has
-survived the terrace encounter, returned to the estate, and carried a real
-change back into household life.
+## Non-negotiable contracts
 
-### 2.2 What every battle looks like
+1. **One island, one board.** Regions, nodes, typed tethers, structures, props, actors, territory, influence, resources, spawns, and faction control exist on and are represented by the fixed-view isometric board. Menus inspect or command that board; they do not replace it with a separate route-game truth.
+2. **Five controllable heroes.** Michael plus four women are the complete core hero roster. All five can be selected, directed, equipped, protected, and supported.
+3. **Companions drive investigation.** Every required mystery chain originates in or materially advances through a companion's authored initiative. Michael cannot receive every objective and perform all intellectual work himself.
+4. **Factions are real RTS factions behind the scenes.** Each has an economy, build cycle, construction and production queues, structures, units, named heroes, territory, supply constraints, and autonomous strategic action. This machinery is not exposed as a raw RTS dashboard to the characters or player. Narrative scripting may create pressures and opportunities; it may not fake the underlying RTS activity.
+5. **The world acts without the player.** Factions construct, spawn, expand, contest, raid, reinforce, ally, betray, and pursue asymmetric goals using simulation-owned state.
+6. **Three endgame triggers.** The Cthulhu confrontation starts at the first of deliberate discovery, Day 100 culmination, or irreversible player-created heat reaching its terminal condition.
+7. **No numeric heat UI.** World day may be known. Cthulhu's hidden heat/patience state is communicated through inferable diegetic evidence, never an exact meter.
+8. **Wrongness has rules.** Weather, time, and causality distort according to authored thresholds and causal state. Effects have prerequisites, tells, consequences, and clue links; they are never arbitrary random horror.
+9. **Simulation truth is singular.** Rust owns authoritative world and combat state. Godot projects it and submits commands. Content records define authored possibilities. Presentation never invents outcomes.
+10. **Fixed isometric, animation-ready, not animated.** This phase adds no animation content. Actors and structures are rigged and socketed so later animation does not require an asset or schema redesign.
+11. **Toybox clarity over historicism.** Western fantasy, Bronze-Age mythic mashup, and eastern/wushu fantasy mashup are intentional broad families. Specialized faction overlays make them legible at board scale.
 
-The battle camera is one broad, theatrical side-view field. It uses the
-reference battle composition as the spatial target: deep jungle and enormous
-elven ruin at left and in the distance; a clear ground plane through the
-middle; the active heroine in the party foreground; an individual enemy at
-the enemy front; compact party cards only at the lower left; actual commands
-only at the lower centre. The card-to-active transition is the central visual
-rule. A party member is compressed into her card until she is selected or
-acts. She then unfolds into a complete full-body fighter on the shared battle
-floor. The camera never cuts off her head, boots, weapon, target, or the
-meaningful part of her effect envelope.
+## Campaign clocks and confrontation
 
-The initial encounter contains Betty, Michael, and one Razorbeak. It does not
-pretend that a fourth heroine or an orc is present merely because the reference
-composition has room for them. As authored characters and enemies become live,
-they occupy those already-defined spaces.
+### World day
 
-### 2.3 The relationship fantasy
+World time advances autonomously through deterministic simulation ticks and day transitions. Day 100 is a hard dramatic deadline, not an instant-loss screen. On Day 100, Cthulhu's plan becomes overt and the confrontation begins using the state the island and heroes produced.
 
-This is adult haremlit with adult characters. Michael is admired because he is
-capable, decent, brave and increasingly able to protect the people who choose
-him. The household is stable. Its women are interested in Michael and in one
-another, and the fantasy is affectionate expansion, not betrayal, surprise
-romantic rivals or an analysis of relationship failure. The player is never
-asked to force a woman, manage hidden outside affairs, or discover that a
-committed heroine has been taken away by a romance twist. Romance scenes and
-household scenes earn new skills, scenes, outfit variants and tactical links
-through authored story progress.
+### Hidden heat/patience
 
-### 2.4 The island’s strange daily law
+Heat is an irreversible consequence ledger, not a decaying suspicion gauge. Specific player actions add declared heat events: disrupting a protected rite, repeatedly assaulting cult logistics, exploiting an anomaly, exposing forbidden knowledge publicly, or probing Cthulhu's infrastructure. The simulation stores event IDs and severity so internal tools and saves can explain exactly why a threshold was crossed.
 
-At midnight, eligible dead people and monsters return in flashes of light.
-Named people remember their deaths and keep a death counter. They may mention
-it in conversation. They are used to the horror in the practical, uneasy way
-people become used to a fact that cannot be changed. Monsters repopulate their
-habitats individually, at the day’s encounter level. The result is a dense
-island of memorable foes, not waves of disposable one-shot enemies.
+The player never sees the number. Each band unlocks curated signals such as altered patrol doctrine, impossible rain, shared dreams, changing book marginalia, NPC memory disagreements, tide errors, or shortened shadows. The signals remain consistent enough to learn across playthroughs.
 
-## 3. Reference ledger and non-negotiable visual reading
+### Deliberate discovery
 
-The following files are production references, not decorative mood boards:
+The investigation reaches Cthulhu only after the party assembles sufficient proof and chooses to act on it. Proof is distributed among the companions' specialties and relationships. No single mandatory clue may be permanently lost; essential proof has an alternate source or companion-driven recovery scene.
 
-| Reference | It approves | It does not approve |
+### Trigger arbitration
+
+At each authoritative tick, Rust evaluates a committed deliberate-reach command with valid proof, world day at or beyond 100, and heat at or beyond its terminal threshold. The first recorded trigger becomes immutable `confrontationCause`. If multiple conditions become true in one transaction, priority is deliberate discovery, then heat, then Day 100, preserving the most player-authored cause. All routes converge on confrontation but produce different opening conditions, allies, control, and available truths.
+
+## Solvability budget
+
+The baseline path assumes the player follows a majority of clearly presented companion leads, maintains functional equipment, answers a few obvious faction pressures, and does not repeatedly ignore explicit warnings. It must reach confrontation with minimum proof, at least one viable ally or territorial advantage, and a winnable preparation state before Day 100.
+
+| Lane | Player behavior | Guaranteed campaign result |
 | --- | --- | --- |
-| `work/art/battle-ui.png` | one large active fighter, individual threat scale, compact party rail, bronze-dark UI, rich ruin/jungle depth | a fake top progress track, anonymous corner crests, a second enemy that is not simulated, dead UI ornaments |
-| `work/art/betty-keyframes.png` | readable pose sequence: card state, unfold, ready, action, impact, recovery; full body in frame | a static portrait standing in for a rig, effects that obscure the actor |
-| `work/art/world-visual-grammar-v1.png` | immense magical Bronze Age elven ruins, wild jungle, wild dinosaurs, sparse outsider settlements | an island built mostly from colonial blocks, captive dinosaur pens |
-| `content/art/betty.reference_ledger.json` | adult, slender, small-busted, auburn curls, green eyes, medicine gear, short boarding mace, cute/sexy confident silhouette | bulky realism, oversized bust, wizard staff, cropped body or weapon |
+| Baseline | follows companion leads and plays reasonably | barely but reliably sufficient proof and preparation |
+| Skilled | sequences leads, reads RTS pressures, manages territory and heat | more time, stronger alliances, optional discoveries, favorable setup |
+| Reckless or neglectful | ignores warnings, abandons leads, destabilizes the island | early or poorly prepared confrontation, never an unexplained arbitrary failure |
 
-Every temporary visual asset must carry machine-readable metadata: stable ID,
-purpose, camera, full-body-safe-frame, layer order, required body parts,
-weapon socket, replacement source, and test that proves it can be removed
-without changing gameplay. No dummy visual is allowed to masquerade as an
-approved final asset.
+Every required lead records time cost, prerequisites, fallback source, preparation reward, heat risk, and latest safe start. Automated campaign tests run baseline policies across bounded AI-wobble seeds; every approved seed must remain solvable.
 
-## 4. Runtime architecture before content expansion
+## Hero and investigation loop
 
-### 4.1 Single source of truth
+Each companion owns a competence domain, personal stake, updatable hypotheses, authored questions, actionable requests, competing interpretations, a personal quest line, and support needs expressed as equipment, escort, influence, access, time, or trust.
 
-`ExpeditionState` owns campaign truth:
+The recurring loop is:
 
-```text
-ExpeditionState
-  campaign_day: int
-  time_segment: Dawn | Day | Dusk | Midnight
-  party_ids: CharacterId[1..4]
-  active_location_id: LocationId
-  route_history: RouteStep[]
-  supplies: SupplyState
-  character_states: Map<CharacterId, CharacterState>
-  named_person_memory: Map<PersonId, DeathMemory>
-  habitat_states: Map<HabitatId, HabitatState>
-  discoveries: Set<DiscoveryId>
-  household_progress: HouseholdProgress
-  pending_encounter: EncounterState | null
-  rng_seed: int
-```
-
-Scenes render this state and send commands to it. A scene must not keep a
-second health value, encounter result, day counter or romance-progress value.
-The battle receives a snapshot and emits an authoritative result transaction.
-
-### 4.2 Presentation boundary
-
-Game rules use data IDs and records. Godot presentation receives only the
-resolved state it needs: actor identity, visible health/guard, selected pose,
-action timing, target IDs, safe frame and art contract. Presentation cannot
-silently alter damage, unlock a skill, revive a character or advance time.
-
-### 4.3 Save boundary
-
-Save at four boundaries only: entering a location, choosing a route, beginning
-an encounter and resolving an encounter/estate action. Autosave writes the
-same serializable `ExpeditionState`; it never serializes Godot nodes.
-
-## 5. Build sequence
-
-## Phase A — Make the first chapter navigable
-
-### A1. Campaign bootstrap
-
-Build the start menu, new-game seed, save slot, and first `ExpeditionState`.
-New game creates Michael, Betty, a damaged estate, Black Beach as the current
-location, and a single available route toward Reception Terrace. The title
-card says **Michael Corrigan**, captain of the *Handsome Jack*.
-
-**Exit test:** start a fresh game, quit at the estate, reload, and receive the
-same legal actions, character state and seeded Razorbeak encounter.
-
-### A2. Black Beach and estate
-
-Build the shore scene and estate scene as separate playable spaces. Black
-Beach gives the wreck, salvage choice and first observation. The estate gives
-four immediately useful anchors: workshop, infirmary, map table and household
-room. Each anchor has one current action and one textual observation that
-changes when state changes. No decorative button exists without a command.
-
-**Exit test:** salvage at the beach changes supplies; return to the estate;
-the workshop and infirmary report the changed state after reload.
-
-### A3. Route screen
-
-Build a compact island route presentation, not a full open-world map. It shows
-the river landing, safe road, jungle edge, discovered sites, travel cost,
-known risk and return path. The visible art follows the world reference:
-elven ruins dominate the terrain, vegetation breaks up every route, one small
-outsider landmark may appear only where its location data says it exists.
-
-**Exit test:** choose road or jungle edge; advance time; receive distinct
-observation text and an encounter seed tied to that route choice.
-
-## Phase B — Make Reception Terrace a real combat location
-
-### B1. Location blockout and authored text
-
-Build Reception Terrace as a two-layer scene: exploration entrance and combat
-field. The exploration entrance has the broken elven processional ramp, a
-collapsed reception arch, one obvious observation point, one loot point, one
-retreat path and the Razorbeak’s territorial sign. The combat field preserves
-the same left ruin, distant terraces, jungle depth, and stone floor so combat
-is recognizably occurring in that place.
-
-**Exit test:** the player can identify where the party is standing, where they
-can retreat, and why the Razorbeak is here without opening a codex panel.
-
-### B2. Exact battle screen composition
-
-Use a 1920×1080 logical canvas. Reserve the 8% safe frame around all
-full-body action.
-
-```text
-0–150 px     only location/time and current enemy intent; no progress rail
-150–780 px   shared battle plane and all active actors
-780–1060 px  party cards at lower-left; active skill grid lower-centre
-
-Party foreground:  x 230–650
-Contested space:   x 650–1020
-Enemy foreground:  x 1020–1430
-Enemy rear:        x 1430–1810
-```
-
-Current first encounter layout:
-
-- Michael: compact card, bottom left; present as party leader, not expanded.
-- Betty: selected active fighter at party foreground; 420×560 interaction box;
-  full body, satchel, short mace and effects remain inside safe frame.
-- Razorbeak: one active enemy at enemy foreground; 385×420 interaction box;
-  full body and bite envelope remain inside safe frame.
-- Party rail: only Michael and Betty cards until additional party members are
-  authored and active. No empty portrait frames.
-- Commands: Betty’s actual seven skills as a centred four-over-three diamond
-  grid. D-rank `Guarded Strike` is actionable. C through SSS identify the
-  real authored skill and are locked until their actual bond milestone. No
-  invented eighth diamond.
-
-**Exit test:** a screenshot at 1920×1080 contains complete actors, weapon,
-target and effect envelopes. Every visible card, bar, text label and diamond
-has a data source and a live purpose.
-
-### B3. 3D actor standard
-
-The production presentation is a 3D fighter and stage viewed through a fixed
-side-view battle camera, with the card rail and command grid remaining 2D.
-Temporary paper rigs remain technical blocking tools only. They do not define
-the visual source and cannot replace an approved rigged model.
-
-Every production actor has a root, named skeleton, named weapon socket,
-separate held weapon, material slots and literal clips. Betty’s minimum 3D
-hierarchy is:
-
-```text
-BettyRoot → Hips → Spine → Chest → Neck → Head
-  LeftUpperArm → LeftLowerArm → LeftHand
-  RightUpperArm → RightLowerArm → RightHand → Socket_Weapon_R → boarding_mace
-  LeftUpperLeg → LeftLowerLeg → LeftFoot
-  RightUpperLeg → RightLowerLeg → RightFoot
-  optional: hair, coat-tail, satchel and ampoule-rack secondary bones
-```
-
-The active camera must allow pose changes without clipping. The required first
-clip set is `Idle_Ready`, `Step_Forward`, `GuardedStrike_Anticipation`,
-`GuardedStrike_Contact` and `GuardedStrike_Recovery`. Betty is not a generic
-nurse or a large-busted fantasy pin-up: her reference ledger controls the mesh
-silhouette, source plate, materials and final animation work.
-
-**Exit test:** a GLB inspection finds the required skeleton, weapon socket and
-five named clips. Five camera screenshots of one action use the same mesh and
-show no crop. The model cannot be admitted as an animated fighter merely
-because it is a good static render.
-
-### B4. First complete command
-
-Implement `skill.betty.guarded_strike` exactly before adding another skill.
-
-```text
-Input: choose Guarded Strike → choose legal enemy.
-Validation: one adjacent enemy and one threatened party ally share a legal band relation.
-Presentation: Betty steps across the ally line, raises her short mace,
-  catches the incoming threat, strikes Razorbeak, then plants the mace in a
-  recovery guard pose.
-Resolution: damage target; grant 2 Guard to threatened ally; log result;
-  update cards and enemy intent.
-```
-
-This is a five-pose sequence: ready, forward step, anticipation, contact,
-recovery. It must be clear at the game camera before any VFX are added.
-
-**Exit test:** player command, target preview, resolution, card update,
-Razorbeak reply, victory, defeat and retreat all execute deterministically in
-the browser.
-
-## Phase C — Turn combat into a party game
-
-### C1. Active-card transition system
-
-Build the transition that changes a compact card into an active battle actor
-and returns that actor to a card. It uses the same `CharacterId`, health,
-guard, readiness, pose rig and target context. The transition is gameplay
-readable: selected card glows, the active stage box opens, actor enters,
-command grid binds to that actor, actor resolves, card updates.
-
-**Exit test:** Betty, Michael and the next authored heroine can each take one
-turn using the same transition path. No actor remains visible on the stage
-after her state says she is inactive.
-
-### C2. Party roster order
-
-Author the first six heroines in this order so every addition proves a new
-combat/job pattern instead of adding cast without playable purpose:
-
-1. **Betty** — combat surgeon; short boarding mace; guard/heal/rescue.
-2. **Ayla** — jungle elf scout; mobile spear and living-ruin traversal.
-3. **Vix** — fox-folk duelist; pistol/curved blade; position and tempo.
-4. **Grisha** — orc officer; polearm; command, force and formation.
-5. **Isabella** — pirate aristocrat; rapier; interrupts, marks and social access.
-6. **Nara** — tomb scholar; ritual focus; warding, relic logic and alien threat reading.
-
-For each heroine, complete this exact package before adding the next:
-
-- one canonical reference ledger;
-- one card state, one clean 3D identity plate and one complete rigged GLB;
-- one recruitment scene and estate presence;
-- one signature weapon and seven literal D→SSS skills;
-- seven action boards with entry, anticipation, contact, consequence,
-  recovery and safe-frame notes;
-- seven data definitions, legal-target rules and deterministic tests;
-- one relationship beat that opens a practical game advantage.
-
-**Exit test:** each heroine’s D-rank skill alone demonstrates her combat role.
-No roster entry is a portrait with unimplemented promises.
-
-## Phase D — Make the island persistent and dangerous
-
-### D1. Individual encounter ecology
-
-Build named or generated individual encounters, habitat by habitat. An
-encounter has one leader/creature identity, rank, behaviour, intent suite,
-territory, drop, return eligibility and daily-level rule. Pack size is not a
-difficulty substitute. A high-rank lone animal can control a trail; a named
-orc patrol can dictate who enters a ruin.
-
-**Exit test:** three habitat encounters of different rank produce distinct
-threat descriptions, action priorities and tactical consequences.
-
-### D2. Midnight Return
-
-At midnight run one explicit campaign transaction:
-
-```text
-for each eligible named person: restore life state; increment death memory if dead today
-for each habitat: create its daily individual encounter set from its seed and day level
-for each changed resident/location: queue its authored acknowledgement text
-advance day; save ExpeditionState; request return-flash presentation where visible
-```
-
-**Exit test:** defeat a named fixture, reach midnight, reload the next day;
-the fixture exists, retains counter/memory, and a habitat contains its correct
-new individual encounter set.
-
-### D3. Tomb architecture
-
-Every tomb uses an elven public-purpose plan before it becomes a dungeon:
-approach, ceremonial threshold, reception/truth space, burial or archive core,
-service/passages, failure condition, exit/return logic. Puzzles state what the
-player can observe, what action is possible, what it changes, and what danger
-responds. Tombs are not anonymous corridor generators.
-
-**Exit test:** the first tomb has a readable purpose, at least one observation
-that changes a choice, a recoverable failure, and a clear return path.
-
-## Phase E — Make the household and story carry progression
-
-### E1. Estate as operating base
-
-Workshop upgrades Michael’s steampunk kit. Infirmary converts supplies and
-recovery into expedition readiness. Map room expands route knowledge. Rooms
-and people change after real expeditions. Michael’s Echo abilities are
-mechanically related to a heroine’s learned pattern, never a copied skill.
-
-**Exit test:** return from Reception Terrace with a discovery; choose one
-estate action; begin the next day with a material tactical or route change.
-
-### E2. Haremlit progression
-
-The household’s story structure is direct and positive. Recruitment occurs
-through competence, kindness, attraction, shared danger and a clear choice to
-join. Once a heroine commits, she stays within the household’s romantic
-future. Her relationship scenes with Michael and other women strengthen the
-household and unlock practical content. There is no cheating subplot, no
-outside male romance lane, no bait-and-switch breakup system, and no coercive
-player command.
-
-**Exit test:** every first-six heroine has a recruitment, commitment, household
-scene, one girl-with-girl connection and a bond unlock whose exact combat
-effect is specified.
-
-### E3. Main threat
-
-The cosmic intelligence is an alien intruder using ancient elven systems to
-learn from the island. Its adaptive Champion changes tactics only through
-declared observable adaptation records: what party behaviour it observed,
-what countermeasure became available, and how the player can identify it.
-It never secretly invalidates a build.
-
-**Exit test:** a Champion rematch displays its previous observation and its
-new response before combat begins; the player can choose a counter-plan.
-
-## 6. Build discipline
-
-For every implementation pass:
-
-1. State the phase and exit test being built.
-2. Read the reference ledger and the relevant implementation contract.
-3. Make the smallest coherent change that completes the defined slice, not a
-   disconnected component.
-4. Validate content and run Godot checks.
-5. Open the exported browser build if the work is visual or interactive.
-6. Compare the screen to its named reference and list the mismatch honestly.
-7. Commit the finished coherent change and push it.
-8. Start the next blocked phase.
-
-If a task cannot prove its exit test, it remains unfinished. It is not carried
-forward as an invisible assumption.
-
-## 7. Current position
-
-The current code contains early battle simulation, an early paper Betty rig,
-and an in-progress first battle screen. It is not yet a valid implementation
-of Phase B. The next implementation target is therefore singular: complete
-the Reception Terrace encounter screen and Guarded Strike loop to Phase B’s
-exit tests. Do not add more locations, heroines, systems, buttons or final art
-until that one screen reads like the specified game and works like the
-specified game.
+1. The autonomous island advances and exposes readable changes.
+2. Companions interpret those changes and propose leads.
+3. The player compares theories, costs, faction effects, danger, and time.
+4. The player assigns and equips heroes, negotiates access, or redirects forces.
+5. Heroes act on the board while factions continue their RTS cycles.
+6. Evidence, relationships, territory, heat events, and personal quests update.
+7. Companions synthesize the outcome and propose the next questions.
+
+Delegation never turns a heroine into an off-screen progress bar. Her position, route, exposure, escort, access, and task state remain inspectable. Critical decisions return to the player; routine execution can proceed once authorized.
+
+## Island board grammar
+
+The board is a stable isometric coordinate space. A region contains nodes and tiles. Typed tethers connect compatible sockets between nodes or structures and express roads, waterways, supply, ritual links, influence conduits, sightlines, or authored special relationships. A tether is a simulated relationship with state, capacity, ownership, visibility, and disruption rules—not decorative line art.
+
+Structures declare hex footprints, construction stages, actor spawn points, tether sockets, influence emitters, state hooks, damage states, selection bounds, and visual-family metadata. Props use the same spatial contract at smaller scale. Territory and influence derive from placed, inspectable causes.
+
+Faction structures are also adventure sites. Their faction, building archetype, upgrade level, board position, current condition, world-day band, and stable instance seed select a deterministic encounter layout, defenders, complications, discoveries, and loot table. Raising a building's level increases both the faction capability it provides and the risk and reward of attacking or infiltrating it. A level-five site should generally offer better loot than its lower-level form, but rewards remain faction- and archetype-specific rather than collapsing into a universal item curve.
+
+Site generation uses a recorded composite seed derived from at least the world seed, stable faction ID, stable structure instance ID, structure archetype, structure level, and generation revision. A level-five cult dungeon and a level-two imperial fort therefore have different seeds, content families, defense grammar, and reward profiles. Re-entering an unchanged site reproduces its durable identity; construction, upgrading, capture, damage, corruption, or a declared refresh transition produces an auditable new generation state instead of arbitrary rerolling.
+
+## RTS faction contract
+
+This is a conventional solved-problem domain. Use established RTS simulation patterns for economies, build orders, queues, influence, supply, targeting, and territorial replacement. Project-specific design effort belongs in asymmetric goals, readable world consequences, companion interpretation, and Cthulhu's hidden plan—not in inventing a novel substitute for basic RTS behavior.
+
+Every ordinary faction has:
+
+- stockpiles, income sources, storage limits, and upkeep;
+- worker/build capacity or an explicitly different construction mechanism;
+- a build catalogue with costs, prerequisites, footprints, build time, and purpose;
+- structure levels and upgrade paths whose benefits, defenses, encounter grammar, and loot bands remain faction-specific;
+- construction and unit-production queues that advance on world ticks;
+- unit rosters, spawn rules, named-hero rules, rally points, and reinforcement paths;
+- territory goals, supply reach, threat knowledge, and target valuation;
+- independent bilateral reputation and relationship state with every relevant faction;
+- doctrines for expansion, defense, raids, reinforcement, diplomacy, and retreat;
+- asymmetric victory and survival goals.
+
+The core faction loop is **gather or receive resources → evaluate needs and opportunities → reserve costs → build or produce → deploy → contest or support territory → learn from results → repeat**. Shortages, destroyed supply, queue contention, lost builders, and blocked footprints materially alter the cycle. A faction cannot conjure a scripted army without a declared spawn exception and visible causal source.
+
+Faction survival and victory intent depend on board position. A secure faction may expand or pursue its asymmetric win condition; a pressured faction may consolidate, migrate, negotiate, raid for resources, or accept dependency; a doomed faction may spend its remaining capacity on escape, revenge, succession, or a last objective. These are utility responses to real state, not protected narrative roles.
+
+Elimination is persistent. When a faction has no viable recovery path under its authored rules—no qualifying territory, population or production source, recoverable named hero, allied restoration route, or other explicit continuity condition—it becomes eliminated and is effectively gone from the island. It does not respawn because a later quest expects it. Its former territory, structures, resources, routes, and influence become abandoned, captured, dismantled, contested, corrupted, or reclaimed through ordinary simulation. Other factions grow or shrink into the vacuum according to proximity, supply, need, relationships, and utility. Authored quests tolerate this changing ecology through state-aware variants, successor actors, recoverable evidence, or honest closure.
+
+At each decision window, legal RTS actions are scored by bounded utility:
+
+`score = strategic value + goal progress + relationship value + personality bias - cost - risk + bounded wobble`
+
+Wobble breaks brittle repetition without overriding dominant preferences. It is seeded, bounded, recorded for replay, and too small to make an obviously ruinous choice optimal unless personality or hidden goals justify it. Every autonomous action records candidates, score components, chosen action, wobble contribution, knowledge used, and public explanation tokens.
+
+Full utility traces, stockpile numbers, queues, and hidden goals exist for simulation, debugging, and balance tests. The in-world experience exposes only what the heroes could perceive or learn: construction, troop movement, scarcity, smoke, damaged roads, changed patrols, abandoned holdings, rumors, negotiations, refugees, captured banners, and companion deductions. Inspection tools summarize known facts but never grant omniscient access to undiscovered faction state.
+
+Cthulhu has a distinct economy and utility model. Its real objective is the Day-100 plan and hidden prerequisites. Its build cycle may convert ritual control, dreams, sacrifices, corruption, or specific network states rather than ordinary lumber and coin. It may sacrifice territory, conventional resources, cult units, structures, and apparent victories when that advances the plan, misdirects investigators, or changes heat. Debug tooling may explain this utility; the player earns that understanding through clues.
+
+## Rule-governed wrongness
+
+Wrongness effects require world-day and heat prerequisites; optional faction, location, weather, clue, or prior-effect prerequisites; a declared simulation consequence or `presentation_only`; an advance tell and aftermath clue; affected regions and duration; stacking/exclusion rules; accessibility substitutes; and a causal explanation for authoring tools.
+
+Early signals are deniable. Mid-state effects make weather and behavior coordinated. Late-state effects bend timing and causality, but remain reconstructible: an effect cannot retroactively invalidate a decision without a prior signal and recovery response.
+
+## Presentation and art production
+
+The strategic island uses one fixed-view isometric presentation. Zoom and inspection may change detail density, but not camera angle or spatial truth. Selection silhouettes, faction colors, footprint outlines, tether states, alerts, and overlays remain readable without color alone.
+
+The prior side-view battle prototype is retained as historical technical evidence for typed command/event projection and rig experimentation. It is not the current camera, world-loop, or vertical-slice authority. No further side-view-specific content should be produced unless a later recorded decision gives it a bounded role.
+
+Tile and structure kits include stable IDs, isometric orientation, board scale, exact hex footprint and height envelope, construction/damage pieces, separate selection/collision bounds, spawn points, tether sockets, influence/state hooks, faction-overlay material slots, detail-density rules, provenance, and approval metadata.
+
+Actor assets require a stable root, ground anchor, selection bounds, facing contract, equipment and effect sockets, separable rig parts or bones, and identity metadata. Animation is out of scope now; future attachment points are not.
+
+Base art families are western fantasy, Bronze-Age mythic mashup, and eastern/wushu fantasy mashup. Mini-kits and overlays specialize elves, treefolk, cult forces, pirates, smugglers, imperial forces, and later factions. Art is admitted only after board-scale silhouette review, isometric fit, metadata validation, provenance review, and an in-context screenshot.
+
+## Technical ownership
+
+| Concern | Canonical owner |
+| --- | --- |
+| time, heat events, confrontation cause, faction economies/build queues/decisions, diplomacy, influence, spawns, combat, persistence | Rust simulation |
+| board rendering, selection, input, overlays, feedback, audio, accessibility projection | Godot/GDScript |
+| characters, leads, clues, factions, structures, tethers, wrongness effects, art metadata | validated JSON content |
+| validation, deterministic bundle generation, reports, balance-harness orchestration | TypeScript tools |
+
+Godot submits intents and renders snapshots/events. JSON describes authored options and constraints. TypeScript validates and packages content. None becomes a second gameplay runtime.
+
+## Failure, recovery, persistence, accessibility
+
+The game autosaves at each world day and before irreversible lead, diplomacy, heat, or confrontation transactions. Saves store world seed, simulation version, bundle hash, board entities, faction economies/queues/knowledge/relationships, day, heat-event ledger, clues and hypotheses, companion leads, and confrontation cause.
+
+Required clues cannot be destroyed without a recovery source or clearly signaled alternate confrontation route. A heroine who is injured, captured, separated, or unavailable retains authorship of her ideas; another hero may recover her work but does not silently become its originator.
+
+All important state has paired channels: color plus shape/pattern/text; weather visuals plus captions or ambience cues; audio direction plus board markers; motion or flashes plus reduced-motion/reduced-flash substitutes. Pausing stops player-facing advancement. Speed controls and event-log replay make simultaneous RTS activity understandable.
+
+## First vertical slice
+
+The first new-direction slice is one isometric board with two connected regions, three ordinary RTS factions plus Cthulhu's hidden faction, Michael, one fully authored companion investigator, and three rig-ready heroine stand-ins. It proves:
+
+1. world ticks advance autonomously;
+2. factions gather resources, progress real build/production queues, deploy units, and select explainable actions;
+3. a structure occupies a validated footprint and exposes spawn, tether, and influence hooks;
+4. independent faction relationships affect but do not replace RTS decisions;
+5. a companion observes a board change, proposes two interpretations, and requests support;
+6. the lead changes board state, relationships, proof, time, and possibly heat in one authoritative transaction;
+7. an early wrongness signal follows an authored rule and has accessible evidence;
+8. save/load and replay preserve the exact next decision;
+9. a baseline policy remains on schedule for minimum Day-100 preparation across approved seeds.
+
+It does not require final art, all companion arcs, broad content, complete combat replacement, or animation.
+
+## Milestones
+
+### M0 — Authority and schemas
+
+Contradictory active documents are subordinated; core world, faction, structure, and campaign schemas validate representative records; the content bundle is deterministic.
+
+### M1 — Autonomous RTS board
+
+The board shows regions, tethers, resource flow, construction and production, deployments, territory/influence change, and replayable faction decisions while the player does nothing.
+
+### M2 — Companion-led investigation
+
+One companion creates, revises, and resolves a lead from simulated evidence; the player supports or redirects her; failure has a recoverable continuation.
+
+### M3 — Clocks and wrongness
+
+Deliberate discovery, Day 100, and terminal heat independently record the correct confrontation cause; each heat/world band exposes consistent diegetic signals without numeric leakage.
+
+### M4 — Five-hero campaign slice
+
+All five heroes are controllable, all four women own a playable lead and personal stake, faction diplomacy persists independently, and baseline balance simulations remain solvable.
+
+## Approval ledger
+
+### Accepted
+
+- HaremLit adventure over an autonomous multi-faction RTS island.
+- Michael plus four female companions as five controllable heroes.
+- Companion-driven investigations and personal quests.
+- Fixed-view isometric board as spatial and systemic presentation.
+- Real faction economies, build cycles, production, deployment, and territory contest.
+- First-of-three Cthulhu confrontation triggers.
+- Day 100 deadline plus separate irreversible hidden heat ledger.
+- Rule-governed, inferable weather/time/causality wrongness.
+- Broad western, mythic Bronze-Age, and eastern/wushu art families with faction overlays.
+- Rig now, animate later.
+
+### Superseded
+
+- Side-view party-card battle as governing presentation.
+- Compact route screen instead of represented RTS island board.
+- Unnamed adaptive cosmic intruder as central threat; Cthulhu is explicit.
+- Michael as default sole investigator or quest initiator.
+- Diplomacy scripts standing in for functioning faction economies and build cycles.
+- Midnight respawn as the primary campaign mystery. It may survive only if later reconciled as a subordinate rule of Cthulhu's system.
+
+### Provisional
+
+- Exact hex size, tick length, heat thresholds, faction roster, resource catalogue, and companion identities beyond approved character work.
+- Whether tactical combat resolves directly on the board or enters a bounded tactical presentation. Either choice preserves the board as world truth.
+- Exact Day-100 confrontation and ending structure.
+
+### Rejected
+
+- Numeric heat display; pure-random AI or horror; mandatory optimization; animation during this phase; duplicate board, route, faction, or investigation runtimes; scripted faction activity that bypasses build-cycle constraints without an authored exceptional cause.
+
+## Historical material policy
+
+Older documents and prototypes remain evidence for character writing, simulation/presentation separation, deterministic combat, provenance, and rig/socket experiments. They do not retain authority merely because implementation exists. Every active implementation contract must link here and label incompatible assumptions historical, superseded, or provisional before further work builds on them.
