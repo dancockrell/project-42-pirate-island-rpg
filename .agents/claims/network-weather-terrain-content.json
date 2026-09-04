@@ -3,9 +3,9 @@
   "task_id": "network-weather-terrain-content",
   "agent": "codex-root",
   "summary": "Define the island's complex network pressure grammar, faction terrain conversion, and faction-weighted magical weather escalation",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-04T06:00:00Z",
-  "updated_at": "2026-09-04T06:05:00Z",
+  "updated_at": "2026-09-04T06:45:00Z",
   "paths": [
     "docs/GAME_BUILD_PLAN.md",
     "docs/ARCHITECTURE.md",
@@ -28,5 +28,16 @@
     "conflicts_with": [],
     "notes": "The island is an arbitrary branching and looping network, not a three-lane map. Tower-defense and Warcraft-derived patterns inform local pressure readability only. This does not overlap the active port-town roof correction or touch the untracked native DLL."
   },
-  "completion": {"commit": null, "checks": []}
+  "completion": {
+    "commit": "84398a7",
+    "checks": [
+      "npm run validate: passed; 159 stable IDs checked",
+      "npm run build:content: passed; 27 records and content hash sha256:38c726b9263ec44e3dd2f4dde11263b514aa767409dfca3788817e3e7b925854",
+      "repeat bundle build and file SHA-256 comparison: passed; CA45B37F3C50BF90862FEF335F8F57CD9B4968D824A23CC615DC4FC4D3E6A1CC",
+      "all content/schemas/*.schema.json parse: passed after repairing magical_weather schema closure",
+      "three-lane assumption audit: passed; remaining mentions explicitly prohibit fixed lanes",
+      "git diff --check: passed",
+      "staged secret scan: passed; 761 added lines checked"
+    ]
+  }
 }
