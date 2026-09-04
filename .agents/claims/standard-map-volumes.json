@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "task_id": "standard-map-volumes",
+  "agent": "codex-root",
+  "summary": "Replace hex footprints with standardized cube volumes and implement collision-safe procedural building placement",
+  "status": "active",
+  "claimed_at": "2026-09-04T09:05:00Z",
+  "updated_at": "2026-09-04T09:05:00Z",
+  "paths": [
+    "godot-rust/src/world.rs",
+    "godot-rust/src/lib.rs",
+    "content/schemas/adventure_site.schema.json",
+    "content/sites/",
+    "tools/src/validate.mjs",
+    "game/generated/content_bundle.json",
+    "docs/GAME_BUILD_PLAN.md",
+    "docs/ARCHITECTURE.md",
+    "docs/VERTICAL_SLICE_BUILD_CONTRACT.md",
+    ".agents/claims/standard-map-volumes.json"
+  ],
+  "symbols": ["GridCube", "BuildingVolume", "MapPlacement"],
+  "coordination": {
+    "depends_on": ["rts-production-dispatch-runtime"],
+    "conflicts_with": [],
+    "notes": "Changes canonical map footprint representation from hex coordinates to standard unit-cube unions. Does not overlap the active port-town roof implementation files."
+  },
+  "completion": {"commit": null, "checks": []}
+}

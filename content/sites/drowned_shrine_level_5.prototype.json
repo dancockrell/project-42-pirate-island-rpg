@@ -4,7 +4,7 @@
   "factionId": "faction.cthulhu.prototype",
   "archetypeId": "site_archetype.cthulhu.drowned_shrine",
   "level": 5,
-  "footprint": {"hexes": [[0, 0], [1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]], "heightLayers": 4},
+  "footprint": {"gridStandard":"map_cube_v1","modules":[{"origin":[0,0,0],"size":[3,4,3]}],"containmentRule":"all_geometry_collision_selection_props_and_hooks_inside_module_union","containedBounds":[{"kind":"visual","moduleIndex":0,"normalizedMin":[0,0,0],"normalizedMax":[1,1,1]},{"kind":"collision","moduleIndex":0,"normalizedMin":[0,0,0],"normalizedMax":[1,1,1]},{"kind":"selection","moduleIndex":0,"normalizedMin":[0,0,0],"normalizedMax":[1,1,1]}],"containedElements":[{"id":"spawn.drowned_shrine.gate","kind":"spawn_point","moduleIndex":0,"normalizedPosition":[0.5,0,0]},{"id":"spawn.drowned_shrine.sanctum","kind":"spawn_point","moduleIndex":0,"normalizedPosition":[0.5,0,0.5]},{"id":"socket.drowned_shrine.supply","kind":"tether_socket","moduleIndex":0,"normalizedPosition":[0,0,0.5]},{"id":"socket.drowned_shrine.ritual","kind":"tether_socket","moduleIndex":0,"normalizedPosition":[1,0.5,0.5]},{"id":"influence.drowned_shrine.corruption","kind":"influence_hook","moduleIndex":0,"normalizedPosition":[0.5,0,1]},{"id":"state.drowned_shrine.construction","kind":"state_hook","moduleIndex":0,"normalizedPosition":[0.25,0,0.25]},{"id":"state.drowned_shrine.damage","kind":"state_hook","moduleIndex":0,"normalizedPosition":[0.5,0.5,0.5]},{"id":"state.drowned_shrine.summoning","kind":"state_hook","moduleIndex":0,"normalizedPosition":[0.5,1,0.5]}]},
   "hooks": {
     "actorSpawnPointIds": ["spawn.drowned_shrine.gate", "spawn.drowned_shrine.sanctum"],
     "tetherSocketIds": ["socket.drowned_shrine.supply", "socket.drowned_shrine.ritual"],

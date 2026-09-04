@@ -12,10 +12,53 @@
     "level": {"type": "integer", "minimum": 1, "maximum": 5},
     "footprint": {
       "type": "object",
-      "required": ["hexes", "heightLayers"],
+      "required": ["gridStandard", "modules", "containmentRule", "containedBounds", "containedElements"],
       "properties": {
-        "hexes": {"type": "array", "minItems": 1, "items": {"type": "array", "prefixItems": [{"type": "integer"}, {"type": "integer"}], "items": false}},
-        "heightLayers": {"type": "integer", "minimum": 1}
+        "gridStandard": {"const": "map_cube_v1"},
+        "modules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["origin", "size"],
+            "properties": {
+              "origin": {"type": "array", "prefixItems": [{"type": "integer"}, {"type": "integer"}, {"type": "integer"}], "items": false},
+              "size": {"type": "array", "prefixItems": [{"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}], "items": false}
+            },
+            "additionalProperties": false
+          }
+        },
+        "containmentRule": {"const": "all_geometry_collision_selection_props_and_hooks_inside_module_union"},
+        "containedBounds": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "object",
+            "required": ["kind", "moduleIndex", "normalizedMin", "normalizedMax"],
+            "properties": {
+              "kind": {"enum": ["visual", "collision", "selection"]},
+              "moduleIndex": {"type": "integer", "minimum": 0},
+              "normalizedMin": {"type": "array", "prefixItems": [{"type": "number", "minimum": 0, "maximum": 1}, {"type": "number", "minimum": 0, "maximum": 1}, {"type": "number", "minimum": 0, "maximum": 1}], "items": false},
+              "normalizedMax": {"type": "array", "prefixItems": [{"type": "number", "minimum": 0, "maximum": 1}, {"type": "number", "minimum": 0, "maximum": 1}, {"type": "number", "minimum": 0, "maximum": 1}], "items": false}
+            },
+            "additionalProperties": false
+          }
+        },
+        "containedElements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "kind", "moduleIndex", "normalizedPosition"],
+            "properties": {
+              "id": {"type": "string"},
+              "kind": {"enum": ["visual_bounds", "collision_bounds", "selection_bounds", "spawn_point", "tether_socket", "influence_hook", "state_hook", "prop_anchor"]},
+              "moduleIndex": {"type": "integer", "minimum": 0},
+              "normalizedPosition": {"type": "array", "prefixItems": [{"type": "number", "minimum": 0, "maximum": 1}, {"type": "number", "minimum": 0, "maximum": 1}, {"type": "number", "minimum": 0, "maximum": 1}], "items": false}
+            },
+            "additionalProperties": false
+          }
+        }
       },
       "additionalProperties": false
     },

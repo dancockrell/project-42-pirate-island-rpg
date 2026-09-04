@@ -14,7 +14,9 @@ pub use battle::{
     BattlefieldEffect, Faction, SkillCommand, StatusInstance, StatusKind,
 };
 pub use world::{
-    ActorProductionProvenance, DeathMemory, DispatchCandidate, DispatchScore, FactionBuilding,
-    FactionState, FactionWorld, FactionWorldError, FactionWorldEvent, NamedPerson, ProducedActor,
-    ProductionOrder, ProductionRule, SpawnRule, SpawnedMonster, WorldClock, WorldEvent,
+    ActorProductionProvenance, BuildingVolume, CubeModule, DeathMemory, DispatchCandidate,
+    DispatchScore, FactionBuilding, FactionState, FactionWorld, FactionWorldError,
+    FactionWorldEvent, GridCube, MapPlacement, MapPlacementError, NamedPerson, PlacedBuilding,
+    ProducedActor, ProductionOrder, ProductionRule, SpawnRule, SpawnedMonster, WorldClock,
+    WorldEvent,
 };

@@ -38,6 +38,12 @@ Terrain influence is a layered simulation field keyed by board cell or node. Sou
 
 Weather fronts are simulation entities with stable IDs, affected nodes, intensity, duration, movement rule, magic family, faction modifiers, terrain interactions, and causal provenance. World day, heat, Cthulhu plan state, ritual sites, terrain influence, and bounded seeded variation select and move fronts. Weather modifiers enter ordinary economy, movement, supply, influence, encounter, and spell calculations through one effect-resolution path.
 
+## Standard map-volume placement
+
+`map_cube_v1` is the sole structure-placement grid. `BuildingVolume` expands one or more integer-sized `CubeModule` records into an exact set of occupied `GridCube` cells. `MapPlacement` rejects unsupported grids, empty or zero-sized volumes, overlapping modules, duplicate building IDs, and any cube already reserved by another building before mutating the map. Placement is atomic; removal frees precisely the cubes owned by that building.
+
+Content validation applies the other half of the contract. Every site declares visual, collision, and selection bounds contained within a named module, and every spawn point, tether socket, influence hook, and state hook must have a normalized coordinate inside a declared module. A runtime mesh importer must reject geometry whose measured bounds exceed these authored boxes. Until that importer exists, cube blockouts are the truthful admissible visual form.
+
 ## Stable identifiers
 
 Identifiers are lowercase dotted strings. Their prefix names the domain: `character.heroine.betty`, `skill.betty.guarded_strike`, `enemy.raptor.razorbeak`, `location.tomb.returning_names`, `art.placeholder.betty.active_actor`. IDs survive file moves and scene refactors.

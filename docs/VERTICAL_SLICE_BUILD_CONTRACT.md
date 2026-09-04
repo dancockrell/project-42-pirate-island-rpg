@@ -14,7 +14,7 @@ The player experience must read as an RTS with five embodied characters inside i
 - Michael, one fully authored female investigator, and three selectable rig-ready heroine stand-ins.
 - Four ordinary factions—eastern/wushu fox people, colonial powers, pirates, and elves—with resource flow, build and production queues, supply, territory, units, and independent bilateral relationships.
 - One hidden Cthulhu faction whose utility and unconventional build cycle advance its Day-100 plan.
-- One footprint-valid structure per visible ordinary faction.
+- One standard-cube-volume structure per visible ordinary faction.
 - Two generated adventure sites proving faction identity and structure level change deterministic defenses and loot.
 - One encounter whose hostile and allied contributions both derive from current faction capacity rather than player level.
 - One companion lead with two defensible interpretations and two support choices.
@@ -51,7 +51,8 @@ The player experience must read as an RTS with five embodied characters inside i
 - Every weather faction bonus or penalty is inspectable in debug traces and perceptible in-world without exposing hidden numeric state.
 - The player never sees raw stockpiles, queues, utility traces, hidden objectives, or an exact heat value unless that information has been learned in-world.
 - Every player command identifies the acting hero and passes position, knowledge, equipment, relationship, and authority checks; the camera does not grant omniscience.
-- Structure footprints, spawn points, tether sockets, influence hooks, and selection bounds validate.
+- Every structure expands to a unique set of standard cubes; overlapping procedural placements fail atomically.
+- Visual, collision, selection, props, spawn points, tether sockets, influence hooks, and state hooks remain inside reserved modules.
 - Rebuilding the same unchanged site reproduces its layout and loot seed; changing faction, archetype, or level produces a distinct content profile.
 - The companion, not Michael, authors the lead and interpretations.
 - A baseline policy remains on pace for minimum viable confrontation preparation.

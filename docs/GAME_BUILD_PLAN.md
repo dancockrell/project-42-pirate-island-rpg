@@ -86,7 +86,9 @@ The island is a complex network, not a three-lane map. Its graph supports branch
 
 Network topology is stable enough to learn while tether state is dynamic. A blocked bridge, flooded causeway, corrupted ritual path, grown treefolk passage, secured road, or opened smuggler route changes reachability and utility without teleporting the underlying geography. AI and hero pathing query the same authoritative graph, filtered by what each actor knows.
 
-Structures declare hex footprints, construction stages, actor spawn points, tether sockets, influence emitters, state hooks, damage states, selection bounds, and visual-family metadata. Props use the same spatial contract at smaller scale. Territory and influence derive from placed, inspectable causes.
+Structures occupy standardized `map_cube_v1` volumes. A small building may use one cube; larger buildings use an explicit non-overlapping union of integer-sized cube modules. The union is the complete reservation boundary for procedural placement. Visual geometry, collision, selection bounds, props, actor spawn points, tether sockets, influence emitters, and state hooks must all remain inside one declared module. Nothing may project outside the reserved boxes and collide with an algorithmically placed neighbor. Territory and influence derive from placed, inspectable causes.
+
+The physical metre size of `map_cube_v1` is a presentation tuning decision; its simulation identity is an integer grid cell and must not vary per faction or asset. A kit may offer standard one-, two-, and multi-cube forms, but may not use a custom hidden footprint. Decorative overhangs are either contained inside the reserved volume, represented by additional reserved modules, or removed.
 
 Faction structures are also adventure sites. Their faction, building archetype, upgrade level, board position, current condition, world-day band, and stable instance seed select a deterministic encounter layout, defenders, complications, discoveries, and loot table. Raising a building's level increases both the faction capability it provides and the risk and reward of attacking or infiltrating it. A level-five site should generally offer better loot than its lower-level form, but rewards remain faction- and archetype-specific rather than collapsing into a universal item curve.
 
@@ -166,7 +168,7 @@ The current visual reference supplied on 4 September 2026 approves the broad cam
 
 The prior side-view battle prototype is retained as historical technical evidence for typed command/event projection and rig experimentation. It is not the current camera, world-loop, or vertical-slice authority. No further side-view-specific content should be produced unless a later recorded decision gives it a bounded role.
 
-Tile and structure kits include stable IDs, isometric orientation, board scale, exact hex footprint and height envelope, construction/damage pieces, separate selection/collision bounds, spawn points, tether sockets, influence/state hooks, faction-overlay material slots, detail-density rules, provenance, and approval metadata.
+Tile and structure kits include stable IDs, isometric orientation, board scale, exact standard cube modules, construction/damage pieces, contained selection/collision/visual bounds, contained spawn points, contained tether sockets, contained influence/state hooks, faction-overlay material slots, detail-density rules, provenance, and approval metadata.
 
 Actor assets require a stable root, ground anchor, selection bounds, facing contract, equipment and effect sockets, separable rig parts or bones, and identity metadata. Animation is out of scope now; future attachment points are not.
 
@@ -264,7 +266,7 @@ All five heroes are controllable, all four women own a playable lead and persona
 
 ### Provisional
 
-- Exact hex size, tick length, heat thresholds, faction roster, resource catalogue, and companion identities beyond approved character work.
+- Physical metre size of the standard map cube, tick length, heat thresholds, resource catalogue, and companion identities beyond approved character work.
 - Whether tactical combat resolves directly on the board or enters a bounded tactical presentation. Either choice preserves the board as world truth.
 - Exact Day-100 confrontation and ending structure.
 

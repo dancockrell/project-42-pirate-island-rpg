@@ -4,7 +4,7 @@
   "factionId": "faction.colonial_powers.prototype",
   "archetypeId": "site_archetype.colonial.watch_fort",
   "level": 2,
-  "footprint": {"hexes": [[0, 0], [1, 0], [0, 1]], "heightLayers": 2},
+  "footprint": {"gridStandard":"map_cube_v1","modules":[{"origin":[0,0,0],"size":[2,2,2]}],"containmentRule":"all_geometry_collision_selection_props_and_hooks_inside_module_union","containedBounds":[{"kind":"visual","moduleIndex":0,"normalizedMin":[0,0,0],"normalizedMax":[1,1,1]},{"kind":"collision","moduleIndex":0,"normalizedMin":[0,0,0],"normalizedMax":[1,1,1]},{"kind":"selection","moduleIndex":0,"normalizedMin":[0,0,0],"normalizedMax":[1,1,1]}],"containedElements":[{"id":"spawn.colonial_watch_fort.gate","kind":"spawn_point","moduleIndex":0,"normalizedPosition":[0.5,0,0]},{"id":"spawn.colonial_watch_fort.barracks","kind":"spawn_point","moduleIndex":0,"normalizedPosition":[0.5,0,0.5]},{"id":"socket.colonial_watch_fort.road","kind":"tether_socket","moduleIndex":0,"normalizedPosition":[0,0,0.5]},{"id":"socket.colonial_watch_fort.supply","kind":"tether_socket","moduleIndex":0,"normalizedPosition":[1,0,0.5]},{"id":"influence.colonial_watch_fort.control","kind":"influence_hook","moduleIndex":0,"normalizedPosition":[0.5,0,1]},{"id":"state.colonial_watch_fort.construction","kind":"state_hook","moduleIndex":0,"normalizedPosition":[0.25,0,0.25]},{"id":"state.colonial_watch_fort.damage","kind":"state_hook","moduleIndex":0,"normalizedPosition":[0.5,0.5,0.5]}]},
   "hooks": {
     "actorSpawnPointIds": ["spawn.colonial_watch_fort.gate", "spawn.colonial_watch_fort.barracks"],
     "tetherSocketIds": ["socket.colonial_watch_fort.road", "socket.colonial_watch_fort.supply"],

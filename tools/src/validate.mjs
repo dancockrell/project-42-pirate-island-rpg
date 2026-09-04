@@ -213,9 +213,35 @@ for (const { file, value } of await readJsonDirectory("sites")) {
   if (value.loot?.levelBand !== value.level || value.loot?.higherLevelImprovesExpectedValue !== true) fail(file, "loot must use the site level and improve expected value at higher levels");
   for (const field of ["factionFamily", "archetypeFamily"]) requireString(value.loot ?? {}, field, file);
   if (JSON.stringify(value.generation?.seedInputs) !== JSON.stringify(requiredSiteSeedInputs)) fail(file, "site seed must include world, faction, instance, archetype, level and generation revision in canonical order");
-  if (!Array.isArray(value.footprint?.hexes) || value.footprint.hexes.length === 0) fail(file, "site requires an occupied hex footprint");
+  if (value.footprint?.gridStandard !== "map_cube_v1" || value.footprint?.containmentRule !== "all_geometry_collision_selection_props_and_hooks_inside_module_union") fail(file, "site must use the canonical contained map-cube volume");
+  if (!Array.isArray(value.footprint?.modules) || value.footprint.modules.length === 0) fail(file, "site requires at least one standard cube module");
+  const occupiedCubes = new Set();
+  for (const [moduleIndex, module] of (value.footprint?.modules ?? []).entries()) {
+    if (!Array.isArray(module.origin) || module.origin.length !== 3 || module.origin.some(coordinate => !Number.isInteger(coordinate))) fail(file, `footprint.modules[${moduleIndex}].origin must contain three integers`);
+    if (!Array.isArray(module.size) || module.size.length !== 3 || module.size.some(size => !Number.isInteger(size) || size < 1)) fail(file, `footprint.modules[${moduleIndex}].size must contain three positive integers`);
+    if (module.origin?.length === 3 && module.size?.length === 3) for (let x = module.origin[0]; x < module.origin[0] + module.size[0]; x += 1) for (let y = module.origin[1]; y < module.origin[1] + module.size[1]; y += 1) for (let z = module.origin[2]; z < module.origin[2] + module.size[2]; z += 1) {
+      const key = `${x},${y},${z}`;
+      if (occupiedCubes.has(key)) fail(file, `footprint modules overlap at cube ${key}`);
+      occupiedCubes.add(key);
+    }
+  }
+  const containedKinds = new Set();
+  for (const [index, bounds] of (value.footprint?.containedBounds ?? []).entries()) {
+    containedKinds.add(bounds.kind);
+    if (!Number.isInteger(bounds.moduleIndex) || bounds.moduleIndex < 0 || bounds.moduleIndex >= (value.footprint?.modules?.length ?? 0)) fail(file, `footprint.containedBounds[${index}] references a missing module`);
+    for (const field of ["normalizedMin", "normalizedMax"]) if (!Array.isArray(bounds[field]) || bounds[field].length !== 3 || bounds[field].some(coordinate => typeof coordinate !== "number" || coordinate < 0 || coordinate > 1)) fail(file, `footprint.containedBounds[${index}].${field} must remain inside its module`);
+    if (bounds.normalizedMin?.some((coordinate, axis) => coordinate > bounds.normalizedMax?.[axis])) fail(file, `footprint.containedBounds[${index}] minimum may not exceed maximum`);
+  }
+  for (const kind of ["visual", "collision", "selection"]) if (!containedKinds.has(kind)) fail(file, `footprint requires contained ${kind} bounds`);
+  const containedElementIds = new Set();
+  for (const [index, element] of (value.footprint?.containedElements ?? []).entries()) {
+    containedElementIds.add(element.id);
+    if (!Number.isInteger(element.moduleIndex) || element.moduleIndex < 0 || element.moduleIndex >= (value.footprint?.modules?.length ?? 0)) fail(file, `footprint.containedElements[${index}] references a missing module`);
+    if (!Array.isArray(element.normalizedPosition) || element.normalizedPosition.length !== 3 || element.normalizedPosition.some(coordinate => typeof coordinate !== "number" || coordinate < 0 || coordinate > 1)) fail(file, `footprint.containedElements[${index}] must remain inside its module`);
+  }
   for (const field of ["actorSpawnPointIds", "tetherSocketIds", "influenceHookIds", "stateHookIds"]) {
     if (!Array.isArray(value.hooks?.[field]) || value.hooks[field].length === 0) fail(file, `site hooks.${field} requires at least one stable hook`);
+    else for (const id of value.hooks[field]) if (!containedElementIds.has(id)) fail(file, `site hook ${id} must have a contained footprint element`);
   }
   if (value.production?.dispatchOwner !== "faction_ai") fail(file, "completed actors must be assigned by faction AI");
   for (const field of ["queueIds", "spawnRuleIds", "allowedActorKinds"]) {

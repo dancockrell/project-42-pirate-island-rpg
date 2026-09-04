@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeathMemory {
@@ -318,6 +318,143 @@ pub struct FactionWorld {
     pub actors: BTreeMap<String, ProducedActor>,
     next_actor_serial: u64,
     next_order_serial: u64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct GridCube {
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+}
+
+impl GridCube {
+    fn translated(self, offset: GridCube) -> Self {
+        Self {
+            x: self.x + offset.x,
+            y: self.y + offset.y,
+            z: self.z + offset.z,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CubeModule {
+    pub origin: GridCube,
+    pub size: [u16; 3],
+}
+
+impl CubeModule {
+    fn cubes(&self) -> impl Iterator<Item = GridCube> + '_ {
+        (0..i32::from(self.size[0])).flat_map(move |x| {
+            (0..i32::from(self.size[1])).flat_map(move |y| {
+                (0..i32::from(self.size[2])).map(move |z| GridCube {
+                    x: self.origin.x + x,
+                    y: self.origin.y + y,
+                    z: self.origin.z + z,
+                })
+            })
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BuildingVolume {
+    pub grid_standard: String,
+    pub modules: Vec<CubeModule>,
+}
+
+impl BuildingVolume {
+    pub fn occupied_local_cubes(&self) -> Result<BTreeSet<GridCube>, MapPlacementError> {
+        if self.grid_standard != "map_cube_v1" {
+            return Err(MapPlacementError::UnsupportedGridStandard(
+                self.grid_standard.clone(),
+            ));
+        }
+        if self.modules.is_empty() {
+            return Err(MapPlacementError::EmptyVolume);
+        }
+        let mut cubes = BTreeSet::new();
+        for module in &self.modules {
+            if module.size.contains(&0) {
+                return Err(MapPlacementError::ZeroSizedModule);
+            }
+            for cube in module.cubes() {
+                if !cubes.insert(cube) {
+                    return Err(MapPlacementError::OverlappingModules(cube));
+                }
+            }
+        }
+        Ok(cubes)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PlacedBuilding {
+    pub id: String,
+    pub origin: GridCube,
+    pub volume: BuildingVolume,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MapPlacementError {
+    DuplicateBuilding(String),
+    UnsupportedGridStandard(String),
+    EmptyVolume,
+    ZeroSizedModule,
+    OverlappingModules(GridCube),
+    CubeOccupied {
+        cube: GridCube,
+        occupying_building_id: String,
+    },
+    UnknownPlacedBuilding(String),
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct MapPlacement {
+    pub buildings: BTreeMap<String, PlacedBuilding>,
+    pub occupied_cubes: BTreeMap<GridCube, String>,
+}
+
+impl MapPlacement {
+    pub fn place_building(
+        &mut self,
+        id: impl Into<String>,
+        origin: GridCube,
+        volume: BuildingVolume,
+    ) -> Result<(), MapPlacementError> {
+        let id = id.into();
+        if self.buildings.contains_key(&id) {
+            return Err(MapPlacementError::DuplicateBuilding(id));
+        }
+        let local_cubes = volume.occupied_local_cubes()?;
+        let world_cubes: Vec<_> = local_cubes
+            .into_iter()
+            .map(|cube| cube.translated(origin))
+            .collect();
+        for cube in &world_cubes {
+            if let Some(occupying_building_id) = self.occupied_cubes.get(cube) {
+                return Err(MapPlacementError::CubeOccupied {
+                    cube: *cube,
+                    occupying_building_id: occupying_building_id.clone(),
+                });
+            }
+        }
+        for cube in world_cubes {
+            self.occupied_cubes.insert(cube, id.clone());
+        }
+        self.buildings
+            .insert(id.clone(), PlacedBuilding { id, origin, volume });
+        Ok(())
+    }
+
+    pub fn remove_building(&mut self, id: &str) -> Result<PlacedBuilding, MapPlacementError> {
+        let building = self
+            .buildings
+            .remove(id)
+            .ok_or_else(|| MapPlacementError::UnknownPlacedBuilding(id.to_owned()))?;
+        self.occupied_cubes.retain(|_, occupant| occupant != id);
+        Ok(building)
+    }
 }
 
 impl FactionWorld {
@@ -810,5 +947,89 @@ mod tests {
             }
         );
         assert_eq!(world.actors[&actor_id], before);
+    }
+
+    fn volume(origin: GridCube, size: [u16; 3]) -> BuildingVolume {
+        BuildingVolume {
+            grid_standard: "map_cube_v1".into(),
+            modules: vec![CubeModule { origin, size }],
+        }
+    }
+
+    #[test]
+    fn standard_multi_cube_building_reserves_every_cube() {
+        let mut map = MapPlacement::default();
+        map.place_building(
+            "site.colonial.watch_fort.instance_1",
+            GridCube { x: 10, y: 0, z: 20 },
+            volume(GridCube { x: 0, y: 0, z: 0 }, [2, 2, 2]),
+        )
+        .unwrap();
+        assert_eq!(map.occupied_cubes.len(), 8);
+        assert_eq!(
+            map.occupied_cubes[&GridCube { x: 11, y: 1, z: 21 }],
+            "site.colonial.watch_fort.instance_1"
+        );
+    }
+
+    #[test]
+    fn colliding_building_is_rejected_without_partial_placement() {
+        let mut map = MapPlacement::default();
+        map.place_building(
+            "site.first",
+            GridCube { x: 0, y: 0, z: 0 },
+            volume(GridCube { x: 0, y: 0, z: 0 }, [2, 1, 1]),
+        )
+        .unwrap();
+        let before = map.clone();
+        assert_eq!(
+            map.place_building(
+                "site.second",
+                GridCube { x: 1, y: 0, z: 0 },
+                volume(GridCube { x: 0, y: 0, z: 0 }, [2, 1, 1]),
+            )
+            .unwrap_err(),
+            MapPlacementError::CubeOccupied {
+                cube: GridCube { x: 1, y: 0, z: 0 },
+                occupying_building_id: "site.first".into(),
+            }
+        );
+        assert_eq!(map, before);
+    }
+
+    #[test]
+    fn overlapping_modules_are_invalid_even_before_map_placement() {
+        let volume = BuildingVolume {
+            grid_standard: "map_cube_v1".into(),
+            modules: vec![
+                CubeModule {
+                    origin: GridCube { x: 0, y: 0, z: 0 },
+                    size: [2, 1, 1],
+                },
+                CubeModule {
+                    origin: GridCube { x: 1, y: 0, z: 0 },
+                    size: [1, 1, 1],
+                },
+            ],
+        };
+        assert_eq!(
+            volume.occupied_local_cubes().unwrap_err(),
+            MapPlacementError::OverlappingModules(GridCube { x: 1, y: 0, z: 0 })
+        );
+    }
+
+    #[test]
+    fn removal_frees_exactly_the_buildings_reserved_cubes() {
+        let mut map = MapPlacement::default();
+        map.place_building(
+            "site.first",
+            GridCube { x: 3, y: 0, z: 4 },
+            volume(GridCube { x: 0, y: 0, z: 0 }, [2, 2, 1]),
+        )
+        .unwrap();
+        let removed = map.remove_building("site.first").unwrap();
+        assert_eq!(removed.id, "site.first");
+        assert!(map.occupied_cubes.is_empty());
+        assert!(map.buildings.is_empty());
     }
 }
