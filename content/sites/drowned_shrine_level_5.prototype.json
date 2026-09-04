@@ -1,0 +1,27 @@
+{
+  "id": "site.drowned_shrine.level_5.prototype",
+  "kind": "faction_adventure_site",
+  "factionId": "faction.cthulhu_cult.prototype",
+  "archetypeId": "site_archetype.cthulhu.drowned_shrine",
+  "level": 5,
+  "footprint": {"hexes": [[0, 0], [1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]], "heightLayers": 4},
+  "hooks": {
+    "actorSpawnPointIds": ["spawn.drowned_shrine.gate", "spawn.drowned_shrine.sanctum"],
+    "tetherSocketIds": ["socket.drowned_shrine.supply", "socket.drowned_shrine.ritual"],
+    "influenceHookIds": ["influence.drowned_shrine.corruption"],
+    "stateHookIds": ["state.drowned_shrine.construction", "state.drowned_shrine.damage", "state.drowned_shrine.summoning"]
+  },
+  "generation": {
+    "revision": 1,
+    "seedInputs": ["world_seed", "faction_id", "structure_instance_id", "archetype_id", "structure_level", "generation_revision"],
+    "durableUntil": ["upgrade", "capture", "damage_state_change", "corruption", "declared_refresh"]
+  },
+  "loot": {
+    "factionFamily": "cthulhu_ritual_relics",
+    "archetypeFamily": "drowned_shrine_sanctum",
+    "levelBand": 5,
+    "higherLevelImprovesExpectedValue": true,
+    "distinctiveRewards": ["ritual_proof", "abyssal_material", "herald_equipment"]
+  },
+  "metadata": {"implementationOwner": "rust-simulation", "artState": "metadata_only", "animationAllowed": false}
+}

@@ -177,6 +177,45 @@ for (const { file, value } of await readJsonDirectory("encounters")) {
   if (value.presentation?.inactivePartyMode !== "card_rail" || value.presentation?.activeActorMode !== "full_body_battle_plane") fail(file, "encounter must preserve the card-to-active combat contract");
 }
 
+for (const { file, value } of await readJsonDirectory("factions")) {
+  if (value.kind !== "rts_faction") fail(file, "kind must be rts_faction");
+  requireString(value, "displayName", file);
+  if (value.playerVisibility !== "diegetic_known_facts_only") fail(file, "RTS internals must be filtered through diegetic known facts");
+  if (!Array.isArray(value.economy?.resourceIds) || value.economy.resourceIds.length === 0) fail(file, "faction economy requires resources");
+  if (value.economy?.upkeepEnabled !== true || value.economy?.storageLimited !== true) fail(file, "faction economy must model upkeep and storage limits");
+  if (!Number.isInteger(value.buildCycle?.constructionQueues) || value.buildCycle.constructionQueues < 1) fail(file, "faction requires a construction queue");
+  if (!Number.isInteger(value.buildCycle?.productionQueues) || value.buildCycle.productionQueues < 1) fail(file, "faction requires a production queue");
+  if (value.buildCycle?.reservesCosts !== true || value.buildCycle?.requiresLegalFootprint !== true) fail(file, "build cycle must reserve costs and require a legal footprint");
+  if (!Array.isArray(value.buildCycle?.catalogueIds) || value.buildCycle.catalogueIds.length === 0) fail(file, "faction requires a build catalogue");
+  if (!Array.isArray(value.doctrine?.positionResponses) || value.doctrine.positionResponses.length < 3) fail(file, "faction doctrine requires position-sensitive responses");
+  if (typeof value.doctrine?.wobbleMaximum !== "number" || value.doctrine.wobbleMaximum < 0 || value.doctrine.wobbleMaximum > 0.2) fail(file, "bounded wobble must be from 0 through 0.2");
+  if (value.elimination?.persistent !== true || value.elimination?.questPolicy !== "successor_recovery_or_honest_closure") fail(file, "elimination must be persistent and quests must tolerate it");
+  if (!Array.isArray(value.elimination?.formerHoldingTransitions) || value.elimination.formerHoldingTransitions.length < 3) fail(file, "elimination requires natural former-holding transitions");
+}
+
+const requiredSiteSeedInputs = ["world_seed", "faction_id", "structure_instance_id", "archetype_id", "structure_level", "generation_revision"];
+for (const { file, value } of await readJsonDirectory("sites")) {
+  if (value.kind !== "faction_adventure_site") fail(file, "kind must be faction_adventure_site");
+  reference(value.factionId, file, "factionId");
+  if (!Number.isInteger(value.level) || value.level < 1 || value.level > 5) fail(file, "site level must be from 1 through 5");
+  if (value.loot?.levelBand !== value.level || value.loot?.higherLevelImprovesExpectedValue !== true) fail(file, "loot must use the site level and improve expected value at higher levels");
+  for (const field of ["factionFamily", "archetypeFamily"]) requireString(value.loot ?? {}, field, file);
+  if (JSON.stringify(value.generation?.seedInputs) !== JSON.stringify(requiredSiteSeedInputs)) fail(file, "site seed must include world, faction, instance, archetype, level and generation revision in canonical order");
+  if (!Array.isArray(value.footprint?.hexes) || value.footprint.hexes.length === 0) fail(file, "site requires an occupied hex footprint");
+  for (const field of ["actorSpawnPointIds", "tetherSocketIds", "influenceHookIds", "stateHookIds"]) {
+    if (!Array.isArray(value.hooks?.[field]) || value.hooks[field].length === 0) fail(file, `site hooks.${field} requires at least one stable hook`);
+  }
+  if (value.metadata?.animationAllowed !== false) fail(file, "current-phase site records must explicitly prohibit animation");
+}
+
+for (const { file, value } of await readJsonDirectory("campaign")) {
+  if (value.kind !== "campaign_clock" || value.worldDeadlineDay !== 100) fail(file, "campaign clock must culminate on Day 100");
+  if (value.heat?.irreversible !== true || value.heat?.playerVisibleNumeric !== false || value.heat?.storedAsEventLedger !== true) fail(file, "heat must be an irreversible hidden event ledger");
+  const causes = ["deliberate_discovery", "terminal_heat", "day_100"];
+  if (value.confrontation?.firstTriggerWins !== true || JSON.stringify(value.confrontation?.causes) !== JSON.stringify(causes) || JSON.stringify(value.confrontation?.sameTransactionPriority) !== JSON.stringify(causes)) fail(file, "confrontation must use the canonical first-of-three triggers and tie priority");
+  if (!Array.isArray(value.heat?.signalChannels) || value.heat.signalChannels.length < 5) fail(file, "heat requires at least five diegetic signal channels");
+}
+
 for (const { file, value } of await readJsonDirectory("world")) {
   if (value.kind === "world_region") {
     requireString(value, "displayName", file);

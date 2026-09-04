@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.project42.adventure_site",
+  "title": "Faction structure and deterministic adventure-site definition",
+  "type": "object",
+  "required": ["id", "kind", "factionId", "archetypeId", "level", "footprint", "hooks", "generation", "loot", "metadata"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^site\\.[a-z0-9_.-]+$"},
+    "kind": {"const": "faction_adventure_site"},
+    "factionId": {"type": "string", "pattern": "^faction\\."},
+    "archetypeId": {"type": "string", "pattern": "^site_archetype\\."},
+    "level": {"type": "integer", "minimum": 1, "maximum": 5},
+    "footprint": {
+      "type": "object",
+      "required": ["hexes", "heightLayers"],
+      "properties": {
+        "hexes": {"type": "array", "minItems": 1, "items": {"type": "array", "prefixItems": [{"type": "integer"}, {"type": "integer"}], "items": false}},
+        "heightLayers": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "hooks": {
+      "type": "object",
+      "required": ["actorSpawnPointIds", "tetherSocketIds", "influenceHookIds", "stateHookIds"],
+      "properties": {
+        "actorSpawnPointIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "tetherSocketIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "influenceHookIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "stateHookIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "generation": {
+      "type": "object",
+      "required": ["revision", "seedInputs", "durableUntil"],
+      "properties": {
+        "revision": {"type": "integer", "minimum": 1},
+        "seedInputs": {"const": ["world_seed", "faction_id", "structure_instance_id", "archetype_id", "structure_level", "generation_revision"]},
+        "durableUntil": {"type": "array", "minItems": 4, "uniqueItems": true, "items": {"enum": ["upgrade", "capture", "damage_state_change", "corruption", "declared_refresh"]}}
+      },
+      "additionalProperties": false
+    },
+    "loot": {
+      "type": "object",
+      "required": ["factionFamily", "archetypeFamily", "levelBand", "higherLevelImprovesExpectedValue"],
+      "properties": {
+        "factionFamily": {"type": "string", "minLength": 1},
+        "archetypeFamily": {"type": "string", "minLength": 1},
+        "levelBand": {"type": "integer", "minimum": 1, "maximum": 5},
+        "higherLevelImprovesExpectedValue": {"const": true}
+      },
+      "additionalProperties": true
+    },
+    "metadata": {"type": "object"}
+  },
+  "additionalProperties": false
+}

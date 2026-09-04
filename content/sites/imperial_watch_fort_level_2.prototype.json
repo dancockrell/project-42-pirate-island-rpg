@@ -1,0 +1,27 @@
+{
+  "id": "site.imperial_watch_fort.level_2.prototype",
+  "kind": "faction_adventure_site",
+  "factionId": "faction.imperial_forces.prototype",
+  "archetypeId": "site_archetype.imperial.watch_fort",
+  "level": 2,
+  "footprint": {"hexes": [[0, 0], [1, 0], [0, 1]], "heightLayers": 2},
+  "hooks": {
+    "actorSpawnPointIds": ["spawn.imperial_watch_fort.gate", "spawn.imperial_watch_fort.barracks"],
+    "tetherSocketIds": ["socket.imperial_watch_fort.road", "socket.imperial_watch_fort.supply"],
+    "influenceHookIds": ["influence.imperial_watch_fort.control"],
+    "stateHookIds": ["state.imperial_watch_fort.construction", "state.imperial_watch_fort.damage"]
+  },
+  "generation": {
+    "revision": 1,
+    "seedInputs": ["world_seed", "faction_id", "structure_instance_id", "archetype_id", "structure_level", "generation_revision"],
+    "durableUntil": ["upgrade", "capture", "damage_state_change", "corruption", "declared_refresh"]
+  },
+  "loot": {
+    "factionFamily": "imperial_military_stores",
+    "archetypeFamily": "watch_fort_barracks",
+    "levelBand": 2,
+    "higherLevelImprovesExpectedValue": true,
+    "distinctiveRewards": ["standardized_weapon", "campaign_map", "supply_voucher"]
+  },
+  "metadata": {"implementationOwner": "rust-simulation", "artState": "metadata_only", "animationAllowed": false}
+}

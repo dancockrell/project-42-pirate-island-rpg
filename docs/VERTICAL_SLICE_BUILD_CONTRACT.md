@@ -14,6 +14,7 @@ On one fixed-view isometric board, the player can witness the legible in-world c
 - One hidden Cthulhu faction whose utility and unconventional build cycle advance its Day-100 plan.
 - One footprint-valid structure per visible ordinary faction.
 - Two generated adventure sites proving faction identity and structure level change deterministic defenses and loot.
+- One encounter whose hostile and allied contributions both derive from current faction capacity rather than player level.
 - One companion lead with two defensible interpretations and two support choices.
 - One early wrongness effect with prerequisites, advance tell, consequence, aftermath clue, and accessibility substitute.
 
@@ -38,6 +39,8 @@ On one fixed-view isometric board, the player can witness the legible in-world c
 - Faction, building archetype, level, and stable instance seed deterministically produce distinct site and loot profiles.
 - Quests encountering an eliminated faction choose a validated successor, recovery, or closure path; they do not respawn it.
 - Cthulhu may rationally lose conventional board value while advancing hidden plan state.
+- Cthulhu's authored advantage event has prerequisites, changes real faction state, and exposes a diegetic consequence; it does not spawn an unexplained force.
+- Hostile and friendly encounter forces change when their source factions' buildings, upgrades, supply, losses, or local positions change.
 - The player never sees raw stockpiles, queues, utility traces, hidden objectives, or an exact heat value unless that information has been learned in-world.
 - Structure footprints, spawn points, tether sockets, influence hooks, and selection bounds validate.
 - Rebuilding the same unchanged site reproduces its layout and loot seed; changing faction, archetype, or level produces a distinct content profile.

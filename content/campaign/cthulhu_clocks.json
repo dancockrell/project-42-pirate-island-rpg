@@ -1,0 +1,16 @@
+{
+  "id": "campaign_clock.cthulhu",
+  "kind": "campaign_clock",
+  "worldDeadlineDay": 100,
+  "heat": {
+    "irreversible": true,
+    "playerVisibleNumeric": false,
+    "storedAsEventLedger": true,
+    "signalChannels": ["weather", "dialogue", "books", "npc_behavior", "patrol_changes", "dreams", "ambience"]
+  },
+  "confrontation": {
+    "firstTriggerWins": true,
+    "causes": ["deliberate_discovery", "terminal_heat", "day_100"],
+    "sameTransactionPriority": ["deliberate_discovery", "terminal_heat", "day_100"]
+  }
+}

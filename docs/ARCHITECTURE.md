@@ -18,6 +18,8 @@ Faction elimination is a durable simulation transition. A faction becomes elimin
 
 Cthulhu implements the same decision interface but not necessarily the same economy or objective. Its action candidates may exchange ritual control, dreams, corruption, sacrifices, or network state to advance the Day-100 plan. Conventional losses can therefore be positive utility without becoming random behavior.
 
+Encounter assembly queries live faction capability for every participant. Enemy defenders, raiders, allied reinforcements, and neutral interventions are bounded by actual production, upgrades, roster availability, supply reach, readiness, relationships, and local board position. Player level is not the source of faction strength. Authored escalation can advantage Cthulhu only by applying a declared transaction to real simulation state with prerequisites, event output, and visible consequences.
+
 ## Stable identifiers
 
 Identifiers are lowercase dotted strings. Their prefix names the domain: `character.heroine.betty`, `skill.betty.guarded_strike`, `enemy.raptor.razorbeak`, `location.tomb.returning_names`, `art.placeholder.betty.active_actor`. IDs survive file moves and scene refactors.

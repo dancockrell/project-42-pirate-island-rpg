@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.project42.faction",
+  "title": "Hidden RTS faction definition",
+  "type": "object",
+  "required": ["id", "kind", "displayName", "playerVisibility", "economy", "buildCycle", "doctrine", "elimination", "metadata"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^faction\\.[a-z0-9_.-]+$"},
+    "kind": {"const": "rts_faction"},
+    "displayName": {"type": "string", "minLength": 1},
+    "playerVisibility": {"const": "diegetic_known_facts_only"},
+    "economy": {
+      "type": "object",
+      "required": ["resourceIds", "incomeModel", "upkeepEnabled", "storageLimited"],
+      "properties": {
+        "resourceIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^resource\\."}},
+        "incomeModel": {"enum": ["workers_and_sites", "ritual_network", "authored_asymmetric"]},
+        "upkeepEnabled": {"type": "boolean"},
+        "storageLimited": {"type": "boolean"}
+      },
+      "additionalProperties": true
+    },
+    "buildCycle": {
+      "type": "object",
+      "required": ["constructionQueues", "productionQueues", "reservesCosts", "requiresLegalFootprint", "catalogueIds"],
+      "properties": {
+        "constructionQueues": {"type": "integer", "minimum": 1},
+        "productionQueues": {"type": "integer", "minimum": 1},
+        "reservesCosts": {"const": true},
+        "requiresLegalFootprint": {"const": true},
+        "catalogueIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^site_archetype\\."}}
+      },
+      "additionalProperties": true
+    },
+    "doctrine": {
+      "type": "object",
+      "required": ["goal", "positionResponses", "wobbleMaximum"],
+      "properties": {
+        "goal": {"type": "string", "minLength": 1},
+        "positionResponses": {"type": "array", "minItems": 3, "uniqueItems": true, "items": {"enum": ["expand", "pursue_victory", "consolidate", "migrate", "negotiate", "raid_for_resources", "accept_dependency", "escape", "revenge", "last_objective", "advance_day_100_plan"]}},
+        "wobbleMaximum": {"type": "number", "minimum": 0, "maximum": 0.2}
+      },
+      "additionalProperties": true
+    },
+    "elimination": {
+      "type": "object",
+      "required": ["persistent", "recoveryConditions", "formerHoldingTransitions", "questPolicy"],
+      "properties": {
+        "persistent": {"const": true},
+        "recoveryConditions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "formerHoldingTransitions": {"type": "array", "minItems": 3, "uniqueItems": true, "items": {"enum": ["abandoned", "captured", "dismantled", "contested", "corrupted", "reclaimed"]}},
+        "questPolicy": {"const": "successor_recovery_or_honest_closure"}
+      },
+      "additionalProperties": false
+    },
+    "metadata": {"type": "object"}
+  },
+  "additionalProperties": false
+}
