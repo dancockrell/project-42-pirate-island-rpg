@@ -21,7 +21,8 @@
     "positionResponses": ["expand", "consolidate", "raid_for_resources", "advance_day_100_plan", "last_objective"],
     "wobbleMaximum": 0.08,
     "unattendedOutcomeBias": "eventual_victory",
-    "authoredAdvantagePolicy": "prerequisite_gated_state_transaction_with_diegetic_consequence"
+    "authoredAdvantagePolicy": "prerequisite_gated_state_transaction_with_diegetic_consequence",
+    "dispatchScoreTerms": ["goal_progress", "target_threat", "faction_hatred", "ritual_opportunity", "expected_loot", "strategic_position", "supply_cost", "travel_risk", "home_defense_deficit", "role_fitness"]
   },
   "elimination": {
     "persistent": true,

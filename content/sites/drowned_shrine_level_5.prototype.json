@@ -11,6 +11,13 @@
     "influenceHookIds": ["influence.drowned_shrine.corruption"],
     "stateHookIds": ["state.drowned_shrine.construction", "state.drowned_shrine.damage", "state.drowned_shrine.summoning"]
   },
+  "production": {
+    "queueIds": ["production_queue.drowned_shrine.ritual"],
+    "spawnRuleIds": ["spawn_rule.drowned_shrine.cultists", "spawn_rule.drowned_shrine.supernatural"],
+    "rallyPointId": "rally.drowned_shrine.processional_gate",
+    "allowedActorKinds": ["specialist", "soldier", "monster", "named_hero", "supernatural"],
+    "dispatchOwner": "faction_ai"
+  },
   "generation": {
     "revision": 1,
     "seedInputs": ["world_seed", "faction_id", "structure_instance_id", "archetype_id", "structure_level", "generation_revision"],

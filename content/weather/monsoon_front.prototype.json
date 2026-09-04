@@ -1,0 +1,24 @@
+{
+  "id": "weather.monsoon_front.prototype",
+  "kind": "magical_weather",
+  "family": "living_monsoon",
+  "selection": {
+    "seeded": true,
+    "stateInputs": ["world_seed", "world_day", "active_fronts", "terrain_influence", "faction_magic", "cthulhu_plan_progress", "hidden_heat"],
+    "baseWeight": 1.0,
+    "weightModifiers": [{"when": "cthulhu_plan_progress_high", "multiply": 0.6}, {"when": "treefolk_influence_high", "multiply": 1.25}]
+  },
+  "movement": {"adjacency": "island_network_tethers", "durationTicks": 4, "intensityRange": [1, 3], "prefers": ["waterway", "wild"]},
+  "factionModifiers": [
+    {"factionId": "faction.imperial_forces.prototype", "effects": {"roadMovementMultiplier": 1.2, "rangedSightMultiplier": 0.8}},
+    {"factionId": "faction.cthulhu_cult.prototype", "effects": {"ritualControlMultiplier": 1.0}}
+  ],
+  "terrainInteractions": [{"terrainFamily": "ordinary_jungle", "effect": "increase_growth"}, {"terrainFamily": "cthulhu_necromantic_rot", "effect": "slow_spread"}],
+  "signals": {
+    "advanceTell": "Companion observations note warm wind reversing along waterways before the cloud wall appears.",
+    "activeEvidence": "Heavy rain, swollen crossings, reduced sight, and accelerated living growth affect visible routes.",
+    "aftermathClue": "Fresh flood lines and rooted debris show exactly which tethers carried the front.",
+    "accessibilitySubstitute": "Map labels announce the approaching front, affected connections, intensity, and mechanical travel warning without relying on color or audio."
+  },
+  "counterplay": ["use sheltered tethers", "equip rain travel gear", "delay ranged assault", "exploit concealed approach"]
+}

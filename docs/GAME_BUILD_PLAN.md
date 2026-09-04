@@ -7,6 +7,10 @@
 
 Project 42 is a HaremLit adventure played on top of a living, multi-faction RTS simulation of a mysterious island. The player commands Michael and four adult female companions as five hero characters on one large, fixed-view isometric board. The island continues to build, spawn, raid, bargain, spread, and decay whether or not the heroes intervene.
 
+The shortest product definition is: **it is an RTS, with us as characters.** The simulation has the structures, production, movement, territorial pressure, faction AI, and evolving map of an RTS, but the player is not an omniscient commander detached above it. The player's agency is embodied in five hero units with limited position, travel time, perception, equipment, relationships, and personal risk. They can influence armies and settlements, but they do so by being present, earning trust, giving support, opening routes, fighting, investigating, negotiating, sabotaging, or directing allied capability the fiction has actually granted them.
+
+The useful Mount & Blade comparison is structural: autonomous factions pursue their own survival and victory while an embodied hero party travels through and changes that world. Project 42 does not inherit Mount & Blade's camera or separate battle-screen solution. Its governing visual authority remains the fixed-view isometric island board, and the exact combat-presentation boundary remains provisional until it proves continuity with that board.
+
 The four women are investigators and quest drivers, not followers waiting for Michael to discover the plot. Each brings observations, theories, questions, requests, competing interpretations, and a personal quest line. The player decides which leads receive time and resources, equips and protects the women pursuing them, resolves disagreements, and chooses how their discoveries change the campaign. Michael leads by judgment and support; he does not replace their agency.
 
 The central mystery is escalating, rule-governed weirdness caused by Cthulhu's plan. Following companion leads and playing reasonably well must be barely but reliably sufficient. Optimization earns control, preparedness, optional truths, allies, and better outcomes; it is never an undeclared entrance fee for a viable ending.
@@ -18,12 +22,13 @@ The central mystery is escalating, rule-governed weirdness caused by Cthulhu's p
 3. **Companions drive investigation.** Every required mystery chain originates in or materially advances through a companion's authored initiative. Michael cannot receive every objective and perform all intellectual work himself.
 4. **Factions are real RTS factions behind the scenes.** Each has an economy, build cycle, construction and production queues, structures, units, named heroes, territory, supply constraints, and autonomous strategic action. This machinery is not exposed as a raw RTS dashboard to the characters or player. Narrative scripting may create pressures and opportunities; it may not fake the underlying RTS activity.
 5. **The world acts without the player.** Factions construct, spawn, expand, contest, raid, reinforce, ally, betray, and pursue asymmetric goals using simulation-owned state.
-6. **Three endgame triggers.** The Cthulhu confrontation starts at the first of deliberate discovery, Day 100 culmination, or irreversible player-created heat reaching its terminal condition.
-7. **No numeric heat UI.** World day may be known. Cthulhu's hidden heat/patience state is communicated through inferable diegetic evidence, never an exact meter.
-8. **Wrongness has rules.** Weather, time, and causality distort according to authored thresholds and causal state. Effects have prerequisites, tells, consequences, and clue links; they are never arbitrary random horror.
-9. **Simulation truth is singular.** Rust owns authoritative world and combat state. Godot projects it and submits commands. Content records define authored possibilities. Presentation never invents outcomes.
-10. **Fixed isometric, animation-ready, not animated.** This phase adds no animation content. Actors and structures are rigged and socketed so later animation does not require an asset or schema redesign.
-11. **Toybox clarity over historicism.** Western fantasy, Bronze-Age mythic mashup, and eastern/wushu fantasy mashup are intentional broad families. Specialized faction overlays make them legible at board scale.
+6. **The player is embodied, not omniscient.** Commands originate through the five heroes, their locations, relationships, knowledge, equipment, and earned authority. The player sees the RTS world from a readable camera but does not automatically possess global faction information or universal command rights.
+7. **Three endgame triggers.** The Cthulhu confrontation starts at the first of deliberate discovery, Day 100 culmination, or irreversible player-created heat reaching its terminal condition.
+8. **No numeric heat UI.** World day may be known. Cthulhu's hidden heat/patience state is communicated through inferable diegetic evidence, never an exact meter.
+9. **Wrongness has rules.** Weather, time, and causality distort according to authored thresholds and causal state. Effects have prerequisites, tells, consequences, and clue links; they are never arbitrary random horror.
+10. **Simulation truth is singular.** Rust owns authoritative world and combat state. Godot projects it and submits commands. Content records define authored possibilities. Presentation never invents outcomes.
+11. **Fixed isometric, animation-ready, not animated.** This phase adds no animation content. Actors and structures are rigged and socketed so later animation does not require an asset or schema redesign.
+12. **Toybox clarity over historicism.** Western fantasy, Bronze-Age mythic mashup, and eastern/wushu fantasy mashup are intentional broad families. Specialized faction overlays make them legible at board scale.
 
 ## Campaign clocks and confrontation
 
@@ -77,6 +82,10 @@ Delegation never turns a heroine into an off-screen progress bar. Her position, 
 
 The board is a stable isometric coordinate space. A region contains nodes and tiles. Typed tethers connect compatible sockets between nodes or structures and express roads, waterways, supply, ritual links, influence conduits, sightlines, or authored special relationships. A tether is a simulated relationship with state, capacity, ownership, visibility, and disruption rules—not decorative line art.
 
+The island is a complex network, not a three-lane map. Its graph supports branches, loops, hubs, chokepoints, bypasses, islands of control, redundant supply paths, one-way hazards, changing traversal costs, and routes that appear or fail through world state. Familiar tower-defense and Warcraft-mod patterns inform local readability—pressure moving toward a strongpoint, defensible connections, reinforcement flow, tower coverage, attrition, and breakthrough—but do not flatten the island into fixed lanes. Any node may become a front, rear area, contested junction, expedition objective, or isolated pocket as control changes.
+
+Network topology is stable enough to learn while tether state is dynamic. A blocked bridge, flooded causeway, corrupted ritual path, grown treefolk passage, secured road, or opened smuggler route changes reachability and utility without teleporting the underlying geography. AI and hero pathing query the same authoritative graph, filtered by what each actor knows.
+
 Structures declare hex footprints, construction stages, actor spawn points, tether sockets, influence emitters, state hooks, damage states, selection bounds, and visual-family metadata. Props use the same spatial contract at smaller scale. Territory and influence derive from placed, inspectable causes.
 
 Faction structures are also adventure sites. Their faction, building archetype, upgrade level, board position, current condition, world-day band, and stable instance seed select a deterministic encounter layout, defenders, complications, discoveries, and loot table. Raising a building's level increases both the faction capability it provides and the risk and reward of attacking or infiltrating it. A level-five site should generally offer better loot than its lower-level form, but rewards remain faction- and archetype-specific rather than collapsing into a universal item curve.
@@ -97,12 +106,17 @@ Every ordinary faction has:
 - structure levels and upgrade paths whose benefits, defenses, encounter grammar, and loot bands remain faction-specific;
 - construction and unit-production queues that advance on world ticks;
 - unit rosters, spawn rules, named-hero rules, rally points, and reinforcement paths;
+- building-owned spawn and production rules for workers, residents, vendors, specialists, soldiers, monsters, named heroes, or supernatural actors;
 - territory goals, supply reach, threat knowledge, and target valuation;
 - independent bilateral reputation and relationship state with every relevant faction;
 - doctrines for expansion, defense, raids, reinforcement, diplomacy, and retreat;
 - asymmetric victory and survival goals.
 
 The core faction loop is **gather or receive resources → evaluate needs and opportunities → reserve costs → build or produce → deploy → contest or support territory → learn from results → repeat**. Shortages, destroyed supply, queue contention, lost builders, and blocked footprints materially alter the cycle. A faction cannot conjure a scripted army without a declared spawn exception and visible causal source.
+
+Buildings are the normal source of faction people and creatures. Houses may create workers or population capacity; markets and workshops create specific vendors or specialists; barracks and docks train units; lairs spawn monsters; seats of power and authored landmarks can introduce named heroes; ritual structures can produce supernatural actors. Every spawn cites a producer structure, production rule, reserved cost or declared non-economic source, completion tick, rally point, and initial availability state.
+
+After production, faction AI decides where an actor goes. Legal assignments include gather, build, trade, staff, patrol, escort, scout, defend, reinforce, raid, attack, migrate, pursue a faction goal, or exploit an opportunity. Utility may include target threat, faction hatred, relationship state, opportunity value, expected loot, strategic position, supply cost, travel risk, home-defense deficit, role fitness, and personality. Stable IDs and seeded bounded wobble break ties. Quests may influence these values or create legal objectives, but they cannot directly teleport an unproduced actor to a scripted destination.
 
 Faction survival and victory intent depend on board position. A secure faction may expand or pursue its asymmetric win condition; a pressured faction may consolidate, migrate, negotiate, raid for resources, or accept dependency; a doomed faction may spend its remaining capacity on escape, revenge, succession, or a last objective. These are utility responses to real state, not protected narrative roles.
 
@@ -126,9 +140,29 @@ Wrongness effects require world-day and heat prerequisites; optional faction, lo
 
 Early signals are deniable. Mid-state effects make weather and behavior coordinated. Late-state effects bend timing and causality, but remain reconstructible: an effect cannot retroactively invalidate a decision without a prior signal and recovery response.
 
+## Terrain influence and conversion
+
+Factions can change the ground they control. Terrain influence is a layered field over board cells and network nodes, sourced by structures, units, rituals, weather, resources, and authored events. Examples include cult rot, necromantic blight, imperial roadwork, treefolk overgrowth, elven restoration, pirate fortification, or smuggler concealment.
+
+An influence layer declares source faction, terrain family, strength, spread rules, decay or persistence, compatible and opposed layers, traversal effects, resource effects, visibility, encounter modifiers, building restrictions, and presentation cues. Influence competes through deterministic rules; it is not a purely cosmetic decal. Conversion may change movement cost, supply, build legality, production, defender strength, spawn families, weather affinity, dungeon generation, available clues, and the terrain's visible material overlay.
+
+Terrain conversion does not erase authored geography. A road remains a road node, but rot may make it costly and cult-favorable; treefolk growth may conceal it; imperial improvement may increase supply capacity. When a faction is eliminated, its terrain effects follow their own persistence rules: roads may endure, crops may fail, fortifications may be captured, rot may need cleansing, and magical scars may become neutral hazards.
+
+## Magical weather system
+
+Weather is authoritative world state coupled to geography, season-like baselines, active magic, faction influence, world day, Cthulhu plan progress, and hidden heat. It is not a random visual backdrop. A weather front occupies regions or nodes, moves through typed adjacency, has duration and intensity, and applies declared simulation modifiers.
+
+Each faction has affinities and vulnerabilities. Favorable weather can improve its production, movement, sight, influence spread, spell use, defender composition, or reinforcement reach; hostile weather can constrain those same systems. The bonus comes from actual current weather and faction state, not an invisible difficulty adjustment. Heroes experience the same conditions, with equipment, companion knowledge, and discoveries providing counterplay.
+
+As the campaign advances, the weather distribution becomes increasingly magical, chaotic, necromantic, and Cthulhu-aligned. Cthulhu plan milestones, cult terrain influence, ritual structures, and authored escalation events increase the weight and reach of those weather families. They may accelerate rot, animate dead matter, distort tides, reduce ordinary supply, open ritual tethers, or favor cult movement and production. These changes help Cthulhu's faction win the island struggle, but every front has causal inputs, advance tells, visible board effects, an event record, and at least one mitigation, avoidance, exploitation, or adaptation path.
+
+Weather selection combines deterministic baseline pressure with bounded seeded variation. Chaotic does not mean arbitrary: the same seed and state reproduce the same front, while sufficiently different magic, terrain, or faction control can alter the outcome. Player-facing forecasts are limited to what the heroes can infer through sky, instruments, books, NPC knowledge, companion expertise, and observed patterns.
+
 ## Presentation and art production
 
 The strategic island uses one fixed-view isometric presentation. Zoom and inspection may change detail density, but not camera angle or spatial truth. Selection silhouettes, faction colors, footprint outlines, tether states, alerts, and overlays remain readable without color alone.
+
+The current visual reference supplied on 4 September 2026 approves the broad camera language: dense but readable isometric settlements, legible building silhouettes and levels, roads and bridges that explain movement, walls and towers that explain defensive pressure, water and terrain integrated into navigation, visible civilians and military actors, and enough environmental life that territory feels occupied. It does not require every region to be urban, copy the depicted architecture, establish historical accuracy, or authorize reuse of the reference image as a shipped asset.
 
 The prior side-view battle prototype is retained as historical technical evidence for typed command/event projection and rig experimentation. It is not the current camera, world-loop, or vertical-slice authority. No further side-view-specific content should be produced unless a later recorded decision gives it a bounded role.
 
@@ -163,13 +197,16 @@ The first new-direction slice is one isometric board with two connected regions,
 
 1. world ticks advance autonomously;
 2. factions gather resources, progress real build/production queues, deploy units, and select explainable actions;
-3. a structure occupies a validated footprint and exposes spawn, tether, and influence hooks;
-4. independent faction relationships affect but do not replace RTS decisions;
-5. a companion observes a board change, proposes two interpretations, and requests support;
-6. the lead changes board state, relationships, proof, time, and possibly heat in one authoritative transaction;
-7. an early wrongness signal follows an authored rule and has accessible evidence;
-8. save/load and replay preserve the exact next decision;
-9. a baseline policy remains on schedule for minimum Day-100 preparation across approved seeds.
+3. an arbitrary branching network supports at least one loop, chokepoint, and state-dependent alternate route;
+4. a structure occupies a validated footprint and exposes spawn, tether, and influence hooks;
+5. faction terrain conversion changes traversal, supply, encounter, and visible ground state;
+6. magical weather moves through the network and materially favors or constrains named factions;
+7. independent faction relationships affect but do not replace RTS decisions;
+8. a companion observes a board or weather change, proposes two interpretations, and requests support;
+9. the lead changes board state, relationships, proof, time, and possibly heat in one authoritative transaction;
+10. an early wrongness signal follows an authored rule and has accessible evidence;
+11. save/load and replay preserve the exact next decision;
+12. a baseline policy remains on schedule for minimum Day-100 preparation across approved seeds.
 
 It does not require final art, all companion arcs, broad content, complete combat replacement, or animation.
 
@@ -204,6 +241,9 @@ All five heroes are controllable, all four women own a playable lead and persona
 - Companion-driven investigations and personal quests.
 - Fixed-view isometric board as spatial and systemic presentation.
 - Real faction economies, build cycles, production, deployment, and territory contest.
+- Complex branching island network; no fixed three-lane topology.
+- Faction-authored terrain influence and conversion with mechanical effects.
+- Magical weather that increasingly favors necromantic and Cthulhu-aligned systems over time.
 - First-of-three Cthulhu confrontation triggers.
 - Day 100 deadline plus separate irreversible hidden heat ledger.
 - Rule-governed, inferable weather/time/causality wrongness.

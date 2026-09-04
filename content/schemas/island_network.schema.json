@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.project42.island_network",
+  "title": "Complex island node and tether network",
+  "type": "object",
+  "required": ["id", "kind", "topology", "nodes", "tethers", "knowledgePolicy"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^island_network\\."},
+    "kind": {"const": "island_network"},
+    "topology": {"const": "arbitrary_branching_loops"},
+    "knowledgePolicy": {"const": "actor_knowledge_filtered"},
+    "nodes": {"type": "array", "minItems": 5, "items": {"type": "object", "required": ["id", "roles"], "properties": {"id": {"type": "string", "pattern": "^network_node\\."}, "roles": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["hub", "chokepoint", "settlement", "resource", "strongpoint", "wild", "ritual", "harbor"]}}}, "additionalProperties": true}},
+    "tethers": {"type": "array", "minItems": 6, "items": {"type": "object", "required": ["id", "from", "to", "type", "state", "capacity", "bidirectional"], "properties": {"id": {"type": "string", "pattern": "^tether\\."}, "from": {"type": "string", "pattern": "^network_node\\."}, "to": {"type": "string", "pattern": "^network_node\\."}, "type": {"enum": ["road", "waterway", "supply", "ritual", "influence", "sightline", "hidden_route"]}, "state": {"enum": ["open", "blocked", "hidden", "conditional", "corrupted"]}, "capacity": {"type": "integer", "minimum": 0}, "bidirectional": {"type": "boolean"}}, "additionalProperties": true}}
+  },
+  "additionalProperties": false
+}

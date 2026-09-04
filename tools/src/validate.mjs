@@ -188,6 +188,10 @@ for (const { file, value } of await readJsonDirectory("factions")) {
   if (value.buildCycle?.reservesCosts !== true || value.buildCycle?.requiresLegalFootprint !== true) fail(file, "build cycle must reserve costs and require a legal footprint");
   if (!Array.isArray(value.buildCycle?.catalogueIds) || value.buildCycle.catalogueIds.length === 0) fail(file, "faction requires a build catalogue");
   if (!Array.isArray(value.doctrine?.positionResponses) || value.doctrine.positionResponses.length < 3) fail(file, "faction doctrine requires position-sensitive responses");
+  const dispatchTerms = new Set(value.doctrine?.dispatchScoreTerms ?? []);
+  for (const term of ["goal_progress", "target_threat", "faction_hatred", "expected_loot", "strategic_position", "supply_cost", "travel_risk", "home_defense_deficit", "role_fitness"]) {
+    if (!dispatchTerms.has(term)) fail(file, `faction dispatch scoring requires ${term}`);
+  }
   if (typeof value.doctrine?.wobbleMaximum !== "number" || value.doctrine.wobbleMaximum < 0 || value.doctrine.wobbleMaximum > 0.2) fail(file, "bounded wobble must be from 0 through 0.2");
   if (value.elimination?.persistent !== true || value.elimination?.questPolicy !== "successor_recovery_or_honest_closure") fail(file, "elimination must be persistent and quests must tolerate it");
   if (!Array.isArray(value.elimination?.formerHoldingTransitions) || value.elimination.formerHoldingTransitions.length < 3) fail(file, "elimination requires natural former-holding transitions");
@@ -205,6 +209,11 @@ for (const { file, value } of await readJsonDirectory("sites")) {
   for (const field of ["actorSpawnPointIds", "tetherSocketIds", "influenceHookIds", "stateHookIds"]) {
     if (!Array.isArray(value.hooks?.[field]) || value.hooks[field].length === 0) fail(file, `site hooks.${field} requires at least one stable hook`);
   }
+  if (value.production?.dispatchOwner !== "faction_ai") fail(file, "completed actors must be assigned by faction AI");
+  for (const field of ["queueIds", "spawnRuleIds", "allowedActorKinds"]) {
+    if (!Array.isArray(value.production?.[field]) || value.production[field].length === 0) fail(file, `site production.${field} requires at least one entry`);
+  }
+  if (typeof value.production?.rallyPointId !== "string" || !value.production.rallyPointId.startsWith("rally.")) fail(file, "site production requires a stable rally point");
   if (value.metadata?.animationAllowed !== false) fail(file, "current-phase site records must explicitly prohibit animation");
 }
 
@@ -254,11 +263,53 @@ for (const { file, value } of await readJsonDirectory("world")) {
       if (typeof description.text !== "string" || description.text.length < 90) fail(file, `readableDescriptions[${index}].text must be at least 90 characters`);
     }
     if (value.admission?.collisionSeparatedFromVisualShell !== true || value.admission?.navigationSeparatedFromVisualShell !== true) fail(file, "world cell must separate visual shell, collision and navigation");
-  } else {
+  } else if (value.kind === "island_network") {
+    if (value.topology !== "arbitrary_branching_loops" || value.knowledgePolicy !== "actor_knowledge_filtered") fail(file, "island network must be branching, looping, and knowledge-filtered");
+    if (!Array.isArray(value.nodes) || value.nodes.length < 5) fail(file, "island network requires at least five nodes");
+    if (!Array.isArray(value.tethers) || value.tethers.length < value.nodes.length) fail(file, "island network requires enough tethers to support loops");
+    const nodeIds = new Set((value.nodes ?? []).map(node => node.id));
+    const degrees = new Map([...nodeIds].map(id => [id, 0]));
+    for (const [index, tether] of (value.tethers ?? []).entries()) {
+      if (!nodeIds.has(tether.from) || !nodeIds.has(tether.to)) fail(file, `tethers[${index}] must connect declared nodes`);
+      if (tether.from === tether.to) fail(file, `tethers[${index}] may not self-connect`);
+      if (!Number.isInteger(tether.capacity) || tether.capacity < 0) fail(file, `tethers[${index}] capacity must be a non-negative integer`);
+      degrees.set(tether.from, (degrees.get(tether.from) ?? 0) + 1);
+      degrees.set(tether.to, (degrees.get(tether.to) ?? 0) + 1);
+    }
+    if (![...degrees.values()].some(degree => degree >= 3)) fail(file, "island network requires a branching hub");
+    if ((value.tethers?.length ?? 0) < (value.nodes?.length ?? 0)) fail(file, "island network requires at least one loop");
+    if (!value.nodes?.some(node => node.roles?.includes("chokepoint"))) fail(file, "island network requires a readable chokepoint");
+    if (!value.tethers?.some(tether => ["hidden", "conditional", "blocked"].includes(tether.state))) fail(file, "island network requires a state-dependent alternate route");
+  } else if (value.kind === "terrain_influence") {
+    reference(value.sourceFactionId, file, "sourceFactionId");
+    requireString(value, "terrainFamily", file);
+    if (value.spread?.adjacency !== "island_network_tethers" || value.spread?.requiresSource !== true) fail(file, "terrain influence must spread from a source through network tethers");
+    for (const field of ["traversal", "supply", "encounters", "buildingLegality", "resourceYield"]) if (!value.mechanicalEffects?.[field]) fail(file, `terrain influence requires mechanicalEffects.${field}`);
+    for (const field of ["groundOverlay", "nonColorCue", "knownFactText"]) requireString(value.presentation ?? {}, field, file);
+  } else if (value.trigger === "midnight_flash") {
     if (value.trigger !== "midnight_flash") fail(file, "spawn rule trigger must be midnight_flash");
     if (value.grouping?.designRule !== "individual_threat") fail(file, "daily spawns must use individual_threat tuning");
     for (const [index, id] of (value.definitionIds ?? []).entries()) reference(id, file, `definitionIds[${index}]`);
+  } else {
+    fail(file, `unsupported world record kind ${value.kind ?? "missing"}`);
   }
+}
+
+for (const { file, value } of await readJsonDirectory("weather")) {
+  if (value.kind !== "magical_weather") fail(file, "kind must be magical_weather");
+  requireString(value, "family", file);
+  if (value.selection?.seeded !== true) fail(file, "weather selection must be seeded");
+  const weatherInputs = new Set(value.selection?.stateInputs ?? []);
+  for (const input of ["world_seed", "world_day", "terrain_influence", "faction_magic", "cthulhu_plan_progress", "hidden_heat"]) if (!weatherInputs.has(input)) fail(file, `weather selection requires state input ${input}`);
+  if (value.movement?.adjacency !== "island_network_tethers") fail(file, "weather fronts must move across the island network");
+  if (!Number.isInteger(value.movement?.durationTicks) || value.movement.durationTicks < 1) fail(file, "weather durationTicks must be positive");
+  for (const [index, modifier] of (value.factionModifiers ?? []).entries()) {
+    reference(modifier.factionId, file, `factionModifiers[${index}].factionId`);
+    if (!modifier.effects || Object.keys(modifier.effects).length === 0) fail(file, `factionModifiers[${index}] requires simulation effects`);
+  }
+  if (!Array.isArray(value.terrainInteractions) || value.terrainInteractions.length === 0) fail(file, "weather requires terrain interactions");
+  for (const field of ["advanceTell", "activeEvidence", "aftermathClue", "accessibilitySubstitute"]) requireString(value.signals ?? {}, field, file);
+  if (!Array.isArray(value.counterplay) || value.counterplay.length === 0) fail(file, "weather requires player counterplay");
 }
 
 for (const { file, value } of await readJsonDirectory("presentation")) {

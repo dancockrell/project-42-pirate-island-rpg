@@ -11,6 +11,13 @@
     "influenceHookIds": ["influence.imperial_watch_fort.control"],
     "stateHookIds": ["state.imperial_watch_fort.construction", "state.imperial_watch_fort.damage"]
   },
+  "production": {
+    "queueIds": ["production_queue.imperial_watch_fort.garrison"],
+    "spawnRuleIds": ["spawn_rule.imperial_watch_fort.soldiers", "spawn_rule.imperial_watch_fort.vendors"],
+    "rallyPointId": "rally.imperial_watch_fort.gate",
+    "allowedActorKinds": ["worker", "vendor", "specialist", "soldier", "named_hero"],
+    "dispatchOwner": "faction_ai"
+  },
   "generation": {
     "revision": 1,
     "seedInputs": ["world_seed", "faction_id", "structure_instance_id", "archetype_id", "structure_level", "generation_revision"],

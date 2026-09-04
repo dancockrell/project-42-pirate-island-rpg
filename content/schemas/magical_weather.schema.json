@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.project42.magical_weather",
+  "title": "Magical weather front",
+  "type": "object",
+  "required": ["id", "kind", "family", "selection", "movement", "factionModifiers", "terrainInteractions", "signals", "counterplay"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^weather\\."},
+    "kind": {"const": "magical_weather"},
+    "family": {"type": "string", "minLength": 1},
+    "selection": {"type": "object", "required": ["seeded", "stateInputs", "baseWeight", "weightModifiers"], "properties": {"seeded": {"const": true}, "stateInputs": {"type": "array", "minItems": 4, "uniqueItems": true, "items": {"type": "string"}}, "baseWeight": {"type": "number", "minimum": 0}, "weightModifiers": {"type": "array", "minItems": 1, "items": {"type": "object"}}}, "additionalProperties": false},
+    "movement": {"type": "object", "required": ["adjacency", "durationTicks", "intensityRange"], "additionalProperties": true},
+    "factionModifiers": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["factionId", "effects"], "additionalProperties": true}},
+    "terrainInteractions": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "signals": {"type": "object", "required": ["advanceTell", "activeEvidence", "aftermathClue", "accessibilitySubstitute"], "additionalProperties": true},
+    "counterplay": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}

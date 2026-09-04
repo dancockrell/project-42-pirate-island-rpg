@@ -1,0 +1,25 @@
+{
+  "id": "terrain_influence.cthulhu.rot.prototype",
+  "kind": "terrain_influence",
+  "sourceFactionId": "faction.cthulhu_cult.prototype",
+  "terrainFamily": "cthulhu_necromantic_rot",
+  "spread": {
+    "adjacency": "island_network_tethers",
+    "requiresSource": true,
+    "blockedBy": ["terrain_effect.cleansed_ground", "structure.elven.ward", "weather.solar_dry_front"],
+    "favoredByWeatherFamilies": ["necromantic_miasma", "cthulhu_tidal_wrongness"]
+  },
+  "persistence": "persists_until_cleansed",
+  "mechanicalEffects": {
+    "traversal": {"ordinaryLivingCostMultiplier": 1.25, "cthulhuFactionCostMultiplier": 0.8},
+    "supply": {"ordinaryCapacityMultiplier": 0.75, "cthulhuCapacityMultiplier": 1.2},
+    "encounters": {"addsSpawnFamilies": ["spawn_family.necromantic", "spawn_family.cthulhu_rot"], "cthulhuDefenderReadinessBonus": 1},
+    "buildingLegality": {"ordinaryRequiresCleansing": true, "cthulhuRitualAllowed": true},
+    "resourceYield": {"ordinaryFoodMultiplier": 0.5, "ritualControlPerTick": 1}
+  },
+  "presentation": {
+    "groundOverlay": "black-green fibrous rot follows tether edges and pools around dead roots",
+    "nonColorCue": "brittle coral-like ridges, inward-pointing grass, and flies moving against the wind",
+    "knownFactText": "The ground ahead has gone soft and fibrous; ordinary tracks stop where the black ridges begin."
+  }
+}

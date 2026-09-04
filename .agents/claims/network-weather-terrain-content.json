@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "task_id": "network-weather-terrain-content",
+  "agent": "codex-root",
+  "summary": "Define the island's complex network pressure grammar, faction terrain conversion, and faction-weighted magical weather escalation",
+  "status": "active",
+  "claimed_at": "2026-09-04T06:00:00Z",
+  "updated_at": "2026-09-04T06:05:00Z",
+  "paths": [
+    "docs/GAME_BUILD_PLAN.md",
+    "docs/ARCHITECTURE.md",
+    "docs/VERTICAL_SLICE_BUILD_CONTRACT.md",
+    "content/schemas/island_network.schema.json",
+    "content/schemas/terrain_influence.schema.json",
+    "content/schemas/magical_weather.schema.json",
+    "content/world/island_network.prototype.json",
+    "content/world/terrain_influence.prototype.json",
+    "content/weather/",
+    "content/factions/",
+    "tools/src/validate.mjs",
+    "tools/src/build-content-bundle.mjs",
+    "game/generated/content_bundle.json",
+    ".agents/claims/network-weather-terrain-content.json"
+  ],
+  "symbols": [],
+  "coordination": {
+    "depends_on": ["pirate-island-design-authority"],
+    "conflicts_with": [],
+    "notes": "The island is an arbitrary branching and looping network, not a three-lane map. Tower-defense and Warcraft-derived patterns inform local pressure readability only. This does not overlap the active port-town roof correction or touch the untracked native DLL."
+  },
+  "completion": {"commit": null, "checks": []}
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.project42.terrain_influence",
+  "title": "Faction terrain influence layer",
+  "type": "object",
+  "required": ["id", "kind", "sourceFactionId", "terrainFamily", "spread", "persistence", "mechanicalEffects", "presentation"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^terrain_influence\\."},
+    "kind": {"const": "terrain_influence"},
+    "sourceFactionId": {"type": "string", "pattern": "^faction\\."},
+    "terrainFamily": {"type": "string", "minLength": 1},
+    "spread": {"type": "object", "required": ["adjacency", "requiresSource", "blockedBy", "favoredByWeatherFamilies"], "properties": {"adjacency": {"const": "island_network_tethers"}, "requiresSource": {"const": true}, "blockedBy": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "favoredByWeatherFamilies": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": true},
+    "persistence": {"enum": ["decays_without_source", "persists_until_cleansed", "permanent_infrastructure", "capturable"]},
+    "mechanicalEffects": {"type": "object", "required": ["traversal", "supply", "encounters", "buildingLegality", "resourceYield"], "additionalProperties": true},
+    "presentation": {"type": "object", "required": ["groundOverlay", "nonColorCue", "knownFactText"], "additionalProperties": true}
+  },
+  "additionalProperties": false
+}

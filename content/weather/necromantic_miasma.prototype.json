@@ -1,0 +1,24 @@
+{
+  "id": "weather.necromantic_miasma.prototype",
+  "kind": "magical_weather",
+  "family": "necromantic_miasma",
+  "selection": {
+    "seeded": true,
+    "stateInputs": ["world_seed", "world_day", "active_fronts", "terrain_influence", "faction_magic", "cthulhu_plan_progress", "hidden_heat"],
+    "baseWeight": 0.05,
+    "weightModifiers": [{"when": "world_day_band_late", "multiply": 4.0}, {"when": "cthulhu_plan_progress_high", "multiply": 5.0}, {"when": "cthulhu_rot_present", "multiply": 2.0}]
+  },
+  "movement": {"adjacency": "island_network_tethers", "durationTicks": 3, "intensityRange": [1, 4], "prefers": ["ritual", "corrupted", "low_ground"]},
+  "factionModifiers": [
+    {"factionId": "faction.cthulhu_cult.prototype", "effects": {"productionSpeedMultiplier": 1.2, "rotSpreadMultiplier": 1.4, "supernaturalReadinessBonus": 1}},
+    {"factionId": "faction.imperial_forces.prototype", "effects": {"supplyCapacityMultiplier": 0.7, "workerProductionMultiplier": 0.8}}
+  ],
+  "terrainInteractions": [{"terrainFamily": "cthulhu_necromantic_rot", "effect": "accelerate_spread"}, {"terrainFamily": "burial_ground", "effect": "enable_necromantic_spawn_family"}],
+  "signals": {
+    "advanceTell": "Books sweat brine, shadows hold after their owners move, and the air becomes cold first around ritual tethers.",
+    "activeEvidence": "A low gray-green front follows corrupted connections while dead organic matter turns toward nearby cult holdings.",
+    "aftermathClue": "Salt outlines and backward footprints preserve the direction and intensity of the departed front.",
+    "accessibilitySubstitute": "Affected nodes gain textured boundary marks, explicit miasma labels, faction-effect summaries, and reduced-motion still overlays."
+  },
+  "counterplay": ["cleanse rot sources", "break ritual tethers", "shelter at warded sites", "use companion forecast", "attack while cult routes are predictable"]
+}

@@ -14,11 +14,23 @@ The simulation is the only authority for vitality, guard, composure, initiative,
 
 Faction simulation uses familiar RTS state: stockpiles, income, upkeep, build catalogues, queues, prerequisites, producers, units, territory, supply, and position-sensitive utility. Full state and decision traces are available to deterministic tests and debug builds. Player-facing projections filter them through hero knowledge. The game shows perceivable consequences—construction, patrols, smoke, scarcity, raids, changed banners, refugees, abandoned holdings, and companion deductions—not omniscient queue or utility panels.
 
+Every ordinary actor instance has production provenance. Its record identifies the producer building, spawn rule, faction, reserved or consumed inputs, completion tick, rally point, and current assignment. Buildings expose typed production queues rather than generic periodic spawners. After completion, the faction decision system scores legal assignments using threat, hatred, relationships, opportunity, loot, goal progress, supply, travel risk, defense need, and role fitness. Authored content may add score terms or objectives; it may not bypass production and dispatch.
+
+The five heroes are authoritative world actors, not a global command cursor. Player commands are legal only when the selected hero's position, knowledge, equipment, relationship, and earned command scope permit them. Camera visibility is presentation convenience, not automatic simulation knowledge. Known-state projections distinguish directly observed, companion-reported, allied-shared, inferred, rumored, stale, and unknown information.
+
 Faction elimination is a durable simulation transition. A faction becomes eliminated only when its authored recovery conditions are exhausted. It does not respawn to satisfy authored content. Structures, resources, routes, and territory remain on the board and are claimed, contested, dismantled, corrupted, abandoned, or reclaimed through the same ordinary simulation. Quests must resolve against current faction state with validated successor, recovery, or closure branches.
 
 Cthulhu implements the same decision interface but not necessarily the same economy or objective. Its action candidates may exchange ritual control, dreams, corruption, sacrifices, or network state to advance the Day-100 plan. Conventional losses can therefore be positive utility without becoming random behavior.
 
 Encounter assembly queries live faction capability for every participant. Enemy defenders, raiders, allied reinforcements, and neutral interventions are bounded by actual production, upgrades, roster availability, supply reach, readiness, relationships, and local board position. Player level is not the source of faction strength. Authored escalation can advantage Cthulhu only by applying a declared transaction to real simulation state with prerequisites, event output, and visible consequences.
+
+## Network, terrain, and weather ownership
+
+The island topology is an arbitrary typed graph with branching and loops, not three fixed lanes. Nodes and tethers own stable geographic identity; active tether state owns reachability, capacity, direction, traversal cost, supply use, and knowledge visibility. Tower-defense concepts apply to local pressure and defense only. Rust evaluates AI and hero movement against the same graph, with separate knowledge filters.
+
+Terrain influence is a layered simulation field keyed by board cell or node. Sources emit typed influence; deterministic compatibility, opposition, spread, and persistence rules derive effective ground state. Godot projects that state through material overlays, props, ambience, and accessibility-readable labels. A visual shader cannot independently decide that a cell is rotten, fortified, hidden, restored, or necromantic.
+
+Weather fronts are simulation entities with stable IDs, affected nodes, intensity, duration, movement rule, magic family, faction modifiers, terrain interactions, and causal provenance. World day, heat, Cthulhu plan state, ritual sites, terrain influence, and bounded seeded variation select and move fronts. Weather modifiers enter ordinary economy, movement, supply, influence, encounter, and spell calculations through one effect-resolution path.
 
 ## Stable identifiers
 

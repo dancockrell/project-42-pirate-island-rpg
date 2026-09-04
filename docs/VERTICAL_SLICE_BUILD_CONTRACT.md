@@ -6,9 +6,11 @@ This contract implements the first slice in [GAME_BUILD_PLAN.md](GAME_BUILD_PLAN
 
 On one fixed-view isometric board, the player can witness the legible in-world consequences of factions acting autonomously, support a companion-led investigation, and see that choice change the same simulated island. RTS internals remain behind the scenes. The proof is deterministic, recoverable, and animation-free.
 
+The player experience must read as an RTS with five embodied characters inside it: the board is broad and systemic, while every direct player action has a hero source, world position, knowledge basis, and legitimate scope of authority.
+
 ## Required content
 
-- Two connected regions with visible nodes and at least three typed tethers.
+- Two connected regions whose visible network contains a loop, a chokepoint, an alternate route, and at least five typed tethers. It must not form three fixed lanes.
 - Michael, one fully authored female investigator, and three selectable rig-ready heroine stand-ins.
 - Three ordinary factions with resource flow, build and production queues, supply, territory, units, and independent bilateral relationships.
 - One hidden Cthulhu faction whose utility and unconventional build cycle advance its Day-100 plan.
@@ -17,6 +19,8 @@ On one fixed-view isometric board, the player can witness the legible in-world c
 - One encounter whose hostile and allied contributions both derive from current faction capacity rather than player level.
 - One companion lead with two defensible interpretations and two support choices.
 - One early wrongness effect with prerequisites, advance tell, consequence, aftermath clue, and accessibility substitute.
+- One faction terrain influence that spreads across eligible adjacency and mechanically changes ground state.
+- Two magical weather fronts with different faction affinities, including one early Cthulhu-aligned or necromantic front.
 
 ## Demonstrable flow
 
@@ -32,6 +36,7 @@ On one fixed-view isometric board, the player can witness the legible in-world c
 ## Exit gates
 
 - The board remains the sole spatial truth; no route screen duplicates it.
+- The island graph permits branching, loops, cutoffs, and state-dependent alternate routes; tower-defense pressure is local behavior, not global topology.
 - Ordinary RTS mechanics use established patterns rather than a bespoke narrative substitute.
 - Utility traces reproduce for the same seed and separate personality weights from bounded wobble.
 - Faction relationships exist independently of player reputation.
@@ -41,7 +46,11 @@ On one fixed-view isometric board, the player can witness the legible in-world c
 - Cthulhu may rationally lose conventional board value while advancing hidden plan state.
 - Cthulhu's authored advantage event has prerequisites, changes real faction state, and exposes a diegetic consequence; it does not spawn an unexplained force.
 - Hostile and friendly encounter forces change when their source factions' buildings, upgrades, supply, losses, or local positions change.
+- Terrain conversion changes at least traversal, supply, encounter composition, and visible ground treatment from one authoritative influence state.
+- Weather movement and effects reproduce for the same state and seed; changed magical or faction influence can change the next front.
+- Every weather faction bonus or penalty is inspectable in debug traces and perceptible in-world without exposing hidden numeric state.
 - The player never sees raw stockpiles, queues, utility traces, hidden objectives, or an exact heat value unless that information has been learned in-world.
+- Every player command identifies the acting hero and passes position, knowledge, equipment, relationship, and authority checks; the camera does not grant omniscience.
 - Structure footprints, spawn points, tether sockets, influence hooks, and selection bounds validate.
 - Rebuilding the same unchanged site reproduces its layout and loot seed; changing faction, archetype, or level produces a distinct content profile.
 - The companion, not Michael, authors the lead and interpretations.

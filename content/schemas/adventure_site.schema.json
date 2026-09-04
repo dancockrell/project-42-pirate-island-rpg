@@ -3,7 +3,7 @@
   "$id": "schema.project42.adventure_site",
   "title": "Faction structure and deterministic adventure-site definition",
   "type": "object",
-  "required": ["id", "kind", "factionId", "archetypeId", "level", "footprint", "hooks", "generation", "loot", "metadata"],
+  "required": ["id", "kind", "factionId", "archetypeId", "level", "footprint", "hooks", "production", "generation", "loot", "metadata"],
   "properties": {
     "id": {"type": "string", "pattern": "^site\\.[a-z0-9_.-]+$"},
     "kind": {"const": "faction_adventure_site"},
@@ -27,6 +27,18 @@
         "tetherSocketIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
         "influenceHookIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
         "stateHookIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "production": {
+      "type": "object",
+      "required": ["queueIds", "spawnRuleIds", "rallyPointId", "allowedActorKinds", "dispatchOwner"],
+      "properties": {
+        "queueIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^production_queue\\."}},
+        "spawnRuleIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^spawn_rule\\."}},
+        "rallyPointId": {"type": "string", "pattern": "^rally\\."},
+        "allowedActorKinds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["worker", "resident", "vendor", "specialist", "soldier", "monster", "named_hero", "supernatural"]}},
+        "dispatchOwner": {"const": "faction_ai"}
       },
       "additionalProperties": false
     },

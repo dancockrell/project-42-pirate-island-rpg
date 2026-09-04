@@ -19,7 +19,8 @@
   "doctrine": {
     "goal": "Secure a supplied foothold, control defensible routes, and survive long enough to claim imperial authority over profitable territory.",
     "positionResponses": ["expand", "pursue_victory", "consolidate", "negotiate", "raid_for_resources", "escape"],
-    "wobbleMaximum": 0.1
+    "wobbleMaximum": 0.1,
+    "dispatchScoreTerms": ["goal_progress", "target_threat", "faction_hatred", "trade_opportunity", "expected_loot", "strategic_position", "supply_cost", "travel_risk", "home_defense_deficit", "role_fitness"]
   },
   "elimination": {
     "persistent": true,
