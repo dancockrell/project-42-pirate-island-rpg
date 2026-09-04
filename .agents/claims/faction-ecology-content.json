@@ -3,9 +3,9 @@
   "task_id": "faction-ecology-content",
   "agent": "codex-root",
   "summary": "Complete the five-faction ecology with production rules, bilateral diplomacy, and deterministic dispatch fixtures",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-04T07:00:00Z",
-  "updated_at": "2026-09-04T07:00:00Z",
+  "updated_at": "2026-09-04T07:50:00Z",
   "paths": [
     "docs/GAME_BUILD_PLAN.md",
     "docs/ARCHITECTURE.md",
@@ -29,5 +29,16 @@
     "conflicts_with": [],
     "notes": "Adds content records and validators only. Does not overlap the active port-town roof correction or touch the untracked native DLL."
   },
-  "completion": {"commit": null, "checks": []}
+  "completion": {
+    "commit": "dc90fae",
+    "checks": [
+      "invented faction name and legacy ID audit: passed",
+      "all content/schemas/*.schema.json parse: passed",
+      "npm run validate: passed; 181 stable IDs checked",
+      "npm run build:content twice: passed; 49 records and content hash sha256:a532958ea7cfb9e05926212f42a88d296e7f75b1ddaae4b6e345b606af12a1aa",
+      "repeat bundle file SHA-256 comparison: passed; 82D8559C79FA3041A8EB50DCAC21C2D2D0AE14F82250F60CC8730D24840B531E",
+      "git diff --check: passed",
+      "staged secret scan: passed; 1663 added lines checked"
+    ]
+  }
 }
