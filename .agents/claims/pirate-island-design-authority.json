@@ -3,9 +3,9 @@
   "task_id": "pirate-island-design-authority",
   "agent": "codex-root",
   "summary": "Replace the obsolete side-view plan with the fixed-isometric autonomous-island design authority and foundational content contracts",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-04T05:00:00Z",
-  "updated_at": "2026-09-04T05:00:00Z",
+  "updated_at": "2026-09-04T05:40:00Z",
   "paths": [
     "README.md",
     "docs/GAME_BUILD_PLAN.md",
@@ -24,7 +24,15 @@
     "notes": "Does not overlap the active port-town roof correction. Existing authored content and shared asset work are preserved; contradictory design prose is replaced or explicitly subordinated to the new authority. The untracked native DLL remains untouched."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "3cd2495",
+    "checks": [
+      "npm run validate: passed; 155 stable IDs checked",
+      "npm run build:content: passed; 23 records bundled with content hash sha256:842bfe902f76f8c308532dbaca9ed6ce6ce8f31ae62dc0712facf90bf3ba70b4",
+      "repeat npm run build:content and file SHA-256 comparison: passed; deterministic output ECA2E4B84B722CEC4912E388E096181DAD6E5879EED8A46185331C8CD653AE14",
+      "all content/schemas/*.schema.json parse as JSON: passed",
+      "git diff --check: passed",
+      "staged secret scan: passed for both commits",
+      "GitHub PR, issue and CI inventory: not_run; saved gh token invalid and API access unavailable"
+    ]
   }
 }
