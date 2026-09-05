@@ -27,9 +27,18 @@ func _init() -> void:
 	var catalog := ContentCatalog.new()
 	check(catalog.load_default() == OK, "catalog must load before campaign setup")
 	campaign_session.begin_if_needed(catalog)
-	campaign_session.travel("world.portal.black_beach_to_damaged_estate")
-	campaign_session.travel("world.portal.damaged_estate_to_river_landing")
-	campaign_session.travel("world.portal.river_landing_to_reception_terrace_safe_road")
+	# Roads cost rations and the party lands with none (A3, reaching the engine
+	# under C13), so the campaign opens the way the Rust slice does: salvage the
+	# wreck, then climb. Each leg is checked rather than fire-and-forget, so a
+	# refused road fails here by name instead of as a missing encounter later.
+	var salvage: Dictionary = campaign_session.use_anchor("anchor.black_beach.salvage_point")
+	check(bool(salvage.get("configured", false)), "the wreck must be salvageable through the campaign session")
+	var estate: Dictionary = campaign_session.travel("world.portal.black_beach_to_damaged_estate")
+	check(estate.get("active_location_id") == "world.cell.damaged_estate", "the estate climb must arrive")
+	var river: Dictionary = campaign_session.travel("world.portal.damaged_estate_to_river_landing")
+	check(river.get("active_location_id") == "world.cell.river_landing", "the river gate must arrive")
+	var terrace: Dictionary = campaign_session.travel("world.portal.river_landing_to_reception_terrace_safe_road")
+	check(terrace.get("active_location_id") == "world.cell.reception_terrace", "the safe road must arrive, paid for with salvaged rations (refused: %s)" % str(terrace.get("error", "")))
 	check(campaign_session.has_pending_encounter(), "Terrace travel must arm the campaign encounter")
 	var port := CampaignEncounterSimulationPort.new(campaign_session)
 	check(port.is_available(), "campaign encounter adapter must accept the armed session")
