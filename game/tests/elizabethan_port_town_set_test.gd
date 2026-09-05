@@ -1,5 +1,9 @@
 extends SceneTree
 
+## quit() sets the exit code and returns; a trailing quit(0) would erase a
+## failure. Count them and decide once at the end.
+var failures := 0
+
 const REVIEW_SCENE := preload("res://scenes/review/elizabethan_port_town_set_review.tscn")
 const TOWN_SCRIPT := preload("res://scripts/world/elizabethan_port_town_set.gd")
 
@@ -34,11 +38,11 @@ func run() -> void:
 	check(town.get_node("PopulationSlots").get_child_count() >= 10, "town must communicate population roles without fake named characters")
 	check(town.get_node("GameplayAnchors").get_child_count() >= 8, "town must expose its important semantic positions")
 	review.queue_free()
-	quit(0)
+	quit(1 if failures > 0 else 0)
 
 
 func check(condition: bool, message: String) -> void:
 	if condition:
 		return
+	failures += 1
 	push_error(message)
-	quit(1)

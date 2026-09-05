@@ -47,15 +47,36 @@ export XDG_DATA_HOME="$task_profile"
 export XDG_STATE_HOME="$task_profile"
 export XDG_CACHE_HOME="$task_local"
 
+# A suite that calls quit(1) on a failed check and then reaches an
+# unconditional quit(0) exits 0: SceneTree.quit() sets the exit code and
+# returns, and the last call wins. Fifteen of the seventeen suites had that
+# shape on the day this was written, and world_cell_test.gd passed a missing
+# scene anchor straight through a green gate. So the exit code is not the
+# only verdict: any ERROR line -- push_error, a script error, a backtrace --
+# in a step's output fails that step. Legitimate runs print none; that was
+# checked against the gate logs before this rule was added.
+error_pattern='^(ERROR|SCRIPT ERROR): |GDScript backtrace'
+
 run_godot() {
     local description="$1"
     shift
     local status=0
-    "$godot_executable" --headless --path "$game_path" "$@" || status=$?
+    local step_log
+    step_log="$(mktemp "${TMPDIR:-/tmp}/project42-godot-step.XXXXXX")"
+    # 2>&1 so push_error (stderr) is judged alongside stdout; tee so the gate
+    # log the CI job archives still carries every line.
+    "$godot_executable" --headless --path "$game_path" "$@" 2>&1 | tee "$step_log" || status=${PIPESTATUS[0]}
     if [[ $status -ne 0 ]]; then
+        rm -f "$step_log"
         echo "$description failed with exit code $status" >&2
         exit "$status"
     fi
+    if grep -Eq -- "$error_pattern" "$step_log"; then
+        rm -f "$step_log"
+        echo "$description exited 0 but printed an ERROR line; a suite's exit code is not the only verdict" >&2
+        exit 1
+    fi
+    rm -f "$step_log"
 }
 
 # 1. Editor import pass: registers extensions and imports resources.

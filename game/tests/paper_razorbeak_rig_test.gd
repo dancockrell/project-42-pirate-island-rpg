@@ -1,5 +1,9 @@
 extends SceneTree
 
+## quit() sets the exit code and returns; a trailing quit(0) would erase a
+## failure. Count them and decide once at the end.
+var failures := 0
+
 const PaperRazorbeakRigScript = preload("res://scripts/battle/paper_razorbeak_rig.gd")
 
 
@@ -22,11 +26,11 @@ func run() -> void:
 	check(rig.position.is_equal_approx(home), "Razorbeak ready state must return to its stable action anchor")
 	rig.queue_free()
 	print("PaperRazorbeakRig tests passed.")
-	quit(0)
+	quit(1 if failures > 0 else 0)
 
 
 func check(condition: bool, message: String) -> void:
 	if condition:
 		return
+	failures += 1
 	push_error(message)
-	quit(1)

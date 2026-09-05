@@ -1,4 +1,8 @@
 extends SceneTree
+
+## quit() sets the exit code and returns; a trailing quit(0) would erase a
+## failure. Count them and decide once at the end.
+var failures := 0
 ## Guards the review boundary: the downloaded GLB is a real source asset but
 ## cannot silently become an animated battle actor while it has no skeleton.
 
@@ -14,11 +18,11 @@ func _init() -> void:
 	check(manifest.get("structuralInspection", {}).get("skins") == 0, "static candidate must declare no skeleton")
 	check(manifest.get("structuralInspection", {}).get("animations") == 0, "static candidate must declare no animation clips")
 	check(FileAccess.file_exists(ENGINE_CANDIDATE), "Godot review copy must exist")
-	quit(0)
+	quit(1 if failures > 0 else 0)
 
 
 func check(condition: bool, message: String) -> void:
 	if condition:
 		return
+	failures += 1
 	push_error(message)
-	quit(1)

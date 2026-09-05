@@ -1,5 +1,9 @@
 extends SceneTree
 
+## quit() sets the exit code and returns; a trailing quit(0) would erase a
+## failure. Count them and decide once at the end.
+var failures := 0
+
 const STAGE_SCENE := preload("res://scenes/battle/battle_3d_staging.tscn")
 
 
@@ -18,11 +22,11 @@ func run() -> void:
 	check(stage.actor_anchor("enemy.raptor.razorbeak.prototype") == stage.enemy_foreground_anchor, "Razorbeak must resolve to its 3D anchor")
 	check(stage.battle_camera.fov == Battle3DStaging.CAMERA_FOV_DEGREES, "battle 3D camera FOV must match the production contract")
 	stage.queue_free()
-	quit(0)
+	quit(1 if failures > 0 else 0)
 
 
 func check(condition: bool, message: String) -> void:
 	if condition:
 		return
+	failures += 1
 	push_error(message)
-	quit(1)

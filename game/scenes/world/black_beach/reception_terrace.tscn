@@ -34,6 +34,10 @@ rotation_degrees = Vector3(0, 33, 0)
 position = Vector3(15, 0, -7)
 rotation_degrees = Vector3(0, 188, 0)
 
+[node name="entry.reception_terrace.tidal_cut" type="Marker3D" parent="EntryAnchors"]
+position = Vector3(-19, 0, -3)
+rotation_degrees = Vector3(0, 62, 0)
+
 [node name="BattleEntries" type="Node3D" parent="."]
 
 [node name="battle_entry.reception_terrace.razorbeak" type="Marker3D" parent="BattleEntries"]

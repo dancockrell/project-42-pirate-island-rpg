@@ -1,5 +1,9 @@
 extends SceneTree
 
+## quit() sets the exit code and returns; a trailing quit(0) would erase a
+## failure. Count them and decide once at the end.
+var failures := 0
+
 const CELL_SCENE := preload("res://scenes/world/black_beach/reception_terrace.tscn")
 
 
@@ -23,11 +27,11 @@ func run() -> void:
 	check(cell.terrain_and_collision.get_child_count() > 0, "world-cell collision must be separate authored geometry")
 	check(cell.navigation.get_child_count() > 0, "world-cell navigation must be a separate scene")
 	cell.queue_free()
-	quit(0)
+	quit(1 if failures > 0 else 0)
 
 
 func check(condition: bool, message: String) -> void:
 	if condition:
 		return
+	failures += 1
 	push_error(message)
-	quit(1)

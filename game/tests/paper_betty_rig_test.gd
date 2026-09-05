@@ -1,5 +1,9 @@
 extends SceneTree
 
+## quit() sets the exit code and returns; a trailing quit(0) would erase a
+## failure. Count them and decide once at the end.
+var failures := 0
+
 ## Presentation-only test. It proves that the active paper actor is a rig with
 ## dependent pieces and that authored Guarded Strike poses move inside the
 ## designated canvas rather than swapping one static illustration for another.
@@ -34,11 +38,11 @@ func run() -> void:
 	check(rig.position.is_equal_approx(home), "recall must return Betty to her stable ready anchor")
 	rig.queue_free()
 	print("PaperBettyRig tests passed.")
-	quit(0)
+	quit(1 if failures > 0 else 0)
 
 
 func check(condition: bool, message: String) -> void:
 	if condition:
 		return
+	failures += 1
 	push_error(message)
-	quit(1)
