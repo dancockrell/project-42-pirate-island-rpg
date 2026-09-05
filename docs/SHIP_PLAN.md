@@ -344,11 +344,11 @@ when the pull request opens.
 **Milestone roll-up** — update these two lines whenever a row ships, so the
 top of the document is never stale:
 
-- **M0** shipped 6/13 · A1 A11 B1 H6 H7 H9 · H2 and H10 superseded by `main`'s
-  own rewrite · **remaining: A2** (in flight), C2, B2, H5, H8
-- **M1** shipped 0/12 · **M2** shipped 0/9 — E1 and E3 in flight ·
-  **M3** shipped 0/16 · **M4** not started
-- Last updated 2026-09-05 against trunk `34142a8`. If this line is older than
+- **M0** shipped 7/13 · A1 A2 A11 B1 H6 H7 H9 · H2 and H10 superseded by
+  `main`'s own rewrite · **remaining: C2, B2, H5, H8**
+- **M1** shipped 0/12 · **M2** shipped 1/9 — **E1 (CI) is live**; E3 in flight
+- **M3** shipped 0/16 · **M4** not started
+- Last updated 2026-09-05 against trunk `95bd747`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -444,7 +444,7 @@ top of the document is never stale:
 
 | ID | Task | Depends on | Status |
 |---|---|---|---|
-| E1 | GitHub Actions: Rust and content checks | — | claimed agent-E1 2026-09-04 |
+| E1 | GitHub Actions: Rust and content checks | — | shipped e0b4051 2026-09-05 |
 | E2 | Godot headless suites in CI | E1, E3 | open |
 | E3 | Shell equivalents of the two PowerShell gates | — | claimed agent-E3 2026-09-04 |
 | E4 | Desktop export presets for Windows, Linux, macOS | — | open |
