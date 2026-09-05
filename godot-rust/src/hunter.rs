@@ -168,7 +168,7 @@ mod tests {
                 3,
                 HunterKind::HumanTracker,
                 &geography,
-                "location.black_beach"
+                "world.cell.black_beach"
             )
             .is_none()
         );
@@ -178,7 +178,7 @@ mod tests {
                 9,
                 HunterKind::Revenant,
                 &geography,
-                "location.black_beach"
+                "world.cell.black_beach"
             )
             .is_none()
         );
@@ -196,17 +196,17 @@ mod tests {
                     day,
                     HunterKind::HumanTracker,
                     &geography,
-                    "location.black_beach",
+                    "world.cell.black_beach",
                 )
             })
             .expect("a seed this wide rolls a spawn eventually");
         let actual_distance = geography
-            .step_distance("location.black_beach", &hunter.current_location_id)
+            .step_distance("world.cell.black_beach", &hunter.current_location_id)
             .expect("reachable");
         let farthest_possible = geography
             .all_location_ids()
-            .filter(|id| *id != "location.black_beach")
-            .filter_map(|id| geography.step_distance("location.black_beach", id))
+            .filter(|id| *id != "world.cell.black_beach")
+            .filter_map(|id| geography.step_distance("world.cell.black_beach", id))
             .max()
             .expect("the graph has other locations");
         assert_eq!(actual_distance, farthest_possible);
@@ -220,14 +220,14 @@ mod tests {
             20,
             HunterKind::Revenant,
             &geography,
-            "location.black_beach",
+            "world.cell.black_beach",
         );
         let second = maybe_spawn_hunter(
             7,
             20,
             HunterKind::Revenant,
             &geography,
-            "location.black_beach",
+            "world.cell.black_beach",
         );
         assert_eq!(first, second);
     }
@@ -239,12 +239,12 @@ mod tests {
             id: "hunter.test".into(),
             definition_id: HunterKind::HumanTracker.definition_id().to_owned(),
             kind: HunterKind::HumanTracker,
-            current_location_id: "location.black_beach.processional_ramp".into(),
+            current_location_id: "world.cell.processional_ramp".into(),
             spawned_on_day: 4,
             level: 5,
             defeated_on_day: None,
         }];
-        let destination = "location.black_beach";
+        let destination = "world.cell.black_beach";
         let starting_distance = geography
             .step_distance(&hunters[0].current_location_id, destination)
             .unwrap();
@@ -269,13 +269,13 @@ mod tests {
             id: "hunter.test".into(),
             definition_id: HunterKind::Revenant.definition_id().to_owned(),
             kind: HunterKind::Revenant,
-            current_location_id: "location.black_beach".into(),
+            current_location_id: "world.cell.black_beach".into(),
             spawned_on_day: 10,
             level: 8,
             defeated_on_day: None,
         }];
-        advance_hunters(&mut hunters, &geography, "location.black_beach");
-        assert_eq!(hunters[0].current_location_id, "location.black_beach");
+        advance_hunters(&mut hunters, &geography, "world.cell.black_beach");
+        assert_eq!(hunters[0].current_location_id, "world.cell.black_beach");
     }
 
     #[test]
@@ -284,13 +284,13 @@ mod tests {
             id: "hunter.test".into(),
             definition_id: HunterKind::HumanTracker.definition_id().to_owned(),
             kind: HunterKind::HumanTracker,
-            current_location_id: "location.black_beach.estate".into(),
+            current_location_id: "world.cell.damaged_estate".into(),
             spawned_on_day: 4,
             level: 5,
             defeated_on_day: None,
         }];
-        assert!(hunter_at(&hunters, "location.black_beach.estate").is_some());
-        assert!(hunter_at(&hunters, "location.black_beach").is_none());
+        assert!(hunter_at(&hunters, "world.cell.damaged_estate").is_some());
+        assert!(hunter_at(&hunters, "world.cell.black_beach").is_none());
     }
 
     #[test]

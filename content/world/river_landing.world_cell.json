@@ -33,8 +33,8 @@
     {"id": "action.river_landing.choose_approach", "type": "route_choice", "choices": ["world.portal.river_landing_to_reception_terrace_safe_road", "world.portal.river_landing_to_reception_terrace_jungle_edge"], "once": false}
   ],
   "readableDescriptions": [
-    {"id": "location.river_landing.road_marker", "text": "A bronze-green marker points inland beside the broken jetty. Its old road symbol is still clear: the stone route is slower and exposed, while the jungle edge closes distance under heavy cover."},
-    {"id": "location.river_landing.waterline", "text": "The river is too deep and slow for a casual crossing. A cargo skiff has been smashed against the landing, making the estate path and the old reception road the two useful ways forward."}
+    {"id": "observation.river_landing.road_marker", "text": "A bronze-green marker points inland beside the broken jetty. Its old road symbol is still clear: the stone route is slower and exposed, while the jungle edge closes distance under heavy cover."},
+    {"id": "observation.river_landing.waterline", "text": "The river is too deep and slow for a casual crossing. A cargo skiff has been smashed against the landing, making the estate path and the old reception road the two useful ways forward."}
   ],
   "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 2, "browserPerformanceGate": "pending", "releaseLegal": false}

@@ -14,14 +14,18 @@ use serde::{Deserialize, Serialize};
 
 use crate::expedition::{ExpeditionError, require_stable_id};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ReturnPolicy {
+    #[default]
     CanRetreatToPrevious,
     NoRetreat,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum PersistencePolicy {
+    #[default]
     PersistsAcrossVisits,
     ResetsOnMidnight,
 }
@@ -103,6 +107,14 @@ pub struct CellDefinition {
     pub observation_ids: Vec<String>,
     #[serde(default)]
     pub interaction_anchor_ids: Vec<String>,
+    /// Whether leaving the way you came is legal here. Defaults to the
+    /// permissive answer, which is what an ordinary outdoor cell wants.
+    #[serde(default)]
+    pub return_policy: ReturnPolicy,
+    /// Whether what the party changed here survives the next midnight.
+    /// Ceremonial interiors reset; the coast and the estate do not.
+    #[serde(default)]
+    pub persistence_policy: PersistencePolicy,
     #[serde(default)]
     pub encounter_eligible: bool,
 }
@@ -148,386 +160,344 @@ pub struct Geography {
 }
 
 impl Geography {
-    /// Deterministic fixture for the first chapter's exact required graph:
-    /// `location.black_beach -> estate` and `-> river_landing -> reception_terrace`
-    /// (via `safe_road` or `jungle_edge`, distinct cost/risk) `-> processional_ramp`.
+    /// Deterministic fixture for the first chapter's exact required graph, on the
+    /// same IDs `content/world/*.world_cell.json` authors:
+    /// `world.cell.black_beach -> damaged_estate -> river_landing ->
+    /// reception_terrace` (by `safe_road` or `jungle_edge`, distinct cost and
+    /// risk) `-> processional_ramp`, and past the ramp D3's tomb. The estate is
+    /// the hinge inland rather than a side trip off the beach, which is the
+    /// authored map and the brief's account of how Michael gets off the sand.
+    ///
+    /// It is built through `from_authored`, the one constructor, so the fixture
+    /// and the bridge cannot disagree about what a graph is;
+    /// `fixture_matches_the_authored_world_cells` holds it equal to the content.
     pub fn black_beach_vertical_slice() -> Self {
-        let mut locations = BTreeMap::new();
-        let mut routes = BTreeMap::new();
-
-        locations.insert(
-            "location.black_beach".into(),
-            LocationRecord {
-                id: "location.black_beach".into(),
-                region_id: "world.region.black_beach".into(),
-                display_name: "Black Beach".into(),
-                exits: vec![
-                    "route.black_beach.to_estate".into(),
-                    "route.black_beach.to_river_landing".into(),
-                ],
-                observation_ids: vec!["observation.black_beach.wreck_of_handsome_jack".into()],
-                interaction_anchor_ids: vec!["anchor.black_beach.salvage_point".into()],
-                return_policy: ReturnPolicy::CanRetreatToPrevious,
-                persistence_policy: PersistencePolicy::PersistsAcrossVisits,
-                encounter_eligible: false,
-            },
-        );
-        locations.insert(
-            "location.black_beach.estate".into(),
-            LocationRecord {
-                id: "location.black_beach.estate".into(),
-                region_id: "world.region.black_beach".into(),
-                display_name: "Damaged Coastal Estate".into(),
-                exits: vec!["route.estate.to_black_beach".into()],
-                observation_ids: vec!["observation.estate.storm_damage".into()],
-                interaction_anchor_ids: vec![
-                    "anchor.estate.workshop".into(),
-                    "anchor.estate.infirmary".into(),
-                    "anchor.estate.map_table".into(),
-                    "anchor.estate.household_room".into(),
-                ],
-                return_policy: ReturnPolicy::CanRetreatToPrevious,
-                persistence_policy: PersistencePolicy::PersistsAcrossVisits,
-                encounter_eligible: false,
-            },
-        );
-        locations.insert(
-            "location.black_beach.river_landing".into(),
-            LocationRecord {
-                id: "location.black_beach.river_landing".into(),
-                region_id: "world.region.black_beach".into(),
-                display_name: "River Landing".into(),
-                exits: vec![
-                    "route.river_landing.safe_road".into(),
-                    "route.river_landing.jungle_edge".into(),
-                    "route.river_landing.to_black_beach".into(),
-                ],
-                observation_ids: vec!["observation.river_landing.elven_waymark".into()],
-                interaction_anchor_ids: vec!["anchor.river_landing.crossing_point".into()],
-                return_policy: ReturnPolicy::CanRetreatToPrevious,
-                persistence_policy: PersistencePolicy::PersistsAcrossVisits,
-                encounter_eligible: false,
-            },
-        );
-        locations.insert(
-            "location.black_beach.reception_terrace".into(),
-            LocationRecord {
-                id: "location.black_beach.reception_terrace".into(),
-                region_id: "world.region.black_beach".into(),
-                display_name: "Reception Terrace".into(),
-                exits: vec![
-                    "route.reception_terrace.to_river_landing".into(),
-                    "route.reception_terrace.to_processional_ramp".into(),
-                ],
-                observation_ids: vec!["observation.reception_terrace.razorbeak_sign".into()],
-                interaction_anchor_ids: vec!["anchor.reception_terrace.loot_point".into()],
-                return_policy: ReturnPolicy::CanRetreatToPrevious,
-                persistence_policy: PersistencePolicy::PersistsAcrossVisits,
-                encounter_eligible: true,
-            },
-        );
-        locations.insert(
-            "location.black_beach.processional_ramp".into(),
-            LocationRecord {
-                id: "location.black_beach.processional_ramp".into(),
-                region_id: "world.region.black_beach".into(),
-                display_name: "Processional Ramp".into(),
-                exits: vec![
-                    "route.processional_ramp.to_reception_terrace".into(),
-                    "route.processional_ramp.to_tomb_threshold".into(),
-                ],
-                observation_ids: vec!["observation.processional_ramp.collapsed_arch".into()],
-                interaction_anchor_ids: vec![],
-                return_policy: ReturnPolicy::CanRetreatToPrevious,
-                persistence_policy: PersistencePolicy::ResetsOnMidnight,
-                encounter_eligible: false,
-            },
-        );
-        // D3: the Tomb of Returning Names, past the ceremonial approach the
-        // Processional Ramp already establishes. Elven public-purpose plan:
-        // threshold -> reception/truth space -> (gated) archive core, with an
-        // ungated service passage as the recoverable failure branch.
-        locations.insert(
-            "location.tomb.returning_names.threshold".into(),
-            LocationRecord {
-                id: "location.tomb.returning_names.threshold".into(),
-                region_id: "world.region.black_beach".into(),
-                display_name: "Threshold of Returning Names".into(),
-                exits: vec![
-                    "route.tomb_threshold.to_processional_ramp".into(),
-                    "route.tomb_threshold.to_reception".into(),
-                ],
-                observation_ids: vec!["observation.tomb_threshold.sealed_names".into()],
-                interaction_anchor_ids: vec![],
-                return_policy: ReturnPolicy::CanRetreatToPrevious,
-                persistence_policy: PersistencePolicy::ResetsOnMidnight,
-                encounter_eligible: false,
-            },
-        );
-        locations.insert(
-            "location.tomb.returning_names.reception".into(),
-            LocationRecord {
-                id: "location.tomb.returning_names.reception".into(),
-                region_id: "world.region.black_beach".into(),
-                display_name: "Reception of Returning Names".into(),
-                exits: vec![
-                    "route.tomb_reception.to_threshold".into(),
-                    "route.tomb_reception.to_archive_core".into(),
-                    "route.tomb_reception.to_service_passage".into(),
-                ],
-                observation_ids: vec!["observation.tomb_reception.true_name".into()],
-                interaction_anchor_ids: vec![],
-                return_policy: ReturnPolicy::CanRetreatToPrevious,
-                persistence_policy: PersistencePolicy::ResetsOnMidnight,
-                encounter_eligible: false,
-            },
-        );
-        locations.insert(
-            "location.tomb.returning_names.archive_core".into(),
-            LocationRecord {
-                id: "location.tomb.returning_names.archive_core".into(),
-                region_id: "world.region.black_beach".into(),
-                display_name: "Archive Core of Returning Names".into(),
-                exits: vec!["route.tomb_archive_core.to_reception".into()],
-                observation_ids: vec!["observation.tomb_archive_core.the_returning_names".into()],
-                interaction_anchor_ids: vec!["anchor.tomb_archive_core.name_ledger".into()],
-                return_policy: ReturnPolicy::CanRetreatToPrevious,
-                persistence_policy: PersistencePolicy::ResetsOnMidnight,
-                encounter_eligible: false,
-            },
-        );
-        locations.insert(
-            "location.tomb.returning_names.service_passage".into(),
-            LocationRecord {
-                id: "location.tomb.returning_names.service_passage".into(),
-                region_id: "world.region.black_beach".into(),
-                display_name: "Service Passage of Returning Names".into(),
-                exits: vec![
-                    "route.tomb_service_passage.to_reception".into(),
-                    "route.tomb_service_passage.to_threshold".into(),
-                ],
-                observation_ids: vec![
-                    "observation.tomb_service_passage.disturbed_grave_goods".into(),
-                ],
-                interaction_anchor_ids: vec![],
-                return_policy: ReturnPolicy::CanRetreatToPrevious,
-                persistence_policy: PersistencePolicy::ResetsOnMidnight,
-                encounter_eligible: true,
-            },
-        );
-
-        let route =
-            |id: &str, from: &str, to: &str, kind: RouteKind, time: u32, supply: u32, risk: u8| {
-                (
-                    id.to_owned(),
-                    RouteOption {
-                        id: id.into(),
-                        from_location_id: from.into(),
-                        to_location_id: to.into(),
-                        kind,
-                        time_cost_minutes: time,
-                        supply_cost: supply,
-                        risk_level: risk,
-                        required_discovery_id: None,
-                    },
-                )
-            };
-        let gated_route = |id: &str,
-                           from: &str,
-                           to: &str,
-                           kind: RouteKind,
-                           time: u32,
-                           supply: u32,
-                           risk: u8,
-                           required_discovery_id: &str| {
-            (
-                id.to_owned(),
-                RouteOption {
-                    id: id.into(),
-                    from_location_id: from.into(),
-                    to_location_id: to.into(),
-                    kind,
-                    time_cost_minutes: time,
-                    supply_cost: supply,
-                    risk_level: risk,
-                    required_discovery_id: Some(required_discovery_id.into()),
-                },
-            )
+        // `encounter_eligible` follows each authored cell's `battleEntries[].status`,
+        // not merely whether `battleEntries` is non-empty. Four of the five cells
+        // declare a `future_spawn_socket` -- a reserved place for an encounter that
+        // does not exist yet -- and only `world.cell.reception_terrace` declares a
+        // live `vertical_slice_encounter`. Keying on presence would put a fight on
+        // the whole coast today. The sockets become eligible when their entries do.
+        let cell = |id: &str,
+                    display_name: &str,
+                    observation_ids: &[&str],
+                    interaction_anchor_ids: &[&str],
+                    persistence_policy: PersistencePolicy,
+                    encounter_eligible: bool| CellDefinition {
+            id: id.into(),
+            region_id: "world.region.black_beach".into(),
+            display_name: display_name.into(),
+            observation_ids: observation_ids.iter().map(|id| (*id).to_owned()).collect(),
+            interaction_anchor_ids: interaction_anchor_ids
+                .iter()
+                .map(|id| (*id).to_owned())
+                .collect(),
+            return_policy: ReturnPolicy::CanRetreatToPrevious,
+            persistence_policy,
+            encounter_eligible,
         };
+        let cells = vec![
+            cell(
+                "world.cell.black_beach",
+                "Black Beach",
+                &[
+                    "observation.black_beach.wreck",
+                    "observation.black_beach.boiler",
+                ],
+                &[
+                    "interact.black_beach.boiler_wreck",
+                    "interact.black_beach.estate_climb",
+                ],
+                PersistencePolicy::PersistsAcrossVisits,
+                false,
+            ),
+            cell(
+                "world.cell.damaged_estate",
+                "Damaged Coastal Estate",
+                &[
+                    "observation.damaged_estate.veranda",
+                    "observation.damaged_estate.river_gate",
+                ],
+                &[
+                    "interact.damaged_estate.infirmary_table",
+                    "interact.damaged_estate.river_gate",
+                ],
+                PersistencePolicy::PersistsAcrossVisits,
+                false,
+            ),
+            cell(
+                "world.cell.river_landing",
+                "River Landing",
+                &[
+                    "observation.river_landing.road_marker",
+                    "observation.river_landing.waterline",
+                ],
+                &[
+                    "interact.river_landing.road_marker",
+                    "interact.river_landing.route_choice",
+                ],
+                PersistencePolicy::PersistsAcrossVisits,
+                false,
+            ),
+            cell(
+                "world.cell.reception_terrace",
+                "Reception Terrace",
+                &[
+                    "observation.reception_terrace.arrival",
+                    "observation.reception_terrace.battle_lane",
+                ],
+                &[
+                    "interact.reception_terrace.claw_marks",
+                    "interact.reception_terrace.processional_ramp",
+                ],
+                PersistencePolicy::PersistsAcrossVisits,
+                true,
+            ),
+            cell(
+                "world.cell.processional_ramp",
+                "Processional Ramp",
+                &[
+                    "observation.processional_ramp.plaque",
+                    "observation.processional_ramp.threshold",
+                ],
+                &[
+                    "interact.processional_ramp.name_plaque",
+                    "interact.processional_ramp.tomb_threshold",
+                ],
+                PersistencePolicy::ResetsOnMidnight,
+                false,
+            ),
+            // D3: the Tomb of Returning Names, past the ceremonial approach the
+            // Processional Ramp already establishes. Elven public-purpose plan:
+            // threshold -> reception/truth space -> (gated) archive core, with an
+            // ungated service passage as the recoverable failure branch. These four
+            // cells are fixture-only until B6 authors them under `content/world/`,
+            // which is why `fixture_matches_the_authored_world_cells` skips them.
+            cell(
+                "world.cell.tomb_threshold",
+                "Threshold of Returning Names",
+                &["observation.tomb_threshold.sealed_names"],
+                &[],
+                PersistencePolicy::ResetsOnMidnight,
+                false,
+            ),
+            cell(
+                "world.cell.tomb_reception",
+                "Reception of Returning Names",
+                &["observation.tomb_reception.true_name"],
+                &[],
+                PersistencePolicy::ResetsOnMidnight,
+                false,
+            ),
+            cell(
+                "world.cell.tomb_archive_core",
+                "Archive Core of Returning Names",
+                &["observation.tomb_archive_core.the_returning_names"],
+                &["interact.tomb_archive_core.name_ledger"],
+                PersistencePolicy::ResetsOnMidnight,
+                false,
+            ),
+            cell(
+                "world.cell.tomb_service_passage",
+                "Service Passage of Returning Names",
+                &["observation.tomb_service_passage.disturbed_grave_goods"],
+                &[],
+                PersistencePolicy::ResetsOnMidnight,
+                true,
+            ),
+        ];
 
-        for (id, option) in [
-            route(
-                "route.black_beach.to_estate",
-                "location.black_beach",
-                "location.black_beach.estate",
-                RouteKind::Direct,
+        let portal = |id: &str,
+                      from: &str,
+                      to: &str,
+                      travel_mode: &str,
+                      time_cost_minutes: u32,
+                      supply_cost: u32,
+                      risk_level: u8| PortalDefinition {
+            id: id.into(),
+            from_location_id: from.into(),
+            target_location_id: to.into(),
+            travel_mode: travel_mode.into(),
+            time_cost_minutes,
+            supply_cost,
+            risk_level,
+            required_discovery_id: None,
+        };
+        let portals = vec![
+            portal(
+                "world.portal.black_beach_to_damaged_estate",
+                "world.cell.black_beach",
+                "world.cell.damaged_estate",
+                "on_foot",
                 15,
                 0,
                 0,
             ),
-            route(
-                "route.estate.to_black_beach",
-                "location.black_beach.estate",
-                "location.black_beach",
-                RouteKind::Direct,
+            portal(
+                "world.portal.damaged_estate_to_black_beach",
+                "world.cell.damaged_estate",
+                "world.cell.black_beach",
+                "on_foot",
                 15,
                 0,
                 0,
             ),
-            route(
-                "route.black_beach.to_river_landing",
-                "location.black_beach",
-                "location.black_beach.river_landing",
-                RouteKind::Direct,
+            portal(
+                "world.portal.damaged_estate_to_river_landing",
+                "world.cell.damaged_estate",
+                "world.cell.river_landing",
+                "on_foot",
                 30,
                 0,
                 1,
             ),
-            route(
-                "route.river_landing.to_black_beach",
-                "location.black_beach.river_landing",
-                "location.black_beach",
-                RouteKind::Direct,
+            portal(
+                "world.portal.river_landing_to_damaged_estate",
+                "world.cell.river_landing",
+                "world.cell.damaged_estate",
+                "on_foot",
                 30,
                 0,
                 1,
             ),
-            route(
-                "route.river_landing.safe_road",
-                "location.black_beach.river_landing",
-                "location.black_beach.reception_terrace",
-                RouteKind::SafeRoad,
+            // The two river options stay genuinely different, per B1: the road is
+            // slower and cheap, the jungle edge is quick, hungry and dangerous.
+            portal(
+                "world.portal.river_landing_to_reception_terrace_safe_road",
+                "world.cell.river_landing",
+                "world.cell.reception_terrace",
+                "safe_road",
                 60,
                 2,
                 1,
             ),
-            route(
-                "route.river_landing.jungle_edge",
-                "location.black_beach.river_landing",
-                "location.black_beach.reception_terrace",
-                RouteKind::JungleEdge,
+            portal(
+                "world.portal.river_landing_to_reception_terrace_jungle_edge",
+                "world.cell.river_landing",
+                "world.cell.reception_terrace",
+                "jungle_edge",
                 35,
                 4,
                 3,
             ),
-            route(
-                "route.reception_terrace.to_river_landing",
-                "location.black_beach.reception_terrace",
-                "location.black_beach.river_landing",
-                RouteKind::Direct,
+            portal(
+                "world.portal.reception_terrace_to_river_landing",
+                "world.cell.reception_terrace",
+                "world.cell.river_landing",
+                "on_foot",
                 45,
                 1,
                 2,
             ),
-            route(
-                "route.reception_terrace.to_processional_ramp",
-                "location.black_beach.reception_terrace",
-                "location.black_beach.processional_ramp",
-                RouteKind::Direct,
+            portal(
+                "world.portal.reception_terrace_to_processional_ramp",
+                "world.cell.reception_terrace",
+                "world.cell.processional_ramp",
+                "on_foot",
                 10,
                 0,
                 2,
             ),
-            route(
-                "route.processional_ramp.to_reception_terrace",
-                "location.black_beach.processional_ramp",
-                "location.black_beach.reception_terrace",
-                RouteKind::Direct,
+            portal(
+                "world.portal.processional_ramp_to_reception_terrace",
+                "world.cell.processional_ramp",
+                "world.cell.reception_terrace",
+                "on_foot",
                 10,
                 0,
                 2,
             ),
-            route(
-                "route.processional_ramp.to_tomb_threshold",
-                "location.black_beach.processional_ramp",
-                "location.tomb.returning_names.threshold",
-                RouteKind::Direct,
+            portal(
+                "world.portal.processional_ramp_to_tomb_threshold",
+                "world.cell.processional_ramp",
+                "world.cell.tomb_threshold",
+                "on_foot",
                 10,
                 0,
                 2,
             ),
-            route(
-                "route.tomb_threshold.to_processional_ramp",
-                "location.tomb.returning_names.threshold",
-                "location.black_beach.processional_ramp",
-                RouteKind::Direct,
+            portal(
+                "world.portal.tomb_threshold_to_processional_ramp",
+                "world.cell.tomb_threshold",
+                "world.cell.processional_ramp",
+                "on_foot",
                 10,
                 0,
                 2,
             ),
-            route(
-                "route.tomb_threshold.to_reception",
-                "location.tomb.returning_names.threshold",
-                "location.tomb.returning_names.reception",
-                RouteKind::Direct,
+            portal(
+                "world.portal.tomb_threshold_to_tomb_reception",
+                "world.cell.tomb_threshold",
+                "world.cell.tomb_reception",
+                "on_foot",
                 10,
                 0,
                 2,
             ),
-            route(
-                "route.tomb_reception.to_threshold",
-                "location.tomb.returning_names.reception",
-                "location.tomb.returning_names.threshold",
-                RouteKind::Direct,
+            portal(
+                "world.portal.tomb_reception_to_tomb_threshold",
+                "world.cell.tomb_reception",
+                "world.cell.tomb_threshold",
+                "on_foot",
                 10,
                 0,
                 2,
             ),
-            gated_route(
-                "route.tomb_reception.to_archive_core",
-                "location.tomb.returning_names.reception",
-                "location.tomb.returning_names.archive_core",
-                RouteKind::Direct,
+            // D3's gate: the archive core stays shut until the reception's true
+            // name has actually been observed. The service passage below is the
+            // ungated wrong turn that makes failing here recoverable.
+            PortalDefinition {
+                required_discovery_id: Some("observation.tomb_reception.true_name".into()),
+                ..portal(
+                    "world.portal.tomb_reception_to_tomb_archive_core",
+                    "world.cell.tomb_reception",
+                    "world.cell.tomb_archive_core",
+                    "on_foot",
+                    10,
+                    0,
+                    2,
+                )
+            },
+            portal(
+                "world.portal.tomb_archive_core_to_tomb_reception",
+                "world.cell.tomb_archive_core",
+                "world.cell.tomb_reception",
+                "on_foot",
                 10,
                 0,
                 2,
-                "observation.tomb_reception.true_name",
             ),
-            route(
-                "route.tomb_archive_core.to_reception",
-                "location.tomb.returning_names.archive_core",
-                "location.tomb.returning_names.reception",
-                RouteKind::Direct,
-                10,
-                0,
-                2,
-            ),
-            route(
-                "route.tomb_reception.to_service_passage",
-                "location.tomb.returning_names.reception",
-                "location.tomb.returning_names.service_passage",
-                RouteKind::Direct,
+            portal(
+                "world.portal.tomb_reception_to_tomb_service_passage",
+                "world.cell.tomb_reception",
+                "world.cell.tomb_service_passage",
+                "on_foot",
                 10,
                 0,
                 3,
             ),
-            route(
-                "route.tomb_service_passage.to_reception",
-                "location.tomb.returning_names.service_passage",
-                "location.tomb.returning_names.reception",
-                RouteKind::Direct,
+            portal(
+                "world.portal.tomb_service_passage_to_tomb_reception",
+                "world.cell.tomb_service_passage",
+                "world.cell.tomb_reception",
+                "on_foot",
                 10,
                 0,
                 3,
             ),
-            route(
-                "route.tomb_service_passage.to_threshold",
-                "location.tomb.returning_names.service_passage",
-                "location.tomb.returning_names.threshold",
-                RouteKind::Direct,
+            portal(
+                "world.portal.tomb_service_passage_to_tomb_threshold",
+                "world.cell.tomb_service_passage",
+                "world.cell.tomb_threshold",
+                "on_foot",
                 15,
                 0,
                 2,
             ),
-        ] {
-            routes.insert(id, option);
-        }
+        ];
 
-        Self {
-            locations,
-            routes,
-            encounter_triggers: BTreeMap::new(),
-        }
+        Self::from_authored(cells, portals, Vec::new())
+            .expect("the fixture's own IDs and portals are well formed")
     }
 
     /// Builds the graph from authored data instead of the Rust fixture -- the
@@ -553,8 +523,8 @@ impl Geography {
                     exits: Vec::new(),
                     observation_ids: cell.observation_ids,
                     interaction_anchor_ids: cell.interaction_anchor_ids,
-                    return_policy: ReturnPolicy::CanRetreatToPrevious,
-                    persistence_policy: PersistencePolicy::PersistsAcrossVisits,
+                    return_policy: cell.return_policy,
+                    persistence_policy: cell.persistence_policy,
                     encounter_eligible: cell.encounter_eligible,
                 },
             );
@@ -723,24 +693,21 @@ mod tests {
     fn next_step_toward_a_neighbor_is_the_direct_route() {
         let geography = Geography::black_beach_vertical_slice();
         let step = geography
-            .next_step_toward("location.black_beach", "location.black_beach.estate")
+            .next_step_toward("world.cell.black_beach", "world.cell.damaged_estate")
             .expect("adjacent locations connect");
-        assert_eq!(step.id, "route.black_beach.to_estate");
+        assert_eq!(step.id, "world.portal.black_beach_to_damaged_estate");
     }
 
     #[test]
     fn next_step_toward_a_distant_location_is_the_first_hop_of_a_shortest_path() {
         let geography = Geography::black_beach_vertical_slice();
         let step = geography
-            .next_step_toward(
-                "location.black_beach",
-                "location.black_beach.reception_terrace",
-            )
+            .next_step_toward("world.cell.black_beach", "world.cell.reception_terrace")
             .expect("the terrace is reachable");
-        // The first hop out of Black Beach toward the terrace is the river landing
-        // leg; either river route from there is a legal second hop, but this call
-        // only answers for the first one.
-        assert_eq!(step.to_location_id, "location.black_beach.river_landing");
+        // The authored map puts the estate between the beach and everything
+        // inland, so the first hop off the sand is always the climb to the
+        // estate; the river fork is a later decision, not this one.
+        assert_eq!(step.to_location_id, "world.cell.damaged_estate");
     }
 
     #[test]
@@ -748,7 +715,7 @@ mod tests {
         let geography = Geography::black_beach_vertical_slice();
         assert!(
             geography
-                .next_step_toward("location.black_beach", "location.black_beach")
+                .next_step_toward("world.cell.black_beach", "world.cell.black_beach")
                 .is_none()
         );
     }
@@ -758,7 +725,7 @@ mod tests {
         let geography = Geography::black_beach_vertical_slice();
         assert!(
             geography
-                .next_step_toward("location.black_beach", "location.nowhere")
+                .next_step_toward("world.cell.black_beach", "world.cell.nowhere")
                 .is_none()
         );
     }
@@ -767,29 +734,27 @@ mod tests {
     fn step_distance_matches_the_actual_shortest_path_length() {
         let geography = Geography::black_beach_vertical_slice();
         assert_eq!(
-            geography.step_distance("location.black_beach", "location.black_beach"),
+            geography.step_distance("world.cell.black_beach", "world.cell.black_beach"),
             Some(0)
         );
         assert_eq!(
-            geography.step_distance("location.black_beach", "location.black_beach.estate"),
+            geography.step_distance("world.cell.black_beach", "world.cell.damaged_estate"),
             Some(1)
         );
         assert_eq!(
-            geography.step_distance(
-                "location.black_beach",
-                "location.black_beach.reception_terrace"
-            ),
+            geography.step_distance("world.cell.black_beach", "world.cell.river_landing"),
             Some(2)
         );
         assert_eq!(
-            geography.step_distance(
-                "location.black_beach",
-                "location.black_beach.processional_ramp"
-            ),
+            geography.step_distance("world.cell.black_beach", "world.cell.reception_terrace"),
             Some(3)
         );
         assert_eq!(
-            geography.step_distance("location.black_beach", "location.nowhere"),
+            geography.step_distance("world.cell.black_beach", "world.cell.processional_ramp"),
+            Some(4)
+        );
+        assert_eq!(
+            geography.step_distance("world.cell.black_beach", "world.cell.nowhere"),
             None
         );
     }
@@ -797,8 +762,8 @@ mod tests {
     #[test]
     fn following_next_step_toward_repeatedly_actually_arrives() {
         let geography = Geography::black_beach_vertical_slice();
-        let destination = "location.black_beach.processional_ramp";
-        let mut current = "location.black_beach".to_owned();
+        let destination = "world.cell.processional_ramp";
+        let mut current = "world.cell.black_beach".to_owned();
         let mut hops = 0;
         while current != destination {
             let step = geography
@@ -811,7 +776,7 @@ mod tests {
         assert_eq!(
             hops,
             geography
-                .step_distance("location.black_beach", destination)
+                .step_distance("world.cell.black_beach", destination)
                 .unwrap()
         );
     }
@@ -820,11 +785,21 @@ mod tests {
     fn the_tomb_archive_core_route_is_gated_on_the_true_name_discovery() {
         let geography = Geography::black_beach_vertical_slice();
         let gated = geography
-            .route("route.tomb_reception.to_archive_core")
+            .route("world.portal.tomb_reception_to_tomb_archive_core")
             .expect("the gated route exists");
         assert_eq!(
             gated.required_discovery_id.as_deref(),
             Some("observation.tomb_reception.true_name")
+        );
+        // The gate names an observation the reception actually declares; a gate
+        // on a string nothing publishes is a silently unreachable room.
+        assert!(
+            geography
+                .location("world.cell.tomb_reception")
+                .expect("the reception exists")
+                .observation_ids
+                .iter()
+                .any(|id| id == "observation.tomb_reception.true_name")
         );
     }
 
@@ -832,11 +807,11 @@ mod tests {
     fn the_service_passage_offers_a_clear_return_path_without_the_discovery() {
         let geography = Geography::black_beach_vertical_slice();
         let ungated = geography
-            .route("route.tomb_reception.to_service_passage")
+            .route("world.portal.tomb_reception_to_tomb_service_passage")
             .expect("the service passage route exists");
         assert!(ungated.required_discovery_id.is_none());
         let return_route = geography
-            .route("route.tomb_service_passage.to_threshold")
+            .route("world.portal.tomb_service_passage_to_tomb_threshold")
             .expect("the service passage returns toward the threshold");
         assert!(return_route.required_discovery_id.is_none());
     }
@@ -845,11 +820,95 @@ mod tests {
     fn the_tomb_interior_is_reachable_past_the_processional_ramp() {
         let geography = Geography::black_beach_vertical_slice();
         assert_eq!(
-            geography.step_distance(
-                "location.black_beach",
-                "location.tomb.returning_names.archive_core"
-            ),
-            Some(6)
+            geography.step_distance("world.cell.black_beach", "world.cell.tomb_archive_core"),
+            Some(7)
         );
+    }
+
+    /// A2's anti-drift assertion, and the reason this task existed: the fixture
+    /// and `content/world/*.world_cell.json` used to name the same five places
+    /// with two different ID sets, so they drifted. `content/world/` is the map
+    /// the frontend actually draws, so it is canonical, and this test fails the
+    /// moment a cell or a portal exists on one side and not the other.
+    #[test]
+    fn fixture_matches_the_authored_world_cells() {
+        use std::collections::BTreeSet;
+
+        let world_directory = concat!(env!("CARGO_MANIFEST_DIR"), "/../content/world/");
+        let mut authored_cell_ids: BTreeSet<String> = BTreeSet::new();
+        let mut authored_portals: Vec<(String, String, String, RouteKind)> = Vec::new();
+        for entry in std::fs::read_dir(world_directory).expect("content/world/ is readable") {
+            let path = entry.expect("a readable directory entry").path();
+            if !path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.ends_with(".world_cell.json"))
+            {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).expect("the cell file is readable");
+            let cell: serde_json::Value =
+                serde_json::from_str(&text).expect("the cell file is JSON");
+            let cell_id = cell["id"]
+                .as_str()
+                .expect("an authored cell declares a string id")
+                .to_owned();
+            for portal in cell["portals"].as_array().into_iter().flatten() {
+                authored_portals.push((
+                    portal["id"]
+                        .as_str()
+                        .expect("an authored portal declares a string id")
+                        .to_owned(),
+                    cell_id.clone(),
+                    portal["targetCellId"]
+                        .as_str()
+                        .expect("an authored portal declares a targetCellId")
+                        .to_owned(),
+                    RouteKind::from_travel_mode(
+                        portal["travelMode"]
+                            .as_str()
+                            .expect("an authored portal declares a travelMode"),
+                    ),
+                ));
+            }
+            authored_cell_ids.insert(cell_id);
+        }
+        assert!(
+            !authored_cell_ids.is_empty(),
+            "content/world/ must contain authored world cells for this test to mean anything"
+        );
+
+        let geography = Geography::black_beach_vertical_slice();
+        // B6 authors the four tomb rooms as world cells. Until it does they exist
+        // only in this fixture, and they are the single difference this test
+        // tolerates. When B6 lands, delete this filter: the set comparison below
+        // then covers the tomb too, with nothing else to change.
+        let fixture_cell_ids: BTreeSet<String> = geography
+            .all_location_ids()
+            .filter(|id| !id.starts_with("world.cell.tomb_"))
+            .map(str::to_owned)
+            .collect();
+        assert_eq!(
+            fixture_cell_ids, authored_cell_ids,
+            "the fixture's cells and content/world/'s cells must be the same set"
+        );
+
+        for (portal_id, from_location_id, to_location_id, kind) in authored_portals {
+            let route = geography.route(&portal_id).unwrap_or_else(|| {
+                panic!("authored portal {portal_id} is missing from the fixture")
+            });
+            assert_eq!(
+                route.from_location_id, from_location_id,
+                "{portal_id} leaves a different cell in the fixture"
+            );
+            assert_eq!(
+                route.to_location_id, to_location_id,
+                "{portal_id} arrives somewhere else in the fixture"
+            );
+            assert_eq!(
+                route.kind, kind,
+                "{portal_id} has a different travel mode in the fixture"
+            );
+        }
     }
 }

@@ -174,6 +174,11 @@ for (const { file, value } of await readJsonDirectory("enemies")) {
 for (const { file, value } of await readJsonDirectory("encounters")) {
   for (const [index, id] of (value.partyActorIds ?? []).entries()) reference(id, file, `partyActorIds[${index}]`);
   for (const [index, id] of (value.hostileActorIds ?? []).entries()) reference(id, file, `hostileActorIds[${index}]`);
+  // A2: an encounter names real places. These two fields carried a third
+  // location namespace that matched no world cell, which is exactly the drift
+  // that resolving them against the registered stable IDs now makes impossible.
+  reference(value.locationId, file, "locationId");
+  reference(value.defeat?.returnLocationId, file, "defeat.returnLocationId");
   if (value.presentation?.inactivePartyMode !== "card_rail" || value.presentation?.activeActorMode !== "full_body_battle_plane") fail(file, "encounter must preserve the card-to-active combat contract");
 }
 

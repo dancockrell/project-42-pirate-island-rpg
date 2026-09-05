@@ -33,8 +33,8 @@
     {"id": "action.reception_terrace.climb_processional_ramp", "type": "travel", "portalId": "world.portal.reception_terrace_to_processional_ramp", "once": false}
   ],
   "readableDescriptions": [
-    {"id": "location.reception_terrace.arrival", "text": "The terrace was built to receive a procession. Vines now use its bronze-green seams as ladders, and the carved gate beyond it has watched enough storms to look patient."},
-    {"id": "location.reception_terrace.battle_lane", "text": "The broken paving opens into a clear lane between two fallen slabs. Something large has crossed it recently, leaving clawed cuts through the wet moss."}
+    {"id": "observation.reception_terrace.arrival", "text": "The terrace was built to receive a procession. Vines now use its bronze-green seams as ladders, and the carved gate beyond it has watched enough storms to look patient."},
+    {"id": "observation.reception_terrace.battle_lane", "text": "The broken paving opens into a clear lane between two fallen slabs. Something large has crossed it recently, leaving clawed cuts through the wet moss."}
   ],
   "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
   "admission": {

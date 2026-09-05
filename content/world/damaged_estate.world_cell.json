@@ -32,8 +32,8 @@
     {"id": "action.damaged_estate.depart_river", "type": "travel", "portalId": "world.portal.damaged_estate_to_river_landing", "once": false}
   ],
   "readableDescriptions": [
-    {"id": "location.damaged_estate.veranda", "text": "The estate was built as a coastal refuge, not a fortress. One veranda rail hangs loose after the storm, while the infirmary table, armory alcove and kitchen still make it a usable home base."},
-    {"id": "location.damaged_estate.river_gate", "text": "Beyond the garden wall, a narrow stone track drops toward a river landing. The gate can be barred against wandering monsters, but it is not a permanent barrier to the island at night."}
+    {"id": "observation.damaged_estate.veranda", "text": "The estate was built as a coastal refuge, not a fortress. One veranda rail hangs loose after the storm, while the infirmary table, armory alcove and kitchen still make it a usable home base."},
+    {"id": "observation.damaged_estate.river_gate", "text": "Beyond the garden wall, a narrow stone track drops toward a river landing. The gate can be barred against wandering monsters, but it is not a permanent barrier to the island at night."}
   ],
   "estateConsequenceResponses": [
     {"id": "estate_response.damaged_estate.river_gate_alarm", "requiresEstateUpgradeId": "estate_upgrade.river_gate_alarm", "objectId": "estate_object.river_gate_alarm", "text": "Betty has marked the river gate with a simple brass alarm line. A heavy animal crossing the path will wake the household before it reaches the veranda."}

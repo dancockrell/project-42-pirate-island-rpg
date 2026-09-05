@@ -31,8 +31,8 @@
     {"id": "action.black_beach.climb_to_estate", "type": "travel", "portalId": "world.portal.black_beach_to_damaged_estate", "once": false}
   ],
   "readableDescriptions": [
-    {"id": "location.black_beach.wreck", "text": "The Handsome Jack lies split along the black sand below the tide line. Her overlarge steam engine has torn the old tea cutter open, leaving copper pipe, wet timber and a climb toward shelter."},
-    {"id": "location.black_beach.boiler", "text": "The boiler housing is still warm enough to steam in the rain. Its cracked braces show why the cutter rolled badly in the typhoon, and a careful inspection can recover a useful part."}
+    {"id": "observation.black_beach.wreck", "text": "The Handsome Jack lies split along the black sand below the tide line. Her overlarge steam engine has torn the old tea cutter open, leaving copper pipe, wet timber and a climb toward shelter."},
+    {"id": "observation.black_beach.boiler", "text": "The boiler housing is still warm enough to steam in the rain. Its cracked braces show why the cutter rolled badly in the typhoon, and a careful inspection can recover a useful part."}
   ],
   "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 2, "browserPerformanceGate": "pending", "releaseLegal": false}
