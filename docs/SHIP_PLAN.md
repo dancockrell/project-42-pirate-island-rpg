@@ -346,7 +346,8 @@ top of the document is never stale:
 
 - **M0** shipped 7/13 · A1 A2 A11 B1 H6 H7 H9 · H2 and H10 superseded by
   `main`'s own rewrite · **remaining: C2, B2, H5, H8**
-- **M1** shipped 0/12 — A3, A5 and the C bundle in flight
+- **M1** shipped 3/12 — **C1, C2, C4** (loot, portal costs, Michael's
+  commands); A3 and A5 in flight
 - **M2** shipped 5/9 — **E1** (CI live and green on GitHub), **E2** (Godot
   suites, first run pending), **E3** portable gates, **E4** desktop export
   presets, **E6** save-migration fixtures; E5 open with a hard
@@ -414,10 +415,10 @@ top of the document is never stale:
 
 | ID | Task | Depends on | Status |
 |---|---|---|---|
-| C1 | Loot records and the `lootTableId` reference check | — | open |
-| C2 | Portal cost fields; fix the encounter record's location IDs | — | open |
+| C1 | Loot records and the `lootTableId` reference check | — | shipped ab17bfa 2026-09-05 |
+| C2 | Portal cost fields (the location IDs were fixed by A2) | — | shipped ab17bfa 2026-09-05 |
 | C3 | `ayla.json` and seven Ayla skill records | A7 | open |
-| C4 | Captain Michael's skill records and a `self` target rule | — | open |
+| C4 | Captain Michael's skill records and a `self` target rule | — | shipped ab17bfa 2026-09-05 |
 | C5 | The tomb as a faction-specific dungeon: twelve spaces | B6, S9 | open |
 | C6 | Relationship scene records and schema | — | open |
 | C7 | Placeholder deprecation migration | D4 | open |
@@ -918,6 +919,56 @@ alerts, no red countdowns, no quest-log spam. Directive confirmation shows
 S6's explanation. Test: 100 strategic events produce ≤1 Urgent.
 
 ### Lane C — new cards
+
+### C1 · Loot records and a reference check that bites · shipped ab17bfa
+`content/loot/` did not exist, and `content/encounters/returning_names.prototype.json`
+pointed `victory.lootTableId` at `loot.razorbeak.prototype` — a record that
+was not there, which the validator never checked, so the dangle passed
+silently every run. Three records now exist for the `drop_table_id` values
+`habitat.rs` already declares, plus a `lootFile` validator block and a
+`reference()` on the encounter field.
+
+Proven twice over: retargeting the field at a nonexistent ID fails, **and**
+moving the real `razorbeak.prototype.json` away reproduces the exact dangle
+that used to pass. Bundle went 28 → 33 records.
+
+**The yields are authored, not sourced, and that is flagged on purpose.** No
+Rust code held resource numbers when this was written (A3 introduces them), so
+the values were set to scale with each habitat's declared rank and base level:
+ordinary razorbeak 2/1/6, elevated thunderback 4/1/10, apex crested razorbeak
+3/2/18 (rations/medicine/coin). If A3's economy wants different numbers it
+must **overwrite these**, never add a second table — two tables of loot values
+is the fork.
+
+### C2 · Portal costs in the authored world cells · shipped ab17bfa
+The authored portals carried only identity and `travelMode`; the costs lived
+solely in the Rust fixture, so content could not describe what a road actually
+costs. All nine now carry `timeCostMinutes`, `supplyCost` and `riskLevel`,
+plus an optional reference-checked `requiredDiscoveryId`, type-checked by the
+world-cell validator.
+
+**Every number was read verbatim from `Geography::black_beach_vertical_slice()`,
+not invented** — 15/0/0 for the estate climb, 30/0/1 to the river landing,
+60/2/1 for the safe road, 35/4/3 for the jungle edge, 45/1/2 back, 10/0/2 on
+the ramp. No authored portal carries a discovery gate yet: the only gate in
+the fixture is on the tomb's archive core, and the tomb cells stay
+fixture-only until B6 authors them. The field is accepted and checked so B6
+can use it. (The encounter's location IDs, listed here in an earlier draft,
+were fixed by A2.)
+
+### C4 · Captain Michael's two commands · shipped ab17bfa
+`captain.json` had `skillIds: []` and `supportedTargetRules` had no
+self-targeting rule, so the protagonist could not be given a command at all.
+Added `"self"` to the rule set and authored `skill.captain.weapon_attack` and
+`skill.captain.reposition` at the full schema the seven Betty records satisfy
+— ordered beats, ≥3 event bindings, a framing naming the safe frame, one
+resolvable presentation cue per beat. Both are listed in `captain.json`,
+whose notes now say Echo and Field Order are authored later rather than that
+the deck is unexposed. **A6 depends on exactly these two records.**
+
+Proven by breaking four things at once — removing `self`, dropping a beat a
+binding referenced, pointing a cue at a nonexistent camera, and listing an
+unwritten skill — and watching all five failures appear.
 
 ### C5 · The tomb as a faction-specific dungeon **(brief)**
 As the first edition (twelve spaces per bible §3.13) plus: the tomb's cells
