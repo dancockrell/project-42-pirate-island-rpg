@@ -3,7 +3,7 @@
   "task_id": "c-content-and-validator",
   "agent": "claude-opus-5-lane-c",
   "summary": "C1, C2 and C4 in one lane branch because all three edit tools/src/validate.mjs: C1 authors content/loot/*.json for the three habitat drop tables and makes victory.lootTableId a checked reference; C2 adds optional portal cost fields (timeCostMinutes, supplyCost, riskLevel, requiredDiscoveryId) to content/world/*.world_cell.json, authored from Geography::black_beach_vertical_slice(); C4 authors Captain Michael's two skill records and adds the self target rule",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-05T00:00:00Z",
   "updated_at": "2026-09-05T00:00:00Z",
   "paths": [
@@ -22,12 +22,25 @@
     "lootFile"
   ],
   "coordination": {
-    "depends_on": ["A2"],
+    "depends_on": [
+      "A2"
+    ],
     "conflicts_with": [],
-    "notes": "SHIP_PLAN section 9 held C1 and C2 until A2 shipped; A2 is shipped (c1804ea) so this round is legal. All three cards are taken on one branch on purpose: three agents in tools/src/validate.mjs conflict every time. godot-rust/** is read-only here -- habitat.rs supplies the three drop_table_id values and geography.rs supplies the nine portal costs; neither file is edited. docs/SHIP_PLAN.md is left to the integrator per section 9."
+    "notes": "SHIP_PLAN section 9 held C1 and C2 until A2 shipped; A2 is shipped (c1804ea) so this round is legal. All three cards are taken on one branch on purpose: three agents in tools/src/validate.mjs conflict every time. godot-rust/** is read-only here -- habitat.rs supplies the three drop_table_id values and geography.rs supplies the nine portal costs; neither file is edited. docs/SHIP_PLAN.md is left to the integrator per section 9. Loot yields are authored, not sourced from Rust: no economy code holds numbers yet (A3). Portal costs are read verbatim from Geography::black_beach_vertical_slice(). docs/SHIP_PLAN.md section 7 says the C1, C2 and C4 cards are 'unchanged from the first edition', but no first edition of those cards exists in this repository's history -- 706a822 is the earliest SHIP_PLAN.md and it has no C1/C2/C4 card either. Reported, not fixed: docs/** is not this lane's."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "ab17bfa",
+    "checks": [
+      "node tools/src/validate.mjs -- 178 stable IDs, 9 skills, 47 presentation cues: passed",
+      "node tools/src/build-content-bundle.mjs -- 33 records, sha256:a40f933fc5b9664ee37cae30d50f6e07d640a6a40f61c7a0d0b212501187feb8: passed",
+      "git diff --exit-code game/generated/ after rebuilding: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml -- 111 unit + 1 integration, including geography::tests::fixture_matches_the_authored_world_cells: passed",
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "C1 bite proof: victory.lootTableId retargeted at loot.razorbeak.NOT_A_RECORD failed with 'victory.lootTableId references missing stable ID loot.razorbeak.NOT_A_RECORD'; removing content/loot/razorbeak.prototype.json failed on the real ID the same way; reverted and green: passed",
+      "C2 bite proof: safe road given 60.5 / -2 / \"high\" and jungle edge an unknown requiredDiscoveryId failed with four issues, one per field; reverted and green: passed",
+      "C4 bite proof: \"self\" removed from supportedTargetRules, a beat dropped from Weapon Attack, a cue pointed at presentation.camera.does_not_exist and captain.json pointed at skill.captain.field_order failed with five issues; reverted and green: passed",
+      "godot-rust/** unmodified (git diff HEAD -- godot-rust/ empty): passed"
+    ]
   }
 }
