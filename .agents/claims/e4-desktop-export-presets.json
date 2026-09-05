@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "task_id": "e4-desktop-export-presets",
+  "agent": "claude-opus-5 (lane/E4-desktop-export-presets)",
+  "summary": "E4: add Windows, Linux and macOS desktop export presets that carry the project42_sim GDExtension, so a playable desktop build is producible at all",
+  "status": "completed",
+  "claimed_at": "2026-09-05T00:00:00Z",
+  "updated_at": "2026-09-05T00:00:00Z",
+  "paths": [
+    "game/export_presets.cfg"
+  ],
+  "symbols": [],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [
+      "backend-p0-unify-expedition-spines"
+    ],
+    "notes": "SHIP_PLAN.md section 9 assigns game/export_presets.cfg to Lane E and records that it collides with nothing. The active claim backend-p0-unify-expedition-spines lists game/ as a whole; this task touches only game/export_presets.cfg, which that task's summary does not concern. Per section 9 a worktree agent does not edit docs/SHIP_PLAN.md, so the E4 ledger row is left for the integrator. Left for another task: game/bin/linux/ and game/bin/macos/ contain no artifacts, so the Linux and macOS presets reference libraries the .gdextension declares but the tree does not yet carry; and /work/web-preview/ is gitignored while the new ../work/windows-desktop, ../work/linux-desktop and ../work/macos-desktop output directories are not."
+  },
+  "completion": {
+    "commit": "838824e",
+    "checks": [
+      "python3 configparser read of game/export_presets.cfg: passed (parses, 8 sections)",
+      "structural check: [preset.N]/[preset.N.options] paired for N=0..3, contiguous, no orphans: passed",
+      "value-quoting check: every value is a bare bool/int/float, a fully quoted string, or a Godot constructor: passed",
+      "cross-check: all 6 library paths in the three desktop include_filters appear verbatim in game/bin/project42_sim.gdextension: passed",
+      "exclude_filter check: no desktop preset excludes bin/; only preset.0 (Web Preview) still does: passed",
+      "godot --export: not_run -- Godot is not installed in this container; the first real export is the proof",
+      "on-disk library check: game/bin/windows/ present; game/bin/linux/ and game/bin/macos/ do not exist yet, so Linux and macOS exports will fail until those artifacts are built (outside this task's paths): failed"
+    ]
+  }
+}
