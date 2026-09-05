@@ -346,14 +346,15 @@ top of the document is never stale:
 
 - **M0** shipped 7/13 · A1 A2 A11 B1 H6 H7 H9 · H2 and H10 superseded by
   `main`'s own rewrite · **remaining: C2, B2, H5, H8**
-- **M1** shipped 3/12 — **C1, C2, C4** (loot, portal costs, Michael's
-  commands); A3 and A5 in flight
+- **M1** shipped 4/12 — **C1, C2, C4** (loot, portal costs, Michael's
+  commands) and **A3** (the supply loop closes: anchors produce, rations bite,
+  victory pays); A5 in flight
 - **M2** shipped 5/9 — **E1** (CI live and green on GitHub), **E2** (Godot
-  suites, first run pending), **E3** portable gates, **E4** desktop export
-  presets, **E6** save-migration fixtures; E5 open with a hard
+  suites, first run executed and green), **E3** portable gates, **E4** desktop
+  export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
 - **M3** shipped 0/16 · **M4** not started
-- Last updated 2026-09-05 against trunk `95bd747`. If this line is older than
+- Last updated 2026-09-05 against trunk `9360f66`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -362,7 +363,7 @@ top of the document is never stale:
 |---|---|---|---|
 | A1 | Port the vertical-slice branch's concepts into `expedition.rs` | — | shipped 6b9d275 2026-09-04 |
 | A2 | `world.cell.*` canonical; fixture ≡ authored cells | A1 | shipped c1804ea 2026-09-05 |
-| A3 | Economy: anchors, salvage, loot, scarcity | A2 | open |
+| A3 | Economy: anchors, salvage, loot, scarcity | A2 | shipped 9360f66 2026-09-05 — loot ownership reconciled with C1 on merge |
 | A4 | Estate actions as anchor actions; delete `rest_at_estate` | A3 | open |
 | A5 | Five named bands and Composure | A1 | open |
 | A6 | Captain Michael as a battle actor: Weapon Attack, Guard, Reposition | A5, C4 | open |
@@ -450,7 +451,7 @@ top of the document is never stale:
 | ID | Task | Depends on | Status |
 |---|---|---|---|
 | E1 | GitHub Actions: Rust and content checks | — | shipped e0b4051 2026-09-05 |
-| E2 | Godot headless suites in CI | E1, E3 | shipped 7b8f698 2026-09-05 — **never executed yet; its first CI run is the proof** |
+| E2 | Godot headless suites in CI | E1, E3 | shipped 7b8f698 2026-09-05 — **executed and green**, run 33976015461: 3 review scenes, 17 suites, godot-rust initialised against runtime v4.7.2 in each, anti-mock check passed on a live log |
 | E3 | Shell equivalents of the two PowerShell gates | — | shipped 5344b7b 2026-09-05 |
 | E4 | Desktop export presets for Windows, Linux, macOS | — | shipped 838824e 2026-09-05 |
 | E5 | Nightly build artifacts per platform | E2, E4 | open — **must build the native library before exporting**, see its card |
@@ -542,7 +543,7 @@ Done when: `cargo test` green; `node tools/src/validate.mjs` green;
 `grep -rn "location\.\(black_beach\|tomb\|road\|estate\)" godot-rust/ content/ docs/CLAUDE_BACKEND_HANDOFF.md` prints nothing.
 
 ### A3 · Economy: anchors, salvage, loot, scarcity
-Status: open · Depends on: A2
+Status: shipped `9360f66` 2026-09-05 · Depends on: A2
 Touches: `geography.rs`, `expedition.rs`, `habitat.rs`, `world.rs`, `lib.rs`
 One mechanism for every "do something here" verb — salvage, loot, and (A4)
 the estate rooms; **(brief)** later, building interactions (S3) reuse it.
@@ -573,6 +574,33 @@ succeeds after salvaging; terrace victory adds loot; defeat adds none; the
 slice test must now salvage before it travels.
 Traps: no second estate-action method beside `use_anchor`; no `rand` crate.
 Done when: `cargo test` green with the six new tests.
+
+**Shipped.** Eleven tests rather than six. Salvage determinism is pinned to
+real numbers derived from `mix_seed` independently before being asserted —
+seed 42 yields `[5, 5, 4, 4, 4, 5, 5, 4]` rations on days 1–8 — and proven to
+bite: replacing the mixed bonus with a constant flattens it to all fives and
+fails. The slice test now starts the party at zero of everything, is refused
+the safe road, walks back to the wreck, salvages, and only then goes inland;
+the medicine the estate infirmary spends is medicine the terrace holder was
+carrying. That is the loop closing rather than a test of it.
+
+One out-of-lane edit, reviewed and accepted: six lines in `godot_bridge.rs`,
+three arms in `expedition_error_code`, whose match over `ExpeditionError` is
+exhaustive — the new variants cannot compile without them. Projecting anchor
+commands to Godot remains B3's.
+
+`Workshop` and `MapTable` ship with empty arms carrying A4's exact acceptance
+criteria in-code, and nothing in the world declares an anchor of either kind,
+so no reachable action depends on them. `Infirmary` calls `rest_at_estate`
+rather than copying it — A4 inlines and deletes.
+
+**Loot ownership, decided on merge.** A3 and C1 ran in the same round and each
+wrote its own numbers for the same three drop tables; they disagreed on all
+three. `content/loot/*.json` is now the owner, `Habitats` carries the same
+values, and `fixture_matches_the_authored_loot_tables` fails if they drift —
+the arrangement A2 established for geography, reused rather than reinvented.
+That test also asserts every `drop_table_id` a habitat declares resolves,
+which is C1's dangle check from the Rust side.
 
 ### A4 · Estate actions as anchor actions; delete `rest_at_estate`
 Status: open · Depends on: A3
@@ -1056,7 +1084,8 @@ at the path the `.gdextension` names before invoking the export, so this
 fails loudly instead of shipping a hollow build.
 
 Note the distinction from E2: E2 is genuinely unblocked, because its CI job
-builds the `.so` itself at run time via the same script. It is *release
+builds the `.so` itself at run time via the same script — confirmed by its
+first green run, which built the library and loaded it. It is *release
 packaging* that the missing committed binaries affect, not the test job.
 
 ### E9 · Pack build script and pack artifact — `tools/src/build-pack.mjs`
