@@ -1,8 +1,10 @@
 name: Verify
 
-# The first CI in this repository. It covers exactly the checks that need no
-# game engine: the Rust simulation crate and the content tooling. The Godot
-# headless suites are E2 and are deliberately not attempted here.
+# The repository's CI. Two independent jobs: rust-and-content covers the checks
+# that need no game engine (the Rust simulation crate and the content tooling),
+# and godot-suites downloads a pinned Godot, builds the Rust GDExtension and
+# runs the headless GDScript suites against the real bridge. They run in
+# parallel; neither waits on the other.
 
 on:
   push:
@@ -58,3 +60,192 @@ jobs:
       # A committed bundle that no longer matches content/ fails the build.
       - name: Fail if the committed bundle is stale
         run: git diff --exit-code game/generated/
+
+  godot-suites:
+    name: Godot headless suites
+    runs-on: ubuntu-latest
+    # A sibling of rust-and-content, not a step inside it: this job downloads a
+    # ~70 MB engine and drives twenty-two Godot invocations, and there is no
+    # reason to make the fast Rust and content feedback wait behind it.
+    #
+    # Budget: engine download and unpack ~1 min, the debug GDExtension build
+    # from a cold target directory ~1 min, then the gate itself — one editor
+    # import pass, one main scene, three review scenes and seventeen suites.
+    # None of that has ever been timed on a runner, so forty-five minutes is a
+    # deliberately loose first bound; tighten it once real runs give numbers.
+    timeout-minutes: 45
+
+    env:
+      # Pinned exactly. An unpinned engine download would make this gate trust
+      # whatever the release page serves on the day it runs, which is precisely
+      # the property a gate is supposed to remove.
+      GODOT_VERSION: 4.7.2-stable
+      GODOT_ASSET: Godot_v4.7.2-stable_linux.x86_64.zip
+      # SHA-512, not SHA-256, and the difference is deliberate. The Godot
+      # release publishes exactly one checksum manifest for its binaries,
+      # SHA512-SUMS.txt, and this literal is the line for the asset above,
+      # copied from that file in the 4.7.2-stable release of
+      # godotengine/godot-builds. No SHA-256 for the *binary* zip is published
+      # anywhere official (only the source tarball carries a .sha256), so
+      # writing one here would have meant inventing it or trusting a mirror.
+      # SHA-512 is the stronger digest and it is the one upstream signs off on.
+      GODOT_SHA512: 9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install the Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Cache the Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: godot-rust
+
+      # Installed for toolchain parity with rust-and-content, so a failure that
+      # reproduces in one job reproduces in the other. The Godot gate itself
+      # never invokes node: it reads game/generated/, and rust-and-content
+      # already owns proving that bundle is not stale.
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download and verify Godot ${{ env.GODOT_VERSION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/${GODOT_ASSET}"
+          echo "Downloading $url"
+          curl --fail --location --silent --show-error \
+               --retry 3 --retry-delay 5 --retry-all-errors \
+               --output "${RUNNER_TEMP}/godot.zip" "$url"
+          # Checked before anything is unpacked, let alone executed.
+          printf '%s  %s\n' "$GODOT_SHA512" "${RUNNER_TEMP}/godot.zip" \
+            | sha512sum --check --strict
+          unzip -q "${RUNNER_TEMP}/godot.zip" -d "${RUNNER_TEMP}/godot"
+          binary="${RUNNER_TEMP}/godot/Godot_v${GODOT_VERSION}_linux.x86_64"
+          if [[ ! -f "$binary" ]]; then
+            echo "The pinned archive did not contain $binary. Its contents were:" >&2
+            ls -la "${RUNNER_TEMP}/godot" >&2
+            exit 1
+          fi
+          chmod +x "$binary"
+          echo "GODOT=$binary" >> "$GITHUB_ENV"
+
+      # Proves the engine starts on this runner and is the version that was
+      # pinned, so a startup failure is reported here rather than as twenty-two
+      # confusing failures inside the gate.
+      - name: Confirm the engine runs and reports the pinned version
+        shell: bash
+        run: |
+          set -euo pipefail
+          reported="$("$GODOT" --headless --version)"
+          echo "Godot reports: $reported"
+          case "$reported" in
+            4.7.2.stable.official*) ;;
+            *)
+              echo "Expected a 4.7.2.stable.official build, got: $reported" >&2
+              exit 1
+              ;;
+          esac
+
+      # debug, because the suites are debug-build assertions and the
+      # .gdextension resolves linux.debug.x86_64 for a debug engine run.
+      - name: Build the native bridge
+        shell: bash
+        run: bash tools/build-native-bridge.sh debug
+
+      # First half of the anti-mock proof, and the cheap half: if the library is
+      # not on disk under the exact name game/bin/project42_sim.gdextension
+      # declares, Godot cannot possibly have loaded it.
+      - name: Confirm the GDExtension library is installed where Godot looks
+        shell: bash
+        run: |
+          set -euo pipefail
+          library="game/bin/linux/project42_sim.linux.expedition_v5_debug.x86_64.so"
+          declared="res://bin/linux/project42_sim.linux.expedition_v5_debug.x86_64.so"
+          if [[ ! -f "$library" ]]; then
+            echo "The native bridge build did not install $library." >&2
+            exit 1
+          fi
+          if ! grep -qF "linux.debug.x86_64 = \"$declared\"" game/bin/project42_sim.gdextension; then
+            echo "game/bin/project42_sim.gdextension no longer declares $declared." >&2
+            echo "The suites would silently fall back to MockSimulationPort. Refusing to run." >&2
+            exit 1
+          fi
+          ls -la "$library"
+
+      - name: Run the Godot headless gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/verify-godot.sh 2>&1 | tee "${RUNNER_TEMP}/godot-gate.log"
+
+      # Second half of the anti-mock proof, and the half that matters. A zero
+      # exit from the gate is NOT evidence that the real bridge loaded: when
+      # Project42ExpeditionBridge is absent, expedition_prototype_test.gd and
+      # campaign_encounter_port_test.gd print a skip line and quit(0), and
+      # battle_prototype.gd quietly swaps in MockSimulationPort under
+      # OS.is_debug_build(). That combination is a green run that proved
+      # nothing. So the log is read twice: once for markers that only the
+      # fallback paths emit, and once for the three lines that only the real
+      # bridge can produce.
+      - name: Prove the real bridge loaded, not the mock
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="${RUNNER_TEMP}/godot-gate.log"
+
+          fallback_markers=(
+            "bridge is not registered in this running Godot process"
+            "using the development-only mock simulation"
+            "Build the Rust GDExtension before selecting"
+            "native_bridge_unavailable"
+            "native_expedition_bridge_unavailable"
+          )
+          found=0
+          for marker in "${fallback_markers[@]}"; do
+            if grep -nF -- "$marker" "$log"; then
+              echo "Fallback marker present in the gate output: $marker" >&2
+              found=1
+            fi
+          done
+          if [[ $found -ne 0 ]]; then
+            echo "The suites ran without the Rust GDExtension and proved nothing." >&2
+            exit 1
+          fi
+
+          # These three lines are printed only past a live-bridge guard:
+          # native_simulation_port_test.gd asserts ClassDB.can_instantiate
+          # before it can reach its own, and the other two sit after the
+          # NativeExpeditionPort.bridge_is_registered() early return.
+          required_markers=(
+            "NativeSimulationPort tests passed."
+            "Expedition prototype tests passed."
+            "Campaign encounter port tests passed."
+          )
+          missing=0
+          for marker in "${required_markers[@]}"; do
+            if ! grep -qF -- "$marker" "$log"; then
+              echo "Missing proof-of-bridge line: $marker" >&2
+              missing=1
+            fi
+          done
+          if [[ $missing -ne 0 ]]; then
+            echo "The gate exited zero without the native suites reporting a pass." >&2
+            exit 1
+          fi
+
+          echo "Real Rust bridge confirmed: all three native suites reported a pass."
+
+      - name: Upload the gate log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-gate-log
+          path: ${{ runner.temp }}/godot-gate.log
+          if-no-files-found: warn
