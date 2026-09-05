@@ -22,7 +22,8 @@ pub use expedition::{
     HabitatState, HouseholdProgress, RouteStep, SupplyState, TimeSegment, TravelOutcome,
 };
 pub use geography::{
-    Geography, LocationRecord, PersistencePolicy, ReturnPolicy, RouteKind, RouteOption,
+    CellDefinition, EncounterTriggerDefinition, Geography, LocationRecord, PersistencePolicy,
+    PortalDefinition, ReturnPolicy, RouteKind, RouteOption,
 };
 pub use habitat::{
     ActionPriority, CreatureFamily, EncounterRank, HabitatRecord, Habitats, RosterEntry,

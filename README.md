@@ -1,6 +1,6 @@
 # Project 42: Pirate Island RPG
 
-This repository is the executable companion to the design bible. It begins with a deliberately narrow vertical slice: one side-view battle stage, four party cards, one expanded active heroine, one individual monster, functional commands, descriptive combat text, and deterministic rules.
+This repository is the executable companion to the design bible. The default entry is now the first chapter's authoritative Black Beach expedition route: Black Beach, Damaged Coastal Estate, River Landing, and Reception Terrace are projected from Rust campaign state. The existing side-view battle remains the Reception Terrace combat presentation slice: compact party cards, one expanded active heroine, one individual monster, functional commands, descriptive combat text, and deterministic rules.
 
 ## Language ownership
 
@@ -11,7 +11,7 @@ This repository is the executable companion to the design bible. It begins with 
 | Content schemas, validators, asset ledgers, build reports and authoring transforms | TypeScript | Runs offline. Must not become a second gameplay runtime. |
 | Characters, skills, enemies, locations, art requirements and localization references | JSON | Uses stable IDs and metadata. Never uses a scene path as identity. |
 
-The Godot shell loads `Project42SimulationBridge`, the native Rust GDExtension, and submits commands through `NativeSimulationPort`. The bridge owns the authoritative prototype battle and projects typed snapshots and ordered events into Godot dictionaries. A clearly marked mock remains available only when a debug build cannot load the extension; release startup refuses that fallback.
+The Godot shell loads native Rust GDExtensions and submits combat commands through `NativeSimulationPort` and expedition travel through `NativeExpeditionPort`. Rust owns the authoritative battle and campaign state, projecting typed snapshots into Godot dictionaries. The expedition screen has no gameplay mock fallback: if its bridge is unavailable, it displays a literal blocked-startup state rather than inventing a route.
 
 The presentation fixture now exposes all seven of Betty's D-through-SSS skills. `Fatal Intercept` is visibly present but disabled because it is an automatic reaction, not a manual command. The remaining buttons drive deterministic mock event sequences so card focus, multi-target rescue, battlefield effects, revival and bonus-turn presentation can be built before the native bridge is attached. These fixtures are not a second rules implementation and are never release-authoritative.
 

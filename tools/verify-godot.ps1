@@ -39,6 +39,18 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Godot world-cell tests failed with exit code $LASTEXITCODE"
     }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/black_beach_route_contract_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot Black Beach route contract tests failed with exit code $LASTEXITCODE"
+    }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/expedition_prototype_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot expedition-prototype tests failed with exit code $LASTEXITCODE"
+    }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/campaign_encounter_port_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot campaign-encounter-port tests failed with exit code $LASTEXITCODE"
+    }
     & $GodotExecutable --headless --path (Join-Path $workspace "game") --scene "res://scenes/review/reception_terrace_setpiece_review.tscn" --quit-after 2
     if ($LASTEXITCODE -ne 0) {
         throw "Godot Reception Terrace setpiece review scene failed with exit code $LASTEXITCODE"
@@ -66,6 +78,14 @@ try {
     & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/placeholder_action_presenter_test.gd"
     if ($LASTEXITCODE -ne 0) {
         throw "Godot placeholder-action-presenter tests failed with exit code $LASTEXITCODE"
+    }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/paper_betty_rig_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot paper-Betty rig tests failed with exit code $LASTEXITCODE"
+    }
+    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/paper_razorbeak_rig_test.gd"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Godot paper-Razorbeak rig tests failed with exit code $LASTEXITCODE"
     }
     & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/content_catalog_test.gd"
     if ($LASTEXITCODE -ne 0) {

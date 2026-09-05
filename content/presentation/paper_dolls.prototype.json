@@ -48,7 +48,7 @@
         "statusOverhead": [0.5, 0.05]
       },
       "layerOrder": ["ground_shadow", "rear_coat", "rear_arm", "legs", "torso", "front_arm", "weapon", "head", "hair_front", "paper_pins", "debug_anchors"],
-      "identityInvariants": ["adult woman", "cute and sexy adult anime-fantasy read before realism", "slender lightly built frame", "small chest", "auburn curly updo", "green eyes and freckles", "cropped teal field-medic outfit", "bronze and glass boarding mace", "complete boots, hair and weapon"],
+      "identityInvariants": ["adult woman", "cute and sexy adult anime-fantasy read before realism", "slender lightly built frame", "small chest", "auburn curly updo", "green eyes and freckles", "tobacco leather bodice over ivory lace", "dark leather field shorts", "green-and-navy tartan hip sash", "brown physician satchel", "bronze and glass boarding mace", "complete boots, hair and weapon"],
       "poseVariable": "ready idle with knees soft, mace carried diagonally, body open toward the camera",
       "futureRuntimeAssetId": "art.character.betty.battle.ready_idle",
       "futureFormat": "transparent lossless actor source plus engine-ready animation texture",

@@ -66,6 +66,10 @@ pub struct HouseholdProgress {
 pub struct EncounterState {
     pub encounter_id: String,
     pub battle_id: String,
+    /// Optional authored household result applied when this encounter is won.
+    /// The battle does not infer upgrades; the trigger carries the stable ID.
+    #[serde(default)]
+    pub estate_upgrade_id: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -98,6 +102,11 @@ pub struct ExpeditionState {
     pub discoveries: BTreeSet<String>,
     pub household_progress: HouseholdProgress,
     pub pending_encounter: Option<EncounterState>,
+    /// Stable encounter IDs resolved in this campaign. Simulation state, not a
+    /// UI flag: it stops an authored one-time encounter re-arming after a
+    /// save/reload or a later return to its location.
+    #[serde(default)]
+    pub resolved_encounter_ids: BTreeSet<String>,
     pub rng_seed: u64,
 }
 
@@ -130,6 +139,14 @@ pub enum ExpeditionError {
     InsufficientSupplies {
         needed: u32,
         available: u32,
+    },
+    DuplicatePortal {
+        id: String,
+    },
+    DuplicateEncounterTrigger,
+    /// The party cannot walk away from a fight it has already been offered.
+    TravelBlockedByEncounter {
+        encounter_id: String,
     },
 }
 
@@ -195,6 +212,7 @@ impl ExpeditionState {
                 bond_ranks: BTreeMap::new(),
             },
             pending_encounter: None,
+            resolved_encounter_ids: BTreeSet::new(),
             rng_seed: seed,
         };
         state.validate()?;
@@ -221,7 +239,8 @@ impl ExpeditionState {
                 current: CURRENT_SAVE_VERSION,
             });
         }
-        if self.party_ids.is_empty() || self.party_ids.len() > 4 {
+        // Five heroes: Captain Michael and four women (continuation brief §1).
+        if self.party_ids.is_empty() || self.party_ids.len() > 5 {
             return Err(ExpeditionError::InvalidPartySize {
                 found: self.party_ids.len(),
             });
@@ -260,6 +279,11 @@ impl ExpeditionState {
         route_id: &str,
         geography: &Geography,
     ) -> Result<TravelOutcome, ExpeditionError> {
+        if let Some(encounter) = &self.pending_encounter {
+            return Err(ExpeditionError::TravelBlockedByEncounter {
+                encounter_id: encounter.encounter_id.clone(),
+            });
+        }
         let route = geography
             .route(route_id)
             .filter(|route| route.from_location_id == self.active_location_id)
@@ -328,6 +352,19 @@ impl ExpeditionState {
         if self.pending_encounter.is_some() {
             return None;
         }
+        // An authored one-time encounter is content's own claim on this place
+        // and answers first -- once. After it resolves the ledger remembers it.
+        if let Some(trigger) = geography
+            .encounter_trigger_for(&self.active_location_id)
+            .filter(|trigger| !self.resolved_encounter_ids.contains(&trigger.encounter_id))
+        {
+            self.pending_encounter = Some(EncounterState {
+                encounter_id: trigger.encounter_id.clone(),
+                battle_id: trigger.battle_id.clone(),
+                estate_upgrade_id: trigger.estate_upgrade_id.clone(),
+            });
+            return self.pending_encounter.as_ref();
+        }
         if let Some(hunter_id) = hunter::hunter_at(&self.hunters, &self.active_location_id)
             .filter(|hunter| !hunter.is_defeated_today())
             .map(|hunter| hunter.id.clone())
@@ -335,6 +372,7 @@ impl ExpeditionState {
             self.pending_encounter = Some(EncounterState {
                 encounter_id: format!("encounter.{hunter_id}"),
                 battle_id: format!("battle.{hunter_id}"),
+                estate_upgrade_id: None,
             });
             return self.pending_encounter.as_ref();
         }
@@ -367,6 +405,7 @@ impl ExpeditionState {
         self.pending_encounter = Some(EncounterState {
             encounter_id: format!("encounter.{}", monster.instance_id),
             battle_id: format!("battle.{}", monster.instance_id),
+            estate_upgrade_id: None,
         });
         self.pending_encounter.as_ref()
     }
@@ -447,7 +486,19 @@ impl ExpeditionState {
                 }
             }
         }
-        self.pending_encounter = None;
+        let encounter = self
+            .pending_encounter
+            .take()
+            .expect("checked pending above");
+        self.resolved_encounter_ids
+            .insert(encounter.encounter_id.clone());
+        if outcome == EncounterOutcome::Victory {
+            if let Some(estate_upgrade_id) = encounter.estate_upgrade_id {
+                self.household_progress
+                    .estate_upgrades
+                    .insert(estate_upgrade_id);
+            }
+        }
         Ok(())
     }
 
@@ -470,6 +521,25 @@ impl ExpeditionState {
                 }
             };
         }
+    }
+
+    /// Stable, player-addressable travel commands for the active location, or
+    /// the reason none are legal. Ordered by route ID, never by authoring or UI
+    /// order. This is what the bridge projects to Godot.
+    pub fn legal_route_commands(
+        &self,
+        geography: &Geography,
+    ) -> Result<Vec<String>, ExpeditionError> {
+        if let Some(encounter) = &self.pending_encounter {
+            return Err(ExpeditionError::TravelBlockedByEncounter {
+                encounter_id: encounter.encounter_id.clone(),
+            });
+        }
+        Ok(self
+            .legal_routes(geography)
+            .into_iter()
+            .map(|route| format!("travel:{}", route.id))
+            .collect())
     }
 
     /// The real, geography-aware version of `legal_next_commands`: departing routes
@@ -669,7 +739,7 @@ impl ExpeditionState {
     }
 }
 
-fn require_stable_id(field: &'static str, value: &str) -> Result<(), ExpeditionError> {
+pub(crate) fn require_stable_id(field: &'static str, value: &str) -> Result<(), ExpeditionError> {
     let shaped = !value.is_empty()
         && value.contains('.')
         && value
@@ -734,6 +804,7 @@ mod tests {
         at_encounter.pending_encounter = Some(EncounterState {
             encounter_id: "encounter.prototype.returning_names".into(),
             battle_id: "battle.prototype.returning_names".into(),
+            estate_upgrade_id: None,
         });
         let before = at_encounter.legal_next_commands();
         let restored =
@@ -789,16 +860,20 @@ mod tests {
             ExpeditionState::new(1, vec![], "world.cell.black_beach").unwrap_err(),
             ExpeditionError::InvalidPartySize { found: 0 }
         );
-        let five = vec![
+        // Five is the party (Captain Michael and four women); six is one too many.
+        // The names past Betty and Ayla are test-only placeholders -- the other
+        // two women are not yet decided (Ship Plan O2 / A12).
+        let six = vec![
             "character.protagonist.captain".into(),
             "character.heroine.betty".into(),
             "character.heroine.ayla".into(),
-            "character.heroine.vix".into(),
-            "character.heroine.grisha".into(),
+            "character.test.third".into(),
+            "character.test.fourth".into(),
+            "character.test.fifth".into(),
         ];
         assert_eq!(
-            ExpeditionState::new(1, five, "world.cell.black_beach").unwrap_err(),
-            ExpeditionError::InvalidPartySize { found: 5 }
+            ExpeditionState::new(1, six, "world.cell.black_beach").unwrap_err(),
+            ExpeditionError::InvalidPartySize { found: 6 }
         );
     }
 
@@ -1051,6 +1126,7 @@ mod tests {
             state.pending_encounter = Some(EncounterState {
                 encounter_id: "encounter.prototype.returning_names".into(),
                 battle_id: "battle.prototype.returning_names".into(),
+                estate_upgrade_id: None,
             });
             let location_before = state.active_location_id.clone();
             state
@@ -1080,6 +1156,7 @@ mod tests {
         state.pending_encounter = Some(EncounterState {
             encounter_id: "encounter.prototype.returning_names".into(),
             battle_id: "battle.prototype.returning_names".into(),
+            estate_upgrade_id: None,
         });
         let rations_before_retreat = state.supplies.rations;
         state
@@ -1180,6 +1257,7 @@ mod tests {
         state.pending_encounter = Some(EncounterState {
             encounter_id: "encounter.prototype.returning_names".into(),
             battle_id: "battle.prototype.returning_names".into(),
+            estate_upgrade_id: None,
         });
         let before = state.clone();
         let result = state.resolve_midnight(&midnight_rules());

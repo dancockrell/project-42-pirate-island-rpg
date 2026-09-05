@@ -4,7 +4,11 @@ use crate::battle::{
     Actor, Battle, BattleEvent, BattlePhase, BattleSnapshot, BattlefieldEffect, Faction,
     RecoveryOpening, StatusInstance, StatusKind,
 };
+use crate::expedition::{EncounterOutcome, ExpeditionError, ExpeditionState, TimeSegment};
+use crate::geography::{CellDefinition, EncounterTriggerDefinition, Geography, PortalDefinition};
+use crate::habitat::Habitats;
 use crate::protocol::{CommandEnvelope, CommandKind, PROTOCOL_VERSION};
+use serde::Deserialize;
 
 const BATTLE_ID: &str = "battle.prototype.returning_names";
 
@@ -15,6 +19,44 @@ struct Project42SimulationBridge {
     battle: Option<Battle>,
     #[init(val = 0)]
     sequence: u64,
+}
+
+/// Engine-facing route adapter. Godot supplies the already-validated portal
+/// records from its generated content bundle; Rust then owns legality, state
+/// mutation and save-compatible arrival history.
+#[derive(GodotClass)]
+#[class(init, base=RefCounted)]
+struct Project42ExpeditionBridge {
+    #[init(val = None)]
+    state: Option<ExpeditionState>,
+    #[init(val = Geography::default())]
+    geography: Geography,
+    /// Habitat ecology is still a Rust fixture, not authored content -- D1
+    /// built it that way on purpose. It rides along until content owns it.
+    #[init(val = Habitats::black_beach_vertical_slice())]
+    habitats: Habitats,
+    #[init(val = None)]
+    battle: Option<Battle>,
+    #[init(val = 0)]
+    battle_sequence: u64,
+}
+
+/// A deliberately narrow, string-based GDExtension boundary. Godot prepares
+/// this payload from the validated content catalog; Rust parses and validates
+/// the values before mutating expedition state. This avoids treating Godot's
+/// typed Array variants as a backend protocol.
+#[derive(Deserialize)]
+struct ExpeditionConfiguration {
+    seed: u64,
+    party_ids: Vec<String>,
+    active_location_id: String,
+    /// Authored cells with their region, observations and anchors. Optional so
+    /// a payload that only names portals still loads; endpoints a portal
+    /// touches are implied.
+    #[serde(default)]
+    cells: Vec<CellDefinition>,
+    portals: Vec<PortalDefinition>,
+    encounter_triggers: Vec<EncounterTriggerDefinition>,
 }
 
 #[godot_api]
@@ -94,6 +136,225 @@ impl Project42SimulationBridge {
     }
 }
 
+#[godot_api]
+impl Project42ExpeditionBridge {
+    #[func]
+    fn configure(&mut self, configuration_json: GString) -> VarDictionary {
+        let configuration = match serde_json::from_str::<ExpeditionConfiguration>(
+            &configuration_json.to_string(),
+        ) {
+            Ok(value) => value,
+            Err(_) => return expedition_error_dictionary("expedition_configuration_invalid"),
+        };
+        self.geography = match Geography::from_authored(
+            configuration.cells,
+            configuration.portals,
+            configuration.encounter_triggers,
+        ) {
+            Ok(geography) => geography,
+            Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
+        };
+        self.state = match ExpeditionState::new(
+            configuration.seed,
+            configuration.party_ids,
+            configuration.active_location_id,
+        ) {
+            Ok(state) => Some(state),
+            Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
+        };
+        expedition_state_dictionary(
+            self.state.as_ref().expect("state assigned"),
+            &self.geography,
+        )
+    }
+
+    #[func]
+    fn snapshot(&self) -> VarDictionary {
+        self.state
+            .as_ref()
+            .map(|state| expedition_state_dictionary(state, &self.geography))
+            .unwrap_or_else(|| expedition_error_dictionary("expedition_not_configured"))
+    }
+
+    #[func]
+    fn travel(&mut self, portal_id: GString) -> VarDictionary {
+        let Some(state) = self.state.as_mut() else {
+            return expedition_error_dictionary("expedition_not_configured");
+        };
+        if let Err(error) = state.travel(&portal_id.to_string(), &self.geography) {
+            return expedition_error_dictionary(expedition_error_code(&error));
+        }
+        // Arrival presents whatever the world actually holds here: an authored
+        // trigger, a hunter that caught up, or today's habitat holder.
+        state.begin_encounter(&self.geography, &self.habitats);
+        expedition_state_dictionary(state, &self.geography)
+    }
+
+    /// Starts only the battle declared by the current pending expedition
+    /// encounter. Godot may display the returned snapshot; it cannot name a
+    /// different battle or synthesize one when no encounter is pending.
+    #[func]
+    fn begin_pending_battle(&mut self) -> VarDictionary {
+        let Some(state) = self.state.as_ref() else {
+            return battle_error_snapshot("expedition_not_configured");
+        };
+        let Some(encounter) = state.pending_encounter.as_ref() else {
+            return battle_error_snapshot("no_pending_encounter");
+        };
+        if encounter.battle_id != BATTLE_ID {
+            return battle_error_snapshot("unsupported_pending_battle");
+        }
+        self.battle_sequence = 0;
+        self.battle = Some(Battle::prototype_vertical_slice());
+        snapshot_dictionary(&self.battle.as_ref().expect("battle assigned").snapshot())
+    }
+
+    #[func]
+    fn start_pending_battle(&mut self) -> Array<VarDictionary> {
+        let Some(battle) = self.battle.as_mut() else {
+            return expedition_battle_rejection(
+                &mut self.battle_sequence,
+                "",
+                "battle_not_created",
+            );
+        };
+        let events = battle.start();
+        expedition_battle_records(&mut self.battle_sequence, events, Some(battle.snapshot()))
+    }
+
+    #[func]
+    fn submit_pending_command(&mut self, command: VarDictionary) -> Array<VarDictionary> {
+        let command_id = field_string(&command, "command_id").unwrap_or_default();
+        let envelope = match command_envelope(&command) {
+            Ok(value) => value,
+            Err(reason) => {
+                return expedition_battle_rejection(&mut self.battle_sequence, &command_id, reason);
+            }
+        };
+        if envelope.battle_id != BATTLE_ID {
+            return expedition_battle_rejection(
+                &mut self.battle_sequence,
+                &command_id,
+                "battle_id_mismatch",
+            );
+        }
+        let skill_command = match envelope.into_skill_command() {
+            Ok(value) => value,
+            Err(crate::protocol::ProtocolError::UnsupportedVersion { .. }) => {
+                return expedition_battle_rejection(
+                    &mut self.battle_sequence,
+                    &command_id,
+                    "unsupported_protocol_version",
+                );
+            }
+            Err(_) => {
+                return expedition_battle_rejection(
+                    &mut self.battle_sequence,
+                    &command_id,
+                    "invalid_command_envelope",
+                );
+            }
+        };
+        let Some(battle) = self.battle.as_mut() else {
+            return expedition_battle_rejection(
+                &mut self.battle_sequence,
+                &command_id,
+                "battle_not_created",
+            );
+        };
+        let events = match battle.submit(skill_command) {
+            Ok(events) => events,
+            Err(error) => {
+                return expedition_battle_rejection(
+                    &mut self.battle_sequence,
+                    &command_id,
+                    battle_error_code(&error),
+                );
+            }
+        };
+        let snapshot = battle.snapshot();
+        let outcome = match snapshot.phase {
+            BattlePhase::Victory => Some(EncounterOutcome::Victory),
+            BattlePhase::Defeat => Some(EncounterOutcome::Defeat),
+            BattlePhase::Retreated => Some(EncounterOutcome::Retreat),
+            _ => None,
+        };
+        if let Some(outcome) = outcome {
+            if let Some(state) = self.state.as_mut() {
+                let _ = state.resolve_encounter(outcome, &self.geography, &self.habitats);
+            }
+        }
+        expedition_battle_records(&mut self.battle_sequence, events, Some(snapshot))
+    }
+
+    #[func]
+    fn pending_battle_snapshot(&self) -> VarDictionary {
+        self.battle
+            .as_ref()
+            .map(|battle| snapshot_dictionary(&battle.snapshot()))
+            .unwrap_or_else(|| battle_error_snapshot("battle_not_created"))
+    }
+
+    #[func]
+    fn recommended_pending_enemy_command(&self, command_id: GString) -> VarDictionary {
+        let Some(battle) = self.battle.as_ref() else {
+            return vdict! { "available" => false, "reason" => "battle_not_created" };
+        };
+        let Some(decision) = battle.enemy_decision() else {
+            return vdict! { "available" => false, "reason" => "active_actor_is_not_hostile" };
+        };
+        let target_ids: Array<GString> = array![decision.target_id.0.as_str()];
+        vdict! {
+            "available" => true, "protocol_version" => i64::from(PROTOCOL_VERSION),
+            "command_id" => &command_id, "battle_id" => BATTLE_ID,
+            "actor_id" => decision.actor_id.0.as_str(), "kind" => "use_skill",
+            "skill_id" => decision.skill_id.as_str(), "target_ids" => &target_ids,
+            "rationale" => decision.rationale.as_str(), "raw_damage" => i64::from(decision.raw_damage),
+            "guard_break_amount" => i64::from(decision.guard_break_amount),
+            "guard_absorbed" => i64::from(decision.guard_absorbed),
+            "vitality_damage" => i64::from(decision.vitality_damage), "lethal" => decision.lethal,
+            "interception_protector_id" => decision.interception_protector_id.as_ref().map(|id| id.0.as_str()).unwrap_or(""),
+            "fatal_intercept_available" => decision.fatal_intercept_available,
+        }
+    }
+}
+
+fn expedition_battle_records(
+    sequence: &mut u64,
+    events: Vec<BattleEvent>,
+    snapshot: Option<BattleSnapshot>,
+) -> Array<VarDictionary> {
+    let mut records = Array::new();
+    for event in events {
+        *sequence += 1;
+        records.push(&event_dictionary(event, *sequence, snapshot.as_ref()));
+    }
+    records
+}
+
+fn expedition_battle_rejection(
+    sequence: &mut u64,
+    command_id: &str,
+    reason: &str,
+) -> Array<VarDictionary> {
+    *sequence += 1;
+    let subjects = Array::<GString>::new();
+    let payload = vdict! { "reason" => reason };
+    let mut records = Array::new();
+    records.push(&vdict! {
+        "event_id" => format!("event.expedition.{:06}", sequence),
+        "command_id" => command_id, "sequence" => *sequence as i64,
+        "kind" => "command_rejected", "subjects" => &subjects, "payload" => &payload,
+    });
+    records
+}
+
+fn battle_error_snapshot(reason: &str) -> VarDictionary {
+    let actors = VarArray::new();
+    let error = vdict! { "kind" => reason };
+    vdict! { "battle_id" => "", "phase" => "error", "actors" => &actors, "error" => &error }
+}
+
 impl Project42SimulationBridge {
     fn records(&mut self, events: Vec<BattleEvent>) -> Array<VarDictionary> {
         let snapshot = self.battle.as_ref().map(Battle::snapshot);
@@ -152,6 +413,105 @@ fn field_string(value: &VarDictionary, key: &str) -> Option<String> {
         .get(key)
         .and_then(|v| v.try_to::<GString>().ok())
         .map(|v| v.to_string())
+}
+
+fn expedition_state_dictionary(state: &ExpeditionState, geography: &Geography) -> VarDictionary {
+    let mut party_ids = Array::<GString>::new();
+    for id in &state.party_ids {
+        let value = GString::from(id.as_str());
+        party_ids.push(&value);
+    }
+    let mut route_history = Array::<VarDictionary>::new();
+    for step in &state.route_history {
+        route_history.push(&vdict! {
+            "location_id" => step.location_id.as_str(),
+            "arrived_on_day" => i64::from(step.arrived_on_day),
+            "arrived_segment" => time_segment_name(&step.arrived_segment),
+        });
+    }
+    let mut legal_commands = Array::<GString>::new();
+    let error = state.legal_route_commands(geography).err();
+    if error.is_none() {
+        for command in state
+            .legal_route_commands(geography)
+            .expect("already checked")
+        {
+            let value = GString::from(command.as_str());
+            legal_commands.push(&value);
+        }
+    }
+    let metadata = vdict! { "source" => "rust_gdextension", "authoritative" => true };
+    let pending_encounter = state
+        .pending_encounter
+        .as_ref()
+        .map(|encounter| {
+            vdict! {
+                "encounter_id" => encounter.encounter_id.as_str(),
+                "battle_id" => encounter.battle_id.as_str(),
+                "estate_upgrade_id" => encounter.estate_upgrade_id.as_deref().unwrap_or(""),
+            }
+        })
+        .unwrap_or_default();
+    let mut resolved_encounter_ids = Array::<GString>::new();
+    for encounter_id in &state.resolved_encounter_ids {
+        resolved_encounter_ids.push(&GString::from(encounter_id.as_str()));
+    }
+    let mut estate_upgrades = Array::<GString>::new();
+    for estate_upgrade_id in &state.household_progress.estate_upgrades {
+        estate_upgrades.push(&GString::from(estate_upgrade_id.as_str()));
+    }
+    let mut result = vdict! {
+        "configured" => true,
+        "save_version" => i64::from(state.save_version),
+        "campaign_day" => i64::from(state.campaign_day),
+        "time_segment" => time_segment_name(&state.time_segment),
+        "active_location_id" => state.active_location_id.as_str(),
+        "party_ids" => &party_ids,
+        "route_history" => &route_history,
+        "legal_route_commands" => &legal_commands,
+        "travel_blocked_reason" => error.map(|value| expedition_error_code(&value)).unwrap_or(""),
+        "pending_encounter" => &pending_encounter,
+        "resolved_encounter_ids" => &resolved_encounter_ids,
+        "estate_upgrades" => &estate_upgrades,
+    };
+    result.set("metadata", &metadata);
+    result
+}
+
+fn expedition_error_dictionary(reason: &str) -> VarDictionary {
+    let metadata = vdict! { "source" => "rust_gdextension", "authoritative" => true };
+    let mut result = vdict! { "configured" => false, "error" => reason };
+    result.set("metadata", &metadata);
+    result
+}
+
+fn time_segment_name(value: &TimeSegment) -> &'static str {
+    match value {
+        TimeSegment::Dawn => "dawn",
+        TimeSegment::Day => "day",
+        TimeSegment::Dusk => "dusk",
+        TimeSegment::Midnight => "midnight",
+    }
+}
+
+fn expedition_error_code(value: &ExpeditionError) -> &'static str {
+    match value {
+        ExpeditionError::MalformedJson(_) => "malformed_json",
+        ExpeditionError::FutureSaveVersion { .. } => "future_save_version",
+        ExpeditionError::InvalidStableId { .. } => "invalid_stable_id",
+        ExpeditionError::InvalidPartySize { .. } => "invalid_party_size",
+        ExpeditionError::IllegalRoute { .. } => "illegal_route",
+        ExpeditionError::MissingDiscovery { .. } => "missing_discovery",
+        ExpeditionError::NoPendingEncounter => "no_pending_encounter",
+        ExpeditionError::MidnightBlockedByPendingEncounter => {
+            "midnight_blocked_by_pending_encounter"
+        }
+        ExpeditionError::NotAtEstate => "not_at_estate",
+        ExpeditionError::InsufficientSupplies { .. } => "insufficient_supplies",
+        ExpeditionError::DuplicatePortal { .. } => "duplicate_portal",
+        ExpeditionError::DuplicateEncounterTrigger => "duplicate_encounter_trigger",
+        ExpeditionError::TravelBlockedByEncounter { .. } => "travel_blocked_by_encounter",
+    }
 }
 
 fn snapshot_dictionary(snapshot: &BattleSnapshot) -> VarDictionary {

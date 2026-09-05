@@ -22,11 +22,15 @@ metadata/replacement_contract = "Replace cohesive named setpiece sections only; 
 
 [node name="EntryAnchors" type="Node3D" parent="."]
 
-[node name="entry.reception_terrace.shipwreck_trail" type="Marker3D" parent="EntryAnchors"]
+[node name="entry.reception_terrace.river_road" type="Marker3D" parent="EntryAnchors"]
 position = Vector3(-16, 0, 8)
 rotation_degrees = Vector3(0, 12, 0)
 
-[node name="entry.reception_terrace.estate_gate" type="Marker3D" parent="EntryAnchors"]
+[node name="entry.reception_terrace.jungle_edge" type="Marker3D" parent="EntryAnchors"]
+position = Vector3(-12, 0, 11)
+rotation_degrees = Vector3(0, 33, 0)
+
+[node name="entry.reception_terrace.processional_ramp" type="Marker3D" parent="EntryAnchors"]
 position = Vector3(15, 0, -7)
 rotation_degrees = Vector3(0, 188, 0)
 
@@ -34,6 +38,14 @@ rotation_degrees = Vector3(0, 188, 0)
 
 [node name="battle_entry.reception_terrace.razorbeak" type="Marker3D" parent="BattleEntries"]
 position = Vector3(1.5, 0, 0.8)
+
+[node name="InteractionAnchors" type="Node3D" parent="."]
+
+[node name="interact.reception_terrace.claw_marks" type="Marker3D" parent="InteractionAnchors"]
+position = Vector3(1.5, 0, 2.2)
+
+[node name="interact.reception_terrace.processional_ramp" type="Marker3D" parent="InteractionAnchors"]
+position = Vector3(14, 0, -6)
 
 [node name="CameraRails" type="Node3D" parent="."]
 

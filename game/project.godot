@@ -3,7 +3,11 @@ config_version=5
 
 [application]
 config/name="Project 42: Pirate Island RPG"
-run/main_scene="res://scenes/battle/battle_prototype.tscn"
+run/main_scene="res://scenes/world/expedition_prototype.tscn"
+
+[autoload]
+
+CampaignSession="*res://scripts/campaign/campaign_session.gd"
 
 [display]
 window/size/viewport_width=1920
@@ -20,4 +24,3 @@ textures/default_filters/use_nearest_mipmap_filter=false
 [input]
 confirm={"deadzone":0.5,"events":[Object(InputEventKey,"physical_keycode":32)]}
 cancel={"deadzone":0.5,"events":[Object(InputEventKey,"physical_keycode":4194305)]}
-

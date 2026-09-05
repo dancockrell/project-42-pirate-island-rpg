@@ -6,6 +6,7 @@ const PaperDollScript = preload("res://scripts/battle/paper_doll.gd")
 const PaperStageScript = preload("res://scripts/battle/paper_stage.gd")
 const PaperCardScript = preload("res://scripts/battle/paper_card.gd")
 const PaperSkillDiamondScript = preload("res://scripts/battle/paper_skill_diamond.gd")
+const CampaignEncounterSimulationPortScript = preload("res://scripts/simulation/campaign_encounter_simulation_port.gd")
 
 ## Presentation-only prototype. Gameplay truth comes through SimulationPort.
 ## All generated shapes and labels are explicit placeholders registered in
@@ -38,6 +39,8 @@ var round_label: Label
 var target_label: Label
 var action_cue_label: Label
 var command_dock: Control
+var return_to_expedition_button: Button
+var is_campaign_encounter := false
 var command_buttons: Dictionary = {}
 var actor_display_names := {
 	"character.protagonist.captain": "MICHAEL CORRIGAN",
@@ -58,7 +61,11 @@ func _ready() -> void:
 	animation_director.event_cued.connect(on_animation_event_cued)
 	animation_director.action_finished.connect(on_animation_finished)
 	add_child(animation_director)
-	if OS.has_feature("web") and OS.is_debug_build():
+	var campaign_session := get_node_or_null("/root/CampaignSession")
+	if campaign_session != null and campaign_session.has_method("has_pending_encounter") and campaign_session.has_pending_encounter():
+		simulation = CampaignEncounterSimulationPortScript.new(campaign_session)
+		is_campaign_encounter = true
+	elif OS.has_feature("web") and OS.is_debug_build():
 		# Browser previews cannot load the Windows Rust extension. They use the
 		# presentation fixture deliberately, without asking ClassDB for a class
 		# that cannot exist in this export.
@@ -179,6 +186,17 @@ func build_battle_plane() -> Control:
 	command_dock.position = Vector2(650, 805)
 	command_dock.size = Vector2(560, 175)
 	plane.add_child(command_dock)
+	return_to_expedition_button = Button.new()
+	return_to_expedition_button.name = "ReturnToExpedition"
+	return_to_expedition_button.text = "RETURN TO RECEPTION TERRACE"
+	return_to_expedition_button.tooltip_text = "Return to the expedition after the authoritative encounter outcome has been recorded."
+	return_to_expedition_button.add_theme_font_size_override("font_size", 14)
+	return_to_expedition_button.add_theme_stylebox_override("normal", make_command_box(Color("1a322e"), TEAL))
+	return_to_expedition_button.position = Vector2(1260, 840)
+	return_to_expedition_button.size = Vector2(450, 72)
+	return_to_expedition_button.visible = false
+	return_to_expedition_button.pressed.connect(return_to_expedition)
+	plane.add_child(return_to_expedition_button)
 	return plane
 
 func build_footer() -> Control:
@@ -440,6 +458,8 @@ func project_event(event: Dictionary) -> void:
 			intent_label.add_theme_color_override("font_color", TEAL if event.payload.victory else DANGER)
 			intent_label.text = "RAZORBEAK WITHDRAWS" if event.payload.victory else "BETTY IS DOWN"
 			description_label.text = "[color=#4fc7b4]The razorbeak breaks away into the jungle.[/color] The road is quiet for the moment." if event.payload.victory else "[color=#c24e45]Betty falls beneath the elven gate.[/color] The expedition must recover before midnight."
+			if is_campaign_encounter:
+				return_to_expedition_button.visible = true
 		_: pass
 
 func apply_narration(narration: Dictionary) -> void:
@@ -506,6 +526,12 @@ func set_commands_enabled(enabled: bool) -> void:
 func is_command_enabled(skill_id: String) -> bool:
 	var diamond := command_buttons.get(skill_id) as PaperSkillDiamond
 	return diamond != null and diamond.command_button != null and not diamond.command_button.disabled
+
+
+func return_to_expedition() -> void:
+	if not is_campaign_encounter:
+		return
+	get_tree().change_scene_to_file("res://scenes/world/expedition_prototype.tscn")
 
 func make_color_rect(color: Color, node_name: String) -> ColorRect:
 	var rect := ColorRect.new()

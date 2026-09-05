@@ -10,6 +10,10 @@
 
 use std::collections::BTreeMap;
 
+use serde::{Deserialize, Serialize};
+
+use crate::expedition::{ExpeditionError, require_stable_id};
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ReturnPolicy {
     CanRetreatToPrevious,
@@ -27,6 +31,18 @@ pub enum RouteKind {
     Direct,
     SafeRoad,
     JungleEdge,
+}
+
+impl RouteKind {
+    /// The authored `travelMode` vocabulary in `content/world/*.world_cell.json`:
+    /// `on_foot`, `safe_road`, `jungle_edge`. Anything else is a plain crossing.
+    pub fn from_travel_mode(travel_mode: &str) -> Self {
+        match travel_mode {
+            "safe_road" => RouteKind::SafeRoad,
+            "jungle_edge" => RouteKind::JungleEdge,
+            _ => RouteKind::Direct,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -57,10 +73,78 @@ pub struct RouteOption {
     pub required_discovery_id: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+impl LocationRecord {
+    /// The minimal record for a place a portal reaches but no cell declares.
+    /// It exists so the graph is closed; a declared `CellDefinition` for the
+    /// same ID replaces every field of it.
+    pub fn authored(id: &str) -> Self {
+        Self {
+            id: id.to_owned(),
+            region_id: "world.region.unassigned".into(),
+            display_name: id.to_owned(),
+            exits: Vec::new(),
+            observation_ids: Vec::new(),
+            interaction_anchor_ids: Vec::new(),
+            return_policy: ReturnPolicy::CanRetreatToPrevious,
+            persistence_policy: PersistencePolicy::PersistsAcrossVisits,
+            encounter_eligible: false,
+        }
+    }
+}
+
+/// The authored wire format for one cell -- the subset of a
+/// `content/world/*.world_cell.json` record the simulation needs.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CellDefinition {
+    pub id: String,
+    pub region_id: String,
+    pub display_name: String,
+    #[serde(default)]
+    pub observation_ids: Vec<String>,
+    #[serde(default)]
+    pub interaction_anchor_ids: Vec<String>,
+    #[serde(default)]
+    pub encounter_eligible: bool,
+}
+
+/// The authored wire format for one route, as Godot supplies it through the
+/// bridge. Distinct from `RouteOption` on purpose: this is what content
+/// declares, `RouteOption` is what the simulation runs on. Costs default to
+/// zero so authored data that only names a connection still loads.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PortalDefinition {
+    pub id: String,
+    pub from_location_id: String,
+    pub target_location_id: String,
+    pub travel_mode: String,
+    #[serde(default)]
+    pub time_cost_minutes: u32,
+    #[serde(default)]
+    pub supply_cost: u32,
+    #[serde(default)]
+    pub risk_level: u8,
+    #[serde(default)]
+    pub required_discovery_id: Option<String>,
+}
+
+/// One authored location-to-battle boundary. Content decides which entry is
+/// live; the expedition state decides when it becomes pending.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EncounterTriggerDefinition {
+    pub location_id: String,
+    pub encounter_id: String,
+    pub battle_id: String,
+    #[serde(default)]
+    pub estate_upgrade_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Geography {
     pub locations: BTreeMap<String, LocationRecord>,
     pub routes: BTreeMap<String, RouteOption>,
+    /// Authored one-time encounters, keyed by the location that presents them.
+    /// `begin_encounter` consults these before any habitat holder.
+    pub encounter_triggers: BTreeMap<String, EncounterTriggerDefinition>,
 }
 
 impl Geography {
@@ -439,11 +523,110 @@ impl Geography {
             routes.insert(id, option);
         }
 
-        Self { locations, routes }
+        Self {
+            locations,
+            routes,
+            encounter_triggers: BTreeMap::new(),
+        }
+    }
+
+    /// Builds the graph from authored data instead of the Rust fixture -- the
+    /// path Godot uses through the bridge. Declared cells carry their region,
+    /// observations and anchors; an endpoint a portal touches but no cell
+    /// declares is implied, so the graph is always closed.
+    pub fn from_authored(
+        cells: Vec<CellDefinition>,
+        portals: Vec<PortalDefinition>,
+        encounter_triggers: Vec<EncounterTriggerDefinition>,
+    ) -> Result<Self, ExpeditionError> {
+        let mut routes: BTreeMap<String, RouteOption> = BTreeMap::new();
+        let mut locations: BTreeMap<String, LocationRecord> = BTreeMap::new();
+        for cell in cells {
+            require_stable_id("cell.id", &cell.id)?;
+            require_stable_id("cell.region_id", &cell.region_id)?;
+            locations.insert(
+                cell.id.clone(),
+                LocationRecord {
+                    id: cell.id,
+                    region_id: cell.region_id,
+                    display_name: cell.display_name,
+                    exits: Vec::new(),
+                    observation_ids: cell.observation_ids,
+                    interaction_anchor_ids: cell.interaction_anchor_ids,
+                    return_policy: ReturnPolicy::CanRetreatToPrevious,
+                    persistence_policy: PersistencePolicy::PersistsAcrossVisits,
+                    encounter_eligible: cell.encounter_eligible,
+                },
+            );
+        }
+        for portal in portals {
+            require_stable_id("portal.id", &portal.id)?;
+            require_stable_id("portal.from_location_id", &portal.from_location_id)?;
+            require_stable_id("portal.target_location_id", &portal.target_location_id)?;
+            if routes.contains_key(&portal.id) {
+                return Err(ExpeditionError::DuplicatePortal { id: portal.id });
+            }
+            for location_id in [&portal.from_location_id, &portal.target_location_id] {
+                locations
+                    .entry(location_id.clone())
+                    .or_insert_with(|| LocationRecord::authored(location_id));
+            }
+            locations
+                .get_mut(&portal.from_location_id)
+                .expect("just inserted")
+                .exits
+                .push(portal.id.clone());
+            routes.insert(
+                portal.id.clone(),
+                RouteOption {
+                    id: portal.id,
+                    from_location_id: portal.from_location_id,
+                    to_location_id: portal.target_location_id,
+                    kind: RouteKind::from_travel_mode(&portal.travel_mode),
+                    time_cost_minutes: portal.time_cost_minutes,
+                    supply_cost: portal.supply_cost,
+                    risk_level: portal.risk_level,
+                    required_discovery_id: portal.required_discovery_id,
+                },
+            );
+        }
+
+        let mut triggers = BTreeMap::new();
+        for trigger in encounter_triggers {
+            require_stable_id("encounter_trigger.location_id", &trigger.location_id)?;
+            require_stable_id("encounter_trigger.encounter_id", &trigger.encounter_id)?;
+            require_stable_id("encounter_trigger.battle_id", &trigger.battle_id)?;
+            if let Some(estate_upgrade_id) = &trigger.estate_upgrade_id {
+                require_stable_id("encounter_trigger.estate_upgrade_id", estate_upgrade_id)?;
+            }
+            // An authored trigger makes its location present an encounter, so
+            // the eligibility flag the habitat path already reads must be true.
+            locations
+                .entry(trigger.location_id.clone())
+                .or_insert_with(|| LocationRecord::authored(&trigger.location_id))
+                .encounter_eligible = true;
+            if triggers
+                .insert(trigger.location_id.clone(), trigger)
+                .is_some()
+            {
+                return Err(ExpeditionError::DuplicateEncounterTrigger);
+            }
+        }
+
+        Ok(Self {
+            locations,
+            routes,
+            encounter_triggers: triggers,
+        })
     }
 
     pub fn location(&self, id: &str) -> Option<&LocationRecord> {
         self.locations.get(id)
+    }
+
+    /// The authored one-time encounter this location presents, if any.
+    pub fn encounter_trigger_for(&self, location_id: &str) -> Option<&EncounterTriggerDefinition> {
+        self.encounter_triggers.get(location_id)
     }
 
     /// Every location's stable ID, in stable order.
