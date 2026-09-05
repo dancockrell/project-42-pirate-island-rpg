@@ -346,16 +346,17 @@ top of the document is never stale:
 
 - **M0** shipped 7/13 · A1 A2 A11 B1 H6 H7 H9 · H2 and H10 superseded by
   `main`'s own rewrite · **remaining: C2, B2, H5, H8**
-- **M1** shipped 6/12 — **C1, C2, C4** (loot, portal costs, Michael's
+- **M1** shipped 7/12 — **C1, C2, C4** (loot, portal costs, Michael's
   commands), **A3** (the supply loop closes: anchors produce, rations bite,
-  victory pays), **A5** (five named bands, Composure, the Shaken gate) and
+  victory pays), **A4** (the estate's rooms are anchor actions; one way to act
+  at a place), **A5** (five named bands, Composure, the Shaken gate) and
   **A6** (Michael is a playable actor: Weapon Attack, Guard, Reposition)
 - **M2** shipped 5/9 — **E1** (CI live and green on GitHub), **E2** (Godot
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
 - **M3** shipped 0/16 · **M4** not started
-- Last updated 2026-09-05 against trunk `f33f364`. If this line is older than
+- Last updated 2026-09-05 against trunk `cae9337`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -365,7 +366,7 @@ top of the document is never stale:
 | A1 | Port the vertical-slice branch's concepts into `expedition.rs` | — | shipped 6b9d275 2026-09-04 |
 | A2 | `world.cell.*` canonical; fixture ≡ authored cells | A1 | shipped c1804ea 2026-09-05 |
 | A3 | Economy: anchors, salvage, loot, scarcity | A2 | shipped 9360f66 2026-09-05 — loot ownership reconciled with C1 on merge |
-| A4 | Estate actions as anchor actions; delete `rest_at_estate` | A3 | open |
+| A4 | Estate actions as anchor actions; delete `rest_at_estate` | A3 | shipped 047e0f4 2026-09-05 — pursuit made gate-aware in cae9337 on merge |
 | A5 | Five named bands and Composure | A1 | shipped 906411c 2026-09-05 — skill_rank reconciled to authored bondRank on merge |
 | A6 | Captain Michael as a battle actor: Weapon Attack, Guard, Reposition | A5, C4 | shipped f33f364 2026-09-05 — name and reposition record reconciled on merge |
 | A7 | Ayla's Deny Activation and Override Tomb Rule via site rules | A2, H5 | open |
@@ -429,6 +430,7 @@ top of the document is never stale:
 | C10 | Building records with envelopes | S3 | open |
 | C11 | Room contract fields on world cells | B11 | open |
 | C12 | One recruitable woman's arc (records only; identity per O2) | C6, S12, O2 | blocked: needs decision O2 |
+| C13 | Content can declare a discovery ID; the tidal cut's gate authored | A4 | open |
 
 ### Lane D — Art (`content/art/`, `work/art/`, `game/assets/`)
 
@@ -604,7 +606,7 @@ That test also asserts every `drop_table_id` a habitat declares resolves,
 which is C1's dangle check from the Rust side.
 
 ### A4 · Estate actions as anchor actions; delete `rest_at_estate`
-Status: open · Depends on: A3
+Status: shipped `047e0f4` 2026-09-05 · Depends on: A3
 Steps: the estate cell declares `anchor.estate.infirmary` → `Infirmary`,
 `anchor.estate.workshop` → `Workshop`, `anchor.estate.map_table` → `MapTable`,
 `anchor.estate.household_room` → `Inspect`. **Infirmary** = today's
@@ -625,6 +627,44 @@ after the estate action. **(brief)** The estate is Michael's *first strategic
 core*; S14 grows it into a faction. Nothing here is thrown away — the anchors
 become the core's first building interactions.
 Done when: `cargo test` green; `grep -rn rest_at_estate godot-rust/` prints nothing.
+
+**Shipped.** There is now exactly one way to do something at a place:
+`use_anchor`. `rest_at_estate` and everything that only existed to serve it
+are deleted, the infirmary body inlined into its arm, and `anchor_refusal` is
+the single owner of anchor legality for both the command and the legal-command
+listing, so what is offered and what is accepted cannot drift.
+`effective_supply_cost` is the single owner of route cost, called by `travel`
+and the retreat leg; the field rig takes one ration off every road. The slice
+test takes all three estate actions with round-trip assertions after each,
+crosses midnight, and walks the tidal cut for zero rations.
+
+The card named two gate observation IDs that exist nowhere. The lane used the
+authored ones from `content/world/` — canonical since A2 — rather than mint
+the card's spellings and recreate the two-namespaces drift A2 exists to kill.
+The card was wrong, not the lane. `fixture_matches_the_authored_world_cells`
+was extended to hold every portal's three costs, its gate, and each cell's
+observation IDs equal, not merely the ID sets; proven to bite on one ration.
+
+**Two findings the lane reported rather than reaching for, both real:**
+
+- **Pursuit ignored gates.** `next_step_toward` and `step_distance` counted
+  moves over the whole graph, so a hunter would chase through a door the party
+  had no way to use. Already true of the tomb's true-name gate, and invisible;
+  the tidal cut made every chase from the terrace arrive on the sand in one
+  move through a passage the party had never found. The lane rewrote the
+  distance expectations to the shortcut numbers and flagged the question. The
+  integrator answered it in `cae9337`: a gate is closed for everyone until the
+  party opens it and open for everyone afterward; pursuit consults the party's
+  discoveries. The original distances return; a new test holds the other half
+  (an opened gate is open for pursuit too). The other reading — that a natural
+  passage is open to creatures who know the island — is defensible fiction and
+  is not what shipped; if wanted, it is a per-portal property content authors,
+  not a global change to pursuit.
+- **Content cannot declare a discovery ID.** `validate.mjs` resolves a portal's
+  `requiredDiscoveryId` against registered stable IDs and no record type
+  declares one, so the tidal cut's gate lives only in the Rust fixture, under
+  a named `GATES_CONTENT_CANNOT_YET_DECLARE` exception with its deletion
+  condition. That is a content-schema gap, and it is now **C13**.
 
 ### A5 · Five named bands and Composure
 Status: shipped `906411c` 2026-09-05 · Depends on: A1
@@ -1105,6 +1145,34 @@ dimensions, circulation, slots, landmarks, encounter space, material
 language, avoid-list) as required fields; the five existing cells filled in.
 
 ### C12 · One recruitable woman's arc — blocked: needs decision O2.
+
+### C13 · Content can declare a discovery ID; the tidal cut's gate authored
+Status: open · Depends on: A4
+Touches: `tools/src/validate.mjs`, `content/world/black_beach.world_cell.json`,
+`content/world/damaged_estate.world_cell.json`, `godot-rust/src/geography.rs`
+The map table grants `discovery.map_table.tidal_cut` and the tidal cut requires
+it, but only the Rust fixture can say so: `validate.mjs` resolves
+`requiredDiscoveryId` against registered stable IDs and no content record
+declares a discovery, so authoring the gate fails validation. The fixture
+carries it under `GATES_CONTENT_CANNOT_YET_DECLARE` with the deletion condition.
+- Give a world cell a way to declare the discoveries its anchors grant — an
+  authored `anchors[]` block on the cell (`id`, `kind`, `grantsDiscoveryId`,
+  `requiresObservationId`), registered as stable IDs the same way observations
+  are. This is the content twin of A3's `CellDefinition.anchors`, which today
+  exists only in the fixture; `from_authored` already consumes it.
+- Do **not** add a `discovery.` entry to `intentionallyExternalPrefixes`. That
+  lets content reference an ID nothing declares, which is the dangle C1 existed
+  to close.
+- Author the estate's four anchors and the map table's grant on
+  `damaged_estate.world_cell.json`; author `requiredDiscoveryId` on the tidal
+  cut in `black_beach.world_cell.json`.
+- Extend `fixture_matches_the_authored_world_cells` to hold anchors equal
+  between fixture and content, then **delete** `GATES_CONTENT_CANNOT_YET_DECLARE`
+  and its branch.
+Traps: the exception constant must not survive this card. A second place to
+declare an anchor's ID is the fork.
+Done when: the validator passes with the gate authored; the constant is gone;
+`grep -rn GATES_CONTENT_CANNOT_YET_DECLARE godot-rust/` prints nothing.
 
 ### Lane D — new cards
 
