@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "task_id": "a3-close-the-economy",
+  "agent": "claude-opus-5-lane-a3",
+  "summary": "A3: one anchor mechanism produces supplies (salvage and loot caches), habitat loot tables pay out on victory, and travel is refused when the rations are not there",
+  "status": "active",
+  "claimed_at": "2026-09-05T00:00:00Z",
+  "updated_at": "2026-09-05T00:00:00Z",
+  "paths": [
+    "godot-rust/src/geography.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/habitat.rs",
+    "godot-rust/src/world.rs",
+    "godot-rust/src/lib.rs",
+    "godot-rust/tests/vertical_slice.rs",
+    "godot-rust/src/godot_bridge.rs"
+  ],
+  "symbols": [
+    "AnchorKind",
+    "AnchorDefinition",
+    "AnchorOutcome",
+    "Geography.anchors",
+    "ExpeditionState::use_anchor",
+    "ExpeditionState.anchor_uses",
+    "LootTable",
+    "Habitats.loot_tables",
+    "EncounterResolution",
+    "ExpeditionState::resolve_encounter",
+    "ExpeditionState::travel"
+  ],
+  "coordination": {
+    "depends_on": ["A2"],
+    "conflicts_with": ["A4", "B3"],
+    "notes": "A4 places the estate's Infirmary/Workshop/MapTable/Inspect anchors on this same mechanism and deletes rest_at_estate; A3 deliberately leaves rest_at_estate as the single owner of the infirmary rule and has use_anchor call it rather than growing a second copy. godot_bridge.rs is outside this lane's ownership and is edited in exactly one place: expedition_error_code's match is exhaustive over ExpeditionError, so the two new variants (AnchorNotHere, AnchorSpentToday) the A3 card names cannot exist without two new arms there, or cargo check --features godot-ext fails. No other bridge surface is touched; B3 still owns exposing anchors to Godot. backend-p0-unify-expedition-spines is still marked active over expedition.rs/geography.rs, but its reconciliation is already merged into this branch's history (A1 shipped 6b9d275), so this work builds on its result rather than beside it."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}

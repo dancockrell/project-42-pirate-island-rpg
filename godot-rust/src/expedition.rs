@@ -13,10 +13,12 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
-use crate::geography::{Geography, RouteOption};
-use crate::habitat::Habitats;
+use crate::geography::{AnchorKind, Geography, RouteOption};
+use crate::habitat::{Habitats, LootTable};
 use crate::hunter::{self, Hunter, HunterKind};
-use crate::world::{DeathMemory, NamedPerson, SpawnRule, SpawnedMonster, WorldClock, WorldEvent};
+use crate::world::{
+    DeathMemory, NamedPerson, SpawnRule, SpawnedMonster, WorldClock, WorldEvent, mix_seed,
+};
 
 pub const CURRENT_SAVE_VERSION: u32 = 1;
 
@@ -107,6 +109,11 @@ pub struct ExpeditionState {
     /// save/reload or a later return to its location.
     #[serde(default)]
     pub resolved_encounter_ids: BTreeSet<String>,
+    /// The last campaign day each anchor was used on. A once-per-day anchor is
+    /// spent when its entry names today; the entry is kept rather than cleared
+    /// at midnight so the record survives a save/reload without a sweep.
+    #[serde(default)]
+    pub anchor_uses: BTreeMap<String, u32>,
     pub rng_seed: u64,
 }
 
@@ -143,7 +150,19 @@ pub enum ExpeditionError {
     DuplicatePortal {
         id: String,
     },
+    DuplicateAnchor {
+        id: String,
+    },
     DuplicateEncounterTrigger,
+    /// The anchor exists, but not at the location the party is standing in.
+    AnchorNotHere {
+        anchor_id: String,
+    },
+    /// A once-per-day anchor already gave what it had today.
+    AnchorSpentToday {
+        anchor_id: String,
+        used_on_day: u32,
+    },
     /// The party cannot walk away from a fight it has already been offered.
     TravelBlockedByEncounter {
         encounter_id: String,
@@ -157,6 +176,20 @@ pub struct TravelOutcome {
     pub supply_cost: u32,
 }
 
+/// What using an anchor actually produced. One outcome shape for every anchor
+/// kind, so a caller reads the same fields whether the party salvaged a wreck,
+/// opened a cache, or used a room at the estate.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct AnchorOutcome {
+    pub anchor_id: String,
+    pub rations_gained: u32,
+    pub medicine_gained: u32,
+    pub coin_gained: u32,
+    pub medicine_spent: u32,
+    pub healed_character_ids: Vec<String>,
+    pub discoveries_recorded: Vec<String>,
+}
+
 /// B2: how a battle ended, as reported back through `Battle`'s own `BattlePhase`
 /// (`Victory` / `Defeat` / `Retreated`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -164,6 +197,16 @@ pub enum EncounterOutcome {
     Victory,
     Defeat,
     Retreat,
+}
+
+/// What resolving an encounter settled: how it ended, and what the beaten
+/// individual was carrying. `loot` is `Some` only on a victory over the
+/// individual that actually holds this habitat today -- a hunter carries
+/// nothing, and neither does an encounter the party lost or fled.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EncounterResolution {
+    pub outcome: EncounterOutcome,
+    pub loot: Option<LootTable>,
 }
 
 /// B4: the one real estate consequence -- an infirmary recovery. Not a generic
@@ -213,6 +256,7 @@ impl ExpeditionState {
             },
             pending_encounter: None,
             resolved_encounter_ids: BTreeSet::new(),
+            anchor_uses: BTreeMap::new(),
             rng_seed: seed,
         };
         state.validate()?;
@@ -300,9 +344,19 @@ impl ExpeditionState {
                 });
             }
         }
+        // A3: rations are a real constraint on where the party may go. A road
+        // the party cannot feed itself along is refused outright, before
+        // anything moves -- not walked for free by a `saturating_sub` that
+        // quietly floors an empty pack at zero.
+        if self.supplies.rations < route.supply_cost {
+            return Err(ExpeditionError::InsufficientSupplies {
+                needed: route.supply_cost,
+                available: self.supplies.rations,
+            });
+        }
 
         self.advance_time(route.time_cost_minutes);
-        self.supplies.rations = self.supplies.rations.saturating_sub(route.supply_cost);
+        self.supplies.rations -= route.supply_cost;
         self.route_history.push(RouteStep {
             location_id: route.to_location_id.clone(),
             arrived_on_day: self.campaign_day,
@@ -318,6 +372,95 @@ impl ExpeditionState {
             time_cost_minutes: route.time_cost_minutes,
             supply_cost: route.supply_cost,
         })
+    }
+
+    /// A3: the one "do something here" verb. Every anchor kind -- salvaging the
+    /// wreck, opening a cache, and (A4) the estate's rooms -- goes through this
+    /// method, so the game never grows a second interaction path per verb.
+    ///
+    /// Rejects before touching anything when the anchor is not at the current
+    /// location, when a once-per-day anchor has already been used today, or when
+    /// an encounter is still open (the same rule `travel` applies: nothing else
+    /// happens while a fight is pending).
+    ///
+    /// A salvage yield is deterministic, not random: the declared rations are a
+    /// floor and `world.rs`'s existing `mix_seed` decides, from the campaign
+    /// seed, the day and the anchor's own ID, whether the day turns up one more.
+    /// The same save on the same day always salvages the same amount, and no
+    /// random-number crate enters the simulation.
+    pub fn use_anchor(
+        &mut self,
+        anchor_id: &str,
+        geography: &Geography,
+    ) -> Result<AnchorOutcome, ExpeditionError> {
+        if let Some(encounter) = &self.pending_encounter {
+            return Err(ExpeditionError::TravelBlockedByEncounter {
+                encounter_id: encounter.encounter_id.clone(),
+            });
+        }
+        if !geography.anchor_is_at(anchor_id, &self.active_location_id) {
+            return Err(ExpeditionError::AnchorNotHere {
+                anchor_id: anchor_id.to_owned(),
+            });
+        }
+        let anchor = geography
+            .anchor(anchor_id)
+            .expect("anchor_is_at proved the definition exists")
+            .clone();
+        if anchor.once_per_day && self.anchor_uses.get(anchor_id) == Some(&self.campaign_day) {
+            return Err(ExpeditionError::AnchorSpentToday {
+                anchor_id: anchor_id.to_owned(),
+                used_on_day: self.campaign_day,
+            });
+        }
+
+        let mut outcome = AnchorOutcome {
+            anchor_id: anchor_id.to_owned(),
+            ..AnchorOutcome::default()
+        };
+        match anchor.kind {
+            AnchorKind::Salvage { rations, coin } => {
+                let bonus = (mix_seed(self.rng_seed, self.campaign_day, anchor_id, 0) % 2) as u32;
+                outcome.rations_gained = rations + bonus;
+                outcome.coin_gained = coin;
+            }
+            AnchorKind::LootCache {
+                rations,
+                medicine,
+                coin,
+            } => {
+                outcome.rations_gained = rations;
+                outcome.medicine_gained = medicine;
+                outcome.coin_gained = coin;
+            }
+            AnchorKind::Infirmary => {
+                // One owner for the infirmary rule. A4 moves `rest_at_estate`'s
+                // body in here and deletes the method; until then this calls it
+                // rather than growing a second copy of the same rule.
+                let rest = self.rest_at_estate()?;
+                outcome.medicine_spent = rest.medicine_spent;
+                outcome.healed_character_ids = rest.healed_character_ids;
+            }
+            AnchorKind::Inspect => {
+                outcome.discoveries_recorded = self.inspect(geography);
+            }
+            // Stand-in, owned by A4, which is the task that places the estate's
+            // workshop and map table and gives each its effect: the workshop
+            // records `estate.upgrade.workshop_field_rig` behind
+            // `observation.black_beach.wreck_of_handsome_jack`, the map table
+            // inserts `discovery.map_table.tidal_cut` behind
+            // `observation.river_landing.elven_waymark`. Nothing in the world
+            // declares an anchor of either kind yet, so no reachable action
+            // depends on this arm; it exists because the match is exhaustive.
+            AnchorKind::Workshop | AnchorKind::MapTable => {}
+        }
+
+        self.supplies.rations += outcome.rations_gained;
+        self.supplies.medicine += outcome.medicine_gained;
+        self.supplies.coin += outcome.coin_gained;
+        self.anchor_uses
+            .insert(anchor_id.to_owned(), self.campaign_day);
+        Ok(outcome)
     }
 
     /// B1's observation query. Records every observation at the current location
@@ -422,17 +565,24 @@ impl ExpeditionState {
     /// Victory additionally marks that habitat cleared for the day, so the individual
     /// the party just beat cannot be refought until the next Midnight Return puts a
     /// new one there. Defeat and Retreat leave it uncleared: the individual still
-    /// holds its territory. Loot and injuries stay out of this -- they are content
-    /// the encounter itself declares, not something this method invents.
+    /// holds its territory.
+    ///
+    /// A3: victory over a habitat's actual holder also pays. The habitat's
+    /// `drop_table_id` -- declared since D1 and read by nothing until now --
+    /// resolves against `Habitats::loot_table`, and the individual's own
+    /// `loot_seed`, likewise declared and never read, decides the coin it was
+    /// personally carrying (`loot_seed % 3`) on top of the table. A hunter drops
+    /// nothing: it came for the party, it does not hold territory.
     pub fn resolve_encounter(
         &mut self,
         outcome: EncounterOutcome,
         geography: &Geography,
         habitats: &Habitats,
-    ) -> Result<(), ExpeditionError> {
+    ) -> Result<EncounterResolution, ExpeditionError> {
         if self.pending_encounter.is_none() {
             return Err(ExpeditionError::NoPendingEncounter);
         }
+        let mut loot = None;
         if outcome == EncounterOutcome::Victory {
             let pending_encounter_id = self
                 .pending_encounter
@@ -455,6 +605,29 @@ impl ExpeditionState {
             } else if let Some(habitat) = habitats.habitat_for_location(&self.active_location_id) {
                 if let Some(state) = self.habitat_states.get_mut(&habitat.region_id) {
                     state.cleared_today = true;
+                }
+                // Only the individual the party actually fought pays out, which
+                // is why the seed is taken from the spawn record whose encounter
+                // ID matches the pending one rather than from whatever currently
+                // sits in the ledger for this region.
+                let carried_coin = self
+                    .daily_spawn_records
+                    .get(&habitat.region_id)
+                    .into_iter()
+                    .chain(self.nightly_spawn_records.get(&habitat.region_id))
+                    .find(|monster| {
+                        pending_encounter_id.as_deref()
+                            == Some(format!("encounter.{}", monster.instance_id).as_str())
+                    })
+                    .map(|monster| (monster.loot_seed % 3) as u32);
+                if let (Some(carried_coin), Some(table)) = (
+                    carried_coin,
+                    habitats.loot_table(&habitat.drop_table_id).cloned(),
+                ) {
+                    self.supplies.rations += table.rations;
+                    self.supplies.medicine += table.medicine;
+                    self.supplies.coin += table.coin + carried_coin;
+                    loot = Some(table);
                 }
             }
         }
@@ -499,7 +672,7 @@ impl ExpeditionState {
                     .insert(estate_upgrade_id);
             }
         }
-        Ok(())
+        Ok(EncounterResolution { outcome, loot })
     }
 
     /// A coarse, deterministic clock: every 360 minutes rolls the campaign one time
@@ -562,6 +735,16 @@ impl ExpeditionState {
                     .iter()
                     .map(|id| format!("inspect:{id}")),
             );
+        }
+        // Every legal "do something here" verb, in the order the cell lists its
+        // anchors. An anchor already spent today is not a legal command.
+        for anchor in geography.anchors_at(&self.active_location_id) {
+            if anchor.once_per_day
+                && self.anchor_uses.get(&anchor.id).copied() == Some(self.campaign_day)
+            {
+                continue;
+            }
+            commands.push(format!("anchor_action:{}", anchor.id));
         }
         if self.can_rest_at_estate() {
             commands.push("rest_at_estate".to_owned());
@@ -1006,6 +1189,10 @@ mod tests {
 
     fn at_tomb_reception(geography: &Geography) -> ExpeditionState {
         let mut state = fixture();
+        // Enough rations to reach the tomb: these tests are about D3's truth-space
+        // gate, so the party is provisioned rather than tripping A3's supply gate
+        // on the way in.
+        state.supplies.rations = 10;
         for route_id in [
             "world.portal.black_beach_to_damaged_estate",
             "world.portal.damaged_estate_to_river_landing",
@@ -1104,6 +1291,7 @@ mod tests {
     fn boundary_save_reload_preserves_legal_next_commands_after_a_route_choice() {
         let geography = crate::geography::Geography::black_beach_vertical_slice();
         let mut state = fixture();
+        state.supplies.rations = 10;
         state
             .travel("world.portal.black_beach_to_damaged_estate", &geography)
             .expect("legal route");
@@ -1430,6 +1618,259 @@ mod tests {
         );
     }
 
+    const SALVAGE_POINT: &str = "anchor.black_beach.salvage_point";
+
+    /// A3: the same campaign, on the same day, always salvages the same amount.
+    /// The yield is not a constant either -- it moves with the day -- so this
+    /// also proves the determinism is a seeded rule rather than a fixed number.
+    #[test]
+    fn salvaging_the_wreck_yields_the_same_supplies_for_the_same_seed_and_day() {
+        let geography = Geography::black_beach_vertical_slice();
+
+        let mut first = fixture();
+        let mut second = fixture();
+        let left = first
+            .use_anchor(SALVAGE_POINT, &geography)
+            .expect("the wreck is on the beach");
+        let right = second
+            .use_anchor(SALVAGE_POINT, &geography)
+            .expect("the wreck is on the beach");
+        assert_eq!(left, right);
+        assert_eq!(first.supplies, second.supplies);
+        assert_eq!(first, second);
+
+        // The declared floor is four rations and two coin; the day decides the
+        // fifth ration. Coin exists in the economy for the first time here.
+        assert!((4..=5).contains(&left.rations_gained), "{left:?}");
+        assert_eq!(left.coin_gained, 2);
+        assert_eq!(first.supplies.rations, left.rations_gained);
+        assert_eq!(first.supplies.coin, 2);
+
+        // Run the same anchor forward day by day: identical replays, and not the
+        // same answer every day, which is what makes it a seeded rule.
+        let yields_over_a_week = |seed: u64| {
+            let mut state = ExpeditionState::new(
+                seed,
+                vec!["character.protagonist.captain".into()],
+                "world.cell.black_beach",
+            )
+            .expect("constructs");
+            let mut yields = Vec::new();
+            for day in 1..=8 {
+                state.campaign_day = day;
+                yields.push(
+                    state
+                        .use_anchor(SALVAGE_POINT, &geography)
+                        .expect("a new day re-opens the wreck")
+                        .rations_gained,
+                );
+            }
+            yields
+        };
+        let week = yields_over_a_week(42);
+        assert_eq!(
+            week,
+            yields_over_a_week(42),
+            "the same seed replays exactly"
+        );
+        // Pinned, not merely self-consistent: these are the exact rations seed
+        // 42 salvages on campaign days one to eight. They replay identically and
+        // they move with the day, so the mixer is doing real work rather than
+        // returning a constant dressed up as a rule.
+        assert_eq!(week, vec![5, 5, 4, 4, 4, 5, 5, 4]);
+        assert!(
+            week.iter().any(|rations| *rations != week[0]),
+            "the day has to move the yield, or the seed is doing nothing: {week:?}"
+        );
+    }
+
+    #[test]
+    fn a_second_salvage_on_the_same_day_is_rejected_without_mutation() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+        state
+            .use_anchor(SALVAGE_POINT, &geography)
+            .expect("the first day's work");
+        let before = state.clone();
+
+        let error = state.use_anchor(SALVAGE_POINT, &geography).unwrap_err();
+
+        assert_eq!(
+            error,
+            ExpeditionError::AnchorSpentToday {
+                anchor_id: SALVAGE_POINT.into(),
+                used_on_day: state.campaign_day,
+            }
+        );
+        assert_eq!(state, before, "a refused anchor changes nothing");
+
+        // The wreck is not exhausted forever, only for today.
+        state.campaign_day += 1;
+        state
+            .use_anchor(SALVAGE_POINT, &geography)
+            .expect("tomorrow the tide leaves more");
+    }
+
+    #[test]
+    fn using_an_anchor_that_is_not_here_is_rejected_without_mutation() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+        state.active_location_id = "world.cell.river_landing".into();
+        let before = state.clone();
+
+        let error = state.use_anchor(SALVAGE_POINT, &geography).unwrap_err();
+
+        assert_eq!(
+            error,
+            ExpeditionError::AnchorNotHere {
+                anchor_id: SALVAGE_POINT.into()
+            }
+        );
+        assert_eq!(state, before);
+    }
+
+    #[test]
+    fn an_open_encounter_blocks_the_anchor_the_same_way_it_blocks_travel() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+        state.pending_encounter = Some(EncounterState {
+            encounter_id: "encounter.prototype.returning_names".into(),
+            battle_id: "battle.prototype.returning_names".into(),
+            estate_upgrade_id: None,
+        });
+        let before = state.clone();
+
+        let error = state.use_anchor(SALVAGE_POINT, &geography).unwrap_err();
+
+        assert_eq!(
+            error,
+            ExpeditionError::TravelBlockedByEncounter {
+                encounter_id: "encounter.prototype.returning_names".into()
+            }
+        );
+        assert_eq!(state, before);
+    }
+
+    #[test]
+    fn the_anchor_action_is_a_legal_command_here_until_it_is_spent() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+
+        let before = state.legal_next_commands_with_geography(&geography);
+        assert!(before.contains(&format!("anchor_action:{SALVAGE_POINT}")));
+
+        state
+            .use_anchor(SALVAGE_POINT, &geography)
+            .expect("the wreck is here");
+
+        let after = state.legal_next_commands_with_geography(&geography);
+        assert!(!after.contains(&format!("anchor_action:{SALVAGE_POINT}")));
+
+        // And the answer survives a save/reload, like every other legal command.
+        let restored = ExpeditionState::from_json(&state.to_json()).expect("round trip parses");
+        assert_eq!(
+            after,
+            restored.legal_next_commands_with_geography(&geography)
+        );
+    }
+
+    #[test]
+    fn a_loot_cache_gives_exactly_what_it_declares() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+        state.active_location_id = "world.cell.tomb_service_passage".into();
+
+        let outcome = state
+            .use_anchor(
+                "anchor.tomb_service_passage.disturbed_grave_goods",
+                &geography,
+            )
+            .expect("the grave goods are here");
+
+        assert_eq!(outcome.rations_gained, 1);
+        assert_eq!(outcome.medicine_gained, 1);
+        assert_eq!(outcome.coin_gained, 6);
+        assert_eq!(state.supplies.medicine, 1);
+        assert_eq!(state.supplies.coin, 6);
+    }
+
+    #[test]
+    fn a_save_written_before_anchors_existed_still_loads() {
+        let mut without_anchor_uses: serde_json::Value =
+            serde_json::from_str(&fixture().to_json()).expect("fixture parses");
+        without_anchor_uses
+            .as_object_mut()
+            .expect("save is an object")
+            .remove("anchor_uses")
+            .expect("fixture wrote the field");
+
+        let restored = ExpeditionState::from_json(&without_anchor_uses.to_string())
+            .expect("an older save still loads");
+        assert!(restored.anchor_uses.is_empty());
+    }
+
+    /// A3's whole point: the road costs food the party has to have found first.
+    #[test]
+    fn travel_is_refused_without_the_rations_it_costs_and_runs_after_salvaging() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+        assert_eq!(state.supplies.rations, 0, "a fresh campaign starts empty");
+
+        // The free legs off the sand are still free.
+        state
+            .travel("world.portal.black_beach_to_damaged_estate", &geography)
+            .expect("the climb costs no rations");
+        state
+            .travel("world.portal.damaged_estate_to_river_landing", &geography)
+            .expect("the river gate costs no rations");
+
+        // The road inland does not move an empty pack, and refusing it changes
+        // nothing at all -- not the clock, not the history, not the location.
+        let before = state.clone();
+        let error = state
+            .travel(
+                "world.portal.river_landing_to_reception_terrace_safe_road",
+                &geography,
+            )
+            .unwrap_err();
+        assert_eq!(
+            error,
+            ExpeditionError::InsufficientSupplies {
+                needed: 2,
+                available: 0
+            }
+        );
+        assert_eq!(state, before);
+
+        // Walk back to the wreck, work it, and the same road opens.
+        state
+            .travel("world.portal.river_landing_to_damaged_estate", &geography)
+            .expect("legal route");
+        state
+            .travel("world.portal.damaged_estate_to_black_beach", &geography)
+            .expect("legal route");
+        let salvaged = state
+            .use_anchor(SALVAGE_POINT, &geography)
+            .expect("the wreck is on the beach");
+        assert!(salvaged.rations_gained >= 2);
+        state
+            .travel("world.portal.black_beach_to_damaged_estate", &geography)
+            .expect("legal route");
+        state
+            .travel("world.portal.damaged_estate_to_river_landing", &geography)
+            .expect("legal route");
+
+        let rations_before_the_road = state.supplies.rations;
+        state
+            .travel(
+                "world.portal.river_landing_to_reception_terrace_safe_road",
+                &geography,
+            )
+            .expect("the salvaged rations pay for the road");
+        assert_eq!(state.active_location_id, "world.cell.reception_terrace");
+        assert_eq!(state.supplies.rations, rations_before_the_road - 2);
+    }
+
     /// A state standing at the encounter-eligible terrace on a day whose midnight
     /// has already put an individual in every habitat.
     fn at_the_held_terrace() -> (Geography, crate::habitat::Habitats, ExpeditionState) {
@@ -1519,6 +1960,94 @@ mod tests {
                 "{outcome:?} does not clear the habitat"
             );
         }
+    }
+
+    #[test]
+    fn victory_over_the_terrace_holder_pays_its_habitat_drop_table() {
+        let (geography, habitats, mut state) = at_the_held_terrace();
+        let holder = state.daily_spawn_records["world.region.black_beach.terrace_precinct"].clone();
+        let supplies_before = state.supplies.clone();
+        state
+            .begin_encounter(&geography, &habitats)
+            .expect("the terrace is held");
+
+        let resolution = state
+            .resolve_encounter(EncounterOutcome::Victory, &geography, &habitats)
+            .expect("resolves");
+
+        let table = resolution
+            .loot
+            .expect("beating the holder pays its habitat's declared drop table");
+        assert_eq!(table.id, "loot.razorbeak.crested.prototype");
+        assert_eq!(
+            state.supplies.rations,
+            supplies_before.rations + table.rations
+        );
+        assert_eq!(
+            state.supplies.medicine,
+            supplies_before.medicine + table.medicine
+        );
+        // The table plus what this particular individual was carrying, which is
+        // the first thing in the game ever to read `SpawnedMonster.loot_seed`.
+        assert_eq!(
+            state.supplies.coin,
+            supplies_before.coin + table.coin + (holder.loot_seed % 3) as u32
+        );
+    }
+
+    #[test]
+    fn a_lost_or_abandoned_fight_pays_nothing() {
+        for outcome in [EncounterOutcome::Defeat, EncounterOutcome::Retreat] {
+            let (geography, habitats, mut state) = at_the_held_terrace();
+            let supplies_before = state.supplies.clone();
+            state
+                .begin_encounter(&geography, &habitats)
+                .expect("the terrace is held");
+
+            let resolution = state
+                .resolve_encounter(outcome, &geography, &habitats)
+                .expect("resolves");
+
+            assert_eq!(resolution.outcome, outcome);
+            assert!(resolution.loot.is_none(), "{outcome:?} carries no loot");
+            assert_eq!(
+                state.supplies.medicine, supplies_before.medicine,
+                "{outcome:?} gains nothing"
+            );
+            assert_eq!(
+                state.supplies.coin, supplies_before.coin,
+                "{outcome:?} gains nothing"
+            );
+            // A retreat still pays its own way home, so rations are the one
+            // supply a lost fight can move -- downward.
+            assert!(state.supplies.rations <= supplies_before.rations);
+        }
+    }
+
+    #[test]
+    fn a_beaten_hunter_carries_no_habitat_loot() {
+        let geography = Geography::black_beach_vertical_slice();
+        let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
+        let mut state = fixture();
+        state.hunters.push(Hunter {
+            id: "hunter.test.tracker".into(),
+            definition_id: HunterKind::HumanTracker.definition_id().to_owned(),
+            kind: HunterKind::HumanTracker,
+            current_location_id: "world.cell.black_beach".into(),
+            spawned_on_day: 1,
+            level: 5,
+            defeated_on_day: None,
+        });
+        state
+            .begin_encounter(&geography, &habitats)
+            .expect("the hunter is here");
+
+        let resolution = state
+            .resolve_encounter(EncounterOutcome::Victory, &geography, &habitats)
+            .expect("resolves");
+
+        assert!(resolution.loot.is_none());
+        assert_eq!(state.supplies.coin, 0);
     }
 
     #[test]
