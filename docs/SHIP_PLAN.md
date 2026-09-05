@@ -356,7 +356,7 @@ top of the document is never stale:
 | ID | Task | Depends on | Status |
 |---|---|---|---|
 | A1 | Port the vertical-slice branch's concepts into `expedition.rs` | — | shipped 6b9d275 2026-09-04 |
-| A2 | `world.cell.*` canonical; fixture ≡ authored cells | A1 | claimed agent-A2 2026-09-04 |
+| A2 | `world.cell.*` canonical; fixture ≡ authored cells | A1 | shipped c1804ea 2026-09-05 |
 | A3 | Economy: anchors, salvage, loot, scarcity | A2 | open |
 | A4 | Estate actions as anchor actions; delete `rest_at_estate` | A3 | open |
 | A5 | Five named bands and Composure | A1 | open |
@@ -1082,22 +1082,30 @@ an existing field's meaning. Two agents adding fields then merge cleanly; a
 reordering does not. `CURRENT_SAVE_VERSION` bumps only when a field's
 meaning changes, and only with a migration fixture (E6).
 
-**A trap, learned the hard way.** If your agent harness offers "worktree
-isolation", check what repository it attaches to before trusting it: ours
-creates a worktree of the *session's primary repository*, which for this work
-is `dr-companion`, not this one. An agent launched that way lands in a
-checkout with no `godot-rust/`, no `content/`, and no ship plan. The agent
-that hit this correctly refused to proceed rather than reimplement the task in
-the wrong repository — which is the right instinct and is what §0 requires.
-Give agents the explicit path instead, and have them make their own worktree:
+**Two environment repairs, both done — do not reintroduce the workarounds.**
+
+*The repo is attached.* Agents launched with `isolation: "worktree"` once
+landed in a `dr-companion` checkout with no `godot-rust/`, because this
+repository was on disk but never registered as a session root. It is now
+attached and registered, so worktree isolation is correct and needs no
+explicit path. An agent should still verify before editing — one line:
 
 ```bash
-cd /home/user/project-42-pirate-island-rpg && git fetch origin
-git worktree add /home/user/p42-lane-<ID> backend/b0-expedition-state
+git remote -v | grep -q project-42-pirate-island-rpg && ls godot-rust/src/geography.rs
 ```
 
-Then have them verify `git remote -v` names this repository and that
-`godot-rust/src/geography.rs` exists before touching anything.
+*The fetch refspec is repaired.* This clone was made with `--depth 1`, which
+sets a single-branch refspec (`+refs/heads/main:refs/remotes/origin/main`).
+Every `origin/<other-branch>` tracking ref was therefore frozen at whatever it
+was when the clone was made, which made pushed work look unpushed and made
+`git log origin/backend/b0-expedition-state` lie. It cost one agent a wrong
+base branch and cost the integrator a false "nothing was pushed" conclusion.
+The refspec is now `+refs/heads/*:refs/remotes/origin/*`.
+
+**The lesson worth keeping: `git ls-remote origin <branch>` asks the server;
+`git rev-parse origin/<branch>` asks a local cache that may be stale.** When
+the two disagree, the server is right. Use `ls-remote` to settle any question
+about what is actually published.
 
 ### Spawning agents for lanes
 
