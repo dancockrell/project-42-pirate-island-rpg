@@ -1,5 +1,7 @@
 # Character and Haremlit Authoring Contract
 
+> **Current scope:** follow [GAME_BUILD_PLAN.md](GAME_BUILD_PLAN.md). Michael and four female companions are controllable heroes; every companion must initiate or advance investigations and quests that change campaign possibilities. Retain character depth, adult relationship agency, and provenance below. The prototype seven-skill/card/animation format does not prescribe the new board UI or make animation an immediate gate.
+
 ## Purpose
 
 Project 42 is a haremlit adventure. A heroine is never only a combat class, a

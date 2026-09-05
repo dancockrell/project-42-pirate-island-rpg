@@ -1,5 +1,7 @@
 # Development runbook
 
+> **Prototype tooling scope:** commands and contracts below describe existing implementation. Follow [GAME_BUILD_PLAN.md](GAME_BUILD_PLAN.md) for current product direction. A passing battle/animation fixture does not establish completion of the autonomous RTS, faction relations, dual clocks, or companion campaign.
+
 ## Godot editor
 
 Open `game/project.godot` in Godot 4.7.2 or a later compatible Godot 4 maintenance release. The main scene is already configured. Press F6/F5 to show the battle prototype.

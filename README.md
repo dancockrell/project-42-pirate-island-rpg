@@ -1,6 +1,10 @@
 # Project 42: Pirate Island RPG
 
-This repository is the executable companion to the design bible. It begins with a deliberately narrow vertical slice: one side-view battle stage, four party cards, one expanded active heroine, one individual monster, functional commands, descriptive combat text, and deterministic rules.
+Pirate Island is an in-development HaremLit multi-faction RTS simulation experienced through Captain Michael and four controllable female companions. Companion investigations drive discovery and campaign progression inside an autonomous faction world, presented on a fixed isometric board.
+
+Start with [the current game direction and build plan](docs/GAME_BUILD_PLAN.md). It owns the design contract, including separate world-time and Cthulhu patience/heat clocks, autonomous faction relations, broad fantasy art families, and rigged actors now with animation later.
+
+**Implementation status:** the repository still contains the earlier side-view battle prototype and asset-production work. The current direction supersedes that presentation; this documentation update does not implement the RTS campaign. The build plan identifies open integration work and distinguishes current authority from historical contracts.
 
 ## Language ownership
 
@@ -27,10 +31,9 @@ Betty's current Magnific images are stored as component references under `work/a
 
 ## Shared professional asset platform
 
-This repository is also the home of the **shared tabletop asset platform** used
-by Project 42, DR Companion, and future professional work. It is not a dumping
+The public [Shared Game Environment Library](https://github.com/dancockrell/shared-game-environment-library) owns shared CC0 source packs and catalogs. This repository retains Pirate Island consumer admission and project-specific asset work. It is not a dumping
 ground for downloaded models. `content/art/shared_asset_ledger.json` is the
-machine-validated source of truth for every shared candidate and admitted asset;
+machine-validated local record for shared candidates and consumer admission;
 `docs/SHARED_ASSET_PLATFORM.md` defines the legal, visual, technical, and
 project-boundary rules.
 
