@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "task_id": "e2-godot-suites-in-ci",
+  "agent": "claude-opus-5-lane-e2",
+  "summary": "E2: a second job in .github/workflows/verify.yml that builds the Rust GDExtension on Linux, runs the seventeen headless GDScript suites through tools/verify-godot.sh, and fails loudly if the mock fallback was taken instead of the real bridge",
+  "status": "active",
+  "claimed_at": "2026-09-05T15:45:00Z",
+  "updated_at": "2026-09-05T15:45:00Z",
+  "paths": [
+    ".github/workflows/verify.yml"
+  ],
+  "symbols": [],
+  "coordination": {
+    "depends_on": ["e1-ci-rust-and-content", "e3-portable-godot-gates"],
+    "conflicts_with": [],
+    "notes": "Adds a job beside the existing rust-and-content job; that job is left byte-identical. game/**, godot-rust/**, content/**, tools/** and docs/** are read-only here: game/** is inside backend-p0-unify-expedition-spines and the port-town work, tools/** belongs to E3, and docs/SHIP_PLAN.md is not a worktree editing surface (SHIP_PLAN section 9). The mock-versus-real-bridge proof is therefore made entirely from the workflow, out of markers the existing .gd files already print, with no edit to any test helper."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
