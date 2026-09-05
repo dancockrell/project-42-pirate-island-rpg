@@ -383,26 +383,33 @@ impl Habitats {
         // declare, and no others: a table nothing drops is a table nobody can
         // earn. Rank orders the payout -- the apex holder of the terrace
         // precinct is worth beating, the tideline razorbeak barely covers the
-        // walk. C1 authors these as content records; this registry is the same
-        // deterministic Rust twin the habitats themselves are.
+        // walk.
+        //
+        // These values are NOT authored here. `content/loot/*.json` owns them,
+        // exactly as `content/world/*.world_cell.json` owns the geography
+        // fixture, and `fixture_matches_the_authored_loot_tables` holds this
+        // registry equal to that content. A3 and C1 landed in the same round
+        // and each wrote its own numbers for these three IDs; two tables
+        // answering one question is the fork AGENTS.md section 0 forbids, so
+        // content won and this is its twin, not a second opinion.
         let loot_tables = [
             LootTable {
                 id: "loot.razorbeak.prototype".into(),
-                rations: 1,
-                medicine: 0,
-                coin: 3,
-            },
-            LootTable {
-                id: "loot.thunderback.prototype".into(),
                 rations: 2,
                 medicine: 1,
                 coin: 6,
             },
             LootTable {
-                id: "loot.razorbeak.crested.prototype".into(),
-                rations: 2,
+                id: "loot.thunderback.prototype".into(),
+                rations: 4,
                 medicine: 1,
-                coin: 12,
+                coin: 10,
+            },
+            LootTable {
+                id: "loot.razorbeak.crested.prototype".into(),
+                rations: 3,
+                medicine: 2,
+                coin: 18,
             },
         ];
         Self {
@@ -755,5 +762,75 @@ mod tests {
             .clone();
 
         assert_ne!(by_day.encounter_id, after_dark.encounter_id);
+    }
+
+    /// The loot economy has exactly one owner. `content/loot/*.json` authors
+    /// the numbers and `Habitats::black_beach_vertical_slice` carries the same
+    /// ones so the simulation can pay them without reading the disk mid-battle
+    /// -- the same arrangement `fixture_matches_the_authored_world_cells`
+    /// enforces for geography.
+    ///
+    /// This test exists because the two halves were written in parallel and
+    /// disagreed on all three tables the first time they met. Every drop table
+    /// a habitat declares must be authored, every authored table must be
+    /// carried here, and the yields must match to the coin.
+    #[test]
+    fn fixture_matches_the_authored_loot_tables() {
+        use std::collections::BTreeMap;
+
+        let loot_directory = concat!(env!("CARGO_MANIFEST_DIR"), "/../content/loot/");
+        let mut authored: BTreeMap<String, (u32, u32, u32)> = BTreeMap::new();
+        for entry in std::fs::read_dir(loot_directory).expect("content/loot/ is readable") {
+            let path = entry.expect("a readable directory entry").path();
+            if path.extension().and_then(|name| name.to_str()) != Some("json") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).expect("the loot file is readable");
+            let record: serde_json::Value =
+                serde_json::from_str(&text).expect("the loot file is JSON");
+            let id = record["id"]
+                .as_str()
+                .expect("an authored loot table declares a string id")
+                .to_owned();
+            let field = |name: &str| {
+                record["yield"][name]
+                    .as_u64()
+                    .unwrap_or_else(|| panic!("{id} declares a numeric yield.{name}"))
+                    as u32
+            };
+            let yields = (field("rations"), field("medicine"), field("coin"));
+            authored.insert(id, yields);
+        }
+        assert!(
+            !authored.is_empty(),
+            "content/loot/ holds the authored tables; an empty read means the path is wrong"
+        );
+
+        let habitats = Habitats::black_beach_vertical_slice();
+        let carried: BTreeMap<String, (u32, u32, u32)> = habitats
+            .loot_tables
+            .values()
+            .map(|table| {
+                (
+                    table.id.clone(),
+                    (table.rations, table.medicine, table.coin),
+                )
+            })
+            .collect();
+        assert_eq!(
+            carried, authored,
+            "the Rust loot registry and content/loot/ disagree; content is the owner"
+        );
+
+        // And no habitat may point at a table that does not exist, which is the
+        // dangle C1 taught the validator to catch on the content side.
+        for record in habitats.records.values() {
+            assert!(
+                habitats.loot_table(&record.drop_table_id).is_some(),
+                "{} drops {}, which no table declares",
+                record.id,
+                record.drop_table_id
+            );
+        }
     }
 }
