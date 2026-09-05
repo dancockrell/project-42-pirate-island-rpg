@@ -11,6 +11,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use std::collections::BTreeSet;
+
 use crate::geography::Geography;
 use crate::world::mix_seed;
 
@@ -83,6 +85,7 @@ pub fn maybe_spawn_hunter(
     kind: HunterKind,
     geography: &Geography,
     party_location_id: &str,
+    open_gates: &BTreeSet<String>,
 ) -> Option<Hunter> {
     if day < kind.available_from_day() {
         return None;
@@ -91,7 +94,7 @@ pub fn maybe_spawn_hunter(
     if roll % SPAWN_CHANCE_DENOMINATOR != 0 {
         return None;
     }
-    let spawn_location_id = furthest_reachable_location(geography, party_location_id)?;
+    let spawn_location_id = furthest_reachable_location(geography, party_location_id, open_gates)?;
     Some(Hunter {
         id: format!(
             "hunter.{}.day{day}",
@@ -110,13 +113,18 @@ pub fn maybe_spawn_hunter(
 /// `party_location_id`. A hunter already sharing the party's location, or with no
 /// path to it, does not move -- the party outrunning a hunter by staying ahead of
 /// it is the intended way to escape one.
-pub fn advance_hunters(hunters: &mut [Hunter], geography: &Geography, party_location_id: &str) {
+pub fn advance_hunters(
+    hunters: &mut [Hunter],
+    geography: &Geography,
+    party_location_id: &str,
+    open_gates: &BTreeSet<String>,
+) {
     for hunter in hunters.iter_mut() {
         if hunter.current_location_id == party_location_id {
             continue;
         }
         if let Some(step) =
-            geography.next_step_toward(&hunter.current_location_id, party_location_id)
+            geography.next_step_toward(&hunter.current_location_id, party_location_id, open_gates)
         {
             hunter.current_location_id = step.to_location_id.clone();
         }
@@ -132,13 +140,17 @@ pub fn hunter_at<'a>(hunters: &'a [Hunter], location_id: &str) -> Option<&'a Hun
         .find(|hunter| hunter.current_location_id == location_id)
 }
 
-fn furthest_reachable_location(geography: &Geography, from: &str) -> Option<String> {
+fn furthest_reachable_location(
+    geography: &Geography,
+    from: &str,
+    open_gates: &BTreeSet<String>,
+) -> Option<String> {
     geography
         .all_location_ids()
         .filter(|id| *id != from)
         .filter_map(|id| {
             geography
-                .step_distance(from, id)
+                .step_distance(from, id, open_gates)
                 .map(|distance| (id, distance))
         })
         .max_by_key(|(_, distance)| *distance)
@@ -168,7 +180,8 @@ mod tests {
                 3,
                 HunterKind::HumanTracker,
                 &geography,
-                "world.cell.black_beach"
+                "world.cell.black_beach",
+                &BTreeSet::new()
             )
             .is_none()
         );
@@ -178,7 +191,8 @@ mod tests {
                 9,
                 HunterKind::Revenant,
                 &geography,
-                "world.cell.black_beach"
+                "world.cell.black_beach",
+                &BTreeSet::new()
             )
             .is_none()
         );
@@ -197,16 +211,23 @@ mod tests {
                     HunterKind::HumanTracker,
                     &geography,
                     "world.cell.black_beach",
+                    &BTreeSet::new(),
                 )
             })
             .expect("a seed this wide rolls a spawn eventually");
         let actual_distance = geography
-            .step_distance("world.cell.black_beach", &hunter.current_location_id)
+            .step_distance(
+                "world.cell.black_beach",
+                &hunter.current_location_id,
+                &BTreeSet::new(),
+            )
             .expect("reachable");
         let farthest_possible = geography
             .all_location_ids()
             .filter(|id| *id != "world.cell.black_beach")
-            .filter_map(|id| geography.step_distance("world.cell.black_beach", id))
+            .filter_map(|id| {
+                geography.step_distance("world.cell.black_beach", id, &BTreeSet::new())
+            })
             .max()
             .expect("the graph has other locations");
         assert_eq!(actual_distance, farthest_possible);
@@ -221,6 +242,7 @@ mod tests {
             HunterKind::Revenant,
             &geography,
             "world.cell.black_beach",
+            &BTreeSet::new(),
         );
         let second = maybe_spawn_hunter(
             7,
@@ -228,6 +250,7 @@ mod tests {
             HunterKind::Revenant,
             &geography,
             "world.cell.black_beach",
+            &BTreeSet::new(),
         );
         assert_eq!(first, second);
     }
@@ -246,18 +269,26 @@ mod tests {
         }];
         let destination = "world.cell.black_beach";
         let starting_distance = geography
-            .step_distance(&hunters[0].current_location_id, destination)
+            .step_distance(
+                &hunters[0].current_location_id,
+                destination,
+                &BTreeSet::new(),
+            )
             .unwrap();
 
-        advance_hunters(&mut hunters, &geography, destination);
+        advance_hunters(&mut hunters, &geography, destination, &BTreeSet::new());
 
         let new_distance = geography
-            .step_distance(&hunters[0].current_location_id, destination)
+            .step_distance(
+                &hunters[0].current_location_id,
+                destination,
+                &BTreeSet::new(),
+            )
             .unwrap();
         assert_eq!(new_distance, starting_distance - 1);
 
         for _ in 0..new_distance {
-            advance_hunters(&mut hunters, &geography, destination);
+            advance_hunters(&mut hunters, &geography, destination, &BTreeSet::new());
         }
         assert_eq!(hunters[0].current_location_id, destination);
     }
@@ -274,7 +305,12 @@ mod tests {
             level: 8,
             defeated_on_day: None,
         }];
-        advance_hunters(&mut hunters, &geography, "world.cell.black_beach");
+        advance_hunters(
+            &mut hunters,
+            &geography,
+            "world.cell.black_beach",
+            &BTreeSet::new(),
+        );
         assert_eq!(hunters[0].current_location_id, "world.cell.black_beach");
     }
 

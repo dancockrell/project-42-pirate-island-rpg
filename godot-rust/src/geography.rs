@@ -8,7 +8,7 @@
 //! same reason `Battle::prototype_vertical_slice()` is: the backend proof doesn't need
 //! to wait on final content authoring.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -786,14 +786,43 @@ impl Geography {
             .collect()
     }
 
-    /// The first route of a shortest path from `from` to `to`, or `None` when the
-    /// two are the same place or nothing connects them.
+    /// The routes out of `location_id` that a pursuer may actually take: every
+    /// ungated route, plus a gated one whose discovery is in `open_gates`.
     ///
-    /// Breadth-first over `routes_from`, counting steps rather than minutes: a
-    /// pursuer closes ground in moves, and the shortest-in-time road is not always
-    /// the shortest-in-moves one. Both the frontier and the tie-break run in stable
-    /// route-ID order, so a chase is reproducible from the same save.
-    pub fn next_step_toward(&self, from: &str, to: &str) -> Option<&RouteOption> {
+    /// A gate is closed for everyone until the party opens it, and open for
+    /// everyone afterward. The party's discoveries are the only openness the
+    /// world records, so they are what pursuit consults. The alternative --
+    /// letting a hunter take a shortcut the player cannot -- was the state of
+    /// things until A4 hung the tidal cut directly between the beach and the
+    /// terrace, at which point every chase from the terrace arrived on the sand
+    /// in one move through a passage the party had never found.
+    fn open_routes_from(
+        &self,
+        location_id: &str,
+        open_gates: &BTreeSet<String>,
+    ) -> Vec<&RouteOption> {
+        self.routes_from(location_id)
+            .into_iter()
+            .filter(|route| match &route.required_discovery_id {
+                None => true,
+                Some(discovery_id) => open_gates.contains(discovery_id),
+            })
+            .collect()
+    }
+
+    /// The first route of a shortest path from `from` to `to`, or `None` when the
+    /// two are the same place or nothing connects them through open gates.
+    ///
+    /// Breadth-first over `open_routes_from`, counting steps rather than minutes:
+    /// a pursuer closes ground in moves, and the shortest-in-time road is not
+    /// always the shortest-in-moves one. Both the frontier and the tie-break run
+    /// in stable route-ID order, so a chase is reproducible from the same save.
+    pub fn next_step_toward(
+        &self,
+        from: &str,
+        to: &str,
+        open_gates: &BTreeSet<String>,
+    ) -> Option<&RouteOption> {
         if from == to {
             return None;
         }
@@ -802,7 +831,7 @@ impl Geography {
         let mut visited: BTreeMap<&str, ()> = BTreeMap::new();
         let mut frontier: Vec<(&str, &RouteOption)> = Vec::new();
         visited.insert(from, ());
-        for route in self.routes_from(from) {
+        for route in self.open_routes_from(from, open_gates) {
             if route.to_location_id == to {
                 return Some(route);
             }
@@ -813,7 +842,7 @@ impl Geography {
         while !frontier.is_empty() {
             let mut next_frontier: Vec<(&str, &RouteOption)> = Vec::new();
             for (location, first_step) in &frontier {
-                for route in self.routes_from(location) {
+                for route in self.open_routes_from(location, open_gates) {
                     if route.to_location_id == to {
                         return Some(first_step);
                     }
@@ -827,9 +856,15 @@ impl Geography {
         None
     }
 
-    /// Steps from `from` to `to` along a shortest path, `None` when unreachable.
-    /// Used to place a hunter as far from the party as the graph allows.
-    pub fn step_distance(&self, from: &str, to: &str) -> Option<usize> {
+    /// Steps from `from` to `to` along a shortest path through open gates, `None`
+    /// when unreachable. Used to place a hunter as far from the party as the
+    /// graph allows.
+    pub fn step_distance(
+        &self,
+        from: &str,
+        to: &str,
+        open_gates: &BTreeSet<String>,
+    ) -> Option<usize> {
         if from == to {
             return Some(0);
         }
@@ -841,7 +876,7 @@ impl Geography {
             steps += 1;
             let mut next_frontier: Vec<&str> = Vec::new();
             for location in &frontier {
-                for route in self.routes_from(location) {
+                for route in self.open_routes_from(location, open_gates) {
                     if route.to_location_id == to {
                         return Some(steps);
                     }
@@ -860,11 +895,19 @@ impl Geography {
 mod tests {
     use super::*;
 
+    fn no_gates_open() -> BTreeSet<String> {
+        BTreeSet::new()
+    }
+
     #[test]
     fn next_step_toward_a_neighbor_is_the_direct_route() {
         let geography = Geography::black_beach_vertical_slice();
         let step = geography
-            .next_step_toward("world.cell.black_beach", "world.cell.damaged_estate")
+            .next_step_toward(
+                "world.cell.black_beach",
+                "world.cell.damaged_estate",
+                &no_gates_open(),
+            )
             .expect("adjacent locations connect");
         assert_eq!(step.id, "world.portal.black_beach_to_damaged_estate");
     }
@@ -873,17 +916,45 @@ mod tests {
     fn next_step_toward_a_distant_location_is_the_first_hop_of_a_shortest_path() {
         let geography = Geography::black_beach_vertical_slice();
         let step = geography
-            .next_step_toward("world.cell.black_beach", "world.cell.reception_terrace")
+            .next_step_toward(
+                "world.cell.black_beach",
+                "world.cell.reception_terrace",
+                &no_gates_open(),
+            )
             .expect("the terrace is reachable");
-        // A4 hung the map table's tidal cut directly between the beach and the
-        // terrace, and it is the shortest path in moves, so that is the hop a
-        // pursuer takes. Note what this asserts about pursuit: `next_step_toward`
-        // counts moves over the whole graph and does not consult
-        // `required_discovery_id`, so a hunter uses a gated shortcut the party
-        // has not unlocked. That was already true of the tomb's archive-core gate
-        // before A4; the tidal cut only makes it visible on the first hop. It is
-        // a real question for whoever owns pursuit, not a fixture accident.
-        assert_eq!(step.to_location_id, "world.cell.reception_terrace");
+        // The tidal cut hangs directly between the beach and the terrace, but it
+        // is gated on the map table's discovery, and nobody has opened it. So a
+        // pursuer takes the long way: the estate first, then the river.
+        assert_eq!(step.to_location_id, "world.cell.damaged_estate");
+    }
+
+    /// The other half of the rule above: once the party has opened a gate, it
+    /// is open for pursuit too. A hunter is not held back by a door the party
+    /// has already walked through.
+    #[test]
+    fn an_opened_gate_is_open_for_pursuit_as_well() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut open = no_gates_open();
+        open.insert("discovery.map_table.tidal_cut".into());
+        let step = geography
+            .next_step_toward(
+                "world.cell.black_beach",
+                "world.cell.reception_terrace",
+                &open,
+            )
+            .expect("the terrace is reachable");
+        assert_eq!(
+            step.id,
+            "world.portal.black_beach_to_reception_terrace_tidal_cut"
+        );
+        assert_eq!(
+            geography.step_distance(
+                "world.cell.black_beach",
+                "world.cell.reception_terrace",
+                &open
+            ),
+            Some(1)
+        );
     }
 
     #[test]
@@ -891,7 +962,11 @@ mod tests {
         let geography = Geography::black_beach_vertical_slice();
         assert!(
             geography
-                .next_step_toward("world.cell.black_beach", "world.cell.black_beach")
+                .next_step_toward(
+                    "world.cell.black_beach",
+                    "world.cell.black_beach",
+                    &no_gates_open()
+                )
                 .is_none()
         );
     }
@@ -901,7 +976,11 @@ mod tests {
         let geography = Geography::black_beach_vertical_slice();
         assert!(
             geography
-                .next_step_toward("world.cell.black_beach", "world.cell.nowhere")
+                .next_step_toward(
+                    "world.cell.black_beach",
+                    "world.cell.nowhere",
+                    &no_gates_open()
+                )
                 .is_none()
         );
     }
@@ -909,31 +988,16 @@ mod tests {
     #[test]
     fn step_distance_matches_the_actual_shortest_path_length() {
         let geography = Geography::black_beach_vertical_slice();
-        assert_eq!(
-            geography.step_distance("world.cell.black_beach", "world.cell.black_beach"),
-            Some(0)
-        );
-        assert_eq!(
-            geography.step_distance("world.cell.black_beach", "world.cell.damaged_estate"),
-            Some(1)
-        );
-        assert_eq!(
-            geography.step_distance("world.cell.black_beach", "world.cell.river_landing"),
-            Some(2)
-        );
-        // One move by A4's tidal cut, rather than three by the river.
-        assert_eq!(
-            geography.step_distance("world.cell.black_beach", "world.cell.reception_terrace"),
-            Some(1)
-        );
-        assert_eq!(
-            geography.step_distance("world.cell.black_beach", "world.cell.processional_ramp"),
-            Some(2)
-        );
-        assert_eq!(
-            geography.step_distance("world.cell.black_beach", "world.cell.nowhere"),
-            None
-        );
+        let open = no_gates_open();
+        let distance = |to: &str| geography.step_distance("world.cell.black_beach", to, &open);
+        assert_eq!(distance("world.cell.black_beach"), Some(0));
+        assert_eq!(distance("world.cell.damaged_estate"), Some(1));
+        assert_eq!(distance("world.cell.river_landing"), Some(2));
+        // Three by the river. The tidal cut would make it one, but it is gated
+        // and closed; `an_opened_gate_is_open_for_pursuit_as_well` covers that.
+        assert_eq!(distance("world.cell.reception_terrace"), Some(3));
+        assert_eq!(distance("world.cell.processional_ramp"), Some(4));
+        assert_eq!(distance("world.cell.nowhere"), None);
     }
 
     #[test]
@@ -944,7 +1008,7 @@ mod tests {
         let mut hops = 0;
         while current != destination {
             let step = geography
-                .next_step_toward(&current, destination)
+                .next_step_toward(&current, destination, &no_gates_open())
                 .expect("still reachable each hop");
             current = step.to_location_id.clone();
             hops += 1;
@@ -953,7 +1017,7 @@ mod tests {
         assert_eq!(
             hops,
             geography
-                .step_distance("world.cell.black_beach", destination)
+                .step_distance("world.cell.black_beach", destination, &no_gates_open())
                 .unwrap()
         );
     }
@@ -996,9 +1060,26 @@ mod tests {
     #[test]
     fn the_tomb_interior_is_reachable_past_the_processional_ramp() {
         let geography = Geography::black_beach_vertical_slice();
+        // The archive core sits behind the true-name gate, and nothing has
+        // opened it: the closest a pursuer can get is unreachable. Open it and
+        // the core is seven moves from the sand by the river, as it always was.
         assert_eq!(
-            geography.step_distance("world.cell.black_beach", "world.cell.tomb_archive_core"),
-            Some(5)
+            geography.step_distance(
+                "world.cell.black_beach",
+                "world.cell.tomb_archive_core",
+                &no_gates_open()
+            ),
+            None
+        );
+        let mut open = no_gates_open();
+        open.insert("observation.tomb_reception.true_name".into());
+        assert_eq!(
+            geography.step_distance(
+                "world.cell.black_beach",
+                "world.cell.tomb_archive_core",
+                &open
+            ),
+            Some(7)
         );
     }
 

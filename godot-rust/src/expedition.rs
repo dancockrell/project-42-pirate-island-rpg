@@ -403,7 +403,12 @@ impl ExpeditionState {
         self.active_location_id = route.to_location_id.clone();
         // The world moves when the party does: every hunter closes one step
         // toward wherever the party now stands.
-        hunter::advance_hunters(&mut self.hunters, geography, &self.active_location_id);
+        hunter::advance_hunters(
+            &mut self.hunters,
+            geography,
+            &self.active_location_id,
+            &self.discoveries,
+        );
 
         Ok(TravelOutcome {
             arrived_at: self.active_location_id.clone(),
@@ -994,6 +999,7 @@ impl ExpeditionState {
                 kind,
                 geography,
                 &self.active_location_id,
+                &self.discoveries,
             ) {
                 self.hunters.push(hunter);
             }
@@ -1001,7 +1007,12 @@ impl ExpeditionState {
         for hunter in &mut self.hunters {
             hunter.defeated_on_day = None;
         }
-        hunter::advance_hunters(&mut self.hunters, geography, &self.active_location_id);
+        hunter::advance_hunters(
+            &mut self.hunters,
+            geography,
+            &self.active_location_id,
+            &self.discoveries,
+        );
 
         Ok(events)
     }
@@ -2410,7 +2421,11 @@ mod tests {
         let (mut state, geography, _) = state_with_a_spawned_tracker();
         let hunter_location_before = state.hunters[0].current_location_id.clone();
         let distance_before = geography
-            .step_distance(&hunter_location_before, &state.active_location_id)
+            .step_distance(
+                &hunter_location_before,
+                &state.active_location_id,
+                &state.discoveries,
+            )
             .expect("reachable");
         if distance_before == 0 {
             // The hunter already reached the party on the spawning midnight's own
@@ -2429,6 +2444,7 @@ mod tests {
             .step_distance(
                 &state.hunters[0].current_location_id,
                 &state.active_location_id,
+                &state.discoveries,
             )
             .expect("still reachable");
         assert!(distance_after <= distance_before);
@@ -2482,6 +2498,7 @@ mod tests {
             .step_distance(
                 &state.hunters[0].current_location_id,
                 &state.active_location_id,
+                &state.discoveries,
             )
             .expect("reachable");
         assert!(
