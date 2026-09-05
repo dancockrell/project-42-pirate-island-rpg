@@ -14,21 +14,24 @@
   "cameraRailId": "camera.exploration.black_beach",
   "entryAnchors": [
     {"id": "entry.black_beach.handsome_jack_wreck", "positionMetres": [-9.0, 0.0, 11.0], "facingDegrees": 28, "role": "campaign_start"},
-    {"id": "entry.black_beach.estate_climb", "positionMetres": [14.0, 0.0, -6.0], "facingDegrees": 201, "role": "estate_route"}
+    {"id": "entry.black_beach.estate_climb", "positionMetres": [14.0, 0.0, -6.0], "facingDegrees": 201, "role": "estate_route"},
+    {"id": "entry.black_beach.tidal_cut", "positionMetres": [-19.0, 0.0, -3.0], "facingDegrees": 312, "role": "tidal_cut_route"}
   ],
   "interactionAnchors": [
     {"id": "interact.black_beach.boiler_wreck", "role": "inspect", "actionId": "action.black_beach.inspect_boiler_wreck"},
     {"id": "interact.black_beach.estate_climb", "role": "depart", "actionId": "action.black_beach.climb_to_estate"}
   ],
   "portals": [
-    {"id": "world.portal.black_beach_to_damaged_estate", "fromAnchorId": "entry.black_beach.estate_climb", "targetCellId": "world.cell.damaged_estate", "targetAnchorId": "entry.damaged_estate.black_beach_path", "travelMode": "on_foot", "returnRule": "allowed_while_no_pending_encounter", "timeCostMinutes": 15, "supplyCost": 0, "riskLevel": 0}
+    {"id": "world.portal.black_beach_to_damaged_estate", "fromAnchorId": "entry.black_beach.estate_climb", "targetCellId": "world.cell.damaged_estate", "targetAnchorId": "entry.damaged_estate.black_beach_path", "travelMode": "on_foot", "returnRule": "allowed_while_no_pending_encounter", "timeCostMinutes": 15, "supplyCost": 0, "riskLevel": 0},
+    {"id": "world.portal.black_beach_to_reception_terrace_tidal_cut", "fromAnchorId": "entry.black_beach.tidal_cut", "targetCellId": "world.cell.reception_terrace", "targetAnchorId": "entry.reception_terrace.tidal_cut", "travelMode": "on_foot", "returnRule": "allowed_while_no_pending_encounter", "timeCostMinutes": 40, "supplyCost": 1, "riskLevel": 2}
   ],
   "battleEntries": [
     {"id": "battle_entry.black_beach.shoreline", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [1.0, 0.0, 2.0], "returnAnchorId": "entry.black_beach.handsome_jack_wreck", "safeRetreatAnchorId": "entry.black_beach.estate_climb", "status": "future_spawn_socket"}
   ],
   "explorationActions": [
     {"id": "action.black_beach.inspect_boiler_wreck", "type": "inspect", "result": "discover.steam_boiler_damage", "once": true},
-    {"id": "action.black_beach.climb_to_estate", "type": "travel", "portalId": "world.portal.black_beach_to_damaged_estate", "once": false}
+    {"id": "action.black_beach.climb_to_estate", "type": "travel", "portalId": "world.portal.black_beach_to_damaged_estate", "once": false},
+    {"id": "action.black_beach.take_tidal_cut", "type": "locked_departure", "portalId": "world.portal.black_beach_to_reception_terrace_tidal_cut", "once": false}
   ],
   "readableDescriptions": [
     {"id": "observation.black_beach.wreck", "text": "The Handsome Jack lies split along the black sand below the tide line. Her overlarge steam engine has torn the old tea cutter open, leaving copper pipe, wet timber and a climb toward shelter."},

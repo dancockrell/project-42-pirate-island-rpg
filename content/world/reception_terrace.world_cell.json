@@ -15,7 +15,8 @@
   "entryAnchors": [
     {"id": "entry.reception_terrace.river_road", "positionMetres": [-16.0, 0.0, 8.0], "facingDegrees": 12, "role": "safe_road_arrival"},
     {"id": "entry.reception_terrace.jungle_edge", "positionMetres": [-12.0, 0.0, 11.0], "facingDegrees": 33, "role": "jungle_edge_arrival"},
-    {"id": "entry.reception_terrace.processional_ramp", "positionMetres": [15.0, 0.0, -7.0], "facingDegrees": 188, "role": "ramp_route"}
+    {"id": "entry.reception_terrace.processional_ramp", "positionMetres": [15.0, 0.0, -7.0], "facingDegrees": 188, "role": "ramp_route"},
+    {"id": "entry.reception_terrace.tidal_cut", "positionMetres": [-9.0, 0.0, 14.0], "facingDegrees": 96, "role": "tidal_cut_arrival"}
   ],
   "interactionAnchors": [
     {"id": "interact.reception_terrace.claw_marks", "role": "inspect", "actionId": "action.reception_terrace.inspect_claw_marks"},

@@ -275,20 +275,50 @@ impl Geography {
                     false,
                 )
             },
-            cell(
-                "world.cell.damaged_estate",
-                "Damaged Coastal Estate",
-                &[
-                    "observation.damaged_estate.veranda",
-                    "observation.damaged_estate.river_gate",
+            // A4: the estate's rooms are anchors like every other "do something
+            // here" verb, so Michael's first strategic core is built out of the
+            // mechanism the beach and the tomb already use rather than a second,
+            // estate-only command path. Three of the four grant a fact that is
+            // permanent once recorded, and that fact is what spends them; only
+            // the household room is an ordinary daily look around.
+            CellDefinition {
+                anchors: vec![
+                    AnchorDefinition {
+                        id: "anchor.estate.infirmary".into(),
+                        kind: AnchorKind::Infirmary,
+                        once_per_day: false,
+                    },
+                    AnchorDefinition {
+                        id: "anchor.estate.workshop".into(),
+                        kind: AnchorKind::Workshop,
+                        once_per_day: false,
+                    },
+                    AnchorDefinition {
+                        id: "anchor.estate.map_table".into(),
+                        kind: AnchorKind::MapTable,
+                        once_per_day: false,
+                    },
+                    AnchorDefinition {
+                        id: "anchor.estate.household_room".into(),
+                        kind: AnchorKind::Inspect,
+                        once_per_day: true,
+                    },
                 ],
-                &[
-                    "interact.damaged_estate.infirmary_table",
-                    "interact.damaged_estate.river_gate",
-                ],
-                PersistencePolicy::PersistsAcrossVisits,
-                false,
-            ),
+                ..cell(
+                    "world.cell.damaged_estate",
+                    "Damaged Coastal Estate",
+                    &[
+                        "observation.damaged_estate.veranda",
+                        "observation.damaged_estate.river_gate",
+                    ],
+                    &[
+                        "interact.damaged_estate.infirmary_table",
+                        "interact.damaged_estate.river_gate",
+                    ],
+                    PersistencePolicy::PersistsAcrossVisits,
+                    false,
+                )
+            },
             cell(
                 "world.cell.river_landing",
                 "River Landing",
@@ -412,6 +442,24 @@ impl Geography {
                 0,
                 0,
             ),
+            // A4: the shortcut the estate's map table reads out of the elven
+            // waymark -- a tidal cut along the shore that reaches the terrace
+            // without the river at all. It is gated on the map table's own
+            // discovery, so it is only a route for a party that has done the
+            // work at the estate, and it is the reason the map table is a
+            // strategic action rather than a bit of colour.
+            PortalDefinition {
+                required_discovery_id: Some("discovery.map_table.tidal_cut".into()),
+                ..portal(
+                    "world.portal.black_beach_to_reception_terrace_tidal_cut",
+                    "world.cell.black_beach",
+                    "world.cell.reception_terrace",
+                    "on_foot",
+                    40,
+                    1,
+                    2,
+                )
+            },
             portal(
                 "world.portal.damaged_estate_to_black_beach",
                 "world.cell.damaged_estate",
@@ -827,10 +875,15 @@ mod tests {
         let step = geography
             .next_step_toward("world.cell.black_beach", "world.cell.reception_terrace")
             .expect("the terrace is reachable");
-        // The authored map puts the estate between the beach and everything
-        // inland, so the first hop off the sand is always the climb to the
-        // estate; the river fork is a later decision, not this one.
-        assert_eq!(step.to_location_id, "world.cell.damaged_estate");
+        // A4 hung the map table's tidal cut directly between the beach and the
+        // terrace, and it is the shortest path in moves, so that is the hop a
+        // pursuer takes. Note what this asserts about pursuit: `next_step_toward`
+        // counts moves over the whole graph and does not consult
+        // `required_discovery_id`, so a hunter uses a gated shortcut the party
+        // has not unlocked. That was already true of the tomb's archive-core gate
+        // before A4; the tidal cut only makes it visible on the first hop. It is
+        // a real question for whoever owns pursuit, not a fixture accident.
+        assert_eq!(step.to_location_id, "world.cell.reception_terrace");
     }
 
     #[test]
@@ -868,13 +921,14 @@ mod tests {
             geography.step_distance("world.cell.black_beach", "world.cell.river_landing"),
             Some(2)
         );
+        // One move by A4's tidal cut, rather than three by the river.
         assert_eq!(
             geography.step_distance("world.cell.black_beach", "world.cell.reception_terrace"),
-            Some(3)
+            Some(1)
         );
         assert_eq!(
             geography.step_distance("world.cell.black_beach", "world.cell.processional_ramp"),
-            Some(4)
+            Some(2)
         );
         assert_eq!(
             geography.step_distance("world.cell.black_beach", "world.cell.nowhere"),
@@ -944,7 +998,7 @@ mod tests {
         let geography = Geography::black_beach_vertical_slice();
         assert_eq!(
             geography.step_distance("world.cell.black_beach", "world.cell.tomb_archive_core"),
-            Some(7)
+            Some(5)
         );
     }
 
@@ -957,9 +1011,32 @@ mod tests {
     fn fixture_matches_the_authored_world_cells() {
         use std::collections::BTreeSet;
 
+        // A4: content declares the tidal cut's endpoints and its costs, but not
+        // its gate. `tools/src/validate.mjs` resolves a portal's
+        // `requiredDiscoveryId` against the registered stable IDs, and no
+        // content record type declares a discovery, so authoring
+        // `discovery.map_table.tidal_cut` there fails validation. The fixture
+        // therefore carries the gate alone, and this is the one field the
+        // comparison below skips. Delete this exception -- and author the field
+        // -- the moment content can name a discovery.
+        const GATES_CONTENT_CANNOT_YET_DECLARE: &[&str] =
+            &["world.portal.black_beach_to_reception_terrace_tidal_cut"];
+
         let world_directory = concat!(env!("CARGO_MANIFEST_DIR"), "/../content/world/");
         let mut authored_cell_ids: BTreeSet<String> = BTreeSet::new();
-        let mut authored_portals: Vec<(String, String, String, RouteKind)> = Vec::new();
+        let mut authored_observation_ids: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        let mut authored_portal_ids_by_cell: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        #[allow(clippy::type_complexity)]
+        let mut authored_portals: Vec<(
+            String,
+            String,
+            String,
+            RouteKind,
+            u32,
+            u32,
+            u8,
+            Option<String>,
+        )> = Vec::new();
         for entry in std::fs::read_dir(world_directory).expect("content/world/ is readable") {
             let path = entry.expect("a readable directory entry").path();
             if !path
@@ -977,11 +1054,20 @@ mod tests {
                 .expect("an authored cell declares a string id")
                 .to_owned();
             for portal in cell["portals"].as_array().into_iter().flatten() {
+                let portal_id = portal["id"]
+                    .as_str()
+                    .expect("an authored portal declares a string id")
+                    .to_owned();
+                // C2 made the three cost fields optional so a connection can be
+                // authored before it is priced; an absent one means free, which
+                // is exactly what `PortalDefinition`'s `serde(default)` does.
+                let cost = |field: &str| portal[field].as_u64().unwrap_or(0);
+                authored_portal_ids_by_cell
+                    .entry(cell_id.clone())
+                    .or_default()
+                    .insert(portal_id.clone());
                 authored_portals.push((
-                    portal["id"]
-                        .as_str()
-                        .expect("an authored portal declares a string id")
-                        .to_owned(),
+                    portal_id,
                     cell_id.clone(),
                     portal["targetCellId"]
                         .as_str()
@@ -992,8 +1078,24 @@ mod tests {
                             .as_str()
                             .expect("an authored portal declares a travelMode"),
                     ),
+                    cost("timeCostMinutes") as u32,
+                    cost("supplyCost") as u32,
+                    cost("riskLevel") as u8,
+                    portal["requiredDiscoveryId"].as_str().map(str::to_owned),
                 ));
             }
+            let observation_ids = cell["readableDescriptions"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|description| {
+                    description["id"]
+                        .as_str()
+                        .expect("an authored description declares a string id")
+                        .to_owned()
+                })
+                .collect();
+            authored_observation_ids.insert(cell_id.clone(), observation_ids);
             authored_cell_ids.insert(cell_id);
         }
         assert!(
@@ -1016,7 +1118,21 @@ mod tests {
             "the fixture's cells and content/world/'s cells must be the same set"
         );
 
-        for (portal_id, from_location_id, to_location_id, kind) in authored_portals {
+        // A2 held the two ID sets equal. A4 holds the numbers equal too: a
+        // portal's costs and its gate are authored content, and a fixture that
+        // carries its own copy of them is the loot-table and skill-rank drift
+        // over again, one field further in.
+        for (
+            portal_id,
+            from_location_id,
+            to_location_id,
+            kind,
+            time_cost_minutes,
+            supply_cost,
+            risk_level,
+            required_discovery_id,
+        ) in authored_portals
+        {
             let route = geography.route(&portal_id).unwrap_or_else(|| {
                 panic!("authored portal {portal_id} is missing from the fixture")
             });
@@ -1031,6 +1147,57 @@ mod tests {
             assert_eq!(
                 route.kind, kind,
                 "{portal_id} has a different travel mode in the fixture"
+            );
+            assert_eq!(
+                route.time_cost_minutes, time_cost_minutes,
+                "{portal_id} takes a different time in the fixture"
+            );
+            assert_eq!(
+                route.supply_cost, supply_cost,
+                "{portal_id} costs different rations in the fixture"
+            );
+            assert_eq!(
+                route.risk_level, risk_level,
+                "{portal_id} carries a different risk in the fixture"
+            );
+            if !GATES_CONTENT_CANNOT_YET_DECLARE.contains(&portal_id.as_str()) {
+                assert_eq!(
+                    route.required_discovery_id, required_discovery_id,
+                    "{portal_id} is gated differently in the fixture"
+                );
+            }
+        }
+
+        // And the other direction: a fixture route out of an authored cell that
+        // content never declares is the same drift arriving from the other side.
+        for (cell_id, authored_portal_ids) in &authored_portal_ids_by_cell {
+            let fixture_portal_ids: BTreeSet<String> = geography
+                .routes_from(cell_id)
+                .into_iter()
+                // The same B6 tolerance as the cell filter above, and no wider:
+                // the ramp's door into the tomb is fixture-only until the tomb
+                // is authored. Every other route out of an authored cell must be
+                // in content.
+                .filter(|route| !route.to_location_id.starts_with("world.cell.tomb_"))
+                .map(|route| route.id.clone())
+                .collect();
+            assert_eq!(
+                &fixture_portal_ids, authored_portal_ids,
+                "{cell_id} leaves by a different set of portals in the fixture"
+            );
+        }
+
+        // Observations are mirrored content too: the fixture's `observation_ids`
+        // are the authored cell's `readableDescriptions`, in the same order.
+        // A4's estate anchors are gated on two of them, so a rename on one side
+        // would silently make a room unusable rather than fail loudly here.
+        for (cell_id, observation_ids) in &authored_observation_ids {
+            let location = geography
+                .location(cell_id)
+                .unwrap_or_else(|| panic!("authored cell {cell_id} is missing from the fixture"));
+            assert_eq!(
+                &location.observation_ids, observation_ids,
+                "{cell_id} declares different observations in the fixture"
             );
         }
     }
