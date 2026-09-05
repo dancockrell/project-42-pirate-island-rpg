@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "task_id": "a6-captain-michael-actor",
+  "agent": "claude-opus-5 (lane A6)",
+  "summary": "A6: Captain Michael becomes a battle actor with his two authored commands, and the band move is extracted into one shared helper used by both Rescue Charge and Reposition",
+  "status": "completed",
+  "claimed_at": "2026-09-05T00:00:00Z",
+  "updated_at": "2026-09-05T00:00:00Z",
+  "paths": [
+    "godot-rust/src/battle.rs",
+    "godot-rust/src/godot_bridge.rs",
+    "godot-rust/tests/vertical_slice.rs"
+  ],
+  "symbols": [
+    "Battle::move_actor_to_band",
+    "Battle::resolve_reposition",
+    "Battle::resolve_rescue_charge",
+    "Battle::submit_uncached",
+    "Battle::resolve_skill",
+    "BattleError::RepositionNotLegal",
+    "battle_error_code"
+  ],
+  "coordination": {
+    "depends_on": [
+      "a5-bands-and-composure",
+      "c-content-and-validator"
+    ],
+    "conflicts_with": [],
+    "notes": "content/skills/captain.weapon_attack.json and captain.reposition.json (C4) own the numbers; Rust mirrors them and tests hold the two equal. Does not touch expedition.rs or geography.rs (lane A4), docs/SHIP_PLAN.md, game/ or content/. Reported, not fixed: captain.reposition.json authors requiresUnoccupiedBand: true, which the five-band model does not support (A5's fixture stands two party members in PartyFront), so occupancy does not gate the move; and content/characters/captain.json's displayName is \"Michael Corrigan\" while the brief and the A6 card name the actor \"Captain Michael\". Both belong to the content lane."
+  },
+  "completion": {
+    "commit": "5b1565c",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml: passed (142 lib, 4 save_migration, 1 vertical_slice)",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs: passed (178 stable IDs, 9 skills)",
+      "deliberate break: reposition_destination let Contested step to EnemyFront -- captain_reposition_from_a_forbidden_band_is_rejected_without_mutation failed on the missing RepositionNotLegal, then passed once restored: passed",
+      "deliberate break: the weapon-attack damage arm set to 9+level instead of the authored 10 -- captain_weapon_attack_deals_its_authored_damage failed, then passed once restored: passed"
+    ]
+  }
+}

@@ -119,8 +119,11 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     );
     assert_boundary_round_trips(&state);
 
-    // 4. Enter Reception Terrace and resolve Guarded Strike against the
-    //    individual holding it, through the command/event boundary.
+    // 4. Enter Reception Terrace and fight the individual holding it through the
+    //    command/event boundary, with the party the expedition actually carries:
+    //    Captain Michael and Betty. A6 makes the Captain a battle actor, so the
+    //    slice now shows him taking orders -- Reposition, then the Weapon Attack
+    //    that ends the fight -- rather than standing outside the encounter.
     state.inspect(&geography);
     let battle_id = state
         .begin_encounter(&geography, &habitats)
@@ -132,6 +135,21 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     let mut battle = Battle::new(
         battle_id,
         [
+            Actor {
+                id: ActorId("character.protagonist.captain".into()),
+                display_name: "Captain Michael".into(),
+                faction: Faction::Party,
+                level: 3,
+                vitality: 90,
+                max_vitality: 90,
+                guard: 0,
+                band: Band::PartyRear.index(),
+                composure: 10,
+                initiative: 10,
+                statuses: Vec::new(),
+                intercepts_for: None,
+                skill_uses_remaining: BTreeMap::new(),
+            },
             Actor {
                 id: ActorId("character.heroine.betty".into()),
                 display_name: "Betty".into(),
@@ -152,7 +170,7 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
                 display_name: "Razorbeak".into(),
                 faction: Faction::Hostile,
                 level: 7,
-                vitality: 1,
+                vitality: 40,
                 max_vitality: 70,
                 guard: 0,
                 band: Band::EnemyFront.index(),
@@ -165,16 +183,69 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
         ],
     );
     battle.start();
-    let events = battle
+    let captain_id = ActorId("character.protagonist.captain".into());
+    let razorbeak_id = ActorId("enemy.raptor.razorbeak.prototype".into());
+
+    // Round one: Betty opens, the razorbeak answers, and the Captain steps up
+    // from the party's rear band to its front. Reposition takes no target,
+    // gains the guard its record authors, and ends his turn.
+    battle
         .submit(SkillCommand {
             command_id: "vertical_slice.guarded_strike".into(),
             actor_id: ActorId("character.heroine.betty".into()),
             skill_id: "skill.betty.guarded_strike".into(),
-            target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+            target_ids: vec![razorbeak_id.clone()],
         })
         .expect("legal command");
+    let razorbeak_bite = battle
+        .recommended_enemy_command("vertical_slice.razorbeak_round_one")
+        .expect("the razorbeak declares its intent");
+    battle.submit(razorbeak_bite).expect("legal enemy command");
+    assert_eq!(battle.snapshot().active_actor_id, Some(captain_id.clone()));
+    let moved = battle
+        .submit(SkillCommand {
+            command_id: "vertical_slice.captain_reposition".into(),
+            actor_id: captain_id.clone(),
+            skill_id: "skill.captain.reposition".into(),
+            target_ids: Vec::new(),
+        })
+        .expect("PartyRear steps to PartyFront");
+    assert!(moved.iter().any(|event| matches!(
+        event,
+        BattleEvent::ActorMoved { actor_id, to_band, .. }
+            if actor_id == &captain_id && *to_band == Band::PartyFront.index()
+    )));
+    assert_eq!(
+        battle.actor(&captain_id).unwrap().band,
+        Band::PartyFront.index()
+    );
+    assert_eq!(battle.actor(&captain_id).unwrap().guard, 1);
+
+    // Round two: Betty and the razorbeak trade again, and the Captain's Weapon
+    // Attack finishes the individual holding the terrace.
+    battle
+        .submit(SkillCommand {
+            command_id: "vertical_slice.guarded_strike_two".into(),
+            actor_id: ActorId("character.heroine.betty".into()),
+            skill_id: "skill.betty.guarded_strike".into(),
+            target_ids: vec![razorbeak_id.clone()],
+        })
+        .expect("legal command");
+    let razorbeak_bite = battle
+        .recommended_enemy_command("vertical_slice.razorbeak_round_two")
+        .expect("the razorbeak declares its intent");
+    battle.submit(razorbeak_bite).expect("legal enemy command");
+    let events = battle
+        .submit(SkillCommand {
+            command_id: "vertical_slice.captain_weapon_attack".into(),
+            actor_id: captain_id.clone(),
+            skill_id: "skill.captain.weapon_attack".into(),
+            target_ids: vec![razorbeak_id.clone()],
+        })
+        .expect("the Captain's baseline command is legal");
     assert!(events.contains(&BattleEvent::BattleEnded { victory: true }));
     assert_eq!(battle.snapshot().phase, BattlePhase::Victory);
+    assert!(battle.actor(&captain_id).unwrap().is_alive());
 
     // 5. Persist victory; the beaten individual no longer holds the terrace
     //    today, so the party can leave instead of refighting it -- and it pays

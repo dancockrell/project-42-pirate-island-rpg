@@ -386,6 +386,13 @@ pub enum BattleError {
         skill_id: String,
         actor_id: ActorId,
     },
+    /// A6: `skill.captain.reposition` is a one-band step between the two party
+    /// bands. From anywhere else -- Contested or either enemy band -- there is
+    /// no legal destination, and the command is refused before anything moves.
+    RepositionNotLegal {
+        actor_id: ActorId,
+        from_band: i8,
+    },
     /// Composure is spent: a Shaken actor may not spend an SS or SSS command.
     ShakenCannotUse {
         skill_id: String,
@@ -746,7 +753,9 @@ impl Battle {
         }
         if !matches!(
             command.skill_id.as_str(),
-            "skill.betty.guarded_strike"
+            "skill.captain.weapon_attack"
+                | "skill.captain.reposition"
+                | "skill.betty.guarded_strike"
                 | "skill.betty.condition_cleanse"
                 | "skill.betty.rescue_charge"
                 | "skill.betty.healing_impact"
@@ -761,7 +770,9 @@ impl Battle {
         ) {
             return Err(BattleError::UnsupportedSkill(command.skill_id));
         }
-        let expected_owner = if command.skill_id.starts_with("skill.betty.") {
+        let expected_owner = if command.skill_id.starts_with("skill.captain.") {
+            Some(ActorId("character.protagonist.captain".into()))
+        } else if command.skill_id.starts_with("skill.betty.") {
             Some(ActorId("character.heroine.betty".into()))
         } else if command.skill_id.starts_with("skill.enemy.razorbeak.") {
             Some(ActorId("enemy.raptor.razorbeak.prototype".into()))
@@ -805,7 +816,8 @@ impl Battle {
         }
         let expected_targets = match command.skill_id.as_str() {
             "skill.betty.rescue_charge" => 2,
-            "skill.betty.mobile_infirmary"
+            "skill.captain.reposition"
+            | "skill.betty.mobile_infirmary"
             | "skill.system.hold_position"
             | "skill.system.retreat" => 0,
             _ => 1,
@@ -829,6 +841,14 @@ impl Battle {
                 return Err(BattleError::ActorDefeated(target_id.clone()));
             }
         }
+        if command.skill_id == "skill.captain.reposition"
+            && reposition_destination(actor.band).is_none()
+        {
+            return Err(BattleError::RepositionNotLegal {
+                actor_id: command.actor_id,
+                from_band: actor.band,
+            });
+        }
         if command.skill_id == "skill.system.retreat" {
             if !self.retreat_allowed {
                 return Err(BattleError::RetreatNotAllowed);
@@ -851,7 +871,9 @@ impl Battle {
         }
         if matches!(
             command.skill_id.as_str(),
-            "skill.betty.mobile_infirmary" | "skill.system.hold_position"
+            "skill.captain.reposition"
+                | "skill.betty.mobile_infirmary"
+                | "skill.system.hold_position"
         ) {
             self.phase = BattlePhase::Resolving;
             let mut events = vec![
@@ -889,7 +911,8 @@ impl Battle {
                     target_id,
                 });
             }
-            "skill.betty.guarded_strike"
+            "skill.captain.weapon_attack"
+            | "skill.betty.guarded_strike"
             | "skill.betty.healing_impact"
             | "skill.enemy.razorbeak.rushing_bite"
             | "skill.enemy.razorbeak.guard_breaking_kick"
@@ -953,6 +976,7 @@ impl Battle {
                 return self.resolve_condition_cleanse(command, events);
             }
             "skill.betty.rescue_charge" => return self.resolve_rescue_charge(command, events),
+            "skill.captain.reposition" => return self.resolve_reposition(command, events),
             "skill.betty.healing_impact" => return self.resolve_healing_impact(command, events),
             "skill.betty.mobile_infirmary" => {
                 self.resolve_mobile_infirmary(command, events);
@@ -976,7 +1000,8 @@ impl Battle {
                 });
                 return Ok(());
             }
-            "skill.betty.guarded_strike"
+            "skill.captain.weapon_attack"
+            | "skill.betty.guarded_strike"
             | "skill.enemy.razorbeak.rushing_bite"
             | "skill.enemy.razorbeak.guard_breaking_kick"
             | "skill.enemy.undead.grasping_strike"
@@ -1029,7 +1054,12 @@ impl Battle {
                 total: target.guard,
             });
         }
-        let (raw_damage, guard_gain) = if command.skill_id == "skill.betty.guarded_strike" {
+        let (raw_damage, guard_gain) = if command.skill_id == "skill.captain.weapon_attack" {
+            // `content/skills/captain.weapon_attack.json` owns these:
+            // damageBase 10, damageLevelScale 1, guardGain 0. Held equal by
+            // `captain_weapon_attack_deals_its_authored_damage`.
+            (10 + i32::from(actor_level), 0)
+        } else if command.skill_id == "skill.betty.guarded_strike" {
             (12 + i32::from(actor_level), 2)
         } else if command.skill_id == "skill.enemy.razorbeak.guard_breaking_kick" {
             (6 + i32::from(actor_level), 0)
@@ -1139,19 +1169,11 @@ impl Battle {
             });
         }
         let ally_band = self.actors.get(ally_id).expect("ally checked").band;
-        let actor = self
-            .actors
+        self.move_actor_to_band(&command.command_id, &command.actor_id, ally_band, events);
+        self.actors
             .get_mut(&command.actor_id)
-            .expect("actor checked");
-        let from_band = actor.band;
-        actor.band = ally_band;
-        actor.intercepts_for = Some(ally_id.clone());
-        events.push(BattleEvent::ActorMoved {
-            command_id: command.command_id.clone(),
-            actor_id: command.actor_id.clone(),
-            from_band,
-            to_band: ally_band,
-        });
+            .expect("actor checked")
+            .intercepts_for = Some(ally_id.clone());
         events.push(BattleEvent::InterceptionSet {
             command_id: command.command_id.clone(),
             protector_id: command.actor_id.clone(),
@@ -1165,6 +1187,78 @@ impl Battle {
             true,
             events,
         );
+        Ok(())
+    }
+
+    /// The one band move in the game. Rescue Charge (a heroine crossing to the
+    /// band her ally is standing in) and the Captain's Reposition (a one-band
+    /// step between the two party bands) are the same movement with different
+    /// destinations, so they are one function: the caller decides where, this
+    /// decides what moving means and emits the `ActorMoved` the presentation
+    /// layer binds its `actor_moved` beat to.
+    ///
+    /// The destination is an `i8` rather than a [`Band`] because Rescue Charge
+    /// copies whatever band its ally is standing in, including a stored value
+    /// outside the five; `Band`-typed callers pass `Band::index()`.
+    fn move_actor_to_band(
+        &mut self,
+        command_id: &str,
+        actor_id: &ActorId,
+        to_band: i8,
+        events: &mut Vec<BattleEvent>,
+    ) {
+        let actor = self.actors.get_mut(actor_id).expect("moving actor checked");
+        let from_band = actor.band;
+        actor.band = to_band;
+        events.push(BattleEvent::ActorMoved {
+            command_id: command_id.into(),
+            actor_id: actor_id.clone(),
+            from_band,
+            to_band,
+        });
+    }
+
+    /// `skill.captain.reposition`: a one-band step between `PartyRear` and
+    /// `PartyFront`, taking no target and ending the turn. Legality was decided
+    /// in `submit_uncached` before anything mutated, so the destination is
+    /// known to exist by the time this runs.
+    ///
+    /// `content/skills/captain.reposition.json` owns the numbers -- movementBands
+    /// 1, guardGain 1, damageBase 0 -- and
+    /// `captain_reposition_moves_one_band_and_gains_its_authored_guard` holds
+    /// them equal.
+    fn resolve_reposition(
+        &mut self,
+        command: &SkillCommand,
+        events: &mut Vec<BattleEvent>,
+    ) -> Result<(), BattleError> {
+        let from_band = self
+            .actors
+            .get(&command.actor_id)
+            .expect("actor checked")
+            .band;
+        let destination =
+            reposition_destination(from_band).ok_or_else(|| BattleError::RepositionNotLegal {
+                actor_id: command.actor_id.clone(),
+                from_band,
+            })?;
+        self.move_actor_to_band(
+            &command.command_id,
+            &command.actor_id,
+            destination.index(),
+            events,
+        );
+        let actor = self
+            .actors
+            .get_mut(&command.actor_id)
+            .expect("actor checked");
+        actor.guard += 1;
+        events.push(BattleEvent::GuardChanged {
+            command_id: command.command_id.clone(),
+            actor_id: command.actor_id.clone(),
+            delta: 1,
+            total: actor.guard,
+        });
         Ok(())
     }
 
@@ -1595,6 +1689,19 @@ fn cleanse_priority(kind: &StatusKind) -> Option<u8> {
         StatusKind::Poisoned => Some(2),
         StatusKind::Bleeding => Some(3),
         StatusKind::Shaken => None,
+    }
+}
+
+/// Where `skill.captain.reposition` may step from a given stored band. The
+/// Captain's Reposition is a party-line manoeuvre: `PartyRear` and `PartyFront`
+/// are each other's only destination, and from any other band -- Contested,
+/// either enemy band, or a stored value outside the five -- there is none, which
+/// is [`BattleError::RepositionNotLegal`].
+fn reposition_destination(from_band: i8) -> Option<Band> {
+    match Band::from_index(from_band)? {
+        Band::PartyRear => Some(Band::PartyFront),
+        Band::PartyFront => Some(Band::PartyRear),
+        Band::Contested | Band::EnemyFront | Band::EnemyRear => None,
     }
 }
 
@@ -3339,6 +3446,356 @@ mod tests {
         assert!(
             checked >= 9,
             "only {checked} skill records were read; the content path is wrong"
+        );
+    }
+
+    // ---- A6: Captain Michael as a battle actor -------------------------------
+
+    /// The Captain as the brief describes him: `character.protagonist.captain`,
+    /// Party, level 3, 90 vitality, no guard, initiative 10, standing in
+    /// `PartyRear`.
+    fn captain() -> Actor {
+        let mut michael = actor(
+            "character.protagonist.captain",
+            Faction::Party,
+            3,
+            90,
+            0,
+            10,
+        );
+        michael.display_name = "Captain Michael".into();
+        michael.band = Band::PartyRear.index();
+        michael
+    }
+
+    /// The authored record behind a skill id. `content/skills/` owns every
+    /// number the two Captain commands use; these tests read it rather than
+    /// restating it, so a change to the record fails here instead of drifting.
+    fn authored_skill(skill_id: &str) -> serde_json::Value {
+        let file = skill_id
+            .strip_prefix("skill.")
+            .expect("a skill id starts with skill.");
+        let path = format!(
+            "{}/../content/skills/{file}.json",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("{path} is readable: {error}"));
+        serde_json::from_str(&text).expect("the skill record is JSON")
+    }
+
+    /// Michael alone against one hostile, with initiative arranged so that the
+    /// Captain has the first turn.
+    fn captain_battle() -> Battle {
+        let mut enemy = actor("enemy.test", Faction::Hostile, 4, 50, 0, 8);
+        enemy.band = Band::EnemyFront.index();
+        let mut battle = Battle::new("battle.captain", [captain(), enemy]);
+        battle.start();
+        battle
+    }
+
+    #[test]
+    fn captain_weapon_attack_deals_its_authored_damage() {
+        let record = authored_skill("skill.captain.weapon_attack");
+        assert_eq!(record["ownerId"], "character.protagonist.captain");
+        assert_eq!(record["targetRule"], "one_hostile");
+        let base = record["rules"]["damageBase"]
+            .as_i64()
+            .expect("damageBase is authored") as i32;
+        let level_scale = record["rules"]["damageLevelScale"]
+            .as_i64()
+            .expect("damageLevelScale is authored") as i32;
+        let guard_gain = record["rules"]["guardGain"]
+            .as_i64()
+            .expect("guardGain is authored") as i32;
+
+        let mut battle = captain_battle();
+        let michael_id = ActorId("character.protagonist.captain".into());
+        let enemy_id = ActorId("enemy.test".into());
+        let level = i32::from(battle.actor(&michael_id).unwrap().level);
+        let enemy_before = battle.actor(&enemy_id).unwrap().vitality;
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "captain.attack".into(),
+                actor_id: michael_id.clone(),
+                skill_id: "skill.captain.weapon_attack".into(),
+                target_ids: vec![enemy_id.clone()],
+            })
+            .expect("the Captain's baseline command is legal");
+
+        let expected = base + level_scale * level;
+        assert!(events.iter().any(|event| matches!(
+            event,
+            BattleEvent::DamageApplied { amount, .. } if *amount == expected
+        )));
+        assert_eq!(
+            battle.actor(&enemy_id).unwrap().vitality,
+            enemy_before - expected
+        );
+        assert_eq!(battle.actor(&michael_id).unwrap().guard, guard_gain);
+    }
+
+    #[test]
+    fn captain_reposition_moves_one_band_and_gains_its_authored_guard() {
+        let record = authored_skill("skill.captain.reposition");
+        assert_eq!(record["ownerId"], "character.protagonist.captain");
+        assert_eq!(record["targetRule"], "self");
+        assert_eq!(record["rules"]["endsTurn"], true);
+        let movement_bands = record["rules"]["movementBands"]
+            .as_i64()
+            .expect("movementBands is authored") as i8;
+        let guard_gain = record["rules"]["guardGain"]
+            .as_i64()
+            .expect("guardGain is authored") as i32;
+        let damage_base = record["rules"]["damageBase"]
+            .as_i64()
+            .expect("damageBase is authored") as i32;
+        assert_eq!(damage_base, 0, "Reposition is authored to deal no damage");
+
+        let michael_id = ActorId("character.protagonist.captain".into());
+        let enemy_id = ActorId("enemy.test".into());
+        let mut battle = captain_battle();
+        let enemy_before = battle.actor(&enemy_id).unwrap().vitality;
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "captain.reposition.forward".into(),
+                actor_id: michael_id.clone(),
+                skill_id: "skill.captain.reposition".into(),
+                target_ids: Vec::new(),
+            })
+            .expect("PartyRear steps to PartyFront");
+        let michael = battle.actor(&michael_id).unwrap();
+        assert_eq!(michael.band_kind(), Some(Band::PartyFront));
+        assert_eq!(michael.guard, guard_gain);
+        assert_eq!(
+            (michael.band - Band::PartyRear.index()).abs(),
+            movement_bands,
+            "the authored movementBands is how far Reposition actually moves"
+        );
+        assert_eq!(
+            battle.actor(&enemy_id).unwrap().vitality,
+            enemy_before,
+            "Reposition deals no damage"
+        );
+        assert!(events.iter().any(|event| matches!(
+            event,
+            BattleEvent::ActorMoved { from_band, to_band, .. }
+                if *from_band == Band::PartyRear.index() && *to_band == Band::PartyFront.index()
+        )));
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::TurnEnded { .. }))
+        );
+
+        // ...and back the other way, which is the only other legal step.
+        let mut michael = captain();
+        michael.band = Band::PartyFront.index();
+        let mut enemy = actor("enemy.test", Faction::Hostile, 4, 50, 0, 8);
+        enemy.band = Band::EnemyFront.index();
+        let mut battle = Battle::new("battle.captain.back", [michael, enemy]);
+        battle.start();
+        battle
+            .submit(SkillCommand {
+                command_id: "captain.reposition.back".into(),
+                actor_id: michael_id.clone(),
+                skill_id: "skill.captain.reposition".into(),
+                target_ids: Vec::new(),
+            })
+            .expect("PartyFront steps back to PartyRear");
+        assert_eq!(
+            battle.actor(&michael_id).unwrap().band_kind(),
+            Some(Band::PartyRear)
+        );
+    }
+
+    #[test]
+    fn captain_reposition_from_a_forbidden_band_is_rejected_without_mutation() {
+        for forbidden in [Band::Contested, Band::EnemyFront, Band::EnemyRear] {
+            let mut michael = captain();
+            michael.band = forbidden.index();
+            let mut enemy = actor("enemy.test", Faction::Hostile, 4, 50, 0, 8);
+            enemy.band = Band::EnemyFront.index();
+            let mut battle = Battle::new("battle.captain.illegal", [michael, enemy]);
+            battle.start();
+            let before = battle.snapshot();
+            let error = battle
+                .submit(SkillCommand {
+                    command_id: "captain.reposition.illegal".into(),
+                    actor_id: ActorId("character.protagonist.captain".into()),
+                    skill_id: "skill.captain.reposition".into(),
+                    target_ids: Vec::new(),
+                })
+                .unwrap_err();
+            assert_eq!(
+                error,
+                BattleError::RepositionNotLegal {
+                    actor_id: ActorId("character.protagonist.captain".into()),
+                    from_band: forbidden.index(),
+                },
+                "{} is not one of the two party bands",
+                forbidden.name()
+            );
+            assert_eq!(
+                battle.snapshot(),
+                before,
+                "a rejected command mutates nothing"
+            );
+        }
+    }
+
+    #[test]
+    fn captain_reposition_takes_no_target() {
+        let mut battle = captain_battle();
+        let error = battle
+            .submit(SkillCommand {
+                command_id: "captain.reposition.targeted".into(),
+                actor_id: ActorId("character.protagonist.captain".into()),
+                skill_id: "skill.captain.reposition".into(),
+                target_ids: vec![ActorId("enemy.test".into())],
+            })
+            .unwrap_err();
+        assert_eq!(
+            error,
+            BattleError::IllegalTargetCount {
+                skill_id: "skill.captain.reposition".into(),
+                expected: 0,
+                actual: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn betty_cannot_submit_the_captains_command() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty.band = Band::PartyFront.index();
+        let mut enemy = actor("enemy.test", Faction::Hostile, 4, 50, 0, 8);
+        enemy.band = Band::EnemyFront.index();
+        let mut battle = Battle::new("battle.captain.owner", [betty, captain(), enemy]);
+        battle.start();
+        let before = battle.snapshot();
+        let error = battle
+            .submit(SkillCommand {
+                command_id: "betty.borrows.the.carbine".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.captain.weapon_attack".into(),
+                target_ids: vec![ActorId("enemy.test".into())],
+            })
+            .unwrap_err();
+        assert_eq!(
+            error,
+            BattleError::SkillOwnerMismatch {
+                skill_id: "skill.captain.weapon_attack".into(),
+                expected_actor_id: ActorId("character.protagonist.captain".into()),
+                actual_actor_id: ActorId("character.heroine.betty".into()),
+            }
+        );
+        assert_eq!(battle.snapshot(), before);
+    }
+
+    #[test]
+    fn captain_weapon_attack_cannot_be_pointed_at_an_ally() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 4);
+        betty.band = Band::PartyFront.index();
+        let mut enemy = actor("enemy.test", Faction::Hostile, 4, 50, 0, 2);
+        enemy.band = Band::EnemyFront.index();
+        let mut battle = Battle::new("battle.captain.friendly", [captain(), betty, enemy]);
+        battle.start();
+        let before = battle.snapshot();
+        let error = battle
+            .submit(SkillCommand {
+                command_id: "captain.shoots.betty".into(),
+                actor_id: ActorId("character.protagonist.captain".into()),
+                skill_id: "skill.captain.weapon_attack".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .unwrap_err();
+        assert_eq!(
+            error,
+            BattleError::FriendlyFire {
+                actor_id: ActorId("character.protagonist.captain".into()),
+                target_id: ActorId("character.heroine.betty".into()),
+            }
+        );
+        assert_eq!(battle.snapshot(), before);
+    }
+
+    /// Both band moves in the game go through `Battle::move_actor_to_band`, so
+    /// they report movement identically: one `ActorMoved` carrying the band the
+    /// actor left and the band it now occupies. This is the behavioural half of
+    /// "one helper"; the structural half is that there is exactly one function
+    /// that writes `Actor.band` during a command.
+    #[test]
+    fn rescue_charge_and_reposition_report_the_same_band_move() {
+        let moved_events = |events: &[BattleEvent]| -> Vec<(i8, i8)> {
+            events
+                .iter()
+                .filter_map(|event| match event {
+                    BattleEvent::ActorMoved {
+                        from_band, to_band, ..
+                    } => Some((*from_band, *to_band)),
+                    _ => None,
+                })
+                .collect()
+        };
+
+        let mut battle = captain_battle();
+        let reposition = battle
+            .submit(SkillCommand {
+                command_id: "captain.reposition.shared".into(),
+                actor_id: ActorId("character.protagonist.captain".into()),
+                skill_id: "skill.captain.reposition".into(),
+                target_ids: Vec::new(),
+            })
+            .expect("legal step");
+        assert_eq!(
+            moved_events(&reposition),
+            vec![(Band::PartyRear.index(), Band::PartyFront.index())]
+        );
+
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty.band = Band::PartyFront.index();
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 80, 0, 4);
+        ayla.band = Band::PartyRear.index();
+        let mut enemy = actor("enemy.test", Faction::Hostile, 4, 50, 0, 2);
+        enemy.band = Band::EnemyFront.index();
+        let mut battle = Battle::new("battle.rescue.shared", [betty, ayla, enemy]);
+        battle.start();
+        let rescue = battle
+            .submit(SkillCommand {
+                command_id: "betty.rescue.shared".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.rescue_charge".into(),
+                target_ids: vec![
+                    ActorId("character.heroine.ayla".into()),
+                    ActorId("enemy.test".into()),
+                ],
+            })
+            .expect("legal rescue");
+        assert_eq!(
+            moved_events(&rescue),
+            vec![(Band::PartyFront.index(), Band::PartyRear.index())],
+            "Rescue Charge reports its move in exactly the shape Reposition does"
+        );
+    }
+
+    #[test]
+    fn the_captain_may_guard_with_the_universal_hold_position_verb() {
+        let mut battle = captain_battle();
+        battle
+            .submit(SkillCommand {
+                command_id: "captain.holds".into(),
+                actor_id: ActorId("character.protagonist.captain".into()),
+                skill_id: "skill.system.hold_position".into(),
+                target_ids: Vec::new(),
+            })
+            .expect("Guard is the system verb, not a per-character skill");
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.protagonist.captain".into()))
+                .unwrap()
+                .guard,
+            2
         );
     }
 }
