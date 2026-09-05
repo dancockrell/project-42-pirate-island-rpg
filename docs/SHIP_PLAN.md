@@ -344,8 +344,12 @@ when the pull request opens.
 **Milestone roll-up** — update these two lines whenever a row ships, so the
 top of the document is never stale:
 
-- **M0** shipped 3/13 · A1 B1 A11 · remaining A2 C2 B2 H5 H6 H7 H8 H9 H10
-- **M1** shipped 0/12 · **M2** shipped 0/9 · **M3** shipped 0/16 · **M4** not started
+- **M0** shipped 6/13 · A1 A11 B1 H6 H7 H9 · H2 and H10 superseded by `main`'s
+  own rewrite · **remaining: A2** (in flight), C2, B2, H5, H8
+- **M1** shipped 0/12 · **M2** shipped 0/9 — E1 and E3 in flight ·
+  **M3** shipped 0/16 · **M4** not started
+- Last updated 2026-09-05 against trunk `34142a8`. If this line is older than
+  the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
 
@@ -464,8 +468,8 @@ G1 is the acceptance script; G2/G3 two external rounds.
 | H3 | Bible wording: 3D; romance and the pack | — | done (this pass) |
 | H4 | 3D production docs: rigging is a switch; clips wait for the tool | — | done (this pass) |
 | H5 | Site-rule spec into `HEROINE_AYLA_DESIGN.md` | — | open |
-| H6 | Retarget PR #3 to `main`; note PR #4; flag the stale status branch | — | open |
-| H7 | dr-companion `.gitmodules` branch pointer | — | open |
+| H6 | Retarget PR #3 to `main`; note PR #4; flag the stale status branch | — | shipped 34142a8 2026-09-05 — PR #3 now targets `main`, conflict resolved by merging it |
+| H7 | dr-companion `.gitmodules` branch pointer | — | shipped e387d29 2026-09-05 — merged to dr-companion `main` in its PR #276 |
 | H8 | Regenerate the design bible `.docx` | H3, H9 | open (needs `python-docx`) |
 | H9 | Bible: superseded entries marked; brief named as authority | — | done (this pass) |
 | H10 | `GAME_BUILD_PLAN.md` C2 roster and E2 exit test reconciled to the brief | — | superseded — same rewrite; `main` states the roster contract directly |
