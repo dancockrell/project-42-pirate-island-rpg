@@ -1078,6 +1078,23 @@ an existing field's meaning. Two agents adding fields then merge cleanly; a
 reordering does not. `CURRENT_SAVE_VERSION` bumps only when a field's
 meaning changes, and only with a migration fixture (E6).
 
+**A trap, learned the hard way.** If your agent harness offers "worktree
+isolation", check what repository it attaches to before trusting it: ours
+creates a worktree of the *session's primary repository*, which for this work
+is `dr-companion`, not this one. An agent launched that way lands in a
+checkout with no `godot-rust/`, no `content/`, and no ship plan. The agent
+that hit this correctly refused to proceed rather than reimplement the task in
+the wrong repository — which is the right instinct and is what §0 requires.
+Give agents the explicit path instead, and have them make their own worktree:
+
+```bash
+cd /home/user/project-42-pirate-island-rpg && git fetch origin
+git worktree add /home/user/p42-lane-<ID> backend/b0-expedition-state
+```
+
+Then have them verify `git remote -v` names this repository and that
+`godot-rust/src/geography.rs` exists before touching anything.
+
 ### Spawning agents for lanes
 
 Launch lane agents on **Opus 5 at medium reasoning**, one agent per task, each
