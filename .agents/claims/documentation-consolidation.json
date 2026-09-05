@@ -3,9 +3,9 @@
   "task_id": "documentation-consolidation",
   "agent": "Codex GitHub documentation audit",
   "summary": "Consolidate current autonomous RTS direction and label earlier side-view prototype contracts",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-05T06:30:05.179875+00:00",
-  "updated_at": "2026-09-05T06:30:05.179875+00:00",
+  "updated_at": "2026-09-05T06:33:48.969984+00:00",
   "paths": [
     "README.md",
     "docs/GAME_BUILD_PLAN.md",
@@ -26,7 +26,13 @@
     "notes": "Reviewed PRs 2, 3 and 4. PR 3 contains the newer continuation brief and expedition work. Preserve those branches and runtime work; this changes main documentation only and identifies integration requirements."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "e77c9e6e00aa3f66232ffa5fd96164b1db684492",
+    "checks": [
+      "git diff --check: passed",
+      "New relative Markdown links against tracked Git tree: passed",
+      "Commit secret-scanning hook: passed",
+      "Manual review against user direction and open PR scope: passed",
+      "Application/runtime suites: not_run (documentation-only change)"
+    ]
   }
 }
