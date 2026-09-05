@@ -6,3 +6,7 @@ reloadable = false
 [libraries]
 windows.debug.x86_64 = "res://bin/windows/project42_sim.windows.expedition_v5_debug.x86_64.dll"
 windows.release.x86_64 = "res://bin/windows/project42_sim.windows.expedition_v5_release.x86_64.dll"
+linux.debug.x86_64 = "res://bin/linux/project42_sim.linux.expedition_v5_debug.x86_64.so"
+linux.release.x86_64 = "res://bin/linux/project42_sim.linux.expedition_v5_release.x86_64.so"
+macos.debug.x86_64 = "res://bin/macos/project42_sim.macos.expedition_v5_debug.x86_64.dylib"
+macos.release.x86_64 = "res://bin/macos/project42_sim.macos.expedition_v5_release.x86_64.dylib"

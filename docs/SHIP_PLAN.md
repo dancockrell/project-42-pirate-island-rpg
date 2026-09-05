@@ -346,7 +346,8 @@ top of the document is never stale:
 
 - **M0** shipped 7/13 · A1 A2 A11 B1 H6 H7 H9 · H2 and H10 superseded by
   `main`'s own rewrite · **remaining: C2, B2, H5, H8**
-- **M1** shipped 0/12 · **M2** shipped 1/9 — **E1 (CI) is live**; E3 in flight
+- **M1** shipped 0/12 · **M2** shipped 2/9 — **E1 (CI) is live and green on
+  GitHub**; **E3 (portable gates) shipped**; E2 is now unblocked
 - **M3** shipped 0/16 · **M4** not started
 - Last updated 2026-09-05 against trunk `95bd747`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
@@ -445,8 +446,8 @@ top of the document is never stale:
 | ID | Task | Depends on | Status |
 |---|---|---|---|
 | E1 | GitHub Actions: Rust and content checks | — | shipped e0b4051 2026-09-05 |
-| E2 | Godot headless suites in CI | E1, E3 | open |
-| E3 | Shell equivalents of the two PowerShell gates | — | claimed agent-E3 2026-09-04 |
+| E2 | Godot headless suites in CI | E1, E3 | open — **unblocked**: E1 and E3 are both shipped, and the `.gdextension` now declares linux/macos libraries so the suites load the real bridge instead of falling back to `MockSimulationPort` |
+| E3 | Shell equivalents of the two PowerShell gates | — | shipped 5344b7b 2026-09-05 |
 | E4 | Desktop export presets for Windows, Linux, macOS | — | open |
 | E5 | Nightly build artifacts per platform | E2, E4 | open |
 | E6 | Save-version migration fixtures and the four save boundaries | — | open |
