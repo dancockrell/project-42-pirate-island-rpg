@@ -1,0 +1,63 @@
+{
+  "active_location_id": "world.cell.reception_terrace",
+  "campaign_day": 2,
+  "character_states": {},
+  "discoveries": [
+    "observation.black_beach.boiler",
+    "observation.black_beach.wreck",
+    "observation.reception_terrace.arrival",
+    "observation.reception_terrace.battle_lane"
+  ],
+  "habitat_states": {
+    "world.region.black_beach.river_jungle": {
+      "cleared_today": false,
+      "last_spawn_day": 2
+    },
+    "world.region.black_beach.terrace_precinct": {
+      "cleared_today": false,
+      "last_spawn_day": 2
+    },
+    "world.region.black_beach.tideline": {
+      "cleared_today": false,
+      "last_spawn_day": 2
+    }
+  },
+  "household_progress": {
+    "bond_ranks": {},
+    "estate_upgrades": []
+  },
+  "named_person_memory": {},
+  "party_ids": [
+    "character.protagonist.captain",
+    "character.heroine.betty"
+  ],
+  "pending_encounter": {
+    "battle_id": "battle.spawn.day2.world_region_black_beach_terrace_precinct.0",
+    "encounter_id": "encounter.spawn.day2.world_region_black_beach_terrace_precinct.0"
+  },
+  "rng_seed": 7,
+  "route_history": [
+    {
+      "arrived_on_day": 2,
+      "arrived_segment": "Dawn",
+      "location_id": "world.cell.damaged_estate"
+    },
+    {
+      "arrived_on_day": 2,
+      "arrived_segment": "Dawn",
+      "location_id": "world.cell.river_landing"
+    },
+    {
+      "arrived_on_day": 2,
+      "arrived_segment": "Dawn",
+      "location_id": "world.cell.reception_terrace"
+    }
+  ],
+  "save_version": 1,
+  "supplies": {
+    "coin": 0,
+    "medicine": 2,
+    "rations": 8
+  },
+  "time_segment": "Dawn"
+}

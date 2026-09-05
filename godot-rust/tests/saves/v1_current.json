@@ -1,0 +1,111 @@
+{
+  "active_location_id": "world.cell.river_landing",
+  "campaign_day": 2,
+  "character_states": {},
+  "daily_spawn_records": {
+    "world.region.black_beach.river_jungle": {
+      "behavior_tags": [
+        "watchful",
+        "individual-threat"
+      ],
+      "condition": "watchful",
+      "definition_id": "enemy.boar.thunderback",
+      "instance_id": "spawn.day2.world_region_black_beach_river_jungle.0",
+      "level": 8,
+      "loot_seed": 17048318333146598780,
+      "patrol_purpose": "stalking the road",
+      "physical_variant": "scarred"
+    },
+    "world.region.black_beach.terrace_precinct": {
+      "behavior_tags": [
+        "hungry",
+        "individual-threat"
+      ],
+      "condition": "hungry",
+      "definition_id": "enemy.undead.tomb_wight",
+      "instance_id": "spawn.day2.world_region_black_beach_terrace_precinct.0",
+      "level": 11,
+      "loot_seed": 12645548068548523259,
+      "patrol_purpose": "guarding a nest",
+      "physical_variant": "bright-crested"
+    },
+    "world.region.black_beach.tideline": {
+      "behavior_tags": [
+        "watchful",
+        "individual-threat"
+      ],
+      "condition": "watchful",
+      "definition_id": "enemy.raptor.razorbeak",
+      "instance_id": "spawn.day2.world_region_black_beach_tideline.0",
+      "level": 5,
+      "loot_seed": 6943862687573033977,
+      "patrol_purpose": "feeding near ruins",
+      "physical_variant": "lean"
+    }
+  },
+  "discoveries": [
+    "observation.black_beach.boiler",
+    "observation.black_beach.wreck",
+    "observation.reception_terrace.arrival",
+    "observation.reception_terrace.battle_lane"
+  ],
+  "habitat_states": {
+    "world.region.black_beach.river_jungle": {
+      "cleared_today": false,
+      "last_spawn_day": 2
+    },
+    "world.region.black_beach.terrace_precinct": {
+      "cleared_today": true,
+      "last_spawn_day": 2
+    },
+    "world.region.black_beach.tideline": {
+      "cleared_today": false,
+      "last_spawn_day": 2
+    }
+  },
+  "household_progress": {
+    "bond_ranks": {},
+    "estate_upgrades": []
+  },
+  "hunters": [],
+  "named_person_memory": {},
+  "nightly_spawn_records": {},
+  "party_ids": [
+    "character.protagonist.captain",
+    "character.heroine.betty"
+  ],
+  "pending_encounter": null,
+  "resolved_encounter_ids": [
+    "encounter.spawn.day2.world_region_black_beach_terrace_precinct.0"
+  ],
+  "rng_seed": 7,
+  "route_history": [
+    {
+      "arrived_on_day": 2,
+      "arrived_segment": "Dawn",
+      "location_id": "world.cell.damaged_estate"
+    },
+    {
+      "arrived_on_day": 2,
+      "arrived_segment": "Dawn",
+      "location_id": "world.cell.river_landing"
+    },
+    {
+      "arrived_on_day": 2,
+      "arrived_segment": "Dawn",
+      "location_id": "world.cell.reception_terrace"
+    },
+    {
+      "arrived_on_day": 2,
+      "arrived_segment": "Dawn",
+      "location_id": "world.cell.river_landing"
+    }
+  ],
+  "save_version": 1,
+  "supplies": {
+    "coin": 0,
+    "medicine": 2,
+    "rations": 7
+  },
+  "time_segment": "Dawn"
+}

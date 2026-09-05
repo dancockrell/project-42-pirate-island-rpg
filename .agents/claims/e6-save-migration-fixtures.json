@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "task_id": "e6-save-migration-fixtures",
+  "agent": "claude-opus-5 (Claude Code, lane E6)",
+  "summary": "E6: committed per-save_version JSON fixtures plus an integration test that proves every #[serde(default)] field still loads an older save",
+  "status": "active",
+  "claimed_at": "2026-09-05T00:00:00Z",
+  "updated_at": "2026-09-05T00:00:00Z",
+  "paths": [
+    "godot-rust/tests/saves/",
+    "godot-rust/tests/save_migration.rs",
+    ".agents/claims/e6-save-migration-fixtures.json"
+  ],
+  "symbols": [],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [],
+    "notes": "Read-only against godot-rust/src/**; A3 is appending anchor_uses to ExpeditionState on its own branch. The minimal v1 fixture must keep loading after that lands in either merge order. This claim adds no src edits: git diff godot-rust/src/ is empty at check-out."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
