@@ -356,7 +356,7 @@ top of the document is never stale:
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
 - **M3** shipped 0/16 · **M4** not started
-- Last updated 2026-09-05 against trunk `cae9337`. If this line is older than
+- Last updated 2026-09-05 against trunk `3c85451`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -402,7 +402,7 @@ top of the document is never stale:
 |---|---|---|---|
 | B1 | Rewire the campaign bridge from `RouteGraph` to `Geography` | A1 | shipped 6b9d275 2026-09-04 |
 | B2 | `native_expedition_port.gd` sends cells and portal costs | B1, C2 | open |
-| B3 | Expose midnight, anchors, inspect and full legal commands | B1, A3 | open |
+| B3 | Expose midnight, anchors, inspect and full legal commands | B1, A3 | open — **wire shipped under C13** (`use_anchor` through bridge, session and scene; cells and anchors forwarded); B3 owes the drawn control |
 | B4 | Route board shows anchor and estate commands | B3 | open |
 | B5 | Battle screen: Michael's card unfolds; bands and Composure drawn | A5, A6 | open — the mock/bridge actor-dict divergence A5 opened is closed (`band_name`, `composure`); B5 draws them |
 | B6 | World cells for the tomb interior | A2 | open |
@@ -419,7 +419,7 @@ top of the document is never stale:
 | ID | Task | Depends on | Status |
 |---|---|---|---|
 | C1 | Loot records and the `lootTableId` reference check | — | shipped ab17bfa 2026-09-05 |
-| C2 | Portal cost fields (the location IDs were fixed by A2) | — | shipped ab17bfa 2026-09-05 |
+| C2 | Portal cost fields (the location IDs were fixed by A2) | — | shipped ab17bfa 2026-09-05 — its costs first reached the engine under C13; the port had dropped them |
 | C3 | `ayla.json` and seven Ayla skill records | A7 | open |
 | C4 | Captain Michael's skill records and a `self` target rule | — | shipped ab17bfa 2026-09-05 |
 | C5 | The tomb as a faction-specific dungeon: twelve spaces | B6, S9 | open |
@@ -430,7 +430,7 @@ top of the document is never stale:
 | C10 | Building records with envelopes | S3 | open |
 | C11 | Room contract fields on world cells | B11 | open |
 | C12 | One recruitable woman's arc (records only; identity per O2) | C6, S12, O2 | blocked: needs decision O2 |
-| C13 | Content can declare a discovery ID; the tidal cut's gate authored | A4 | open |
+| C13 | Content can declare a discovery ID; the tidal cut's gate authored | A4 | shipped 3c85451 2026-09-05 — plus the bridge wire it turned out to need |
 
 ### Lane D — Art (`content/art/`, `work/art/`, `game/assets/`)
 
@@ -1147,7 +1147,7 @@ language, avoid-list) as required fields; the five existing cells filled in.
 ### C12 · One recruitable woman's arc — blocked: needs decision O2.
 
 ### C13 · Content can declare a discovery ID; the tidal cut's gate authored
-Status: open · Depends on: A4
+Status: shipped `3c85451` 2026-09-05 · Depends on: A4
 Touches: `tools/src/validate.mjs`, `content/world/black_beach.world_cell.json`,
 `content/world/damaged_estate.world_cell.json`, `godot-rust/src/geography.rs`
 The map table grants `discovery.map_table.tidal_cut` and the tidal cut requires
@@ -1173,6 +1173,21 @@ Traps: the exception constant must not survive this card. A second place to
 declare an anchor's ID is the fork.
 Done when: the validator passes with the gate authored; the constant is gone;
 `grep -rn GATES_CONTENT_CANNOT_YET_DECLARE godot-rust/` prints nothing.
+
+**Shipped, as the fix for the first red Godot CI run.** The card as written
+was one of four stacked faults. `native_expedition_port.gd` forwarded only a
+portal's id, endpoints and travel mode, so **C2's costs and any gate had never
+reached the engine** — every road was free in Godot and A3's scarcity had
+never applied there. `legal_routes` had no gate filter, so a locked door was
+drawn as a button. And `readableDescriptions[].id` — the observations the
+Rust world gates on — were never registered as stable IDs. All four are
+fixed. Forwarding costs then stranded a fresh party on the sand (zero rations,
+no anchor in Godot to salvage from), so the **minimal core of B3** ships with
+it: cells and anchors forwarded in their authored shape, `use_anchor` on the
+bridge with an `anchor_outcome` block, session and scene wrappers, and the
+prototype test salvaging the wreck before it travels. `tests/authored_world.rs`
+performs the GDScript's translation field for field and drives the prototype's
+opening on it — the nearest local proof; the Godot job is the real one.
 
 ### Lane D — new cards
 
