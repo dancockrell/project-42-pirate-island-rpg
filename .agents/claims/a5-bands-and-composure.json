@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "task_id": "a5-bands-and-composure",
+  "agent": "claude-opus-5 (lane A5 worktree /home/user/p42-lane-A5)",
+  "summary": "Five named combat bands, Composure with Shaken, and the SS/SSS rank gate on submit",
+  "status": "active",
+  "claimed_at": "2026-09-05T00:00:00Z",
+  "updated_at": "2026-09-05T00:00:00Z",
+  "paths": ["godot-rust/src/battle.rs", "godot-rust/src/godot_bridge.rs"],
+  "symbols": [
+    "Band",
+    "Band::from_index",
+    "Band::name",
+    "Actor.composure",
+    "Actor::spend_composure",
+    "StatusKind::Shaken",
+    "BattleError::ShakenCannotUse",
+    "skill_rank",
+    "Battle::prototype_vertical_slice",
+    "actor_dictionary",
+    "battle_error_code"
+  ],
+  "coordination": {
+    "depends_on": ["A1"],
+    "conflicts_with": [],
+    "notes": "Reads content/skills/betty.*.json for bondRank but edits nothing outside the two owned Rust files. Does not edit docs/SHIP_PLAN.md (SS 8 rule). No Composure costs attached to existing skills -- A6/A9 own those numbers."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}

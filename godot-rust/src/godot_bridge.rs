@@ -546,7 +546,9 @@ fn actor_dictionary(actor: &Actor) -> VarDictionary {
         "id" => actor.id.0.as_str(), "display_name" => actor.display_name.as_str(),
         "faction" => faction_name(&actor.faction), "level" => i64::from(actor.level),
         "vitality" => i64::from(actor.vitality), "max_vitality" => i64::from(actor.max_vitality),
-        "guard" => i64::from(actor.guard), "band" => i64::from(actor.band), "statuses" => &statuses,
+        "guard" => i64::from(actor.guard), "band" => i64::from(actor.band),
+        "band_name" => actor.band_kind().map(|band| band.name()).unwrap_or("unknown"),
+        "composure" => i64::from(actor.composure), "statuses" => &statuses,
     }
 }
 
@@ -889,6 +891,7 @@ fn status_name(value: &StatusKind) -> &'static str {
         StatusKind::Poisoned => "poisoned",
         StatusKind::Burning => "burning",
         StatusKind::Stunned => "stunned",
+        StatusKind::Shaken => "shaken",
     }
 }
 
@@ -909,6 +912,7 @@ fn battle_error_code(value: &crate::battle::BattleError) -> &'static str {
         IllegalTargetCount { .. } => "illegal_target_count",
         SkillOwnerMismatch { .. } => "skill_owner_mismatch",
         HostileSkillUsedByNonHostile { .. } => "hostile_skill_used_by_non_hostile",
+        ShakenCannotUse { .. } => "shaken_cannot_use",
         UnsupportedSkill(_) => "unsupported_skill",
         RetreatNotAllowed => "retreat_not_allowed",
         IllegalRetreatActor(_) => "illegal_retreat_actor",
