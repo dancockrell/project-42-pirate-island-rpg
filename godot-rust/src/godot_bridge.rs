@@ -5,7 +5,9 @@ use crate::battle::{
     RecoveryOpening, StatusInstance, StatusKind,
 };
 use crate::expedition::{EncounterOutcome, ExpeditionError, ExpeditionState, TimeSegment};
-use crate::geography::{CellDefinition, EncounterTriggerDefinition, Geography, PortalDefinition};
+use crate::geography::{
+    AuthoredCell, CellDefinition, EncounterTriggerDefinition, Geography, PortalDefinition,
+};
 use crate::habitat::Habitats;
 use crate::protocol::{CommandEnvelope, CommandKind, PROTOCOL_VERSION};
 use serde::Deserialize;
@@ -54,7 +56,7 @@ struct ExpeditionConfiguration {
     /// a payload that only names portals still loads; endpoints a portal
     /// touches are implied.
     #[serde(default)]
-    cells: Vec<CellDefinition>,
+    cells: Vec<AuthoredCell>,
     portals: Vec<PortalDefinition>,
     encounter_triggers: Vec<EncounterTriggerDefinition>,
 }
@@ -146,8 +148,20 @@ impl Project42ExpeditionBridge {
             Ok(value) => value,
             Err(_) => return expedition_error_dictionary("expedition_configuration_invalid"),
         };
+        // Cells arrive in their authored shape; the one translation into the
+        // simulation's cell lives in geography.rs, so a kind content misspells
+        // is refused here rather than becoming a room that does nothing.
+        let cells = match configuration
+            .cells
+            .into_iter()
+            .map(CellDefinition::try_from)
+            .collect::<Result<Vec<_>, _>>()
+        {
+            Ok(cells) => cells,
+            Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
+        };
         self.geography = match Geography::from_authored(
-            configuration.cells,
+            cells,
             configuration.portals,
             configuration.encounter_triggers,
         ) {
@@ -188,6 +202,47 @@ impl Project42ExpeditionBridge {
         // trigger, a hunter that caught up, or today's habitat holder.
         state.begin_encounter(&self.geography, &self.habitats);
         expedition_state_dictionary(state, &self.geography)
+    }
+
+    /// The one "do something here" verb, projected. Salvage the wreck, open a
+    /// cache, use a room at the estate: all of it is `use_anchor`, and the
+    /// snapshot comes back with an `anchor_outcome` block saying what changed.
+    /// Refusals (not here, spent today, missing discovery, encounter pending)
+    /// come back as the same error dictionaries travel uses.
+    #[func]
+    fn use_anchor(&mut self, anchor_id: GString) -> VarDictionary {
+        let Some(state) = self.state.as_mut() else {
+            return expedition_error_dictionary("expedition_not_configured");
+        };
+        let outcome = match state.use_anchor(&anchor_id.to_string(), &self.geography) {
+            Ok(outcome) => outcome,
+            Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
+        };
+        let mut healed = Array::<GString>::new();
+        for id in &outcome.healed_character_ids {
+            healed.push(&GString::from(id.as_str()));
+        }
+        let mut discoveries = Array::<GString>::new();
+        for id in &outcome.discoveries_recorded {
+            discoveries.push(&GString::from(id.as_str()));
+        }
+        let mut upgrades = Array::<GString>::new();
+        for id in &outcome.upgrades_recorded {
+            upgrades.push(&GString::from(id.as_str()));
+        }
+        let anchor_outcome = vdict! {
+            "anchor_id" => outcome.anchor_id.as_str(),
+            "rations_gained" => i64::from(outcome.rations_gained),
+            "medicine_gained" => i64::from(outcome.medicine_gained),
+            "coin_gained" => i64::from(outcome.coin_gained),
+            "medicine_spent" => i64::from(outcome.medicine_spent),
+            "healed_character_ids" => &healed,
+            "discoveries_recorded" => &discoveries,
+            "upgrades_recorded" => &upgrades,
+        };
+        let mut result = expedition_state_dictionary(state, &self.geography);
+        result.set("anchor_outcome", &anchor_outcome);
+        result
     }
 
     /// Starts only the battle declared by the current pending expedition
@@ -509,6 +564,7 @@ fn expedition_error_code(value: &ExpeditionError) -> &'static str {
         ExpeditionError::InsufficientSupplies { .. } => "insufficient_supplies",
         ExpeditionError::DuplicatePortal { .. } => "duplicate_portal",
         ExpeditionError::DuplicateAnchor { .. } => "duplicate_anchor",
+        ExpeditionError::UnknownAnchorKind { .. } => "unknown_anchor_kind",
         ExpeditionError::DuplicateEncounterTrigger => "duplicate_encounter_trigger",
         // A3 added these variants and this match is exhaustive, so their
         // codes belong here now. Projecting the anchor commands themselves to

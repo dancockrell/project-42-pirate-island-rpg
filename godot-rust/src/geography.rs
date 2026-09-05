@@ -135,6 +135,109 @@ impl LocationRecord {
     }
 }
 
+/// One anchor exactly as `content/world/*.world_cell.json` authors it: a flat
+/// record with `kind` as a string and yields as plain fields, which is what a
+/// human writes and what Godot forwards verbatim. Accepts both the content
+/// spelling (`oncePerDay`) and the wire spelling (`once_per_day`) so the
+/// equality test and the bridge read the same struct. `TryFrom` below is the
+/// single translation into [`AnchorDefinition`]; nothing else may interpret
+/// `kind`.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct AuthoredAnchor {
+    pub id: String,
+    pub kind: String,
+    #[serde(default)]
+    pub rations: u32,
+    #[serde(default)]
+    pub medicine: u32,
+    #[serde(default)]
+    pub coin: u32,
+    #[serde(default, alias = "oncePerDay")]
+    pub once_per_day: bool,
+    /// Declared by content and held equal to the Rust rule by
+    /// `fixture_matches_the_authored_world_cells`; the rule itself lives in
+    /// `expedition.rs`, so this is not read at run time.
+    #[serde(default, alias = "requiresDiscoveryId")]
+    pub requires_discovery_id: Option<String>,
+    /// As above. Its stable ID is what a portal's `requiredDiscoveryId` can
+    /// legally reference.
+    #[serde(default, alias = "grantsDiscoveryId")]
+    pub grants_discovery_id: Option<String>,
+}
+
+impl TryFrom<AuthoredAnchor> for AnchorDefinition {
+    type Error = ExpeditionError;
+
+    fn try_from(authored: AuthoredAnchor) -> Result<Self, Self::Error> {
+        let kind = match authored.kind.as_str() {
+            "salvage" => AnchorKind::Salvage {
+                rations: authored.rations,
+                coin: authored.coin,
+            },
+            "loot_cache" => AnchorKind::LootCache {
+                rations: authored.rations,
+                medicine: authored.medicine,
+                coin: authored.coin,
+            },
+            "infirmary" => AnchorKind::Infirmary,
+            "workshop" => AnchorKind::Workshop,
+            "map_table" => AnchorKind::MapTable,
+            "inspect" => AnchorKind::Inspect,
+            _ => {
+                return Err(ExpeditionError::UnknownAnchorKind {
+                    anchor_id: authored.id,
+                    kind: authored.kind,
+                });
+            }
+        };
+        Ok(AnchorDefinition {
+            id: authored.id,
+            kind,
+            once_per_day: authored.once_per_day,
+        })
+    }
+}
+
+/// One cell as Godot forwards it from the content catalog: the authored
+/// fields the simulation needs, with anchors in their authored shape.
+/// `TryFrom` turns it into a [`CellDefinition`]; the policies default, since
+/// content does not author them yet.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct AuthoredCell {
+    pub id: String,
+    pub region_id: String,
+    pub display_name: String,
+    #[serde(default)]
+    pub observation_ids: Vec<String>,
+    #[serde(default)]
+    pub anchors: Vec<AuthoredAnchor>,
+    #[serde(default)]
+    pub encounter_eligible: bool,
+}
+
+impl TryFrom<AuthoredCell> for CellDefinition {
+    type Error = ExpeditionError;
+
+    fn try_from(authored: AuthoredCell) -> Result<Self, Self::Error> {
+        let anchors = authored
+            .anchors
+            .into_iter()
+            .map(AnchorDefinition::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(CellDefinition {
+            id: authored.id,
+            region_id: authored.region_id,
+            display_name: authored.display_name,
+            observation_ids: authored.observation_ids,
+            interaction_anchor_ids: Vec::new(),
+            anchors,
+            return_policy: ReturnPolicy::default(),
+            persistence_policy: PersistencePolicy::default(),
+            encounter_eligible: authored.encounter_eligible,
+        })
+    }
+}
+
 /// The authored wire format for one cell -- the subset of a
 /// `content/world/*.world_cell.json` record the simulation needs.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1092,20 +1195,17 @@ mod tests {
     fn fixture_matches_the_authored_world_cells() {
         use std::collections::BTreeSet;
 
-        // A4: content declares the tidal cut's endpoints and its costs, but not
-        // its gate. `tools/src/validate.mjs` resolves a portal's
-        // `requiredDiscoveryId` against the registered stable IDs, and no
-        // content record type declares a discovery, so authoring
-        // `discovery.map_table.tidal_cut` there fails validation. The fixture
-        // therefore carries the gate alone, and this is the one field the
-        // comparison below skips. Delete this exception -- and author the field
-        // -- the moment content can name a discovery.
-        const GATES_CONTENT_CANNOT_YET_DECLARE: &[&str] =
-            &["world.portal.black_beach_to_reception_terrace_tidal_cut"];
-
         let world_directory = concat!(env!("CARGO_MANIFEST_DIR"), "/../content/world/");
         let mut authored_cell_ids: BTreeSet<String> = BTreeSet::new();
         let mut authored_observation_ids: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        // C13: anchors are authored on the cell that carries them, in the
+        // human shape (`kind` as a string, yields as flat fields) rather than
+        // serde's externally-tagged enum, and translated here -- the same way
+        // `travelMode` is translated to `RouteKind`.
+        let mut authored_anchors_by_cell: BTreeMap<String, Vec<AnchorDefinition>> = BTreeMap::new();
+        let mut authored_granted_discoveries: BTreeSet<String> = BTreeSet::new();
+        let mut authored_map_table: Option<(String, Option<String>, Option<String>)> = None;
+        let mut authored_workshop_requirement: Option<String> = None;
         let mut authored_portal_ids_by_cell: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         #[allow(clippy::type_complexity)]
         let mut authored_portals: Vec<(
@@ -1165,6 +1265,32 @@ mod tests {
                     portal["requiredDiscoveryId"].as_str().map(str::to_owned),
                 ));
             }
+            let mut anchors_here = Vec::new();
+            for anchor in cell["anchors"].as_array().into_iter().flatten() {
+                // The same struct and the same translation the bridge uses
+                // at run time, so the test cannot pass on a reading of
+                // content the game does not share.
+                let authored: AuthoredAnchor = serde_json::from_value(anchor.clone())
+                    .expect("an authored anchor has the authored shape");
+                if let Some(granted) = &authored.grants_discovery_id {
+                    authored_granted_discoveries.insert(granted.clone());
+                }
+                if authored.kind == "map_table" {
+                    authored_map_table = Some((
+                        authored.id.clone(),
+                        authored.requires_discovery_id.clone(),
+                        authored.grants_discovery_id.clone(),
+                    ));
+                }
+                if authored.kind == "workshop" {
+                    authored_workshop_requirement = authored.requires_discovery_id.clone();
+                }
+                anchors_here.push(
+                    AnchorDefinition::try_from(authored)
+                        .expect("content declares only anchor kinds the simulation knows"),
+                );
+            }
+            authored_anchors_by_cell.insert(cell_id.clone(), anchors_here);
             let observation_ids = cell["readableDescriptions"]
                 .as_array()
                 .into_iter()
@@ -1241,13 +1367,60 @@ mod tests {
                 route.risk_level, risk_level,
                 "{portal_id} carries a different risk in the fixture"
             );
-            if !GATES_CONTENT_CANNOT_YET_DECLARE.contains(&portal_id.as_str()) {
-                assert_eq!(
-                    route.required_discovery_id, required_discovery_id,
-                    "{portal_id} is gated differently in the fixture"
+            assert_eq!(
+                route.required_discovery_id, required_discovery_id,
+                "{portal_id} is gated differently in the fixture"
+            );
+        }
+
+        // C13: the anchors a cell carries are authored content too. Held equal
+        // in both directions, and the gate on a portal must be a discovery some
+        // anchor actually grants -- a gate nothing can open is a sealed room, and
+        // a discovery the Rust grants under a different name than content
+        // declares is the loot-table drift with a door on it.
+        for (cell_id, authored_anchors) in &authored_anchors_by_cell {
+            let mut fixture_anchors: Vec<AnchorDefinition> =
+                geography.anchors_at(cell_id).into_iter().cloned().collect();
+            fixture_anchors.sort_by(|left, right| left.id.cmp(&right.id));
+            let mut authored_sorted = authored_anchors.clone();
+            authored_sorted.sort_by(|left, right| left.id.cmp(&right.id));
+            assert_eq!(
+                fixture_anchors, authored_sorted,
+                "{cell_id} carries different anchors in the fixture than content/world/ declares"
+            );
+        }
+        for route in geography.routes.values() {
+            if let Some(discovery_id) = &route.required_discovery_id {
+                let declared_by_content = authored_granted_discoveries.contains(discovery_id)
+                    || authored_observation_ids
+                        .values()
+                        .any(|ids| ids.iter().any(|id| id == discovery_id));
+                let tomb_only = route.from_location_id.starts_with("world.cell.tomb_");
+                assert!(
+                    declared_by_content || tomb_only,
+                    "{} is gated on {discovery_id}, which no authored anchor grants and no authored cell observes",
+                    route.id
                 );
             }
         }
+        let (map_table_id, map_table_requires, map_table_grants) =
+            authored_map_table.expect("content declares the estate's map table");
+        assert_eq!(map_table_id, "anchor.estate.map_table");
+        assert_eq!(
+            map_table_requires.as_deref(),
+            Some(crate::expedition::MAP_TABLE_REQUIRED_DISCOVERY_ID),
+            "the map table's authored requirement and the Rust rule disagree"
+        );
+        assert_eq!(
+            map_table_grants.as_deref(),
+            Some(crate::expedition::MAP_TABLE_DISCOVERY_TIDAL_CUT),
+            "the map table's authored grant and the Rust rule disagree"
+        );
+        assert_eq!(
+            authored_workshop_requirement.as_deref(),
+            Some(crate::expedition::WORKSHOP_REQUIRED_DISCOVERY_ID),
+            "the workshop's authored requirement and the Rust rule disagree"
+        );
 
         // And the other direction: a fixture route out of an authored cell that
         // content never declares is the same drift arriving from the other side.
@@ -1281,5 +1454,65 @@ mod tests {
                 "{cell_id} declares different observations in the fixture"
             );
         }
+    }
+
+    /// The bridge receives cells in the shape `native_expedition_port.gd`
+    /// builds: snake_case keys, `once_per_day`, yields as flat fields. This is
+    /// that exact shape, so a rename on either side fails here rather than as
+    /// a room that silently does nothing in Godot.
+    #[test]
+    fn an_authored_cell_on_the_wire_becomes_a_cell_with_its_anchors() {
+        let wire = serde_json::json!({
+            "id": "world.cell.black_beach",
+            "region_id": "world.region.black_beach",
+            "display_name": "Black Beach",
+            "observation_ids": ["observation.black_beach.wreck"],
+            "anchors": [{
+                "id": "anchor.black_beach.salvage_point",
+                "kind": "salvage",
+                "rations": 4,
+                "medicine": 0,
+                "coin": 2,
+                "once_per_day": true
+            }],
+            "encounter_eligible": false
+        });
+        let authored: AuthoredCell = serde_json::from_value(wire).expect("the wire shape parses");
+        let cell = CellDefinition::try_from(authored).expect("a known kind converts");
+        assert_eq!(
+            cell.anchors,
+            vec![AnchorDefinition {
+                id: "anchor.black_beach.salvage_point".into(),
+                kind: AnchorKind::Salvage {
+                    rations: 4,
+                    coin: 2
+                },
+                once_per_day: true,
+            }]
+        );
+        assert_eq!(cell.observation_ids, vec!["observation.black_beach.wreck"]);
+    }
+
+    /// A kind the simulation has no rule for is refused at configuration,
+    /// naming the anchor, not defaulted into something harmless.
+    #[test]
+    fn an_unknown_anchor_kind_is_refused_by_name() {
+        let authored = AuthoredAnchor {
+            id: "anchor.estate.observatory".into(),
+            kind: "observatory".into(),
+            rations: 0,
+            medicine: 0,
+            coin: 0,
+            once_per_day: false,
+            requires_discovery_id: None,
+            grants_discovery_id: None,
+        };
+        assert_eq!(
+            AnchorDefinition::try_from(authored).unwrap_err(),
+            ExpeditionError::UnknownAnchorKind {
+                anchor_id: "anchor.estate.observatory".into(),
+                kind: "observatory".into(),
+            }
+        );
     }
 }

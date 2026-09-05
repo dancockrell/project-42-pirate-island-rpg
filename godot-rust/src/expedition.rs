@@ -149,6 +149,13 @@ pub enum ExpeditionError {
     DuplicatePortal {
         id: String,
     },
+    /// Content named an anchor kind the simulation has no rule for. Refused at
+    /// configuration rather than defaulted, so a typo cannot become a room
+    /// that silently does nothing.
+    UnknownAnchorKind {
+        anchor_id: String,
+        kind: String,
+    },
     DuplicateAnchor {
         id: String,
     },
@@ -248,13 +255,13 @@ const INFIRMARY_UPGRADE_RESTED: &str = "estate.upgrade.infirmary_rested";
 /// beside the jetty. Minting the card's spellings would have recreated exactly
 /// the two-ID-sets-for-one-place drift A2 existed to kill, so the gates name the
 /// authored observations instead.
-const WORKSHOP_REQUIRED_DISCOVERY_ID: &str = "observation.black_beach.wreck";
+pub(crate) const WORKSHOP_REQUIRED_DISCOVERY_ID: &str = "observation.black_beach.wreck";
 const WORKSHOP_UPGRADE_FIELD_RIG: &str = "estate.upgrade.workshop_field_rig";
 /// The map table reads a tidal cut along the shore out of the elven waymark's
 /// roadwork. What it records is a route, so it lands in `discoveries` where the
 /// portal gate looks for it, not in the household ledger.
-const MAP_TABLE_REQUIRED_DISCOVERY_ID: &str = "observation.river_landing.road_marker";
-const MAP_TABLE_DISCOVERY_TIDAL_CUT: &str = "discovery.map_table.tidal_cut";
+pub(crate) const MAP_TABLE_REQUIRED_DISCOVERY_ID: &str = "observation.river_landing.road_marker";
+pub(crate) const MAP_TABLE_DISCOVERY_TIDAL_CUT: &str = "discovery.map_table.tidal_cut";
 /// What the field rig is worth on the road: one ration off every leg that
 /// charges any, floored at free.
 const FIELD_RIG_SUPPLY_SAVING: u32 = 1;
@@ -346,8 +353,24 @@ impl ExpeditionState {
     }
 
     /// B1: the routes departing the current location, per the supplied `Geography`.
+    /// The routes the party may actually take from here: every ungated route,
+    /// plus a gated one whose discovery the party holds. A locked door the
+    /// party does not know about is not a legal command -- offering it and
+    /// then refusing it with `MissingDiscovery` would tell the player the
+    /// door exists, which is exactly what the gate is for. A road the party
+    /// cannot yet afford *is* listed: that refusal is information the player
+    /// should have.
     pub fn legal_routes<'a>(&self, geography: &'a Geography) -> Vec<&'a RouteOption> {
-        geography.routes_from(&self.active_location_id)
+        geography
+            .routes_from(&self.active_location_id)
+            .into_iter()
+            .filter(|route| {
+                route
+                    .required_discovery_id
+                    .as_ref()
+                    .is_none_or(|discovery_id| self.discoveries.contains(discovery_id))
+            })
+            .collect()
     }
 
     /// B1's real travel command. Rejects a route that doesn't depart the current
@@ -2592,5 +2615,41 @@ mod tests {
             .resolve_midnight_in(&geography, &habitats)
             .expect("resolves");
         assert!(!state.hunters[0].is_defeated_today());
+    }
+
+    /// The tidal cut hangs directly off the beach but is gated on the map
+    /// table's discovery. Until the party holds it, the route is not offered;
+    /// once it does, it is. This is what the bridge projects to Godot, so a
+    /// regression here is a locked door drawn as a button.
+    #[test]
+    fn a_gated_route_is_not_a_legal_command_until_its_discovery_is_held() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = ExpeditionState::new(
+            3,
+            vec!["character.protagonist.captain".into()],
+            "world.cell.black_beach",
+        )
+        .expect("constructs");
+        let tidal_cut = "travel:world.portal.black_beach_to_reception_terrace_tidal_cut";
+        let before = state
+            .legal_route_commands(&geography)
+            .expect("no encounter pending");
+        assert!(
+            !before.iter().any(|command| command == tidal_cut),
+            "the tidal cut must not be offered before the map table opens it: {before:?}"
+        );
+        assert_eq!(
+            before.len(),
+            1,
+            "the beach has exactly one ungated departure"
+        );
+        state
+            .discoveries
+            .insert(MAP_TABLE_DISCOVERY_TIDAL_CUT.to_owned());
+        let after = state
+            .legal_route_commands(&geography)
+            .expect("no encounter pending");
+        assert!(after.iter().any(|command| command == tidal_cut));
+        assert_eq!(after.len(), 2);
     }
 }

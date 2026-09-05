@@ -6,38 +6,161 @@
   "visualShell": {
     "runtimePath": "res://assets/world/black_beach/damaged_estate.glb",
     "status": "procedural_blockout_pending_baked_scene",
-    "requiredFeatures": ["storm-damaged coastal manor", "repairable veranda", "infirmary worktable", "open armory alcove", "river path through the garden wall"],
-    "prohibitedFeatures": ["pristine palace", "modern hospital", "crowded colonial city street"]
+    "requiredFeatures": [
+      "storm-damaged coastal manor",
+      "repairable veranda",
+      "infirmary worktable",
+      "open armory alcove",
+      "river path through the garden wall"
+    ],
+    "prohibitedFeatures": [
+      "pristine palace",
+      "modern hospital",
+      "crowded colonial city street"
+    ]
   },
   "collisionScene": "res://scenes/world/black_beach/damaged_estate_collision.tscn",
   "navigationScene": "res://scenes/world/black_beach/damaged_estate_navigation.tscn",
   "cameraRailId": "camera.exploration.damaged_estate",
   "entryAnchors": [
-    {"id": "entry.damaged_estate.black_beach_path", "positionMetres": [-13.0, 0.0, 6.0], "facingDegrees": 21, "role": "coast_route"},
-    {"id": "entry.damaged_estate.river_gate", "positionMetres": [12.0, 0.0, -8.0], "facingDegrees": 196, "role": "river_route"}
+    {
+      "id": "entry.damaged_estate.black_beach_path",
+      "positionMetres": [
+        -13.0,
+        0.0,
+        6.0
+      ],
+      "facingDegrees": 21,
+      "role": "coast_route"
+    },
+    {
+      "id": "entry.damaged_estate.river_gate",
+      "positionMetres": [
+        12.0,
+        0.0,
+        -8.0
+      ],
+      "facingDegrees": 196,
+      "role": "river_route"
+    }
   ],
   "interactionAnchors": [
-    {"id": "interact.damaged_estate.infirmary_table", "role": "recover", "actionId": "action.damaged_estate.recover_party"},
-    {"id": "interact.damaged_estate.river_gate", "role": "depart", "actionId": "action.damaged_estate.depart_river"}
+    {
+      "id": "interact.damaged_estate.infirmary_table",
+      "role": "recover",
+      "actionId": "action.damaged_estate.recover_party"
+    },
+    {
+      "id": "interact.damaged_estate.river_gate",
+      "role": "depart",
+      "actionId": "action.damaged_estate.depart_river"
+    }
+  ],
+  "anchors": [
+    {
+      "id": "anchor.estate.infirmary",
+      "kind": "infirmary",
+      "oncePerDay": false
+    },
+    {
+      "id": "anchor.estate.workshop",
+      "kind": "workshop",
+      "oncePerDay": false,
+      "requiresDiscoveryId": "observation.black_beach.wreck"
+    },
+    {
+      "id": "anchor.estate.map_table",
+      "kind": "map_table",
+      "oncePerDay": false,
+      "requiresDiscoveryId": "observation.river_landing.road_marker",
+      "grantsDiscoveryId": "discovery.map_table.tidal_cut"
+    },
+    {
+      "id": "anchor.estate.household_room",
+      "kind": "inspect",
+      "oncePerDay": true
+    }
   ],
   "portals": [
-    {"id": "world.portal.damaged_estate_to_black_beach", "fromAnchorId": "entry.damaged_estate.black_beach_path", "targetCellId": "world.cell.black_beach", "targetAnchorId": "entry.black_beach.estate_climb", "travelMode": "on_foot", "returnRule": "always", "timeCostMinutes": 15, "supplyCost": 0, "riskLevel": 0},
-    {"id": "world.portal.damaged_estate_to_river_landing", "fromAnchorId": "entry.damaged_estate.river_gate", "targetCellId": "world.cell.river_landing", "targetAnchorId": "entry.river_landing.estate_path", "travelMode": "on_foot", "returnRule": "allowed_while_no_pending_encounter", "timeCostMinutes": 30, "supplyCost": 0, "riskLevel": 1}
+    {
+      "id": "world.portal.damaged_estate_to_black_beach",
+      "fromAnchorId": "entry.damaged_estate.black_beach_path",
+      "targetCellId": "world.cell.black_beach",
+      "targetAnchorId": "entry.black_beach.estate_climb",
+      "travelMode": "on_foot",
+      "returnRule": "always",
+      "timeCostMinutes": 15,
+      "supplyCost": 0,
+      "riskLevel": 0
+    },
+    {
+      "id": "world.portal.damaged_estate_to_river_landing",
+      "fromAnchorId": "entry.damaged_estate.river_gate",
+      "targetCellId": "world.cell.river_landing",
+      "targetAnchorId": "entry.river_landing.estate_path",
+      "travelMode": "on_foot",
+      "returnRule": "allowed_while_no_pending_encounter",
+      "timeCostMinutes": 30,
+      "supplyCost": 0,
+      "riskLevel": 1
+    }
   ],
   "battleEntries": [
-    {"id": "battle_entry.damaged_estate.garden", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [2.0, 0.0, 1.0], "returnAnchorId": "entry.damaged_estate.river_gate", "safeRetreatAnchorId": "entry.damaged_estate.black_beach_path", "status": "future_spawn_socket"}
+    {
+      "id": "battle_entry.damaged_estate.garden",
+      "encounterId": "encounter.prototype.returning_names",
+      "worldPositionMetres": [
+        2.0,
+        0.0,
+        1.0
+      ],
+      "returnAnchorId": "entry.damaged_estate.river_gate",
+      "safeRetreatAnchorId": "entry.damaged_estate.black_beach_path",
+      "status": "future_spawn_socket"
+    }
   ],
   "explorationActions": [
-    {"id": "action.damaged_estate.recover_party", "type": "recover", "result": "estate.recovery_available", "once": false},
-    {"id": "action.damaged_estate.depart_river", "type": "travel", "portalId": "world.portal.damaged_estate_to_river_landing", "once": false}
+    {
+      "id": "action.damaged_estate.recover_party",
+      "type": "recover",
+      "result": "estate.recovery_available",
+      "once": false
+    },
+    {
+      "id": "action.damaged_estate.depart_river",
+      "type": "travel",
+      "portalId": "world.portal.damaged_estate_to_river_landing",
+      "once": false
+    }
   ],
   "readableDescriptions": [
-    {"id": "observation.damaged_estate.veranda", "text": "The estate was built as a coastal refuge, not a fortress. One veranda rail hangs loose after the storm, while the infirmary table, armory alcove and kitchen still make it a usable home base."},
-    {"id": "observation.damaged_estate.river_gate", "text": "Beyond the garden wall, a narrow stone track drops toward a river landing. The gate can be barred against wandering monsters, but it is not a permanent barrier to the island at night."}
+    {
+      "id": "observation.damaged_estate.veranda",
+      "text": "The estate was built as a coastal refuge, not a fortress. One veranda rail hangs loose after the storm, while the infirmary table, armory alcove and kitchen still make it a usable home base."
+    },
+    {
+      "id": "observation.damaged_estate.river_gate",
+      "text": "Beyond the garden wall, a narrow stone track drops toward a river landing. The gate can be barred against wandering monsters, but it is not a permanent barrier to the island at night."
+    }
   ],
   "estateConsequenceResponses": [
-    {"id": "estate_response.damaged_estate.river_gate_alarm", "requiresEstateUpgradeId": "estate_upgrade.river_gate_alarm", "objectId": "estate_object.river_gate_alarm", "text": "Betty has marked the river gate with a simple brass alarm line. A heavy animal crossing the path will wake the household before it reaches the veranda."}
+    {
+      "id": "estate_response.damaged_estate.river_gate_alarm",
+      "requiresEstateUpgradeId": "estate_upgrade.river_gate_alarm",
+      "objectId": "estate_object.river_gate_alarm",
+      "text": "Betty has marked the river gate with a simple brass alarm line. A heavy animal crossing the path will wake the household before it reaches the veranda."
+    }
   ],
-  "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
-  "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 2, "browserPerformanceGate": "pending", "releaseLegal": false}
+  "lightingProfile": {
+    "id": "lighting.black_beach.storm_gold",
+    "timeOfDay": "storm_gold",
+    "runtimeMode": "baked_base_plus_day_night_parameters"
+  },
+  "admission": {
+    "collisionSeparatedFromVisualShell": true,
+    "navigationSeparatedFromVisualShell": true,
+    "descriptionCountMinimum": 2,
+    "browserPerformanceGate": "pending",
+    "releaseLegal": false
+  }
 }

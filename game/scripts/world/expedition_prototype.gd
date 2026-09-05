@@ -267,6 +267,21 @@ func request_travel(portal_id: String) -> void:
 	project_snapshot(result, message)
 
 
+## The one "do something here" verb, driven through the authoritative
+## session. Returns the bridge's result so a caller (or a test) can read the
+## `anchor_outcome` block. B3 draws the control; this is the wire.
+func request_anchor(anchor_id: String) -> Dictionary:
+	if campaign_session == null:
+		return {"configured": false, "error": "campaign_session_unavailable"}
+	var result: Dictionary = campaign_session.use_anchor(anchor_id)
+	if not bool(result.get("configured", false)):
+		status_label.text = "ACTION REFUSED  •  %s" % str(result.get("error", "unknown_error")).to_upper()
+		return result
+	var outcome: Dictionary = result.get("anchor_outcome", {})
+	project_snapshot(result, "%s  •  +%d RATIONS  +%d MEDICINE  +%d COIN" % [str(outcome.get("anchor_id", "")).replace("anchor.", "").replace("_", " ").to_upper(), int(outcome.get("rations_gained", 0)), int(outcome.get("medicine_gained", 0)), int(outcome.get("coin_gained", 0))])
+	return result
+
+
 func enter_pending_battle() -> void:
 	if campaign_session == null or not campaign_session.has_pending_encounter():
 		status_label.text = "ENCOUNTER HANDOFF UNAVAILABLE"

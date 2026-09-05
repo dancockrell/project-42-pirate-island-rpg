@@ -33,15 +33,65 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 	var region := catalog.get_record("world.region.black_beach")
 	var portals: Array[Dictionary] = []
 	var encounter_triggers: Array[Dictionary] = []
+	var cells: Array[Dictionary] = []
 	for cell_id in region.get("worldCellIds", []):
 		var cell := catalog.get_record(str(cell_id))
+		# The cell itself, with the anchors it declares (C13). Before this the
+		# bridge learned only the portals, so no anchor existed in Godot: the
+		# wreck could not be salvaged and the estate's rooms did not exist,
+		# and with real road costs the party was stranded on the sand.
+		# Anchors are forwarded in their authored shape; Rust owns the one
+		# translation of `kind`.
+		var observation_ids: Array[String] = []
+		for description in cell.get("readableDescriptions", []):
+			observation_ids.append(str(description.get("id", "")))
+		var anchors: Array[Dictionary] = []
+		for anchor in cell.get("anchors", []):
+			var forwarded_anchor := {
+				"id": str(anchor.get("id", "")),
+				"kind": str(anchor.get("kind", "")),
+				"rations": int(anchor.get("rations", 0)),
+				"medicine": int(anchor.get("medicine", 0)),
+				"coin": int(anchor.get("coin", 0)),
+				"once_per_day": bool(anchor.get("oncePerDay", false))
+			}
+			for pair in [["requiresDiscoveryId", "requires_discovery_id"], ["grantsDiscoveryId", "grants_discovery_id"]]:
+				var value := str(anchor.get(pair[0], ""))
+				if not value.is_empty():
+					forwarded_anchor[pair[1]] = value
+			anchors.append(forwarded_anchor)
+		var encounter_eligible := false
+		for entry in cell.get("battleEntries", []):
+			if str(entry.get("status", "")) == "vertical_slice_encounter":
+				encounter_eligible = true
+		cells.append({
+			"id": str(cell.get("id", "")),
+			"region_id": str(cell.get("regionId", "")),
+			"display_name": str(cell.get("displayName", "")),
+			"observation_ids": observation_ids,
+			"anchors": anchors,
+			"encounter_eligible": encounter_eligible
+		})
 		for portal in cell.get("portals", []):
-			portals.append({
+			# Every field PortalDefinition reads, not only the endpoints. Until
+			# C13 this forwarded id, endpoints and travelMode alone, so through
+			# the real bridge every authored road was free and no gate existed:
+			# C2's costs and A4's tidal-cut gate lived in content and never
+			# reached the game. serde(default) on the Rust side means an absent
+			# cost is free, so a portal authored before it is priced still loads.
+			var forwarded := {
 				"id": str(portal.get("id", "")),
 				"from_location_id": str(cell.get("id", "")),
 				"target_location_id": str(portal.get("targetCellId", "")),
-				"travel_mode": str(portal.get("travelMode", ""))
-			})
+				"travel_mode": str(portal.get("travelMode", "")),
+				"time_cost_minutes": int(portal.get("timeCostMinutes", 0)),
+				"supply_cost": int(portal.get("supplyCost", 0)),
+				"risk_level": int(portal.get("riskLevel", 0))
+			}
+			var required_discovery_id := str(portal.get("requiredDiscoveryId", ""))
+			if not required_discovery_id.is_empty():
+				forwarded["required_discovery_id"] = required_discovery_id
+			portals.append(forwarded)
 		for entry in cell.get("battleEntries", []):
 			if str(entry.get("status", "")) != "vertical_slice_encounter":
 				continue
@@ -60,6 +110,7 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 		"seed": seed,
 		"party_ids": INITIAL_PARTY,
 		"active_location_id": INITIAL_LOCATION_ID,
+		"cells": cells,
 		"portals": portals,
 		"encounter_triggers": encounter_triggers
 	}
@@ -76,6 +127,12 @@ func travel(portal_id: String) -> Dictionary:
 	if not is_available():
 		return unavailable_state()
 	return bridge.travel(portal_id)
+
+
+func use_anchor(anchor_id: String) -> Dictionary:
+	if not is_available():
+		return unavailable_state()
+	return bridge.use_anchor(anchor_id)
 
 
 func unavailable_state() -> Dictionary:

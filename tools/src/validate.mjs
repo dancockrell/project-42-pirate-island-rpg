@@ -237,6 +237,28 @@ for (const { file, value } of worldRecords) {
       requireString(anchor, "role", file);
       requireString(anchor, "actionId", file);
     }
+    // C13: a cell may declare the anchors the simulation can act on here --
+    // the content twin of CellDefinition.anchors in godot-rust/src/geography.rs,
+    // which Geography::from_authored registers. An anchor's own id and any
+    // discovery it grants are stable IDs, so a portal's requiredDiscoveryId can
+    // resolve to something content actually declares rather than to a string
+    // only the Rust fixture knows about. A discovery is therefore never
+    // external: it is granted here or it does not exist.
+    const anchorKinds = new Set(["salvage", "loot_cache", "infirmary", "workshop", "map_table", "inspect"]);
+    if (value.anchors !== undefined && !Array.isArray(value.anchors)) fail(file, "anchors must be an array when present");
+    for (const [index, anchor] of (Array.isArray(value.anchors) ? value.anchors : []).entries()) {
+      registerId(anchor.id, file);
+      if (!anchor.id?.startsWith("anchor.")) fail(file, `anchors[${index}].id must use the anchor. prefix`);
+      if (!anchorKinds.has(anchor.kind)) fail(file, `anchors[${index}].kind is unsupported`);
+      if (anchor.oncePerDay !== undefined && typeof anchor.oncePerDay !== "boolean") fail(file, `anchors[${index}].oncePerDay must be boolean`);
+      const numeric = anchor.kind === "salvage" ? ["rations", "coin"] : anchor.kind === "loot_cache" ? ["rations", "medicine", "coin"] : [];
+      for (const field of numeric) if (!Number.isInteger(anchor[field]) || anchor[field] < 0) fail(file, `anchors[${index}].${field} must be a non-negative integer for kind ${anchor.kind}`);
+      if (anchor.requiresDiscoveryId !== undefined) reference(anchor.requiresDiscoveryId, file, `anchors[${index}].requiresDiscoveryId`);
+      if (anchor.grantsDiscoveryId !== undefined) {
+        registerId(anchor.grantsDiscoveryId, file);
+        if (!anchor.grantsDiscoveryId.startsWith("discovery.")) fail(file, `anchors[${index}].grantsDiscoveryId must use the discovery. prefix`);
+      }
+    }
     if (!Array.isArray(value.portals) || value.portals.length === 0) fail(file, "world cell requires one or more explicit portals");
     else for (const [index, portal] of value.portals.entries()) {
       for (const field of ["id", "fromAnchorId", "targetAnchorId", "travelMode", "returnRule"]) requireString(portal, field, file);
@@ -281,6 +303,14 @@ for (const { file, value } of worldRecords) {
     if (!Array.isArray(value.readableDescriptions) || value.readableDescriptions.length < value.admission?.descriptionCountMinimum) fail(file, "world cell must include every required readable description");
     else for (const [index, description] of value.readableDescriptions.entries()) {
       requireString(description, "id", file);
+      // A readable description's id is the observation the simulation records
+      // when the party inspects here (`CellDefinition.observation_ids` in
+      // godot-rust/src/geography.rs), and observations gate anchors and
+      // portals. They were never registered as stable IDs, so nothing in
+      // content could legally reference one; C13's authored gates made that
+      // visible. Registered here, with the prefix the Rust side assumes.
+      registerId(description.id, file);
+      if (!description.id?.startsWith("observation.")) fail(file, `readableDescriptions[${index}].id must use the observation. prefix`);
       if (typeof description.text !== "string" || description.text.length < 90) fail(file, `readableDescriptions[${index}].text must be at least 90 characters`);
     }
     if (value.admission?.collisionSeparatedFromVisualShell !== true || value.admission?.navigationSeparatedFromVisualShell !== true) fail(file, "world cell must separate visual shell, collision and navigation");

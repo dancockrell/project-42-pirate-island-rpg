@@ -22,6 +22,15 @@ func _init() -> void:
 	await process_frame
 	check(expedition.get_authoritative_snapshot().get("active_location_id") == "world.cell.black_beach", "fresh expedition must begin at Black Beach")
 	check(expedition.get_legal_route_count() == 1, "Black Beach must expose exactly one legal route")
+	# The tidal cut also leaves the beach, but it is gated on the map table's
+	# discovery and must not be offered until then: a locked door drawn as a
+	# button tells the player the door exists.
+	# Roads cost rations and the party lands with none, so the slice through
+	# the engine begins the way the Rust slice does: salvage the wreck first.
+	var salvage: Dictionary = expedition.request_anchor("anchor.black_beach.salvage_point")
+	check(bool(salvage.get("configured", false)), "the wreck must be salvageable through the native bridge")
+	check(int((salvage.get("anchor_outcome", {}) as Dictionary).get("rations_gained", 0)) >= 4, "salvaging the wreck must yield its authored floor of four rations")
+	check(expedition.get_legal_route_count() == 1, "salvaging must not change the one legal departure")
 	expedition.request_travel("world.portal.black_beach_to_damaged_estate")
 	check(expedition.get_authoritative_snapshot().get("active_location_id") == "world.cell.damaged_estate", "travel must use the native portal result")
 	expedition.request_travel("world.portal.damaged_estate_to_river_landing")

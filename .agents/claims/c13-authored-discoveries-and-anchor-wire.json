@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "task_id": "c13-authored-discoveries-and-anchor-wire",
+  "agent": "Claude Code (integrator, PR #3)",
+  "summary": "C13: content declares anchors and the discoveries they grant; the tidal cut's gate is authored; the bridge forwards costs, gates, cells and anchors and exposes use_anchor; legal routes exclude gated doors the party has not opened. Done as the fix for the first red Godot CI run, which A4's ungated authored tidal cut caused.",
+  "status": "active",
+  "claimed_at": "2026-09-05T17:05:00Z",
+  "updated_at": "2026-09-05T17:05:00Z",
+  "paths": [
+    "content/world/black_beach.world_cell.json",
+    "content/world/damaged_estate.world_cell.json",
+    "tools/src/validate.mjs",
+    "godot-rust/src/geography.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/godot_bridge.rs",
+    "game/scripts/simulation/native_expedition_port.gd",
+    "game/scripts/campaign/campaign_session.gd",
+    "game/scripts/world/expedition_prototype.gd",
+    "game/tests/expedition_prototype_test.gd",
+    "game/generated/content_bundle.json"
+  ],
+  "symbols": [
+    "AuthoredAnchor",
+    "AuthoredCell",
+    "AnchorDefinition::try_from",
+    "CellDefinition::try_from",
+    "ExpeditionError::UnknownAnchorKind",
+    "ExpeditionState::legal_routes",
+    "Project42ExpeditionBridge::use_anchor",
+    "NativeExpeditionPort.use_anchor",
+    "CampaignSession.use_anchor",
+    "ExpeditionPrototype.request_anchor"
+  ],
+  "coordination": {
+    "depends_on": ["a3-close-the-economy", "a4-estate-anchor-actions"],
+    "conflicts_with": [],
+    "notes": "Root cause chain, in order. (1) native_expedition_port.gd forwarded only id, endpoints and travelMode per portal, so C2's authored costs and any gate never reached the bridge: through the engine every road was free. (2) content could not declare a discovery ID, so A4 authored the tidal cut without its gate and validate.mjs could not have accepted one. (3) ExpeditionState::legal_routes was routes_from with no gate filter, so a locked door was listed as a legal command. (4) readableDescriptions[].id -- the observation IDs the Rust world records -- were never registered as stable IDs, so no content record could reference an observation at all. Fixing (1) alone strands a fresh party on the beach with zero rations and no way to salvage, because no anchor existed in Godot; so the minimal core of B3 ships here too: cells with anchors forwarded, use_anchor on the bridge, session and scene wrappers, and the prototype test salvaging the wreck before it travels, as the Rust slice does. B3 still owes the drawn control. Content owns anchors and discoveries; Rust carries them; fixture_matches_the_authored_world_cells holds them equal and GATES_CONTENT_CANNOT_YET_DECLARE is deleted. The Godot half is verified by CI's Godot job, not locally: there is no Godot binary in this environment."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}

@@ -34,6 +34,13 @@ func travel(portal_id: String) -> Dictionary:
 	return latest_snapshot.duplicate(true)
 
 
+func use_anchor(anchor_id: String) -> Dictionary:
+	if expedition == null:
+		return unavailable_state()
+	latest_snapshot = expedition.use_anchor(anchor_id)
+	return latest_snapshot.duplicate(true)
+
+
 func snapshot() -> Dictionary:
 	if expedition == null:
 		return unavailable_state()
