@@ -10,9 +10,10 @@ those games faster to construct and more coherent at play distance.
 The platform's visual language is original, readable, slightly toy-like 3D:
 deliberate geometry, clean silhouettes, compatible materials, practical pivots,
 and clear selection/interaction space. It may support a cute geometric tabletop
-scene, a painted 2D composition, or a more richly dressed Godot set, but it
-must never force any consuming game to inherit another game's lore, characters,
-race presentation, or historical identity.
+scene, a flat-illustrated presentation, or a more richly dressed Godot set
+(Project 42 itself uses rigged 3D actors and stages under a 2D interface), but
+it must never force any consuming game to inherit another game's lore,
+characters, race presentation, or historical identity.
 
 ## 1. What is shared, and what is not
 

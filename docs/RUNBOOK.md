@@ -15,7 +15,7 @@ the character's geometric bounds to the floor and marks the fifteen-percent
 effect envelope. The metadata panel is intentionally blunt: candidate 01 has
 no skeleton and no animation clips, so it cannot replace the live Betty or
 stand in for a weapon-socket/skill test. Use this scene only to decide whether
-the 3D visual direction blocks better than the 2D proxy before commissioning a
+the 3D visual direction blocks better than the 2D proxy before generating a
 rigged export.
 
 ## Native simulation boundary

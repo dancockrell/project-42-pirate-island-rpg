@@ -96,7 +96,7 @@ approved final asset.
 ExpeditionState
   campaign_day: int
   time_segment: Dawn | Day | Dusk | Midnight
-  party_ids: CharacterId[1..4]
+  party_ids: CharacterId[1..5]
   active_location_id: LocationId
   route_history: RouteStep[]
   supplies: SupplyState
@@ -311,26 +311,16 @@ after her state says she is inactive.
 
 ### C2. Party roster order
 
-Author the first six heroines in this order so every addition proves a new
-combat/job pattern instead of adding cast without playable purpose:
+The core cast is Captain Michael and four women (`docs/PIRATE_ISLAND_CONTINUATION_BRIEF.md`
+§1). Two are established in this repository and are authored in this order:
 
-1. **Betty** — combat surgeon; short boarding mace; guard/heal/rescue.
-2. **Ayla** — jungle elf scout; mobile spear and living-ruin traversal.
-3. **Vix** — fox-folk duelist; pistol/curved blade; position and tempo.
-4. **Grisha** — orc officer; polearm; command, force and formation.
-5. **Isabella** — pirate aristocrat; rapier; interrupts, marks and social access.
-6. **Nara** — tomb scholar; ritual focus; warding, relic logic and alien threat reading.
+1. **Betty** — combat surgeon; boarding mace; protection, rescue and healing.
+2. **Ayla** — jungle-elf tomb warden; bronze spear; crossings, structure and
+   tomb-rule override.
 
-For each heroine, complete this exact package before adding the next:
-
-- one canonical reference ledger;
-- one card state, one clean 3D identity plate and one complete rigged GLB;
-- one recruitment scene and estate presence;
-- one signature weapon and seven literal D→SSS skills;
-- seven action boards with entry, anticipation, contact, consequence,
-  recovery and safe-frame notes;
-- seven data definitions, legal-target rules and deterministic tests;
-- one relationship beat that opens a practical game advantage.
+The identities, origins and portfolios of the other two women are **open**
+(brief §20). Do not author a third or fourth woman until that decision is
+recorded; the bible's earlier six-name roster is superseded.
 
 **Exit test:** each heroine’s D-rank skill alone demonstrates her combat role.
 No roster entry is a portrait with unimplemented promises.
@@ -396,7 +386,7 @@ household and unlock practical content. There is no cheating subplot, no
 outside male romance lane, no bait-and-switch breakup system, and no coercive
 player command.
 
-**Exit test:** every first-six heroine has a recruitment, commitment, household
+**Exit test:** every principal woman has a recruitment, commitment, household
 scene, one girl-with-girl connection and a bond unlock whose exact combat
 effect is specified.
 
@@ -430,10 +420,13 @@ forward as an invisible assumption.
 
 ## 7. Current position
 
-The current code contains early battle simulation, an early paper Betty rig,
-and an in-progress first battle screen. It is not yet a valid implementation
-of Phase B. The next implementation target is therefore singular: complete
-the Reception Terrace encounter screen and Guarded Strike loop to Phase B’s
-exit tests. Do not add more locations, heroines, systems, buttons or final art
-until that one screen reads like the specified game and works like the
-specified game.
+Superseded. The live plan is `docs/SHIP_PLAN.md`; what was last verified and
+when is `docs/STATUS.md`; who is doing what is `.agents/claims/`.
+
+As of 2026-09-04: Phases B and D1–D3 exist in the Rust simulation with 110
+passing tests; Phase A's route board and the campaign bridge exist in Godot;
+the two were written on separate branches and are being unified (Ship Plan
+M0). Phases C2 (Ayla, 5/7), E1 (one estate action) are partial; E2 and E3
+are not started. Every asset is a placeholder behind the visual authority
+gate. There is no CI and no desktop export preset. The next steps, in
+dependency order, are the Ship Plan's lane tasks.

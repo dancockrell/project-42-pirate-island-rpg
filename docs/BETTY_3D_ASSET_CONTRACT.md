@@ -13,6 +13,12 @@ the battle, motion and cast references named there. Only after the player
 approves that plate may this contract receive a new canonical source and a
 clean rig-input turnaround.
 
+Once the plate is approved: rigging is a switch on the generator and is
+expected to succeed; the deliverable at that point is a rigged GLB with the
+named skeleton and sockets and **zero clips**. Animation is deferred to the
+next-generation animation tool and is not hand-authored (`docs/SHIP_PLAN.md`
+D4/D5). This is a generator path end to end; no outside artist is engaged for it.
+
 ## Historical canonical identity source for Candidate 01 only
 
 Candidate 01 used this image as its single primary reference input:

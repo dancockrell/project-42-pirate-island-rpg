@@ -229,10 +229,17 @@ Required sockets
   Socket_Weapon_R, Socket_Weapon_L, Socket_Ground,
   Socket_Chest, Socket_Head, Socket_Target
 
-Required clips
+Required clips (produced by the animation tool, not authored by hand)
   Idle_Ready, Step_Forward, GuardedStrike_Anticipation,
   GuardedStrike_Contact, GuardedStrike_Recovery
 ```
+
+Rigging is a switch on the generator ("Rig for animation" enabled before
+generation) and is expected to succeed. Animation is deferred: the clips
+above are produced by the next-generation animation tool when it arrives and
+are **not** hand-keyed in the meantime (`docs/SHIP_PLAN.md` D5/D6). A rigged
+GLB with zero clips is therefore an accepted intermediate deliverable, not a
+failed one.
 
 The held weapon must be a separate mesh or a child of `Socket_Weapon_R`; it
 may not be fused into a hand or body mesh. It must remain readable through
@@ -253,7 +260,10 @@ targets and action beats. Her identity plate preserves the approved ledger:
 - never a giant bust, heavy hourglass, wide hips, thick thighs, staff-like
   weapon, cropped limbs, cropped weapon, red-cross emblem, text or scenery.
 
-Her first in-engine proof is a five-beat `Guarded Strike` loop:
+Her first in-engine proof is the rigged, unanimated GLB at battle scale in
+the isolated review scene (Ship Plan D4). The second proof, once the
+animation tool has produced her clips (D5), is the five-beat `Guarded Strike`
+loop:
 
 1. `Idle_Ready`: both boots grounded, mace below shoulder height.
 2. `Step_Forward`: one short step reaches the contested action point.
@@ -278,7 +288,7 @@ clips, materials, visual review, in-engine review and decision.
 | Identity | approved face, body direction, costume and weapon | reject; do not repair through runtime tweaks |
 | Structure | skeleton, named bones, separate weapon and named clips | reject as animation source; static blocking only |
 | Camera | head, boots, weapon, target and 15% VFX margin visible | change staging or reject model scale |
-| Motion | no collapsed joints, sliding feet, weapon drift or face distortion | reject rig or regenerate; no camera concealment |
+| Motion (applies once clips exist) | no collapsed joints, sliding feet, weapon drift or face distortion | reject rig or regenerate; no camera concealment |
 | Performance | active fighter, enemy, lights, stage and UI run in browser export | reduce mesh/material complexity |
 | Provenance | source, hash and settings retained | quarantine; never silently admit |
 
@@ -291,8 +301,10 @@ and zero clips. It is a 3D scale-and-lighting reference, not an animated actor.
    authority set.
 2. Derive and approve matching clean rig-input views from that plate.
 3. Generate one rig-enabled Betty GLB from those approved views.
-4. Inspect skeleton, clips, materials and weapon separation.
-5. Use the isolated review scene for the five-beat camera test.
+4. Inspect skeleton, materials and weapon separation; admit the rigged
+   static model at scale (clips are not expected yet).
+5. When the animation tool has produced the five clips, use the isolated
+   review scene for the five-beat camera test.
 6. Build `Battle3DStaging` and connect its anchors to the authoritative battle
    snapshot already feeding the UI.
 7. Replace only Betty’s paper proxy after the five-beat test passes.
