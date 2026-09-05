@@ -346,15 +346,15 @@ top of the document is never stale:
 
 - **M0** shipped 7/13 · A1 A2 A11 B1 H6 H7 H9 · H2 and H10 superseded by
   `main`'s own rewrite · **remaining: C2, B2, H5, H8**
-- **M1** shipped 4/12 — **C1, C2, C4** (loot, portal costs, Michael's
-  commands) and **A3** (the supply loop closes: anchors produce, rations bite,
-  victory pays); A5 in flight
+- **M1** shipped 5/12 — **C1, C2, C4** (loot, portal costs, Michael's
+  commands), **A3** (the supply loop closes: anchors produce, rations bite,
+  victory pays) and **A5** (five named bands, Composure, the Shaken gate)
 - **M2** shipped 5/9 — **E1** (CI live and green on GitHub), **E2** (Godot
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
 - **M3** shipped 0/16 · **M4** not started
-- Last updated 2026-09-05 against trunk `9360f66`. If this line is older than
+- Last updated 2026-09-05 against trunk `906411c`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -365,7 +365,7 @@ top of the document is never stale:
 | A2 | `world.cell.*` canonical; fixture ≡ authored cells | A1 | shipped c1804ea 2026-09-05 |
 | A3 | Economy: anchors, salvage, loot, scarcity | A2 | shipped 9360f66 2026-09-05 — loot ownership reconciled with C1 on merge |
 | A4 | Estate actions as anchor actions; delete `rest_at_estate` | A3 | open |
-| A5 | Five named bands and Composure | A1 | open |
+| A5 | Five named bands and Composure | A1 | shipped 906411c 2026-09-05 — skill_rank reconciled to authored bondRank on merge |
 | A6 | Captain Michael as a battle actor: Weapon Attack, Guard, Reposition | A5, C4 | open |
 | A7 | Ayla's Deny Activation and Override Tomb Rule via site rules | A2, H5 | open |
 | A8 | Reconcile `hold_position` with the Guard decision | A6 | open |
@@ -402,7 +402,7 @@ top of the document is never stale:
 | B2 | `native_expedition_port.gd` sends cells and portal costs | B1, C2 | open |
 | B3 | Expose midnight, anchors, inspect and full legal commands | B1, A3 | open |
 | B4 | Route board shows anchor and estate commands | B3 | open |
-| B5 | Battle screen: Michael's card unfolds; bands and Composure drawn | A5, A6 | open |
+| B5 | Battle screen: Michael's card unfolds; bands and Composure drawn | A5, A6 | open — **first job: `mock_simulation_port.gd` omits `band_name` and `composure`, so the mock and the native bridge now disagree on the actor dict** |
 | B6 | World cells for the tomb interior | A2 | open |
 | B7 | Battle-entry sockets bound to habitat holders | B3 | open |
 | B8 | New game, save slots, continue | E6 | open |
@@ -626,7 +626,7 @@ become the core's first building interactions.
 Done when: `cargo test` green; `grep -rn rest_at_estate godot-rust/` prints nothing.
 
 ### A5 · Five named bands and Composure
-Status: open · Depends on: A1
+Status: shipped `906411c` 2026-09-05 · Depends on: A1
 `pub enum Band { PartyRear = 0, PartyFront = 1, Contested = 2, EnemyFront = 3, EnemyRear = 4 }`
 with `from_index(i8) -> Option<Band>` and `name()`; keep `Actor.band: i8` as
 storage. Fix the fixture (Betty PartyFront=1, Razorbeak EnemyFront=3).
@@ -637,6 +637,39 @@ seven `betty.*.json` (D…SSS) and Ayla's five; reject SS/SSS with
 `band_name`, `composure`. **(brief)** Bands and Composure are the character
 combat model and are unaffected by O1; keep them.
 Done when: `cargo test` and `cargo check --features godot-ext` green.
+
+**Shipped.** Naming the bands paid for itself immediately: two fixture values
+were not merely unnamed but wrong. The prototype had the Razorbeak in
+`Contested` rather than `EnemyFront`, and a party ally parked there too. A
+magic number cannot be wrong on its face; a named band can, which is the
+argument for the enum.
+
+The card said "Ayla's five" — there are no `ayla.*` skill records in
+`content/skills/` to read a rank from, so `skill_rank` covers the authored
+skills and returns `None` elsewhere rather than inventing ranks. Correct call;
+the card was wrong, not the work.
+
+The careful part was the cleanse. `condition_cleanse` sorted statuses and
+drained the top two unconditionally, so putting `Shaken` into that ordering
+would have made a rank C skill hand Composure back — and contradicted the
+authored `removalPriority`, which `validate.mjs` pins at exactly four entries.
+`status_priority` became `cleanse_priority -> Option<u8>`: `Shaken` is `None`,
+sorts last, and the drain stops before reaching it. The four authored
+priorities are byte-identical.
+
+**Rank ownership, decided on merge**, the same way loot was: `content/skills/`
+owns `bondRank`, `skill_rank` mirrors it, and
+`every_authored_skill_has_its_authored_rank` holds them equal. The table
+arrived already missing Michael's two commands from C4 — both rank D, so
+nothing failed, which is exactly how an SS skill would have slipped past the
+Shaken gate unnoticed.
+
+Two follow-ups A5 reported rather than reached for, both correct:
+- `game/scripts/simulation/mock_simulation_port.gd` builds actor dictionaries
+  without `band_name` or `composure`, so the mock and the native bridge now
+  disagree on the dict shape. **Lane B owns this** — B5 already depends on A5.
+- No Composure cost is attached to any skill, and there is no Echo or Field
+  Order. That is A6 and A9, not a gap in A5.
 
 ### A6 · Captain Michael as a battle actor
 Status: open · Depends on: A5, C4
