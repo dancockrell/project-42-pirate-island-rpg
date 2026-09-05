@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "task_id": "a6-captain-michael-actor",
+  "agent": "claude-opus-5 (lane A6)",
+  "summary": "A6: Captain Michael becomes a battle actor with his two authored commands, and the band move is extracted into one shared helper used by both Rescue Charge and Reposition",
+  "status": "active",
+  "claimed_at": "2026-09-05T00:00:00Z",
+  "updated_at": "2026-09-05T00:00:00Z",
+  "paths": [
+    "godot-rust/src/battle.rs",
+    "godot-rust/src/godot_bridge.rs",
+    "godot-rust/tests/vertical_slice.rs"
+  ],
+  "symbols": [
+    "Battle::move_actor_to_band",
+    "Battle::resolve_reposition",
+    "Battle::resolve_rescue_charge",
+    "Battle::submit_uncached",
+    "Battle::resolve_skill",
+    "BattleError::RepositionNotLegal",
+    "battle_error_code"
+  ],
+  "coordination": {
+    "depends_on": ["a5-bands-and-composure", "c-content-and-validator"],
+    "conflicts_with": [],
+    "notes": "content/skills/captain.weapon_attack.json and captain.reposition.json (C4) own the numbers; Rust mirrors them and tests hold the two equal. Does not touch expedition.rs or geography.rs (lane A4), docs/SHIP_PLAN.md, game/ or content/."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}

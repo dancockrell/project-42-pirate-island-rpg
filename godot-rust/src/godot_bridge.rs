@@ -918,6 +918,7 @@ fn battle_error_code(value: &crate::battle::BattleError) -> &'static str {
         IllegalTargetCount { .. } => "illegal_target_count",
         SkillOwnerMismatch { .. } => "skill_owner_mismatch",
         HostileSkillUsedByNonHostile { .. } => "hostile_skill_used_by_non_hostile",
+        RepositionNotLegal { .. } => "reposition_not_legal",
         ShakenCannotUse { .. } => "shaken_cannot_use",
         UnsupportedSkill(_) => "unsupported_skill",
         RetreatNotAllowed => "retreat_not_allowed",
