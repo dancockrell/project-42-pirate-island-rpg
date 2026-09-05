@@ -22,7 +22,7 @@ rigged export.
 
 ## Native simulation boundary
 
-`Project42SimulationBridge` is the active authoritative simulation when its GDExtension is registered. Build it with `tools/build-native-bridge.ps1`, then run `tools/verify-godot.ps1`; the verifier performs an editor import pass before starting the scene and tests the real bridge through `NativeSimulationPort`.
+`Project42SimulationBridge` is the active authoritative simulation when its GDExtension is registered. Build it with `tools/build-native-bridge.ps1` on Windows or `tools/build-native-bridge.sh` on Linux and macOS, then run the matching verifier (`tools/verify-godot.ps1` or `tools/verify-godot.sh`); the verifier performs an editor import pass before starting the scene and tests the real bridge through `NativeSimulationPort`.
 
 `MockSimulationPort` remains a debug-only presentation fixture for work on machines that cannot build Rust. `BattlePrototype` selects it only when `OS.is_debug_build()` is true and the bridge class is unavailable. A release runtime exits with an error instead of silently running duplicate GDScript rules. See `docs/NATIVE_BRIDGE.md` for the pinned crate/API decision, exported class contract, library locations and acceptance gates.
 
@@ -30,7 +30,55 @@ rigged export.
 
 Run `cargo fmt --manifest-path godot-rust/Cargo.toml -- --check`, `cargo test --manifest-path godot-rust/Cargo.toml`, and `node tools/src/validate.mjs`. The content validator rejects missing stable-ID relationships, heroine rosters without exactly seven bond skills, animation records without explicit action beats or safe framing, penned dinosaurs, non-individual prototype monster groups, and encounters that abandon the card-rail/full-body-active presentation contract.
 
-Run `.\tools\verify-godot.ps1` to import and register extensions, instantiate and advance the configured main scene, execute the presentation suites, then submit both rejected and accepted commands through the native bridge. The verifier redirects Godot's per-user directories to task-specific temporary folders and fails on a nonzero engine exit. Its default is the ignored local Godot 4.7.2 stable build; pass `-GodotExecutable` to check another Godot 4 build. A root-certificate-store warning can appear inside a restricted Windows sandbox. The prototype performs no runtime network access, so that warning is not a scene failure.
+### The two verification gates
+
+There are two gates and one contract. Both run the same sequence against the same
+project; use the one that matches the machine.
+
+| Gate | Where | Build step | Verifier |
+|---|---|---|---|
+| PowerShell | Windows developer machines | `.\tools\build-native-bridge.ps1` | `.\tools\verify-godot.ps1` |
+| Bash | Linux, macOS, and CI | `tools/build-native-bridge.sh` | `tools/verify-godot.sh` |
+
+They are twins, not alternatives: the same commands in the same order, the same
+failure behaviour, the same messages. Change one and change the other in the same
+commit, or they will drift and one of them will be lying.
+
+**The sequence both verifiers run**, stopping at the first non-zero engine exit and
+exiting with that engine's exit code:
+
+1. `--headless --editor --path game --quit` — import resources and register extensions.
+2. `--headless --path game --quit-after 3` — instantiate and advance the configured main scene.
+3. one `--headless --path game --scene res://scenes/review/<name>.tscn --quit-after 2` per review scene.
+4. one `--headless --path game --script res://tests/<name>.gd` per suite under `game/tests/`.
+
+The shell verifier enumerates steps 3 and 4 by globbing `game/scenes/review/*_review.tscn`
+and `game/tests/*_test.gd`, and echoes each file as it runs, so a new scene or suite is
+covered the day it lands instead of the day someone remembers to edit a list. Exit
+status is zero only when every step passed.
+
+**Finding Godot.** The shell verifier uses `$GODOT` if set, otherwise the first of
+`godot4` or `godot` on `PATH`. With no engine it exits non-zero with a message naming
+`GODOT`; it never passes silently. The PowerShell verifier instead defaults to the
+ignored local `.local-tools/godot-4.7.2` build and takes `-GodotExecutable`.
+
+**Per-user directories.** Both verifiers redirect Godot's per-user directories to
+task-specific temporary folders so a run cannot inherit or pollute a developer
+profile — `APPDATA`/`LOCALAPPDATA` on Windows, the `XDG_*` variables on Linux and macOS.
+
+**Building the bridge.** Both build scripts run
+`cargo build --manifest-path godot-rust/Cargo.toml --features godot-ext` (add `release`
+as the argument, or `-Configuration release`, for the release profile) and copy the
+produced library into `game/bin/<platform>/`. The library differs per platform:
+`project42_sim.dll` on Windows, `libproject42_sim.so` on Linux,
+`libproject42_sim.dylib` on macOS. Note that `game/bin/project42_sim.gdextension`
+currently declares `windows.*` libraries only, so on Linux and macOS the library is
+built and installed but Godot does not yet register the extension; the suites then run
+against `MockSimulationPort` in a debug build. Adding the non-Windows entries is E2's
+work, not the build script's.
+
+A root-certificate-store warning can appear inside a restricted Windows sandbox. The
+prototype performs no runtime network access, so that warning is not a scene failure.
 
 After validation, run `npm run build:content` from `tools/` or `node tools/src/build-content-bundle.mjs` from the repository root. Commit `game/generated/content_bundle.json` whenever its source records change. `ContentCatalog` loads only that bundle and returns defensive copies so callers cannot mutate the catalog's authoritative definitions.
 
