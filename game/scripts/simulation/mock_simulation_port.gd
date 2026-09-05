@@ -51,7 +51,7 @@ func create_debug_battle() -> Dictionary:
 			actor_snapshot("character.heroine.ayla", "Ayla", "party", ayla_vitality, 90, 0, 0),
 			actor_snapshot("character.heroine.vix", "Vix", "party", vix_vitality, 90, 0, 1),
 			actor_snapshot("character.heroine.grisha", "Grisha", "party", grisha_vitality, 110, 4, 0),
-			actor_snapshot("enemy.raptor.razorbeak.prototype", "Razorbeak", "hostile", razorbeak_vitality, 70, razorbeak_guard, 2)
+			actor_snapshot("enemy.raptor.razorbeak.prototype", "Razorbeak", "hostile", razorbeak_vitality, 70, razorbeak_guard, 3)
 		],
 		"effects": [],
 		"recovery_openings": [],
@@ -200,8 +200,18 @@ func heal_mock_actor(actor_id: String, amount: int) -> int:
 			return grisha_vitality
 	return 0
 
-func actor_snapshot(id: String, display_name: String, faction: String, vitality: int, maximum: int, guard: int, band: int) -> Dictionary:
-	return {"id": id, "display_name": display_name, "faction": faction, "vitality": vitality, "max_vitality": maximum, "guard": guard, "band": band}
+# The five bands, named exactly as Band::name() in godot-rust/src/battle.rs.
+# The mock and the native bridge must agree on the actor dictionary, or a
+# screen built against one breaks silently on the other.
+const BAND_NAMES := ["party_rear", "party_front", "contested", "enemy_front", "enemy_rear"]
+
+func band_name(band: int) -> String:
+	if band < 0 or band >= BAND_NAMES.size():
+		return "unknown"
+	return BAND_NAMES[band]
+
+func actor_snapshot(id: String, display_name: String, faction: String, vitality: int, maximum: int, guard: int, band: int, composure: int = 10) -> Dictionary:
+	return {"id": id, "display_name": display_name, "faction": faction, "vitality": vitality, "max_vitality": maximum, "guard": guard, "band": band, "band_name": band_name(band), "composure": composure}
 
 func make_event(kind: String, subjects: Array, payload: Dictionary) -> Dictionary:
 	sequence += 1

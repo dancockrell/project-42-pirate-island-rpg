@@ -402,7 +402,7 @@ top of the document is never stale:
 | B2 | `native_expedition_port.gd` sends cells and portal costs | B1, C2 | open |
 | B3 | Expose midnight, anchors, inspect and full legal commands | B1, A3 | open |
 | B4 | Route board shows anchor and estate commands | B3 | open |
-| B5 | Battle screen: Michael's card unfolds; bands and Composure drawn | A5, A6 | open — **first job: `mock_simulation_port.gd` omits `band_name` and `composure`, so the mock and the native bridge now disagree on the actor dict** |
+| B5 | Battle screen: Michael's card unfolds; bands and Composure drawn | A5, A6 | open — the mock/bridge actor-dict divergence A5 opened is closed (`band_name`, `composure`); B5 draws them |
 | B6 | World cells for the tomb interior | A2 | open |
 | B7 | Battle-entry sockets bound to habitat holders | B3 | open |
 | B8 | New game, save slots, continue | E6 | open |
@@ -665,9 +665,15 @@ nothing failed, which is exactly how an SS skill would have slipped past the
 Shaken gate unnoticed.
 
 Two follow-ups A5 reported rather than reached for, both correct:
-- `game/scripts/simulation/mock_simulation_port.gd` builds actor dictionaries
-  without `band_name` or `composure`, so the mock and the native bridge now
-  disagree on the dict shape. **Lane B owns this** — B5 already depends on A5.
+- `game/scripts/simulation/mock_simulation_port.gd` built actor dictionaries
+  without `band_name` or `composure`, so the mock and the native bridge
+  disagreed on the dict shape. **Closed by the integrator** rather than left
+  for B5: the mock now emits both, its band names are the same five strings
+  `Band::name()` returns, and its Razorbeak moved from `Contested` to
+  `EnemyFront` — the identical category error A5 corrected in Rust, sitting
+  in GDScript. Verified by CI's Godot job, not locally; there is no Godot in
+  the integrator's environment and the file is not exercised by any test,
+  since the mock is the fallback the anti-mock gate exists to forbid.
 - No Composure cost is attached to any skill, and there is no Echo or Field
   Order. That is A6 and A9, not a gap in A5.
 
