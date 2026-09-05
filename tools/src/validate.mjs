@@ -6,7 +6,7 @@ const repo = resolve(import.meta.dirname, "../..");
 const failures = [];
 const ids = new Map();
 const references = [];
-const supportedTargetRules = new Set(["one_hostile", "one_living_hostile", "one_living_party_member", "ordered_pair_threatened_ally_then_hostile", "automatic_reaction_to_other_party_member_lethal_hit", "all_living_party_members", "one_defeated_party_member_other_than_betty"]);
+const supportedTargetRules = new Set(["self", "one_hostile", "one_living_hostile", "one_living_party_member", "ordered_pair_threatened_ally_then_hostile", "automatic_reaction_to_other_party_member_lethal_hit", "all_living_party_members", "one_defeated_party_member_other_than_betty"]);
 const bindableBattleEvents = new Set(["actor_focused", "actor_moved", "damage_applied", "guard_changed", "vitality_changed", "status_removed", "interception_set", "interception_triggered", "reaction_window_opened", "reaction_triggered", "defeat_prevented", "actor_revived", "bonus_turn_granted", "battlefield_effect_created", "battlefield_effect_pulse", "battlefield_effect_removed", "recovery_opening_created", "recovery_opening_consumed", "recovery_opening_expired", "actor_defeated", "turn_ended", "battle_ended"]);
 let skillCount = 0;
 let presentationCueCount = 0;
@@ -133,6 +133,23 @@ for (const { file, value } of await readJsonDirectory("skills")) {
   }
 }
 
+// C1: loot records exist so `victory.lootTableId` and every habitat
+// `drop_table_id` resolve against a registered stable ID instead of naming a
+// record nobody wrote. Each yield line is a non-negative integer count of one
+// resource the simulation already moves.
+const lootResources = ["rations", "medicine", "coin"];
+for (const { file, value } of await readJsonDirectory("loot")) {
+  requireString(value, "displayName", file);
+  if (!value.id?.startsWith("loot.")) fail(file, "loot record id must use the loot. prefix");
+  if (!value.yield || typeof value.yield !== "object" || Array.isArray(value.yield)) fail(file, "loot record requires a yield object");
+  else for (const resource of lootResources) {
+    if (!Number.isInteger(value.yield[resource]) || value.yield[resource] < 0) fail(file, `yield.${resource} must be a non-negative integer`);
+  }
+  requireString(value.metadata ?? {}, "implementationOwner", file);
+  requireString(value.metadata ?? {}, "maturity", file);
+  if (typeof value.metadata?.releaseLegal !== "boolean") fail(file, "loot metadata.releaseLegal must be boolean");
+}
+
 for (const { file, value } of await readJsonDirectory("enemies")) {
   requireString(value, "displayName", file);
   if (value.worldPresence?.penAllowed !== false) fail(file, "island monsters may not be designed as pen exhibits");
@@ -179,6 +196,10 @@ for (const { file, value } of await readJsonDirectory("encounters")) {
   // that resolving them against the registered stable IDs now makes impossible.
   reference(value.locationId, file, "locationId");
   reference(value.defeat?.returnLocationId, file, "defeat.returnLocationId");
+  // C1: the same drift, one field over. `victory.lootTableId` named
+  // `loot.razorbeak.prototype` while no loot record existed anywhere, and
+  // nothing checked it, so the dangling ID shipped silently.
+  reference(value.victory?.lootTableId, file, "victory.lootTableId");
   if (value.presentation?.inactivePartyMode !== "card_rail" || value.presentation?.activeActorMode !== "full_body_battle_plane") fail(file, "encounter must preserve the card-to-active combat contract");
 }
 
@@ -223,6 +244,16 @@ for (const { file, value } of worldRecords) {
       if (!entryAnchorIds.has(portal.fromAnchorId)) fail(file, `portals[${index}].fromAnchorId must name an entry anchor in this cell`);
       if (!new Set(["on_foot", "safe_road", "jungle_edge"]).has(portal.travelMode)) fail(file, `portals[${index}].travelMode is unsupported`);
       if (!new Set(["always", "allowed_while_no_pending_encounter"]).has(portal.returnRule)) fail(file, `portals[${index}].returnRule is unsupported`);
+      // C2: travel costs live with the portal that charges them. They are
+      // optional so a connection can be authored before it is priced, but a
+      // present field is type-checked: `PortalDefinition` in
+      // godot-rust/src/geography.rs takes u32, u32 and u8, so a negative or
+      // fractional cost is not representable downstream.
+      for (const field of ["timeCostMinutes", "supplyCost", "riskLevel"]) {
+        if (portal[field] === undefined) continue;
+        if (!Number.isInteger(portal[field]) || portal[field] < 0) fail(file, `portals[${index}].${field} must be a non-negative integer`);
+      }
+      if (portal.requiredDiscoveryId !== undefined) reference(portal.requiredDiscoveryId, file, `portals[${index}].requiredDiscoveryId`);
     }
     if (!Array.isArray(value.battleEntries) || value.battleEntries.length === 0) fail(file, "world cell requires one or more battle entries");
     else for (const [index, entry] of value.battleEntries.entries()) {

@@ -1,0 +1,141 @@
+{
+  "id": "skill.captain.reposition",
+  "displayName": "Reposition",
+  "ownerId": "character.protagonist.captain",
+  "bondRank": "D",
+  "targetRule": "self",
+  "activation": "normal_action",
+  "rules": {
+    "movementBands": 1,
+    "guardGain": 1,
+    "endsTurn": true,
+    "damageBase": 0,
+    "requiresUnoccupiedBand": true
+  },
+  "animation": {
+    "cardId": "animation.captain.reposition",
+    "durationMs": 640,
+    "beats": [
+      {
+        "atMs": 0,
+        "name": "select",
+        "pose": "carbine_low_ready"
+      },
+      {
+        "atMs": 120,
+        "name": "break_plane",
+        "pose": "shoulder_drop_turn"
+      },
+      {
+        "atMs": 300,
+        "name": "slide",
+        "pose": "braced_lateral_stride"
+      },
+      {
+        "atMs": 440,
+        "name": "brace",
+        "pose": "carbine_cross_body_set"
+      },
+      {
+        "atMs": 640,
+        "name": "recall",
+        "pose": "card_ready"
+      }
+    ],
+    "eventBindings": {
+      "actor_focused": "break_plane",
+      "actor_moved": "slide",
+      "guard_changed": "brace",
+      "turn_ended": "recall"
+    },
+    "presentationCues": [
+      {
+        "beat": "select",
+        "pose": "carbine_low_ready",
+        "motion": "card_hold",
+        "audio": "boiler_pack_idle",
+        "hitStopMs": 0,
+        "shake": 0,
+        "frameSubjects": [
+          "captain",
+          "steam_carbine"
+        ],
+        "cameraId": "presentation.camera.active_card_close",
+        "vfxId": "presentation.vfx.none"
+      },
+      {
+        "beat": "break_plane",
+        "pose": "shoulder_drop_turn",
+        "motion": "card_to_battle_plane",
+        "audio": "boot_pivot",
+        "hitStopMs": 0,
+        "shake": 0,
+        "frameSubjects": [
+          "captain",
+          "steam_carbine",
+          "destination_band"
+        ],
+        "cameraId": "presentation.camera.lateral_speed_track",
+        "vfxId": "presentation.vfx.teal_card_release"
+      },
+      {
+        "beat": "slide",
+        "pose": "braced_lateral_stride",
+        "motion": "lateral_traverse",
+        "audio": "gravel_stride_and_vent",
+        "hitStopMs": 0,
+        "shake": 0,
+        "frameSubjects": [
+          "captain",
+          "steam_carbine",
+          "destination_band",
+          "traversed_ground"
+        ],
+        "cameraId": "presentation.camera.vertical_arc_track",
+        "vfxId": "presentation.vfx.teal_slide_trail"
+      },
+      {
+        "beat": "brace",
+        "pose": "carbine_cross_body_set",
+        "motion": "settle_to_guard",
+        "audio": "guard_chime",
+        "hitStopMs": 0,
+        "shake": 0,
+        "frameSubjects": [
+          "captain",
+          "steam_carbine",
+          "guard_ring"
+        ],
+        "cameraId": "presentation.camera.two_actor_medium",
+        "vfxId": "presentation.vfx.teal_guard_ring"
+      },
+      {
+        "beat": "recall",
+        "pose": "card_ready",
+        "motion": "battle_plane_to_card",
+        "audio": "card_lock",
+        "hitStopMs": 0,
+        "shake": 0,
+        "frameSubjects": [
+          "captain",
+          "steam_carbine",
+          "destination_band"
+        ],
+        "cameraId": "presentation.camera.battle_wide_reset",
+        "vfxId": "presentation.vfx.card_recall_trail"
+      }
+    ],
+    "framing": "Captain Michael, the ground he crosses, the destination band and his feet at both ends of the traverse remain inside the safe frame.",
+    "replacementAssetIds": [
+      "art.placeholder.captain.active_actor"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "maturity": "prototype",
+    "notes": [
+      "The first self-targeting command in the content set: it selects no other actor, which is why supportedTargetRules gained self."
+    ]
+  }
+}

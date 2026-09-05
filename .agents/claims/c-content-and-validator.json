@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "task_id": "c-content-and-validator",
+  "agent": "claude-opus-5-lane-c",
+  "summary": "C1, C2 and C4 in one lane branch because all three edit tools/src/validate.mjs: C1 authors content/loot/*.json for the three habitat drop tables and makes victory.lootTableId a checked reference; C2 adds optional portal cost fields (timeCostMinutes, supplyCost, riskLevel, requiredDiscoveryId) to content/world/*.world_cell.json, authored from Geography::black_beach_vertical_slice(); C4 authors Captain Michael's two skill records and adds the self target rule",
+  "status": "active",
+  "claimed_at": "2026-09-05T00:00:00Z",
+  "updated_at": "2026-09-05T00:00:00Z",
+  "paths": [
+    "content/loot/",
+    "content/skills/captain.weapon_attack.json",
+    "content/skills/captain.reposition.json",
+    "content/characters/captain.json",
+    "content/world/",
+    "content/encounters/returning_names.prototype.json",
+    "tools/src/validate.mjs",
+    "tools/src/build-content-bundle.mjs",
+    "game/generated/content_bundle.json"
+  ],
+  "symbols": [
+    "supportedTargetRules",
+    "lootFile"
+  ],
+  "coordination": {
+    "depends_on": ["A2"],
+    "conflicts_with": [],
+    "notes": "SHIP_PLAN section 9 held C1 and C2 until A2 shipped; A2 is shipped (c1804ea) so this round is legal. All three cards are taken on one branch on purpose: three agents in tools/src/validate.mjs conflict every time. godot-rust/** is read-only here -- habitat.rs supplies the three drop_table_id values and geography.rs supplies the nine portal costs; neither file is edited. docs/SHIP_PLAN.md is left to the integrator per section 9."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}

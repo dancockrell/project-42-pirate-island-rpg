@@ -21,9 +21,9 @@
     {"id": "interact.river_landing.route_choice", "role": "route_choice", "actionId": "action.river_landing.choose_approach"}
   ],
   "portals": [
-    {"id": "world.portal.river_landing_to_damaged_estate", "fromAnchorId": "entry.river_landing.estate_path", "targetCellId": "world.cell.damaged_estate", "targetAnchorId": "entry.damaged_estate.river_gate", "travelMode": "on_foot", "returnRule": "always"},
-    {"id": "world.portal.river_landing_to_reception_terrace_safe_road", "fromAnchorId": "entry.river_landing.reception_road", "targetCellId": "world.cell.reception_terrace", "targetAnchorId": "entry.reception_terrace.river_road", "travelMode": "safe_road", "returnRule": "allowed_while_no_pending_encounter"},
-    {"id": "world.portal.river_landing_to_reception_terrace_jungle_edge", "fromAnchorId": "entry.river_landing.reception_road", "targetCellId": "world.cell.reception_terrace", "targetAnchorId": "entry.reception_terrace.jungle_edge", "travelMode": "jungle_edge", "returnRule": "allowed_while_no_pending_encounter"}
+    {"id": "world.portal.river_landing_to_damaged_estate", "fromAnchorId": "entry.river_landing.estate_path", "targetCellId": "world.cell.damaged_estate", "targetAnchorId": "entry.damaged_estate.river_gate", "travelMode": "on_foot", "returnRule": "always", "timeCostMinutes": 30, "supplyCost": 0, "riskLevel": 1},
+    {"id": "world.portal.river_landing_to_reception_terrace_safe_road", "fromAnchorId": "entry.river_landing.reception_road", "targetCellId": "world.cell.reception_terrace", "targetAnchorId": "entry.reception_terrace.river_road", "travelMode": "safe_road", "returnRule": "allowed_while_no_pending_encounter", "timeCostMinutes": 60, "supplyCost": 2, "riskLevel": 1},
+    {"id": "world.portal.river_landing_to_reception_terrace_jungle_edge", "fromAnchorId": "entry.river_landing.reception_road", "targetCellId": "world.cell.reception_terrace", "targetAnchorId": "entry.reception_terrace.jungle_edge", "travelMode": "jungle_edge", "returnRule": "allowed_while_no_pending_encounter", "timeCostMinutes": 35, "supplyCost": 4, "riskLevel": 3}
   ],
   "battleEntries": [
     {"id": "battle_entry.river_landing.reed_bank", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [0.5, 0.0, 2.0], "returnAnchorId": "entry.river_landing.estate_path", "safeRetreatAnchorId": "entry.river_landing.reception_road", "status": "future_spawn_socket"}

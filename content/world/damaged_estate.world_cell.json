@@ -21,8 +21,8 @@
     {"id": "interact.damaged_estate.river_gate", "role": "depart", "actionId": "action.damaged_estate.depart_river"}
   ],
   "portals": [
-    {"id": "world.portal.damaged_estate_to_black_beach", "fromAnchorId": "entry.damaged_estate.black_beach_path", "targetCellId": "world.cell.black_beach", "targetAnchorId": "entry.black_beach.estate_climb", "travelMode": "on_foot", "returnRule": "always"},
-    {"id": "world.portal.damaged_estate_to_river_landing", "fromAnchorId": "entry.damaged_estate.river_gate", "targetCellId": "world.cell.river_landing", "targetAnchorId": "entry.river_landing.estate_path", "travelMode": "on_foot", "returnRule": "allowed_while_no_pending_encounter"}
+    {"id": "world.portal.damaged_estate_to_black_beach", "fromAnchorId": "entry.damaged_estate.black_beach_path", "targetCellId": "world.cell.black_beach", "targetAnchorId": "entry.black_beach.estate_climb", "travelMode": "on_foot", "returnRule": "always", "timeCostMinutes": 15, "supplyCost": 0, "riskLevel": 0},
+    {"id": "world.portal.damaged_estate_to_river_landing", "fromAnchorId": "entry.damaged_estate.river_gate", "targetCellId": "world.cell.river_landing", "targetAnchorId": "entry.river_landing.estate_path", "travelMode": "on_foot", "returnRule": "allowed_while_no_pending_encounter", "timeCostMinutes": 30, "supplyCost": 0, "riskLevel": 1}
   ],
   "battleEntries": [
     {"id": "battle_entry.damaged_estate.garden", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [2.0, 0.0, 1.0], "returnAnchorId": "entry.damaged_estate.river_gate", "safeRetreatAnchorId": "entry.damaged_estate.black_beach_path", "status": "future_spawn_socket"}
