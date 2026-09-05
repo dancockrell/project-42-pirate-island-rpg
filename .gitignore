@@ -14,6 +14,9 @@ work/__pycache__/
 /work/art/generated/
 /work/quartermaster/
 /work/web-preview/
+/work/windows-desktop/
+/work/linux-desktop/
+/work/macos-desktop/
 *.zip
 .git-empty-backup-*/
 .gh-auth/

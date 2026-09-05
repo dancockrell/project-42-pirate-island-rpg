@@ -448,8 +448,8 @@ top of the document is never stale:
 | E1 | GitHub Actions: Rust and content checks | — | shipped e0b4051 2026-09-05 |
 | E2 | Godot headless suites in CI | E1, E3 | open — **unblocked**: E1 and E3 are both shipped, and the `.gdextension` now declares linux/macos libraries so the suites load the real bridge instead of falling back to `MockSimulationPort` |
 | E3 | Shell equivalents of the two PowerShell gates | — | shipped 5344b7b 2026-09-05 |
-| E4 | Desktop export presets for Windows, Linux, macOS | — | open |
-| E5 | Nightly build artifacts per platform | E2, E4 | open |
+| E4 | Desktop export presets for Windows, Linux, macOS | — | shipped 838824e 2026-09-05 |
+| E5 | Nightly build artifacts per platform | E2, E4 | open — **must build the native library before exporting**, see its card |
 | E6 | Save-version migration fixtures and the four save boundaries | — | open |
 | E7 | Crash log with state snapshot; no silent telemetry | — | open |
 | E8 | Claims enforcement in CI | E1 | open |
@@ -955,6 +955,55 @@ pivots/sockets, no animation.
 ### D12 · Room blockouts for the Demo region — from C11's contracts.
 
 ### Lane E — new card
+
+### E4 · Desktop export presets · shipped 838824e
+`game/export_presets.cfg` held exactly one preset — `Web Preview`, with
+`variant/extensions_support=false`. The whole simulation is a GDExtension, so
+that preset **cannot load the game's own rules**, and no desktop preset
+existed at all: there was no way to produce a build a person could play.
+Added Windows Desktop, Linux Desktop and macOS, each including
+`bin/project42_sim.gdextension` and that platform's two `expedition_v5`
+libraries, with `exclude_filter=""` so `bin/` survives the export. `Web
+Preview` is kept, and renamed so its own name says it is preview-only.
+
+**Two findings, both real:**
+
+1. **`game/bin/` contains only `windows/`.** The `.gdextension` declares six
+   libraries across three platforms; two of those directories do not exist,
+   so the Linux and macOS presets cannot yet produce a *loadable* build. The
+   fix is **not** to commit more binaries — it is that whatever produces a
+   release must build the library first. That is now a hard requirement on E5.
+2. **`platform="Linux"` is the riskiest line in the file.** Godot renamed the
+   Linux export platform from `Linux/X11` in the 4.3 era, and a preset whose
+   `platform` string does not resolve is dropped *silently*. `verify-godot.ps1`
+   pins 4.7.2, so `"Linux"` should be right — but whoever runs the first
+   export must open the Export dialog, confirm all three presets appear, and
+   flip the string if Linux is missing.
+
+Unproven, and honestly so: no export was run, because Godot is not installed
+in this container. The file was checked with `configparser` for structure,
+`[preset.N]`/`[preset.N.options]` pairing and quoting, and every library path
+was cross-checked against the `.gdextension` — but the first real
+`--export-debug` is the actual proof. Expect Godot to rewrite the file and
+drop its comments the first time the Export dialog saves; the preset *rename*
+is the durable half of the warning.
+
+### E5 · Nightly build artifacts
+Status: open · Depends on: E2, E4
+A scheduled workflow that exports all three desktop presets and uploads them
+as artifacts named with the commit SHA.
+
+**Hard requirement, from E4's finding:** the job must run
+`bash tools/build-native-bridge.sh release` **before** exporting. `game/bin/`
+holds only the Windows libraries; Linux and macOS are built, never committed.
+An export that skips that step produces a package with no simulation in it —
+it will launch and be unable to load a single rule. Assert the library exists
+at the path the `.gdextension` names before invoking the export, so this
+fails loudly instead of shipping a hollow build.
+
+Note the distinction from E2: E2 is genuinely unblocked, because its CI job
+builds the `.so` itself at run time via the same script. It is *release
+packaging* that the missing committed binaries affect, not the test job.
 
 ### E9 · Pack build script and pack artifact — `tools/src/build-pack.mjs`
 runs `godot --headless --export-pack` on `packs/<id>/`; CI uploads the `.pck`
