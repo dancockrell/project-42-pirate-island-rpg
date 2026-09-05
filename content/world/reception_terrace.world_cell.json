@@ -22,8 +22,8 @@
     {"id": "interact.reception_terrace.processional_ramp", "role": "depart", "actionId": "action.reception_terrace.climb_processional_ramp"}
   ],
   "portals": [
-    {"id": "world.portal.reception_terrace_to_river_landing", "fromAnchorId": "entry.reception_terrace.river_road", "targetCellId": "world.cell.river_landing", "targetAnchorId": "entry.river_landing.reception_road", "travelMode": "on_foot", "returnRule": "always"},
-    {"id": "world.portal.reception_terrace_to_processional_ramp", "fromAnchorId": "entry.reception_terrace.processional_ramp", "targetCellId": "world.cell.processional_ramp", "targetAnchorId": "entry.processional_ramp.reception_terrace", "travelMode": "on_foot", "returnRule": "allowed_while_no_pending_encounter"}
+    {"id": "world.portal.reception_terrace_to_river_landing", "fromAnchorId": "entry.reception_terrace.river_road", "targetCellId": "world.cell.river_landing", "targetAnchorId": "entry.river_landing.reception_road", "travelMode": "on_foot", "returnRule": "always", "timeCostMinutes": 45, "supplyCost": 1, "riskLevel": 2},
+    {"id": "world.portal.reception_terrace_to_processional_ramp", "fromAnchorId": "entry.reception_terrace.processional_ramp", "targetCellId": "world.cell.processional_ramp", "targetAnchorId": "entry.processional_ramp.reception_terrace", "travelMode": "on_foot", "returnRule": "allowed_while_no_pending_encounter", "timeCostMinutes": 10, "supplyCost": 0, "riskLevel": 2}
   ],
   "battleEntries": [
     {"id": "battle_entry.reception_terrace.razorbeak", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [1.5, 0.0, 0.8], "returnAnchorId": "entry.reception_terrace.river_road", "safeRetreatAnchorId": "entry.reception_terrace.processional_ramp", "status": "vertical_slice_encounter", "aftermathDescription": "The razorbeak has fled into the jungle. The broken lane is clear, and the processional ramp is open."}

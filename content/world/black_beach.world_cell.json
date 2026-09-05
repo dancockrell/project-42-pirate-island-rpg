@@ -21,7 +21,7 @@
     {"id": "interact.black_beach.estate_climb", "role": "depart", "actionId": "action.black_beach.climb_to_estate"}
   ],
   "portals": [
-    {"id": "world.portal.black_beach_to_damaged_estate", "fromAnchorId": "entry.black_beach.estate_climb", "targetCellId": "world.cell.damaged_estate", "targetAnchorId": "entry.damaged_estate.black_beach_path", "travelMode": "on_foot", "returnRule": "allowed_while_no_pending_encounter"}
+    {"id": "world.portal.black_beach_to_damaged_estate", "fromAnchorId": "entry.black_beach.estate_climb", "targetCellId": "world.cell.damaged_estate", "targetAnchorId": "entry.damaged_estate.black_beach_path", "travelMode": "on_foot", "returnRule": "allowed_while_no_pending_encounter", "timeCostMinutes": 15, "supplyCost": 0, "riskLevel": 0}
   ],
   "battleEntries": [
     {"id": "battle_entry.black_beach.shoreline", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [1.0, 0.0, 2.0], "returnAnchorId": "entry.black_beach.handsome_jack_wreck", "safeRetreatAnchorId": "entry.black_beach.estate_climb", "status": "future_spawn_socket"}

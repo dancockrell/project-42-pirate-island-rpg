@@ -1,0 +1,10 @@
+{
+  "id": "loot.razorbeak.crested.prototype",
+  "displayName": "Crested Razorbeak Salvage",
+  "yield": { "rations": 3, "medicine": 2, "coin": 18 },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "maturity": "vertical_slice",
+    "releaseLegal": true
+  }
+}

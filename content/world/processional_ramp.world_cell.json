@@ -21,7 +21,7 @@
     {"id": "interact.processional_ramp.tomb_threshold", "role": "locked_departure", "actionId": "action.processional_ramp.assess_tomb_gate"}
   ],
   "portals": [
-    {"id": "world.portal.processional_ramp_to_reception_terrace", "fromAnchorId": "entry.processional_ramp.reception_terrace", "targetCellId": "world.cell.reception_terrace", "targetAnchorId": "entry.reception_terrace.processional_ramp", "travelMode": "on_foot", "returnRule": "always"}
+    {"id": "world.portal.processional_ramp_to_reception_terrace", "fromAnchorId": "entry.processional_ramp.reception_terrace", "targetCellId": "world.cell.reception_terrace", "targetAnchorId": "entry.reception_terrace.processional_ramp", "travelMode": "on_foot", "returnRule": "always", "timeCostMinutes": 10, "supplyCost": 0, "riskLevel": 2}
   ],
   "battleEntries": [
     {"id": "battle_entry.processional_ramp.stair_break", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [1.0, 0.0, 1.5], "returnAnchorId": "entry.processional_ramp.reception_terrace", "safeRetreatAnchorId": "entry.processional_ramp.tomb_threshold", "status": "future_spawn_socket"}

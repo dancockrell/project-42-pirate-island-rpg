@@ -1,0 +1,10 @@
+{
+  "id": "loot.thunderback.prototype",
+  "displayName": "Thunderback Salvage",
+  "yield": { "rations": 4, "medicine": 1, "coin": 10 },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "maturity": "vertical_slice",
+    "releaseLegal": true
+  }
+}

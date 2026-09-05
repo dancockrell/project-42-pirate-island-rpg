@@ -1,0 +1,143 @@
+{
+  "id": "skill.captain.weapon_attack",
+  "displayName": "Weapon Attack",
+  "ownerId": "character.protagonist.captain",
+  "bondRank": "D",
+  "targetRule": "one_hostile",
+  "activation": "normal_action",
+  "rules": {
+    "damageBase": 10,
+    "damageLevelScale": 1,
+    "guardGain": 0,
+    "rangeBands": [
+      1,
+      2
+    ],
+    "weaponId": "weapon.captain.handsome_jack_steam_carbine"
+  },
+  "animation": {
+    "cardId": "animation.captain.weapon_attack",
+    "durationMs": 720,
+    "beats": [
+      {
+        "atMs": 0,
+        "name": "select",
+        "pose": "carbine_low_ready"
+      },
+      {
+        "atMs": 150,
+        "name": "shoulder",
+        "pose": "carbine_to_shoulder"
+      },
+      {
+        "atMs": 330,
+        "name": "discharge",
+        "pose": "carbine_recoil_braced"
+      },
+      {
+        "atMs": 470,
+        "name": "cycle_action",
+        "pose": "lever_cycle_steam_vent"
+      },
+      {
+        "atMs": 720,
+        "name": "recall",
+        "pose": "card_ready"
+      }
+    ],
+    "eventBindings": {
+      "actor_focused": "shoulder",
+      "damage_applied": "discharge",
+      "turn_ended": "recall"
+    },
+    "presentationCues": [
+      {
+        "beat": "select",
+        "pose": "carbine_low_ready",
+        "motion": "card_hold",
+        "audio": "boiler_pack_idle",
+        "hitStopMs": 0,
+        "shake": 0,
+        "frameSubjects": [
+          "captain",
+          "steam_carbine"
+        ],
+        "cameraId": "presentation.camera.active_card_close",
+        "vfxId": "presentation.vfx.none"
+      },
+      {
+        "beat": "shoulder",
+        "pose": "carbine_to_shoulder",
+        "motion": "card_to_battle_plane",
+        "audio": "brass_stock_set",
+        "hitStopMs": 0,
+        "shake": 0,
+        "frameSubjects": [
+          "captain",
+          "steam_carbine",
+          "target"
+        ],
+        "cameraId": "presentation.camera.two_actor_track",
+        "vfxId": "presentation.vfx.teal_card_release"
+      },
+      {
+        "beat": "discharge",
+        "pose": "carbine_recoil_braced",
+        "motion": "contact_recoil",
+        "audio": "steam_carbine_report",
+        "hitStopMs": 70,
+        "shake": 0.3,
+        "frameSubjects": [
+          "captain",
+          "steam_carbine",
+          "target",
+          "impact_arc"
+        ],
+        "cameraId": "presentation.camera.impact_punch_in",
+        "vfxId": "presentation.vfx.bronze_teal_impact_arc"
+      },
+      {
+        "beat": "cycle_action",
+        "pose": "lever_cycle_steam_vent",
+        "motion": "recover_to_ready",
+        "audio": "lever_cycle_and_vent",
+        "hitStopMs": 0,
+        "shake": 0,
+        "frameSubjects": [
+          "captain",
+          "steam_carbine",
+          "target"
+        ],
+        "cameraId": "presentation.camera.two_actor_medium",
+        "vfxId": "presentation.vfx.teal_gold_weapon_trail"
+      },
+      {
+        "beat": "recall",
+        "pose": "card_ready",
+        "motion": "battle_plane_to_card",
+        "audio": "card_lock",
+        "hitStopMs": 0,
+        "shake": 0,
+        "frameSubjects": [
+          "captain",
+          "steam_carbine",
+          "target"
+        ],
+        "cameraId": "presentation.camera.battle_wide_reset",
+        "vfxId": "presentation.vfx.card_recall_trail"
+      }
+    ],
+    "framing": "Captain Michael, the target, the carbine muzzle, the complete impact arc and both characters' feet remain inside the safe frame.",
+    "replacementAssetIds": [
+      "art.placeholder.captain.active_actor"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "maturity": "prototype",
+    "notes": [
+      "Captain Michael's baseline command. A6 implements the battle actor that runs it; this record is the authored contract A6 reads."
+    ]
+  }
+}

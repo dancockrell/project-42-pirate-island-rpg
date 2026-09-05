@@ -1,0 +1,10 @@
+{
+  "id": "loot.razorbeak.prototype",
+  "displayName": "Razorbeak Salvage",
+  "yield": { "rations": 2, "medicine": 1, "coin": 6 },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "maturity": "vertical_slice",
+    "releaseLegal": true
+  }
+}
