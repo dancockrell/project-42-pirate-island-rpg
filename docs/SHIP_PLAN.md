@@ -340,7 +340,7 @@ top of the document is never stale:
 | ID | Task | Depends on | Status |
 |---|---|---|---|
 | A1 | Port the vertical-slice branch's concepts into `expedition.rs` | — | shipped 6b9d275 2026-09-04 |
-| A2 | `world.cell.*` canonical; fixture ≡ authored cells | A1 | open |
+| A2 | `world.cell.*` canonical; fixture ≡ authored cells | A1 | claimed agent-A2 2026-09-04 |
 | A3 | Economy: anchors, salvage, loot, scarcity | A2 | open |
 | A4 | Estate actions as anchor actions; delete `rest_at_estate` | A3 | open |
 | A5 | Five named bands and Composure | A1 | open |
@@ -428,9 +428,9 @@ top of the document is never stale:
 
 | ID | Task | Depends on | Status |
 |---|---|---|---|
-| E1 | GitHub Actions: Rust and content checks | — | open |
+| E1 | GitHub Actions: Rust and content checks | — | claimed agent-E1 2026-09-04 |
 | E2 | Godot headless suites in CI | E1, E3 | open |
-| E3 | Shell equivalents of the two PowerShell gates | — | open |
+| E3 | Shell equivalents of the two PowerShell gates | — | claimed agent-E3 2026-09-04 |
 | E4 | Desktop export presets for Windows, Linux, macOS | — | open |
 | E5 | Nightly build artifacts per platform | E2, E4 | open |
 | E6 | Save-version migration fixtures and the four save boundaries | — | open |
@@ -1031,8 +1031,16 @@ Lanes touch different trees, so most pairs never conflict. The ones that do:
 | E | `.github/**`, `tools/*.sh`, `game/export_presets.cfg` | nothing |
 | F, G, H | audio, test scripts, `docs/**` | nothing |
 
-**Safe to run fully in parallel today:** A2 · E1 · E3 · C1 · H5 · H6 · H7 ·
-D1 · D2. Each touches a disjoint set.
+**Safe to run fully in parallel today:** A2 · E1 · E3 · H5 · H6 · H7 · D1 ·
+D2. Each touches a disjoint set. **Not** alongside A2: C1 and C2, because all
+three edit `tools/src/validate.mjs` — run them in the round after A2 ships.
+
+**The ledger is not a shared editing surface.** A worktree agent does not edit
+`docs/SHIP_PLAN.md`: three agents rewriting the same table conflict every
+time. An agent reports its result — task ID, branch, commit, the four proof
+commands and their output — and whoever integrates writes the `done` or
+`shipped` row in one place. The claim file in `.agents/claims/` *is* per-agent
+and per-task, so it is written by the agent as normal.
 
 **The `ExpeditionState` rule.** A and S both add fields to one struct. Any
 new field is appended at the end, is `#[serde(default)]`, and never changes
