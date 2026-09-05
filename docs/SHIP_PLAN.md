@@ -346,8 +346,10 @@ top of the document is never stale:
 
 - **M0** shipped 7/13 · A1 A2 A11 B1 H6 H7 H9 · H2 and H10 superseded by
   `main`'s own rewrite · **remaining: C2, B2, H5, H8**
-- **M1** shipped 0/12 · **M2** shipped 2/9 — **E1 (CI) is live and green on
-  GitHub**; **E3 (portable gates) shipped**; E2 is now unblocked
+- **M1** shipped 0/12 — A3, A5 and the C bundle in flight
+- **M2** shipped 4/9 — **E1 (CI) live and green on GitHub**, **E3** portable
+  gates, **E4** desktop export presets, **E6** save-migration fixtures; E2 in
+  flight; E5 open with a hard build-before-export requirement
 - **M3** shipped 0/16 · **M4** not started
 - Last updated 2026-09-05 against trunk `95bd747`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
@@ -450,7 +452,7 @@ top of the document is never stale:
 | E3 | Shell equivalents of the two PowerShell gates | — | shipped 5344b7b 2026-09-05 |
 | E4 | Desktop export presets for Windows, Linux, macOS | — | shipped 838824e 2026-09-05 |
 | E5 | Nightly build artifacts per platform | E2, E4 | open — **must build the native library before exporting**, see its card |
-| E6 | Save-version migration fixtures and the four save boundaries | — | open |
+| E6 | Save-version migration fixtures and the four save boundaries | — | shipped 85413f0 2026-09-05 — fixtures and the migration test; the four save *boundaries* remain open under B8 |
 | E7 | Crash log with state snapshot; no silent telemetry | — | open |
 | E8 | Claims enforcement in CI | E1 | open |
 | E9 | Pack build script and pack artifact | C8, E5 | open |
