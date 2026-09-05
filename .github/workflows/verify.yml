@@ -1,0 +1,60 @@
+name: Verify
+
+# The first CI in this repository. It covers exactly the checks that need no
+# game engine: the Rust simulation crate and the content tooling. The Godot
+# headless suites are E2 and are deliberately not attempted here.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  rust-and-content:
+    name: Rust and content
+    runs-on: ubuntu-latest
+    # Measured locally: fmt 0.1s, test 8.5s, check --features godot-ext 38s
+    # from a cold target directory, both node steps under 0.1s. Twenty minutes
+    # leaves ample room for a cold crates.io registry on a fresh runner while
+    # still killing a wedged job.
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      # godot 0.5.5 is pulled in with the api-4-2 feature, which uses the
+      # prebuilt gdextension-api bindings. No clang, LLVM or Godot binary is
+      # needed, so a stock ubuntu-latest runner installs no extra packages.
+      - name: Install the Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Cache the Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: godot-rust
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path godot-rust/Cargo.toml -- --check
+
+      - name: Run the Rust test suite
+        run: cargo test --manifest-path godot-rust/Cargo.toml
+
+      - name: Check the Godot extension build
+        run: cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext
+
+      - name: Validate content
+        run: node tools/src/validate.mjs
+
+      - name: Rebuild the content bundle
+        run: node tools/src/build-content-bundle.mjs
+
+      # A committed bundle that no longer matches content/ fails the build.
+      - name: Fail if the committed bundle is stale
+        run: git diff --exit-code game/generated/
