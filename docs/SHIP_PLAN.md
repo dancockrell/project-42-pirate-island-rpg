@@ -347,9 +347,10 @@ top of the document is never stale:
 - **M0** shipped 7/13 · A1 A2 A11 B1 H6 H7 H9 · H2 and H10 superseded by
   `main`'s own rewrite · **remaining: C2, B2, H5, H8**
 - **M1** shipped 0/12 — A3, A5 and the C bundle in flight
-- **M2** shipped 4/9 — **E1 (CI) live and green on GitHub**, **E3** portable
-  gates, **E4** desktop export presets, **E6** save-migration fixtures; E2 in
-  flight; E5 open with a hard build-before-export requirement
+- **M2** shipped 5/9 — **E1** (CI live and green on GitHub), **E2** (Godot
+  suites, first run pending), **E3** portable gates, **E4** desktop export
+  presets, **E6** save-migration fixtures; E5 open with a hard
+  build-before-export requirement; E7 and E8 open
 - **M3** shipped 0/16 · **M4** not started
 - Last updated 2026-09-05 against trunk `95bd747`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
@@ -448,7 +449,7 @@ top of the document is never stale:
 | ID | Task | Depends on | Status |
 |---|---|---|---|
 | E1 | GitHub Actions: Rust and content checks | — | shipped e0b4051 2026-09-05 |
-| E2 | Godot headless suites in CI | E1, E3 | open — **unblocked**: E1 and E3 are both shipped, and the `.gdextension` now declares linux/macos libraries so the suites load the real bridge instead of falling back to `MockSimulationPort` |
+| E2 | Godot headless suites in CI | E1, E3 | shipped 7b8f698 2026-09-05 — **never executed yet; its first CI run is the proof** |
 | E3 | Shell equivalents of the two PowerShell gates | — | shipped 5344b7b 2026-09-05 |
 | E4 | Desktop export presets for Windows, Linux, macOS | — | shipped 838824e 2026-09-05 |
 | E5 | Nightly build artifacts per platform | E2, E4 | open — **must build the native library before exporting**, see its card |
