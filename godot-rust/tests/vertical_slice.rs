@@ -55,6 +55,10 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     state
         .travel("world.portal.damaged_estate_to_river_landing", &geography)
         .expect("the river gate costs no rations");
+    // Reading the bronze-green elven marker at the landing is what the estate's
+    // map table works from later; the party sees it on the way past.
+    let landing_observations = state.inspect(&geography);
+    assert!(landing_observations.contains(&"observation.river_landing.road_marker".to_owned()));
     let empty_pack = state
         .travel(
             "world.portal.river_landing_to_reception_terrace_safe_road",
@@ -286,7 +290,9 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
             injured: true,
         },
     );
-    let rest_outcome = state.rest_at_estate().expect("resolves");
+    let rest_outcome = state
+        .use_anchor("anchor.estate.infirmary", &geography)
+        .expect("resolves");
     assert_eq!(rest_outcome.medicine_spent, 1);
     assert!(!state.character_states["character.heroine.betty"].injured);
     assert!(
@@ -295,6 +301,31 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
             .estate_upgrades
             .contains("estate.upgrade.infirmary_rested")
     );
+    assert_boundary_round_trips(&state);
+
+    // 6a. A4: the estate is a strategic core, not a bed. The workshop turns
+    //     wreck parts the party looked at on day one into a field rig that makes
+    //     every road cheaper, and the map table turns the landing's elven
+    //     waymark into a route along the shore that did not exist before.
+    let workshop = state
+        .use_anchor("anchor.estate.workshop", &geography)
+        .expect("the wreck was observed on the first day");
+    assert_eq!(
+        workshop.upgrades_recorded,
+        vec!["estate.upgrade.workshop_field_rig".to_owned()]
+    );
+    let map_table = state
+        .use_anchor("anchor.estate.map_table", &geography)
+        .expect("the waymark was read at the landing");
+    assert_eq!(
+        map_table.discoveries_recorded,
+        vec!["discovery.map_table.tidal_cut".to_owned()]
+    );
+    // Both rooms are one-time gains, so neither is offered again.
+    let after_the_estate = state.legal_next_commands_with_geography(&geography);
+    assert!(!after_the_estate.contains(&"anchor_action:anchor.estate.infirmary".to_owned()));
+    assert!(!after_the_estate.contains(&"anchor_action:anchor.estate.workshop".to_owned()));
+    assert!(!after_the_estate.contains(&"anchor_action:anchor.estate.map_table".to_owned()));
     assert_boundary_round_trips(&state);
 
     // 7. Advance Midnight: restore a killed named person without losing their
@@ -330,7 +361,33 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     assert_ne!(todays_holder.instance_id, yesterdays_holder);
     assert!(!state.habitat_states["world.region.black_beach.terrace_precinct"].cleared_today);
 
-    // 8. Save and reload; every legal-state fact from every prior boundary
+    // 8. A4: the estate's work pays off on the road the next day. The tidal cut
+    //    is a portal nothing could walk before the map table was read, and it
+    //    reaches the terrace from the sand in one leg instead of three. The
+    //    field rig pays its ration, so the leg costs nothing at all.
+    state
+        .travel("world.portal.damaged_estate_to_black_beach", &geography)
+        .expect("legal route");
+    let rations_before_the_cut = state.supplies.rations;
+    let tidal_cut = state
+        .travel(
+            "world.portal.black_beach_to_reception_terrace_tidal_cut",
+            &geography,
+        )
+        .expect("the map table opened this shore route");
+    assert_eq!(tidal_cut.arrived_at, "world.cell.reception_terrace");
+    // The road declares one ration; the field rig takes it back off.
+    assert_eq!(
+        geography
+            .route("world.portal.black_beach_to_reception_terrace_tidal_cut")
+            .expect("the tidal cut exists")
+            .supply_cost,
+        1
+    );
+    assert_eq!(tidal_cut.supply_cost, 0);
+    assert_eq!(state.supplies.rations, rations_before_the_cut);
+
+    // 9. Save and reload; every legal-state fact from every prior boundary
     //    survives unchanged.
     assert_boundary_round_trips(&state);
 }

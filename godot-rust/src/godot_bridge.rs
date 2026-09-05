@@ -506,7 +506,6 @@ fn expedition_error_code(value: &ExpeditionError) -> &'static str {
         ExpeditionError::MidnightBlockedByPendingEncounter => {
             "midnight_blocked_by_pending_encounter"
         }
-        ExpeditionError::NotAtEstate => "not_at_estate",
         ExpeditionError::InsufficientSupplies { .. } => "insufficient_supplies",
         ExpeditionError::DuplicatePortal { .. } => "duplicate_portal",
         ExpeditionError::DuplicateAnchor { .. } => "duplicate_anchor",
@@ -516,6 +515,11 @@ fn expedition_error_code(value: &ExpeditionError) -> &'static str {
         // Godot is B3's card, not this edit.
         ExpeditionError::AnchorNotHere { .. } => "anchor_not_here",
         ExpeditionError::AnchorSpentToday { .. } => "anchor_spent_today",
+        // A4 replaced the estate-only rest command with estate anchors, so
+        // `not_at_estate` is gone and these two gates take its place. Same
+        // reason as above: the match is exhaustive.
+        ExpeditionError::AnchorRequiresDiscovery { .. } => "anchor_requires_discovery",
+        ExpeditionError::AnchorAlreadyResolved { .. } => "anchor_already_resolved",
         ExpeditionError::TravelBlockedByEncounter { .. } => "travel_blocked_by_encounter",
     }
 }

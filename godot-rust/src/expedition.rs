@@ -13,7 +13,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
-use crate::geography::{AnchorKind, Geography, RouteOption};
+use crate::geography::{AnchorDefinition, AnchorKind, Geography, RouteOption};
 use crate::habitat::{Habitats, LootTable};
 use crate::hunter::{self, Hunter, HunterKind};
 use crate::world::{
@@ -142,7 +142,6 @@ pub enum ExpeditionError {
     },
     NoPendingEncounter,
     MidnightBlockedByPendingEncounter,
-    NotAtEstate,
     InsufficientSupplies {
         needed: u32,
         available: u32,
@@ -162,6 +161,19 @@ pub enum ExpeditionError {
     AnchorSpentToday {
         anchor_id: String,
         used_on_day: u32,
+    },
+    /// The anchor needs something the party has not seen yet. Reading the
+    /// estate's map table means nothing before the waymark has been looked at.
+    AnchorRequiresDiscovery {
+        anchor_id: String,
+        discovery_id: String,
+    },
+    /// The anchor's one lasting result is already recorded, so working it again
+    /// would gain nothing. This is what spends an estate room: not the clock,
+    /// but the fact it exists to produce.
+    AnchorAlreadyResolved {
+        anchor_id: String,
+        fact_id: String,
     },
     /// The party cannot walk away from a fight it has already been offered.
     TravelBlockedByEncounter {
@@ -188,6 +200,10 @@ pub struct AnchorOutcome {
     pub medicine_spent: u32,
     pub healed_character_ids: Vec<String>,
     pub discoveries_recorded: Vec<String>,
+    /// Household facts this anchor recorded -- the workshop's field rig, the
+    /// infirmary's recovery. Named rather than implied so a caller learns what
+    /// changed without re-reading `household_progress`.
+    pub upgrades_recorded: Vec<String>,
 }
 
 /// B2: how a battle ended, as reported back through `Battle`'s own `BattlePhase`
@@ -209,18 +225,39 @@ pub struct EncounterResolution {
     pub loot: Option<LootTable>,
 }
 
-/// B4: the one real estate consequence -- an infirmary recovery. Not a generic
-/// base-building tree; one actual action with one actual cost.
-const ESTATE_LOCATION_ID: &str = "world.cell.damaged_estate";
-const ESTATE_REST_MEDICINE_COST: u32 = 1;
-const ESTATE_REST_VITALITY_RESTORED: i32 = 20;
-const ESTATE_UPGRADE_INFIRMARY_RESTED: &str = "estate.upgrade.infirmary_rested";
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct EstateRestOutcome {
-    pub healed_character_ids: Vec<String>,
-    pub medicine_spent: u32,
-}
+/// A4: what the estate's rooms cost and what they leave behind. Each room is an
+/// anchor on the one `use_anchor` mechanism, so these are the rules of those
+/// anchors rather than the constants of a separate estate subsystem. Which cell
+/// they stand in is the graph's answer (`Geography::anchor_is_at`), not a
+/// hard-coded location ID -- the reason `ESTATE_LOCATION_ID` is gone.
+///
+/// B4's infirmary rule, unchanged in substance: one dose of medicine, twenty
+/// Vitality, one permanent household fact.
+const INFIRMARY_MEDICINE_COST: u32 = 1;
+const INFIRMARY_VITALITY_RESTORED: i32 = 20;
+const INFIRMARY_UPGRADE_RESTED: &str = "estate.upgrade.infirmary_rested";
+/// The workshop fits recovered parts to the party's kit. It needs the wreck to
+/// have actually been looked at first, because the parts come off the Handsome
+/// Jack.
+///
+/// The card wrote this gate as `observation.black_beach.wreck_of_handsome_jack`
+/// and the river gate below as `observation.river_landing.elven_waymark`.
+/// Neither string exists: `content/world/` -- canonical for world IDs since A2 --
+/// declares `observation.black_beach.wreck` for the wreck of the Handsome Jack
+/// and `observation.river_landing.road_marker` for the bronze-green elven marker
+/// beside the jetty. Minting the card's spellings would have recreated exactly
+/// the two-ID-sets-for-one-place drift A2 existed to kill, so the gates name the
+/// authored observations instead.
+const WORKSHOP_REQUIRED_DISCOVERY_ID: &str = "observation.black_beach.wreck";
+const WORKSHOP_UPGRADE_FIELD_RIG: &str = "estate.upgrade.workshop_field_rig";
+/// The map table reads a tidal cut along the shore out of the elven waymark's
+/// roadwork. What it records is a route, so it lands in `discoveries` where the
+/// portal gate looks for it, not in the household ledger.
+const MAP_TABLE_REQUIRED_DISCOVERY_ID: &str = "observation.river_landing.road_marker";
+const MAP_TABLE_DISCOVERY_TIDAL_CUT: &str = "discovery.map_table.tidal_cut";
+/// What the field rig is worth on the road: one ration off every leg that
+/// charges any, floored at free.
+const FIELD_RIG_SUPPLY_SAVING: u32 = 1;
 
 impl ExpeditionState {
     /// Deterministic constructor for a fresh campaign (Phase A1: "new game creates
@@ -348,15 +385,16 @@ impl ExpeditionState {
         // the party cannot feed itself along is refused outright, before
         // anything moves -- not walked for free by a `saturating_sub` that
         // quietly floors an empty pack at zero.
-        if self.supplies.rations < route.supply_cost {
+        let supply_cost = self.effective_supply_cost(&route);
+        if self.supplies.rations < supply_cost {
             return Err(ExpeditionError::InsufficientSupplies {
-                needed: route.supply_cost,
+                needed: supply_cost,
                 available: self.supplies.rations,
             });
         }
 
         self.advance_time(route.time_cost_minutes);
-        self.supplies.rations -= route.supply_cost;
+        self.supplies.rations -= supply_cost;
         self.route_history.push(RouteStep {
             location_id: route.to_location_id.clone(),
             arrived_on_day: self.campaign_day,
@@ -370,7 +408,9 @@ impl ExpeditionState {
         Ok(TravelOutcome {
             arrived_at: self.active_location_id.clone(),
             time_cost_minutes: route.time_cost_minutes,
-            supply_cost: route.supply_cost,
+            // What the party actually paid, not what the road lists: with the
+            // field rig fitted these differ, and the caller wants the charge.
+            supply_cost,
         })
     }
 
@@ -407,11 +447,8 @@ impl ExpeditionState {
             .anchor(anchor_id)
             .expect("anchor_is_at proved the definition exists")
             .clone();
-        if anchor.once_per_day && self.anchor_uses.get(anchor_id) == Some(&self.campaign_day) {
-            return Err(ExpeditionError::AnchorSpentToday {
-                anchor_id: anchor_id.to_owned(),
-                used_on_day: self.campaign_day,
-            });
+        if let Some(refusal) = self.anchor_refusal(&anchor) {
+            return Err(refusal);
         }
 
         let mut outcome = AnchorOutcome {
@@ -434,25 +471,48 @@ impl ExpeditionState {
                 outcome.coin_gained = coin;
             }
             AnchorKind::Infirmary => {
-                // One owner for the infirmary rule. A4 moves `rest_at_estate`'s
-                // body in here and deletes the method; until then this calls it
-                // rather than growing a second copy of the same rule.
-                let rest = self.rest_at_estate()?;
-                outcome.medicine_spent = rest.medicine_spent;
-                outcome.healed_character_ids = rest.healed_character_ids;
+                // B4's infirmary rule itself, not a call out to a second copy
+                // of it: A4 inlined the old standalone estate-rest method here
+                // and deleted it, so treating the party's injuries has exactly
+                // one owner.
+                // `anchor_refusal` already proved the medicine is there.
+                self.supplies.medicine -= INFIRMARY_MEDICINE_COST;
+                outcome.medicine_spent = INFIRMARY_MEDICINE_COST;
+                for (id, character) in self.character_states.iter_mut() {
+                    character.vitality = (character.vitality + INFIRMARY_VITALITY_RESTORED)
+                        .min(character.max_vitality);
+                    character.injured = false;
+                    outcome.healed_character_ids.push(id.clone());
+                }
+                self.household_progress
+                    .estate_upgrades
+                    .insert(INFIRMARY_UPGRADE_RESTED.to_owned());
+                outcome
+                    .upgrades_recorded
+                    .push(INFIRMARY_UPGRADE_RESTED.to_owned());
+            }
+            AnchorKind::Workshop => {
+                // Wreck parts become a field rig: a permanent household fact
+                // that `effective_supply_cost` reads on every leg thereafter.
+                self.household_progress
+                    .estate_upgrades
+                    .insert(WORKSHOP_UPGRADE_FIELD_RIG.to_owned());
+                outcome
+                    .upgrades_recorded
+                    .push(WORKSHOP_UPGRADE_FIELD_RIG.to_owned());
+            }
+            AnchorKind::MapTable => {
+                // A route, recorded where routes are gated from: the tidal cut
+                // portal is illegal until this discovery exists.
+                self.discoveries
+                    .insert(MAP_TABLE_DISCOVERY_TIDAL_CUT.to_owned());
+                outcome
+                    .discoveries_recorded
+                    .push(MAP_TABLE_DISCOVERY_TIDAL_CUT.to_owned());
             }
             AnchorKind::Inspect => {
                 outcome.discoveries_recorded = self.inspect(geography);
             }
-            // Stand-in, owned by A4, which is the task that places the estate's
-            // workshop and map table and gives each its effect: the workshop
-            // records `estate.upgrade.workshop_field_rig` behind
-            // `observation.black_beach.wreck_of_handsome_jack`, the map table
-            // inserts `discovery.map_table.tidal_cut` behind
-            // `observation.river_landing.elven_waymark`. Nothing in the world
-            // declares an anchor of either kind yet, so no reachable action
-            // depends on this arm; it exists because the match is exhaustive.
-            AnchorKind::Workshop | AnchorKind::MapTable => {}
         }
 
         self.supplies.rations += outcome.rations_gained;
@@ -461,6 +521,91 @@ impl ExpeditionState {
         self.anchor_uses
             .insert(anchor_id.to_owned(), self.campaign_day);
         Ok(outcome)
+    }
+
+    /// Why this anchor cannot be worked from this state, or `None` when it can.
+    ///
+    /// The single owner of anchor legality. `use_anchor` rejects with it before
+    /// touching anything and `legal_next_commands_with_geography` filters with
+    /// it, so the set of commands the game offers and the set it accepts cannot
+    /// drift apart. Location is deliberately not its business: that is
+    /// `Geography::anchor_is_at`, checked by the caller.
+    fn anchor_refusal(&self, anchor: &AnchorDefinition) -> Option<ExpeditionError> {
+        if anchor.once_per_day && self.anchor_uses.get(&anchor.id) == Some(&self.campaign_day) {
+            return Some(ExpeditionError::AnchorSpentToday {
+                anchor_id: anchor.id.clone(),
+                used_on_day: self.campaign_day,
+            });
+        }
+        // What the room needs to have been seen, and the one lasting fact it
+        // exists to produce. A room whose fact is already recorded is spent for
+        // good -- the estate's rooms are one-time strategic gains, not a daily
+        // allowance, which is the rule B4 gave the infirmary and A4 keeps.
+        let (required_discovery_id, granted_fact_id) = match anchor.kind {
+            AnchorKind::Infirmary => (None, Some(INFIRMARY_UPGRADE_RESTED)),
+            AnchorKind::Workshop => (
+                Some(WORKSHOP_REQUIRED_DISCOVERY_ID),
+                Some(WORKSHOP_UPGRADE_FIELD_RIG),
+            ),
+            AnchorKind::MapTable => (
+                Some(MAP_TABLE_REQUIRED_DISCOVERY_ID),
+                Some(MAP_TABLE_DISCOVERY_TIDAL_CUT),
+            ),
+            AnchorKind::Salvage { .. } | AnchorKind::LootCache { .. } | AnchorKind::Inspect => {
+                (None, None)
+            }
+        };
+        if let Some(discovery_id) = required_discovery_id {
+            if !self.discoveries.contains(discovery_id) {
+                return Some(ExpeditionError::AnchorRequiresDiscovery {
+                    anchor_id: anchor.id.clone(),
+                    discovery_id: discovery_id.to_owned(),
+                });
+            }
+        }
+        if let Some(fact_id) = granted_fact_id {
+            if self.holds_fact(fact_id) {
+                return Some(ExpeditionError::AnchorAlreadyResolved {
+                    anchor_id: anchor.id.clone(),
+                    fact_id: fact_id.to_owned(),
+                });
+            }
+        }
+        if anchor.kind == AnchorKind::Infirmary && self.supplies.medicine < INFIRMARY_MEDICINE_COST
+        {
+            return Some(ExpeditionError::InsufficientSupplies {
+                needed: INFIRMARY_MEDICINE_COST,
+                available: self.supplies.medicine,
+            });
+        }
+        None
+    }
+
+    /// Whether the campaign already holds a lasting fact, wherever it is kept:
+    /// a household upgrade lives in `household_progress`, a route the party
+    /// learned lives in `discoveries`, and an anchor's gate should not have to
+    /// know which of the two its own result is.
+    fn holds_fact(&self, fact_id: &str) -> bool {
+        self.household_progress.estate_upgrades.contains(fact_id)
+            || self.discoveries.contains(fact_id)
+    }
+
+    /// A4: the single owner of what a leg of road actually costs to walk. The
+    /// route's declared `supply_cost` is its price; the workshop's field rig
+    /// makes the party pack lighter. Every path that charges rations --
+    /// `travel` and the retreat leg of `resolve_encounter` -- asks this rather
+    /// than reading `route.supply_cost`, so the discount cannot apply on the
+    /// way out and go missing on the way back.
+    pub fn effective_supply_cost(&self, route: &RouteOption) -> u32 {
+        if self
+            .household_progress
+            .estate_upgrades
+            .contains(WORKSHOP_UPGRADE_FIELD_RIG)
+        {
+            route.supply_cost.saturating_sub(FIELD_RIG_SUPPLY_SAVING)
+        } else {
+            route.supply_cost
+        }
     }
 
     /// B1's observation query. Records every observation at the current location
@@ -646,10 +791,12 @@ impl ExpeditionState {
                     .cloned();
                 if let Some(return_route) = return_route {
                     self.advance_time(return_route.time_cost_minutes);
-                    self.supplies.rations = self
-                        .supplies
-                        .rations
-                        .saturating_sub(return_route.supply_cost);
+                    // The same owner of route cost as `travel`, so the field rig
+                    // is worth the same ration whichever direction it is walked.
+                    // The `saturating_sub` stays: a retreat is never refused for
+                    // an empty pack, it is simply paid for with what is left.
+                    let supply_cost = self.effective_supply_cost(&return_route);
+                    self.supplies.rations = self.supplies.rations.saturating_sub(supply_cost);
                     self.route_history.push(RouteStep {
                         location_id: return_route.to_location_id.clone(),
                         arrived_on_day: self.campaign_day,
@@ -739,63 +886,12 @@ impl ExpeditionState {
         // Every legal "do something here" verb, in the order the cell lists its
         // anchors. An anchor already spent today is not a legal command.
         for anchor in geography.anchors_at(&self.active_location_id) {
-            if anchor.once_per_day
-                && self.anchor_uses.get(&anchor.id).copied() == Some(self.campaign_day)
-            {
+            if self.anchor_refusal(anchor).is_some() {
                 continue;
             }
             commands.push(format!("anchor_action:{}", anchor.id));
         }
-        if self.can_rest_at_estate() {
-            commands.push("rest_at_estate".to_owned());
-        }
         commands
-    }
-
-    fn can_rest_at_estate(&self) -> bool {
-        self.active_location_id == ESTATE_LOCATION_ID
-            && self.supplies.medicine >= ESTATE_REST_MEDICINE_COST
-            && !self
-                .household_progress
-                .estate_upgrades
-                .contains(ESTATE_UPGRADE_INFIRMARY_RESTED)
-    }
-
-    /// B4: the one real estate consequence after Reception Terrace -- an infirmary
-    /// recovery. Rejects, without mutating state, unless the party is actually at
-    /// the estate and has medicine to spend. Spends the medicine, heals every
-    /// tracked character up to their max Vitality and clears `injured`, then
-    /// records `estate.upgrade.infirmary_rested` as a material tactical fact:
-    /// once recorded it removes `rest_at_estate` from
-    /// `legal_next_commands_with_geography` for the rest of the day, and the fact
-    /// itself survives a save/reload.
-    pub fn rest_at_estate(&mut self) -> Result<EstateRestOutcome, ExpeditionError> {
-        if self.active_location_id != ESTATE_LOCATION_ID {
-            return Err(ExpeditionError::NotAtEstate);
-        }
-        if self.supplies.medicine < ESTATE_REST_MEDICINE_COST {
-            return Err(ExpeditionError::InsufficientSupplies {
-                needed: ESTATE_REST_MEDICINE_COST,
-                available: self.supplies.medicine,
-            });
-        }
-
-        self.supplies.medicine -= ESTATE_REST_MEDICINE_COST;
-        let mut healed_character_ids = Vec::new();
-        for (id, character) in self.character_states.iter_mut() {
-            character.vitality =
-                (character.vitality + ESTATE_REST_VITALITY_RESTORED).min(character.max_vitality);
-            character.injured = false;
-            healed_character_ids.push(id.clone());
-        }
-        self.household_progress
-            .estate_upgrades
-            .insert(ESTATE_UPGRADE_INFIRMARY_RESTED.to_owned());
-
-        Ok(EstateRestOutcome {
-            healed_character_ids,
-            medicine_spent: ESTATE_REST_MEDICINE_COST,
-        })
     }
 
     /// B3: Midnight as a single atomic transaction, delegating the deterministic
@@ -1500,16 +1596,29 @@ mod tests {
         }
     }
 
-    #[test]
-    fn resting_at_the_estate_spends_medicine_and_heals_without_exceeding_max() {
+    const INFIRMARY: &str = "anchor.estate.infirmary";
+    const WORKSHOP: &str = "anchor.estate.workshop";
+    const MAP_TABLE: &str = "anchor.estate.map_table";
+
+    /// The estate, with the party standing in it. A4 turned the estate's rooms
+    /// into anchors on the one `use_anchor` mechanism, so every test below asks
+    /// the graph where the room is rather than comparing a location ID.
+    fn at_the_estate() -> (Geography, ExpeditionState) {
+        let geography = Geography::black_beach_vertical_slice();
         let mut state = fixture();
         state.active_location_id = "world.cell.damaged_estate".into();
+        (geography, state)
+    }
+
+    #[test]
+    fn the_infirmary_spends_medicine_and_heals_without_exceeding_max() {
+        let (geography, mut state) = at_the_estate();
         state.supplies.medicine = 3;
         state
             .character_states
             .insert("character.protagonist.captain".into(), wounded_captain());
 
-        let outcome = state.rest_at_estate().expect("resolves");
+        let outcome = state.use_anchor(INFIRMARY, &geography).expect("resolves");
 
         assert_eq!(outcome.medicine_spent, 1);
         assert_eq!(state.supplies.medicine, 2);
@@ -1529,9 +1638,8 @@ mod tests {
     }
 
     #[test]
-    fn resting_at_the_estate_never_heals_past_max_vitality() {
-        let mut state = fixture();
-        state.active_location_id = "world.cell.damaged_estate".into();
+    fn the_infirmary_never_heals_past_max_vitality() {
+        let (geography, mut state) = at_the_estate();
         state.supplies.medicine = 1;
         state.character_states.insert(
             "character.protagonist.captain".into(),
@@ -1543,7 +1651,7 @@ mod tests {
             },
         );
 
-        state.rest_at_estate().expect("resolves");
+        state.use_anchor(INFIRMARY, &geography).expect("resolves");
 
         assert_eq!(
             state.character_states["character.protagonist.captain"].vitality,
@@ -1552,25 +1660,30 @@ mod tests {
     }
 
     #[test]
-    fn resting_away_from_the_estate_is_rejected_without_mutation() {
+    fn the_infirmary_away_from_the_estate_is_rejected_without_mutation() {
+        let geography = Geography::black_beach_vertical_slice();
         let mut state = fixture();
         state.supplies.medicine = 3;
         let before = state.clone();
 
-        let result = state.rest_at_estate();
+        let result = state.use_anchor(INFIRMARY, &geography);
 
-        assert_eq!(result, Err(ExpeditionError::NotAtEstate));
+        assert_eq!(
+            result,
+            Err(ExpeditionError::AnchorNotHere {
+                anchor_id: INFIRMARY.into()
+            })
+        );
         assert_eq!(state, before);
     }
 
     #[test]
-    fn resting_without_medicine_is_rejected_without_mutation() {
-        let mut state = fixture();
-        state.active_location_id = "world.cell.damaged_estate".into();
+    fn the_infirmary_without_medicine_is_rejected_without_mutation() {
+        let (geography, mut state) = at_the_estate();
         state.supplies.medicine = 0;
         let before = state.clone();
 
-        let result = state.rest_at_estate();
+        let result = state.use_anchor(INFIRMARY, &geography);
 
         assert_eq!(
             result,
@@ -1583,27 +1696,34 @@ mod tests {
     }
 
     #[test]
-    fn resting_is_a_one_time_material_fact_reflected_in_legal_state_data() {
-        let geography = crate::geography::Geography::black_beach_vertical_slice();
-        let mut state = fixture();
-        state.active_location_id = "world.cell.damaged_estate".into();
+    fn the_infirmary_is_a_one_time_material_fact_reflected_in_legal_state_data() {
+        let (geography, mut state) = at_the_estate();
         state.supplies.medicine = 1;
 
         let before = state.legal_next_commands_with_geography(&geography);
-        assert!(before.contains(&"rest_at_estate".to_owned()));
+        assert!(before.contains(&format!("anchor_action:{INFIRMARY}")));
 
-        state.rest_at_estate().expect("resolves");
+        state.use_anchor(INFIRMARY, &geography).expect("resolves");
 
         let after = state.legal_next_commands_with_geography(&geography);
-        assert!(!after.contains(&"rest_at_estate".to_owned()));
+        assert!(!after.contains(&format!("anchor_action:{INFIRMARY}")));
+        // And the command the game no longer offers is a command it no longer
+        // accepts: an offered set and an accepted set that disagree is the bug
+        // `anchor_refusal` exists to make impossible.
+        assert_eq!(
+            state.use_anchor(INFIRMARY, &geography),
+            Err(ExpeditionError::AnchorAlreadyResolved {
+                anchor_id: INFIRMARY.into(),
+                fact_id: "estate.upgrade.infirmary_rested".into(),
+            })
+        );
     }
 
     #[test]
     fn the_estate_upgrade_fact_survives_save_and_reload() {
-        let mut state = fixture();
-        state.active_location_id = "world.cell.damaged_estate".into();
+        let (geography, mut state) = at_the_estate();
         state.supplies.medicine = 1;
-        state.rest_at_estate().expect("resolves");
+        state.use_anchor(INFIRMARY, &geography).expect("resolves");
 
         let restored = ExpeditionState::from_json(&state.to_json()).expect("round trip parses");
         assert_eq!(
@@ -1615,6 +1735,176 @@ mod tests {
                 .household_progress
                 .estate_upgrades
                 .contains("estate.upgrade.infirmary_rested")
+        );
+    }
+
+    /// A4: an estate room is not a free action for standing in the right place.
+    /// The workshop needs the wreck to have been looked at, because the parts it
+    /// fits come off the Handsome Jack.
+    #[test]
+    fn the_workshop_is_refused_until_the_wreck_has_been_observed() {
+        let (geography, mut state) = at_the_estate();
+        let before = state.clone();
+
+        assert_eq!(
+            state.use_anchor(WORKSHOP, &geography),
+            Err(ExpeditionError::AnchorRequiresDiscovery {
+                anchor_id: WORKSHOP.into(),
+                discovery_id: "observation.black_beach.wreck".into(),
+            })
+        );
+        assert_eq!(state, before);
+        assert!(
+            !state
+                .legal_next_commands_with_geography(&geography)
+                .contains(&format!("anchor_action:{WORKSHOP}"))
+        );
+
+        state
+            .discoveries
+            .insert("observation.black_beach.wreck".into());
+        let outcome = state.use_anchor(WORKSHOP, &geography).expect("resolves");
+        assert_eq!(
+            outcome.upgrades_recorded,
+            vec!["estate.upgrade.workshop_field_rig".to_owned()]
+        );
+        assert!(
+            state
+                .household_progress
+                .estate_upgrades
+                .contains("estate.upgrade.workshop_field_rig")
+        );
+    }
+
+    /// The field rig is the whole point of the workshop: it changes what the
+    /// island costs to cross, on every leg, in both directions.
+    #[test]
+    fn the_field_rig_takes_a_ration_off_every_route_that_charges_one() {
+        let geography = Geography::black_beach_vertical_slice();
+        let safe_road = geography
+            .route("world.portal.river_landing_to_reception_terrace_safe_road")
+            .expect("the safe road exists");
+        let free_climb = geography
+            .route("world.portal.black_beach_to_damaged_estate")
+            .expect("the estate climb exists");
+        let mut state = fixture();
+
+        assert_eq!(state.effective_supply_cost(safe_road), 2);
+        assert_eq!(state.effective_supply_cost(free_climb), 0);
+
+        state
+            .household_progress
+            .estate_upgrades
+            .insert("estate.upgrade.workshop_field_rig".into());
+
+        assert_eq!(state.effective_supply_cost(safe_road), 1);
+        // A road that was already free does not start paying the party back.
+        assert_eq!(state.effective_supply_cost(free_climb), 0);
+    }
+
+    /// And the discount is real at the command path, not only in the helper:
+    /// two rations buy a road the party could not otherwise afford twice.
+    #[test]
+    fn travel_charges_the_effective_cost_rather_than_the_declared_one() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+        state.active_location_id = "world.cell.river_landing".into();
+        state.supplies.rations = 1;
+        state
+            .household_progress
+            .estate_upgrades
+            .insert("estate.upgrade.workshop_field_rig".into());
+
+        let outcome = state
+            .travel(
+                "world.portal.river_landing_to_reception_terrace_safe_road",
+                &geography,
+            )
+            .expect("the field rig makes one ration enough for a two-ration road");
+        assert_eq!(outcome.supply_cost, 1);
+        assert_eq!(state.supplies.rations, 0);
+    }
+
+    /// The map table is the other half of the same bargain: it needs the elven
+    /// waymark to have been read, and what it produces is the discovery the
+    /// tidal cut portal is gated on.
+    #[test]
+    fn the_map_table_is_refused_until_the_waymark_has_been_observed_and_then_opens_the_tidal_cut() {
+        let (geography, mut state) = at_the_estate();
+        let before = state.clone();
+
+        assert_eq!(
+            state.use_anchor(MAP_TABLE, &geography),
+            Err(ExpeditionError::AnchorRequiresDiscovery {
+                anchor_id: MAP_TABLE.into(),
+                discovery_id: "observation.river_landing.road_marker".into(),
+            })
+        );
+        assert_eq!(state, before);
+
+        state
+            .discoveries
+            .insert("observation.river_landing.road_marker".into());
+        let outcome = state.use_anchor(MAP_TABLE, &geography).expect("resolves");
+        assert_eq!(
+            outcome.discoveries_recorded,
+            vec!["discovery.map_table.tidal_cut".to_owned()]
+        );
+
+        // The gate the discovery actually opens.
+        state.active_location_id = "world.cell.black_beach".into();
+        state.supplies.rations = 4;
+        state
+            .travel(
+                "world.portal.black_beach_to_reception_terrace_tidal_cut",
+                &geography,
+            )
+            .expect("the map table's route is walkable once it has been read");
+        assert_eq!(state.active_location_id, "world.cell.reception_terrace");
+    }
+
+    #[test]
+    fn the_tidal_cut_is_illegal_before_the_map_table_has_been_read() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+        state.supplies.rations = 4;
+        let before = state.clone();
+
+        assert_eq!(
+            state.travel(
+                "world.portal.black_beach_to_reception_terrace_tidal_cut",
+                &geography,
+            ),
+            Err(ExpeditionError::MissingDiscovery {
+                route_id: "world.portal.black_beach_to_reception_terrace_tidal_cut".into(),
+                discovery_id: "discovery.map_table.tidal_cut".into(),
+            })
+        );
+        assert_eq!(state, before);
+    }
+
+    /// The household room is the one estate anchor with no permanent fact to
+    /// produce, so it is spent by the day rather than for good.
+    #[test]
+    fn the_household_room_records_the_estate_observations_once_a_day() {
+        let (geography, mut state) = at_the_estate();
+
+        let outcome = state
+            .use_anchor("anchor.estate.household_room", &geography)
+            .expect("resolves");
+        assert_eq!(
+            outcome.discoveries_recorded,
+            vec![
+                "observation.damaged_estate.veranda".to_owned(),
+                "observation.damaged_estate.river_gate".to_owned(),
+            ]
+        );
+        assert_eq!(
+            state.use_anchor("anchor.estate.household_room", &geography),
+            Err(ExpeditionError::AnchorSpentToday {
+                anchor_id: "anchor.estate.household_room".into(),
+                used_on_day: state.campaign_day,
+            })
         );
     }
 
