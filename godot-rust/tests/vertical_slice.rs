@@ -24,9 +24,12 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
         "world.cell.black_beach",
     )
     .expect("fresh campaign constructs");
+    // A3: a shipwrecked party owns nothing. Every ration, every dose of
+    // medicine and every coin below is produced by something the party
+    // actually does -- working the wreck, or beating what holds the terrace.
     state.supplies = SupplyState {
-        rations: 10,
-        medicine: 2,
+        rations: 0,
+        medicine: 0,
         coin: 0,
     };
     // Midnight puts today's individual in every habitat, so the terrace has a
@@ -36,8 +39,65 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
         .expect("resolves");
     assert_boundary_round_trips(&state);
 
-    // 2. Travel by the safe road and persist its actual consequence.
+    // 2. The road inland costs food the party does not have yet, so the trip
+    //    starts at the wreck. This is the economy closing: salvage is the only
+    //    reason the safe road is walkable at all.
     state.inspect(&geography);
+    assert!(
+        state
+            .legal_next_commands_with_geography(&geography)
+            .contains(&"anchor_action:anchor.black_beach.salvage_point".to_owned())
+    );
+    state
+        .travel("world.portal.black_beach_to_damaged_estate", &geography)
+        .expect("the climb off the sand costs no rations");
+    state
+        .travel("world.portal.damaged_estate_to_river_landing", &geography)
+        .expect("the river gate costs no rations");
+    let empty_pack = state
+        .travel(
+            "world.portal.river_landing_to_reception_terrace_safe_road",
+            &geography,
+        )
+        .unwrap_err();
+    assert_eq!(
+        empty_pack,
+        ExpeditionError::InsufficientSupplies {
+            needed: 2,
+            available: 0
+        }
+    );
+    assert_eq!(state.active_location_id, "world.cell.river_landing");
+    assert_boundary_round_trips(&state);
+
+    state
+        .travel("world.portal.river_landing_to_damaged_estate", &geography)
+        .expect("legal route");
+    state
+        .travel("world.portal.damaged_estate_to_black_beach", &geography)
+        .expect("legal route");
+    let salvaged = state
+        .use_anchor("anchor.black_beach.salvage_point", &geography)
+        .expect("the Handsome Jack is still on the sand");
+    // Seed 7 on campaign day 2 salvages exactly five rations, every run.
+    assert_eq!(state.campaign_day, 2);
+    assert_eq!(salvaged.rations_gained, 5);
+    assert_eq!(salvaged.coin_gained, 2);
+    assert_eq!(state.supplies.rations, salvaged.rations_gained);
+    assert_eq!(state.supplies.coin, 2);
+    // The wreck gives once a day and says so.
+    assert_eq!(
+        state
+            .use_anchor("anchor.black_beach.salvage_point", &geography)
+            .unwrap_err(),
+        ExpeditionError::AnchorSpentToday {
+            anchor_id: "anchor.black_beach.salvage_point".into(),
+            used_on_day: state.campaign_day,
+        }
+    );
+    assert_boundary_round_trips(&state);
+
+    // 3. Travel by the safe road and persist its actual consequence.
     state
         .travel("world.portal.black_beach_to_damaged_estate", &geography)
         .expect("legal route");
@@ -50,12 +110,15 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
             "world.portal.river_landing_to_reception_terrace_safe_road",
             &geography,
         )
-        .expect("legal route");
+        .expect("the salvaged rations pay for the road");
     assert_eq!(travel_outcome.arrived_at, "world.cell.reception_terrace");
-    assert!(state.supplies.rations < rations_before_river);
+    assert_eq!(
+        state.supplies.rations,
+        rations_before_river - travel_outcome.supply_cost
+    );
     assert_boundary_round_trips(&state);
 
-    // 3. Enter Reception Terrace and resolve Guarded Strike against the
+    // 4. Enter Reception Terrace and resolve Guarded Strike against the
     //    individual holding it, through the command/event boundary.
     state.inspect(&geography);
     let battle_id = state
@@ -110,15 +173,27 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     assert!(events.contains(&BattleEvent::BattleEnded { victory: true }));
     assert_eq!(battle.snapshot().phase, BattlePhase::Victory);
 
-    // 4. Persist victory; the beaten individual no longer holds the terrace
-    //    today, so the party can leave instead of refighting it.
-    state
+    // 5. Persist victory; the beaten individual no longer holds the terrace
+    //    today, so the party can leave instead of refighting it -- and it pays
+    //    the habitat's declared drop table, which is where the medicine the
+    //    estate's infirmary spends below actually comes from.
+    let supplies_before_victory = state.supplies.clone();
+    let resolution = state
         .resolve_encounter(EncounterOutcome::Victory, &geography, &habitats)
         .expect("resolves");
     assert!(state.pending_encounter.is_none());
     assert!(state.begin_encounter(&geography, &habitats).is_none());
+    let loot = resolution
+        .loot
+        .expect("the terrace holder was carrying its drop");
+    assert_eq!(loot.id, "loot.razorbeak.crested.prototype");
+    assert_eq!(
+        state.supplies.medicine,
+        supplies_before_victory.medicine + loot.medicine
+    );
+    assert!(state.supplies.coin > supplies_before_victory.coin);
 
-    // 4a. D3: cross into the Tomb of Returning Names. The archive core is
+    // 5a. D3: cross into the Tomb of Returning Names. The archive core is
     //     gated on the reception space's own truth-telling observation, and
     //     the party returns to the terrace by the same door it entered.
     state
@@ -197,7 +272,8 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     assert_eq!(state.active_location_id, "world.cell.damaged_estate");
     assert_boundary_round_trips(&state);
 
-    // 5. Take one estate action that changes a durable tactical fact.
+    // 6. Take one estate action that changes a durable tactical fact, paid for
+    //    with medicine the party won rather than medicine it was handed.
     state.character_states.insert(
         "character.heroine.betty".into(),
         CharacterState {
@@ -218,7 +294,7 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     );
     assert_boundary_round_trips(&state);
 
-    // 6. Advance Midnight: restore a killed named person without losing their
+    // 7. Advance Midnight: restore a killed named person without losing their
     //    death memory, and regenerate deterministic individual habitat
     //    encounters from the day seed.
     state.named_person_memory.insert(
@@ -251,7 +327,7 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     assert_ne!(todays_holder.instance_id, yesterdays_holder);
     assert!(!state.habitat_states["world.region.black_beach.terrace_precinct"].cleared_today);
 
-    // 7. Save and reload; every legal-state fact from every prior boundary
+    // 8. Save and reload; every legal-state fact from every prior boundary
     //    survives unchanged.
     assert_boundary_round_trips(&state);
 }

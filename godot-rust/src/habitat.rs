@@ -231,9 +231,21 @@ impl HabitatRecord {
     }
 }
 
+/// What a habitat's holder is actually carrying. Every `HabitatRecord` already
+/// named a `drop_table_id`; until A3 nothing anywhere resolved that ID into
+/// goods, so beating an individual paid nothing. This is the table it names.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct LootTable {
+    pub id: String,
+    pub rations: u32,
+    pub medicine: u32,
+    pub coin: u32,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Habitats {
     records: BTreeMap<String, HabitatRecord>,
+    loot_tables: BTreeMap<String, LootTable>,
 }
 
 impl Habitats {
@@ -367,12 +379,48 @@ impl Habitats {
                 daily_pressure: 2,
             },
         ];
+        // One table per `drop_table_id` the three habitats above already
+        // declare, and no others: a table nothing drops is a table nobody can
+        // earn. Rank orders the payout -- the apex holder of the terrace
+        // precinct is worth beating, the tideline razorbeak barely covers the
+        // walk. C1 authors these as content records; this registry is the same
+        // deterministic Rust twin the habitats themselves are.
+        let loot_tables = [
+            LootTable {
+                id: "loot.razorbeak.prototype".into(),
+                rations: 1,
+                medicine: 0,
+                coin: 3,
+            },
+            LootTable {
+                id: "loot.thunderback.prototype".into(),
+                rations: 2,
+                medicine: 1,
+                coin: 6,
+            },
+            LootTable {
+                id: "loot.razorbeak.crested.prototype".into(),
+                rations: 2,
+                medicine: 1,
+                coin: 12,
+            },
+        ];
         Self {
             records: records
                 .into_iter()
                 .map(|record| (record.id.clone(), record))
                 .collect(),
+            loot_tables: loot_tables
+                .into_iter()
+                .map(|table| (table.id.clone(), table))
+                .collect(),
         }
+    }
+
+    /// The table a `HabitatRecord.drop_table_id` names, or `None` when nothing
+    /// declares one -- an unresolvable drop pays nothing rather than guessing.
+    pub fn loot_table(&self, id: &str) -> Option<&LootTable> {
+        self.loot_tables.get(id)
     }
 
     pub fn habitat(&self, id: &str) -> Option<&HabitatRecord> {

@@ -49,6 +49,45 @@ impl RouteKind {
     }
 }
 
+/// What a "do something here" anchor actually does. One vocabulary for every
+/// such verb -- salvage, loot caches, and (A4) the estate's rooms -- so the
+/// game never grows a second, parallel "interact with this place" mechanism.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AnchorKind {
+    /// Working a wreck or a tide line for what it still holds. The declared
+    /// rations are the floor; the actual yield varies deterministically by day.
+    Salvage { rations: u32, coin: u32 },
+    /// A cache someone else left. Fixed contents: a cache is a known quantity.
+    LootCache {
+        rations: u32,
+        medicine: u32,
+        coin: u32,
+    },
+    /// Treating the party's injuries. A4 moves the estate's infirmary rule here.
+    Infirmary,
+    /// Fitting recovered parts into equipment. A4 gives it its upgrade.
+    Workshop,
+    /// Reading the map for a route nobody has walked yet. A4 gives it its
+    /// discovery.
+    MapTable,
+    /// Looking closely at what is already here, recording what the place says.
+    Inspect,
+}
+
+/// One anchor as content declares it. It lives on the cell that carries it;
+/// `Geography.anchors` holds the definition and the cell's
+/// `interaction_anchor_ids` names it, so "is this anchor here?" is a question
+/// about the graph rather than about a second registry.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AnchorDefinition {
+    pub id: String,
+    pub kind: AnchorKind,
+    /// Whether using it exhausts it until the next campaign day.
+    #[serde(default)]
+    pub once_per_day: bool,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct LocationRecord {
     pub id: String,
@@ -107,6 +146,11 @@ pub struct CellDefinition {
     pub observation_ids: Vec<String>,
     #[serde(default)]
     pub interaction_anchor_ids: Vec<String>,
+    /// The actionable anchors this cell declares. `from_authored` registers
+    /// each one and appends its ID to `interaction_anchor_ids`, so an anchor
+    /// is never listed in one place and defined in another.
+    #[serde(default)]
+    pub anchors: Vec<AnchorDefinition>,
     /// Whether leaving the way you came is legal here. Defaults to the
     /// permissive answer, which is what an ordinary outdoor cell wants.
     #[serde(default)]
@@ -157,6 +201,10 @@ pub struct Geography {
     /// Authored one-time encounters, keyed by the location that presents them.
     /// `begin_encounter` consults these before any habitat holder.
     pub encounter_triggers: BTreeMap<String, EncounterTriggerDefinition>,
+    /// Every actionable anchor in the world, keyed by its own stable ID. Which
+    /// cell an anchor stands in is answered by that cell's
+    /// `interaction_anchor_ids`.
+    pub anchors: BTreeMap<String, AnchorDefinition>,
 }
 
 impl Geography {
@@ -192,25 +240,41 @@ impl Geography {
                 .iter()
                 .map(|id| (*id).to_owned())
                 .collect(),
+            anchors: Vec::new(),
             return_policy: ReturnPolicy::CanRetreatToPrevious,
             persistence_policy,
             encounter_eligible,
         };
         let cells = vec![
-            cell(
-                "world.cell.black_beach",
-                "Black Beach",
-                &[
-                    "observation.black_beach.wreck",
-                    "observation.black_beach.boiler",
-                ],
-                &[
-                    "interact.black_beach.boiler_wreck",
-                    "interact.black_beach.estate_climb",
-                ],
-                PersistencePolicy::PersistsAcrossVisits,
-                false,
-            ),
+            // The wreck of the Handsome Jack is the party's first and only
+            // source of supply: the beach is where the economy starts, so the
+            // salvage anchor stands here rather than at the estate. A3 gives it
+            // a floor of four rations and two coin; the day seed decides whether
+            // a given day's work turns up a fifth ration.
+            CellDefinition {
+                anchors: vec![AnchorDefinition {
+                    id: "anchor.black_beach.salvage_point".into(),
+                    kind: AnchorKind::Salvage {
+                        rations: 4,
+                        coin: 2,
+                    },
+                    once_per_day: true,
+                }],
+                ..cell(
+                    "world.cell.black_beach",
+                    "Black Beach",
+                    &[
+                        "observation.black_beach.wreck",
+                        "observation.black_beach.boiler",
+                    ],
+                    &[
+                        "interact.black_beach.boiler_wreck",
+                        "interact.black_beach.estate_climb",
+                    ],
+                    PersistencePolicy::PersistsAcrossVisits,
+                    false,
+                )
+            },
             cell(
                 "world.cell.damaged_estate",
                 "Damaged Coastal Estate",
@@ -297,14 +361,29 @@ impl Geography {
                 PersistencePolicy::ResetsOnMidnight,
                 false,
             ),
-            cell(
-                "world.cell.tomb_service_passage",
-                "Service Passage of Returning Names",
-                &["observation.tomb_service_passage.disturbed_grave_goods"],
-                &[],
-                PersistencePolicy::ResetsOnMidnight,
-                true,
-            ),
+            // The wrong turn pays for itself: the disturbed grave goods the
+            // passage already describes are a real cache, which is what makes
+            // the ungated branch a recoverable mistake rather than a punishment.
+            // The passage resets at midnight, and so does the cache.
+            CellDefinition {
+                anchors: vec![AnchorDefinition {
+                    id: "anchor.tomb_service_passage.disturbed_grave_goods".into(),
+                    kind: AnchorKind::LootCache {
+                        rations: 1,
+                        medicine: 1,
+                        coin: 6,
+                    },
+                    once_per_day: true,
+                }],
+                ..cell(
+                    "world.cell.tomb_service_passage",
+                    "Service Passage of Returning Names",
+                    &["observation.tomb_service_passage.disturbed_grave_goods"],
+                    &[],
+                    PersistencePolicy::ResetsOnMidnight,
+                    true,
+                )
+            },
         ];
 
         let portal = |id: &str,
@@ -511,9 +590,23 @@ impl Geography {
     ) -> Result<Self, ExpeditionError> {
         let mut routes: BTreeMap<String, RouteOption> = BTreeMap::new();
         let mut locations: BTreeMap<String, LocationRecord> = BTreeMap::new();
+        let mut anchors: BTreeMap<String, AnchorDefinition> = BTreeMap::new();
         for cell in cells {
             require_stable_id("cell.id", &cell.id)?;
             require_stable_id("cell.region_id", &cell.region_id)?;
+            // An anchor is registered once and listed once. The cell's own
+            // `interaction_anchor_ids` stays the single answer to "what can be
+            // done here", so a declared anchor cannot go missing from the list
+            // and a listed anchor cannot go missing from the registry.
+            let mut interaction_anchor_ids = cell.interaction_anchor_ids;
+            for anchor in cell.anchors {
+                require_stable_id("anchor.id", &anchor.id)?;
+                if anchors.contains_key(&anchor.id) {
+                    return Err(ExpeditionError::DuplicateAnchor { id: anchor.id });
+                }
+                interaction_anchor_ids.push(anchor.id.clone());
+                anchors.insert(anchor.id.clone(), anchor);
+            }
             locations.insert(
                 cell.id.clone(),
                 LocationRecord {
@@ -522,7 +615,7 @@ impl Geography {
                     display_name: cell.display_name,
                     exits: Vec::new(),
                     observation_ids: cell.observation_ids,
-                    interaction_anchor_ids: cell.interaction_anchor_ids,
+                    interaction_anchor_ids,
                     return_policy: cell.return_policy,
                     persistence_policy: cell.persistence_policy,
                     encounter_eligible: cell.encounter_eligible,
@@ -587,11 +680,41 @@ impl Geography {
             locations,
             routes,
             encounter_triggers: triggers,
+            anchors,
         })
     }
 
     pub fn location(&self, id: &str) -> Option<&LocationRecord> {
         self.locations.get(id)
+    }
+
+    /// The anchor with this ID, wherever it stands.
+    pub fn anchor(&self, id: &str) -> Option<&AnchorDefinition> {
+        self.anchors.get(id)
+    }
+
+    /// The actionable anchors standing at a location, in the order the cell
+    /// lists them. A `interaction_anchor_ids` entry with no definition is
+    /// presentation-only content (an authored `interact.*` hotspot) and is not
+    /// an action, so it is skipped rather than faked.
+    pub fn anchors_at(&self, location_id: &str) -> Vec<&AnchorDefinition> {
+        self.locations
+            .get(location_id)
+            .into_iter()
+            .flat_map(|location| location.interaction_anchor_ids.iter())
+            .filter_map(|id| self.anchors.get(id))
+            .collect()
+    }
+
+    /// Whether this anchor stands at this location -- the check `use_anchor`
+    /// makes before it touches anything.
+    pub fn anchor_is_at(&self, anchor_id: &str, location_id: &str) -> bool {
+        self.locations.get(location_id).is_some_and(|location| {
+            location
+                .interaction_anchor_ids
+                .iter()
+                .any(|id| id == anchor_id)
+        }) && self.anchors.contains_key(anchor_id)
     }
 
     /// The authored one-time encounter this location presents, if any.

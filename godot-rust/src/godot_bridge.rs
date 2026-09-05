@@ -509,7 +509,13 @@ fn expedition_error_code(value: &ExpeditionError) -> &'static str {
         ExpeditionError::NotAtEstate => "not_at_estate",
         ExpeditionError::InsufficientSupplies { .. } => "insufficient_supplies",
         ExpeditionError::DuplicatePortal { .. } => "duplicate_portal",
+        ExpeditionError::DuplicateAnchor { .. } => "duplicate_anchor",
         ExpeditionError::DuplicateEncounterTrigger => "duplicate_encounter_trigger",
+        // A3 added these variants and this match is exhaustive, so their
+        // codes belong here now. Projecting the anchor commands themselves to
+        // Godot is B3's card, not this edit.
+        ExpeditionError::AnchorNotHere { .. } => "anchor_not_here",
+        ExpeditionError::AnchorSpentToday { .. } => "anchor_spent_today",
         ExpeditionError::TravelBlockedByEncounter { .. } => "travel_blocked_by_encounter",
     }
 }

@@ -18,15 +18,16 @@ pub use battle::{
     BattlefieldEffect, Faction, SkillCommand, StatusInstance, StatusKind,
 };
 pub use expedition::{
-    CharacterState, EncounterOutcome, EncounterState, ExpeditionError, ExpeditionState,
-    HabitatState, HouseholdProgress, RouteStep, SupplyState, TimeSegment, TravelOutcome,
+    AnchorOutcome, CharacterState, EncounterOutcome, EncounterResolution, EncounterState,
+    ExpeditionError, ExpeditionState, HabitatState, HouseholdProgress, RouteStep, SupplyState,
+    TimeSegment, TravelOutcome,
 };
 pub use geography::{
-    CellDefinition, EncounterTriggerDefinition, Geography, LocationRecord, PersistencePolicy,
-    PortalDefinition, ReturnPolicy, RouteKind, RouteOption,
+    AnchorDefinition, AnchorKind, CellDefinition, EncounterTriggerDefinition, Geography,
+    LocationRecord, PersistencePolicy, PortalDefinition, ReturnPolicy, RouteKind, RouteOption,
 };
 pub use habitat::{
-    ActionPriority, CreatureFamily, EncounterRank, HabitatRecord, Habitats, RosterEntry,
+    ActionPriority, CreatureFamily, EncounterRank, HabitatRecord, Habitats, LootTable, RosterEntry,
     ThreatProfile,
 };
 pub use hunter::{Hunter, HunterKind};
