@@ -355,7 +355,7 @@ top of the document is never stale:
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
 - **M3** shipped 0/16 · **M4** not started
-- Last updated 2026-09-05 against trunk `906411c`. If this line is older than
+- Last updated 2026-09-05 against trunk `f33f364`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -367,7 +367,7 @@ top of the document is never stale:
 | A3 | Economy: anchors, salvage, loot, scarcity | A2 | shipped 9360f66 2026-09-05 — loot ownership reconciled with C1 on merge |
 | A4 | Estate actions as anchor actions; delete `rest_at_estate` | A3 | open |
 | A5 | Five named bands and Composure | A1 | shipped 906411c 2026-09-05 — skill_rank reconciled to authored bondRank on merge |
-| A6 | Captain Michael as a battle actor: Weapon Attack, Guard, Reposition | A5, C4 | shipped SHAMARK 2026-09-05 — name and reposition record reconciled on merge |
+| A6 | Captain Michael as a battle actor: Weapon Attack, Guard, Reposition | A5, C4 | shipped f33f364 2026-09-05 — name and reposition record reconciled on merge |
 | A7 | Ayla's Deny Activation and Override Tomb Rule via site rules | A2, H5 | open |
 | A8 | Reconcile `hold_position` with the Guard decision | A6 | open |
 | A9 | Faction-agent observation record (was "Champion") | A6, S5 | open |
@@ -679,7 +679,7 @@ Two follow-ups A5 reported rather than reached for, both correct:
   Order. That is A6 and A9, not a gap in A5.
 
 ### A6 · Captain Michael as a battle actor
-Status: shipped `SHAMARK` 2026-09-05 · Depends on: A5, C4
+Status: shipped `f33f364` 2026-09-05 · Depends on: A5, C4
 Build `character.protagonist.captain` — display name read from
 `content/characters/captain.json`, which owns it (**Michael Corrigan**). The
 brief's "use Captain Michael" supersedes Captain Jack; it does not remove the
