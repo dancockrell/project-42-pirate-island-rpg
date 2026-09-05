@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "task_id": "a2-canonical-world-cell-ids",
+  "agent": "claude-opus-5-lane-a2",
+  "summary": "A2: world.cell.* becomes the one location namespace; the Rust fixture is rebuilt on the authored cells and a test holds them equal",
+  "status": "completed",
+  "claimed_at": "2026-09-05T00:00:00Z",
+  "updated_at": "2026-09-05T00:00:00Z",
+  "paths": [
+    "godot-rust/src/geography.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/habitat.rs",
+    "godot-rust/src/hunter.rs",
+    "godot-rust/tests/vertical_slice.rs",
+    "content/world/",
+    "content/encounters/returning_names.prototype.json",
+    "content/presentation/paper_dolls.prototype.json",
+    "tools/src/validate.mjs",
+    "docs/CLAUDE_BACKEND_HANDOFF.md",
+    "game/generated/content_bundle.json"
+  ],
+  "symbols": [
+    "Geography::black_beach_vertical_slice",
+    "CellDefinition",
+    "ESTATE_LOCATION_ID"
+  ],
+  "coordination": {
+    "depends_on": [
+      "A1"
+    ],
+    "conflicts_with": [
+      "C1",
+      "C2"
+    ],
+    "notes": "C1 and C2 also edit tools/src/validate.mjs; SHIP_PLAN 9 holds them until A2 ships. Branch lane/A2-canonical-world-cell-ids is based on the trunk tip 6b010e9, which is ahead of origin/backend/b0-expedition-state (415ccf2) -- the merge with main is not pushed yet. The four tomb cells stay fixture-only until B6 authors them in content/world/; the new test skips world.cell.tomb_* for exactly that reason."
+  },
+  "completion": {
+    "commit": "c1804ea",
+    "checks": [
+      "cargo test --manifest-path godot-rust/Cargo.toml -- 111 unit + 1 integration: passed",
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs -- 173 stable IDs: passed",
+      "node tools/src/build-content-bundle.mjs -- 28 records, sha256:62caf06493afeb11e154c5c54a99c78c2a531098c986fc17e32d388a9e6bad9d: passed",
+      "git grep -n \"location\\.\\(black_beach\\|tomb\\|road\\|estate\\)\" -- godot-rust content docs/CLAUDE_BACKEND_HANDOFF.md -- no matches: passed",
+      "validator bite proof: deliberate typo in encounter locationId and defeat.returnLocationId failed validation with 2 missing-stable-ID issues, reverted and green: passed",
+      "SHIP_PLAN section 8 docs dangle sweep -- no matches: passed"
+    ]
+  }
+}

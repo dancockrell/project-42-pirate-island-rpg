@@ -102,7 +102,7 @@ Each cell has an explicit record before implementation:
   "portals": ["world.portal.reception_to_shipwreck_trail"],
   "battleEntries": ["encounter.reception_razorbeak"],
   "cameraRail": "camera.exploration.reception_terrace",
-  "descriptions": ["location.reception_terrace.arrival", "location.reception_terrace.ruin"],
+  "descriptions": ["observation.reception_terrace.arrival", "observation.reception_terrace.battle_lane"],
   "timeLightingProfile": "lighting.black_beach.storm_gold"
 }
 ```

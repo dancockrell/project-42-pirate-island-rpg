@@ -275,7 +275,7 @@ impl Habitats {
                 rank: EncounterRank::Ordinary,
                 behavior_tags: vec!["individual-threat".into(), "opportunist".into()],
                 intent_suite: vec!["skill.enemy.razorbeak.rushing_bite".into()],
-                territory_location_ids: vec!["location.black_beach".into()],
+                territory_location_ids: vec!["world.cell.black_beach".into()],
                 drop_table_id: "loot.razorbeak.prototype".into(),
                 return_eligible: true,
                 base_level: 5,
@@ -311,7 +311,7 @@ impl Habitats {
                     "skill.enemy.razorbeak.guard_breaking_kick".into(),
                     "skill.enemy.razorbeak.rushing_bite".into(),
                 ],
-                territory_location_ids: vec!["location.black_beach.river_landing".into()],
+                territory_location_ids: vec!["world.cell.river_landing".into()],
                 drop_table_id: "loot.thunderback.prototype".into(),
                 return_eligible: true,
                 base_level: 7,
@@ -354,12 +354,12 @@ impl Habitats {
                     "skill.enemy.razorbeak.rushing_bite".into(),
                 ],
                 territory_location_ids: vec![
-                    "location.black_beach.reception_terrace".into(),
-                    "location.black_beach.processional_ramp".into(),
+                    "world.cell.reception_terrace".into(),
+                    "world.cell.processional_ramp".into(),
                     // D3: the tomb's ungated wrong turn is where the elven
                     // site's guardians actually answer -- a real encounter,
                     // not a bespoke danger mechanic.
-                    "location.tomb.returning_names.service_passage".into(),
+                    "world.cell.tomb_service_passage".into(),
                 ],
                 drop_table_id: "loot.razorbeak.crested.prototype".into(),
                 return_eligible: true,
@@ -493,13 +493,13 @@ mod tests {
         let habitats = Habitats::black_beach_vertical_slice();
         assert_eq!(
             habitats
-                .habitat_for_location("location.black_beach.reception_terrace")
+                .habitat_for_location("world.cell.reception_terrace")
                 .map(|habitat| habitat.id.as_str()),
             Some("habitat.black_beach.terrace_precinct")
         );
         assert_eq!(
             habitats
-                .habitat_for_location("location.black_beach.estate")
+                .habitat_for_location("world.cell.damaged_estate")
                 .map(|habitat| habitat.id.as_str()),
             None
         );
@@ -512,7 +512,7 @@ mod tests {
         let mut state = ExpeditionState::new(
             11,
             vec!["character.heroine.betty".into()],
-            "location.black_beach",
+            "world.cell.black_beach",
         )
         .expect("fresh campaign constructs");
 
@@ -550,7 +550,7 @@ mod tests {
         let mut state = ExpeditionState::new(
             11,
             vec!["character.heroine.betty".into()],
-            "location.black_beach",
+            "world.cell.black_beach",
         )
         .expect("fresh campaign constructs");
 
@@ -681,7 +681,7 @@ mod tests {
         let mut state = ExpeditionState::new(
             11,
             vec!["character.heroine.betty".into()],
-            "location.black_beach.reception_terrace",
+            "world.cell.reception_terrace",
         )
         .expect("fresh campaign constructs");
         state.campaign_day = 8;

@@ -8,7 +8,7 @@ The simulation is the only authority for vitality, guard, composure, initiative,
 
 ## Stable identifiers
 
-Identifiers are lowercase dotted strings. Their prefix names the domain: `character.heroine.betty`, `skill.betty.guarded_strike`, `enemy.raptor.razorbeak`, `location.tomb.returning_names`, `art.placeholder.betty.active_actor`. IDs survive file moves and scene refactors.
+Identifiers are lowercase dotted strings. Their prefix names the domain: `character.heroine.betty`, `skill.betty.guarded_strike`, `enemy.raptor.razorbeak`, `world.cell.reception_terrace`, `art.placeholder.betty.active_actor`. IDs survive file moves and scene refactors.
 
 ## Metadata locality
 

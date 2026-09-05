@@ -84,7 +84,7 @@
     {
       "id": "presentation.paper_stage.reception_road",
       "placeholderAssetId": "art.placeholder.reception_road.stage",
-      "subjectId": "location.road.reception",
+      "subjectId": "world.cell.reception_terrace",
       "displayName": "RECEPTION ROAD",
       "dollKind": "layered_paper_environment",
       "facing": "none",

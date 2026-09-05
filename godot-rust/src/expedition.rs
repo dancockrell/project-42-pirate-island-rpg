@@ -168,7 +168,7 @@ pub enum EncounterOutcome {
 
 /// B4: the one real estate consequence -- an infirmary recovery. Not a generic
 /// base-building tree; one actual action with one actual cost.
-const ESTATE_LOCATION_ID: &str = "location.black_beach.estate";
+const ESTATE_LOCATION_ID: &str = "world.cell.damaged_estate";
 const ESTATE_REST_MEDICINE_COST: u32 = 1;
 const ESTATE_REST_VITALITY_RESTORED: i32 = 20;
 const ESTATE_UPGRADE_INFIRMARY_RESTED: &str = "estate.upgrade.infirmary_rested";
@@ -766,7 +766,7 @@ mod tests {
                 "character.protagonist.captain".into(),
                 "character.heroine.betty".into(),
             ],
-            "location.black_beach",
+            "world.cell.black_beach",
         )
         .expect("fixture constructs");
         state.named_person_memory.insert(
@@ -884,13 +884,13 @@ mod tests {
         let observed = state.inspect(&geography);
         assert_eq!(
             observed,
-            vec!["observation.black_beach.wreck_of_handsome_jack".to_owned()]
+            vec![
+                "observation.black_beach.wreck".to_owned(),
+                "observation.black_beach.boiler".to_owned()
+            ]
         );
-        assert!(
-            state
-                .discoveries
-                .contains("observation.black_beach.wreck_of_handsome_jack")
-        );
+        assert!(state.discoveries.contains("observation.black_beach.wreck"));
+        assert!(state.discoveries.contains("observation.black_beach.boiler"));
     }
 
     #[test]
@@ -900,28 +900,40 @@ mod tests {
         let mut via_safe_road = fixture();
         via_safe_road.supplies.rations = 10;
         via_safe_road
-            .travel("route.black_beach.to_river_landing", &geography)
+            .travel("world.portal.black_beach_to_damaged_estate", &geography)
+            .expect("legal route");
+        via_safe_road
+            .travel("world.portal.damaged_estate_to_river_landing", &geography)
             .expect("legal route");
         let safe_outcome = via_safe_road
-            .travel("route.river_landing.safe_road", &geography)
+            .travel(
+                "world.portal.river_landing_to_reception_terrace_safe_road",
+                &geography,
+            )
             .expect("legal route");
 
         let mut via_jungle_edge = fixture();
         via_jungle_edge.supplies.rations = 10;
         via_jungle_edge
-            .travel("route.black_beach.to_river_landing", &geography)
+            .travel("world.portal.black_beach_to_damaged_estate", &geography)
+            .expect("legal route");
+        via_jungle_edge
+            .travel("world.portal.damaged_estate_to_river_landing", &geography)
             .expect("legal route");
         let jungle_outcome = via_jungle_edge
-            .travel("route.river_landing.jungle_edge", &geography)
+            .travel(
+                "world.portal.river_landing_to_reception_terrace_jungle_edge",
+                &geography,
+            )
             .expect("legal route");
 
         assert_eq!(
             via_safe_road.active_location_id,
-            "location.black_beach.reception_terrace"
+            "world.cell.reception_terrace"
         );
         assert_eq!(
             via_jungle_edge.active_location_id,
-            "location.black_beach.reception_terrace"
+            "world.cell.reception_terrace"
         );
         assert_ne!(
             safe_outcome.time_cost_minutes,
@@ -932,8 +944,10 @@ mod tests {
             via_safe_road.supplies.rations,
             via_jungle_edge.supplies.rations
         );
-        assert_eq!(via_safe_road.route_history.len(), 2);
-        assert_eq!(via_jungle_edge.route_history.len(), 2);
+        // Three legs each now: the climb off the beach to the estate, the
+        // estate's river gate, and the river fork itself.
+        assert_eq!(via_safe_road.route_history.len(), 3);
+        assert_eq!(via_jungle_edge.route_history.len(), 3);
     }
 
     #[test]
@@ -941,13 +955,13 @@ mod tests {
         let geography = crate::geography::Geography::black_beach_vertical_slice();
         assert!(
             !geography
-                .location("location.black_beach")
+                .location("world.cell.black_beach")
                 .unwrap()
                 .encounter_eligible
         );
         assert!(
             geography
-                .location("location.black_beach.reception_terrace")
+                .location("world.cell.reception_terrace")
                 .unwrap()
                 .encounter_eligible
         );
@@ -959,12 +973,15 @@ mod tests {
         let mut state = fixture();
         let before = state.clone();
         let error = state
-            .travel("route.river_landing.safe_road", &geography)
+            .travel(
+                "world.portal.river_landing_to_reception_terrace_safe_road",
+                &geography,
+            )
             .expect_err("Black Beach cannot use a river-landing route directly");
         assert_eq!(
             error,
             ExpeditionError::IllegalRoute {
-                route_id: "route.river_landing.safe_road".into()
+                route_id: "world.portal.river_landing_to_reception_terrace_safe_road".into()
             }
         );
         assert_eq!(state, before);
@@ -990,18 +1007,16 @@ mod tests {
     fn at_tomb_reception(geography: &Geography) -> ExpeditionState {
         let mut state = fixture();
         for route_id in [
-            "route.black_beach.to_river_landing",
-            "route.river_landing.safe_road",
-            "route.reception_terrace.to_processional_ramp",
-            "route.processional_ramp.to_tomb_threshold",
-            "route.tomb_threshold.to_reception",
+            "world.portal.black_beach_to_damaged_estate",
+            "world.portal.damaged_estate_to_river_landing",
+            "world.portal.river_landing_to_reception_terrace_safe_road",
+            "world.portal.reception_terrace_to_processional_ramp",
+            "world.portal.processional_ramp_to_tomb_threshold",
+            "world.portal.tomb_threshold_to_tomb_reception",
         ] {
             state.travel(route_id, geography).expect("legal route");
         }
-        assert_eq!(
-            state.active_location_id,
-            "location.tomb.returning_names.reception"
-        );
+        assert_eq!(state.active_location_id, "world.cell.tomb_reception");
         state
     }
 
@@ -1012,13 +1027,16 @@ mod tests {
         let before = state.clone();
 
         let error = state
-            .travel("route.tomb_reception.to_archive_core", &geography)
+            .travel(
+                "world.portal.tomb_reception_to_tomb_archive_core",
+                &geography,
+            )
             .unwrap_err();
 
         assert_eq!(
             error,
             ExpeditionError::MissingDiscovery {
-                route_id: "route.tomb_reception.to_archive_core".into(),
+                route_id: "world.portal.tomb_reception_to_tomb_archive_core".into(),
                 discovery_id: "observation.tomb_reception.true_name".into(),
             }
         );
@@ -1034,12 +1052,12 @@ mod tests {
         assert!(observed.contains(&"observation.tomb_reception.true_name".to_owned()));
 
         state
-            .travel("route.tomb_reception.to_archive_core", &geography)
+            .travel(
+                "world.portal.tomb_reception_to_tomb_archive_core",
+                &geography,
+            )
             .expect("the truth-space discovery unlocks the archive core");
-        assert_eq!(
-            state.active_location_id,
-            "location.tomb.returning_names.archive_core"
-        );
+        assert_eq!(state.active_location_id, "world.cell.tomb_archive_core");
     }
 
     #[test]
@@ -1048,22 +1066,22 @@ mod tests {
         let mut state = at_tomb_reception(&geography);
 
         state
-            .travel("route.tomb_reception.to_service_passage", &geography)
+            .travel(
+                "world.portal.tomb_reception_to_tomb_service_passage",
+                &geography,
+            )
             .expect("the ungated wrong turn is always legal");
-        assert_eq!(
-            state.active_location_id,
-            "location.tomb.returning_names.service_passage"
-        );
+        assert_eq!(state.active_location_id, "world.cell.tomb_service_passage");
 
         // The recoverable failure: a clear route leads back toward the
         // threshold rather than trapping the party in a dead end.
         state
-            .travel("route.tomb_service_passage.to_threshold", &geography)
+            .travel(
+                "world.portal.tomb_service_passage_to_tomb_threshold",
+                &geography,
+            )
             .expect("the service passage returns toward the threshold");
-        assert_eq!(
-            state.active_location_id,
-            "location.tomb.returning_names.threshold"
-        );
+        assert_eq!(state.active_location_id, "world.cell.tomb_threshold");
     }
 
     #[test]
@@ -1072,7 +1090,7 @@ mod tests {
         let holder = state.daily_spawn_records["world.region.black_beach.terrace_precinct"]
             .instance_id
             .clone();
-        state.active_location_id = "location.tomb.returning_names.service_passage".into();
+        state.active_location_id = "world.cell.tomb_service_passage".into();
 
         let encounter = state
             .begin_encounter(&geography, &habitats)
@@ -1087,10 +1105,16 @@ mod tests {
         let geography = crate::geography::Geography::black_beach_vertical_slice();
         let mut state = fixture();
         state
-            .travel("route.black_beach.to_river_landing", &geography)
+            .travel("world.portal.black_beach_to_damaged_estate", &geography)
             .expect("legal route");
         state
-            .travel("route.river_landing.jungle_edge", &geography)
+            .travel("world.portal.damaged_estate_to_river_landing", &geography)
+            .expect("legal route");
+        state
+            .travel(
+                "world.portal.river_landing_to_reception_terrace_jungle_edge",
+                &geography,
+            )
             .expect("legal route");
 
         let before = state.legal_next_commands_with_geography(&geography);
@@ -1143,15 +1167,18 @@ mod tests {
         let mut state = fixture();
         state.supplies.rations = 10;
         state
-            .travel("route.black_beach.to_river_landing", &geography)
+            .travel("world.portal.black_beach_to_damaged_estate", &geography)
             .expect("legal route");
         state
-            .travel("route.river_landing.safe_road", &geography)
+            .travel("world.portal.damaged_estate_to_river_landing", &geography)
             .expect("legal route");
-        assert_eq!(
-            state.active_location_id,
-            "location.black_beach.reception_terrace"
-        );
+        state
+            .travel(
+                "world.portal.river_landing_to_reception_terrace_safe_road",
+                &geography,
+            )
+            .expect("legal route");
+        assert_eq!(state.active_location_id, "world.cell.reception_terrace");
 
         state.pending_encounter = Some(EncounterState {
             encounter_id: "encounter.prototype.returning_names".into(),
@@ -1168,14 +1195,11 @@ mod tests {
             .expect("resolves");
 
         assert!(state.pending_encounter.is_none());
-        assert_eq!(
-            state.active_location_id,
-            "location.black_beach.river_landing"
-        );
+        assert_eq!(state.active_location_id, "world.cell.river_landing");
         assert!(state.supplies.rations < rations_before_retreat);
         assert_eq!(
             state.route_history.last().unwrap().location_id,
-            "location.black_beach.river_landing"
+            "world.cell.river_landing"
         );
     }
 
@@ -1291,7 +1315,7 @@ mod tests {
     #[test]
     fn resting_at_the_estate_spends_medicine_and_heals_without_exceeding_max() {
         let mut state = fixture();
-        state.active_location_id = "location.black_beach.estate".into();
+        state.active_location_id = "world.cell.damaged_estate".into();
         state.supplies.medicine = 3;
         state
             .character_states
@@ -1319,7 +1343,7 @@ mod tests {
     #[test]
     fn resting_at_the_estate_never_heals_past_max_vitality() {
         let mut state = fixture();
-        state.active_location_id = "location.black_beach.estate".into();
+        state.active_location_id = "world.cell.damaged_estate".into();
         state.supplies.medicine = 1;
         state.character_states.insert(
             "character.protagonist.captain".into(),
@@ -1354,7 +1378,7 @@ mod tests {
     #[test]
     fn resting_without_medicine_is_rejected_without_mutation() {
         let mut state = fixture();
-        state.active_location_id = "location.black_beach.estate".into();
+        state.active_location_id = "world.cell.damaged_estate".into();
         state.supplies.medicine = 0;
         let before = state.clone();
 
@@ -1374,7 +1398,7 @@ mod tests {
     fn resting_is_a_one_time_material_fact_reflected_in_legal_state_data() {
         let geography = crate::geography::Geography::black_beach_vertical_slice();
         let mut state = fixture();
-        state.active_location_id = "location.black_beach.estate".into();
+        state.active_location_id = "world.cell.damaged_estate".into();
         state.supplies.medicine = 1;
 
         let before = state.legal_next_commands_with_geography(&geography);
@@ -1389,7 +1413,7 @@ mod tests {
     #[test]
     fn the_estate_upgrade_fact_survives_save_and_reload() {
         let mut state = fixture();
-        state.active_location_id = "location.black_beach.estate".into();
+        state.active_location_id = "world.cell.damaged_estate".into();
         state.supplies.medicine = 1;
         state.rest_at_estate().expect("resolves");
 
@@ -1415,7 +1439,7 @@ mod tests {
         state
             .resolve_midnight_in(&geography, &habitats)
             .expect("resolves");
-        state.active_location_id = "location.black_beach.reception_terrace".into();
+        state.active_location_id = "world.cell.reception_terrace".into();
         (geography, habitats, state)
     }
 
@@ -1439,7 +1463,7 @@ mod tests {
     #[test]
     fn a_location_that_is_not_encounter_eligible_presents_nothing() {
         let (geography, habitats, mut state) = at_the_held_terrace();
-        state.active_location_id = "location.black_beach.estate".into();
+        state.active_location_id = "world.cell.damaged_estate".into();
 
         assert!(state.begin_encounter(&geography, &habitats).is_none());
         assert!(state.pending_encounter.is_none());
@@ -1450,7 +1474,7 @@ mod tests {
         let geography = Geography::black_beach_vertical_slice();
         let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
         let mut state = fixture();
-        state.active_location_id = "location.black_beach.reception_terrace".into();
+        state.active_location_id = "world.cell.reception_terrace".into();
 
         assert!(state.begin_encounter(&geography, &habitats).is_none());
         assert!(state.pending_encounter.is_none());
@@ -1579,7 +1603,7 @@ mod tests {
         // back, giving the hunter a real step to take without the test needing to
         // know the whole route in advance.
         state
-            .travel("route.black_beach.to_estate", &geography)
+            .travel("world.portal.black_beach_to_damaged_estate", &geography)
             .expect("legal route");
 
         let distance_after = geography
@@ -1630,7 +1654,7 @@ mod tests {
             id: "hunter.test.pursuit".into(),
             definition_id: HunterKind::HumanTracker.definition_id().to_owned(),
             kind: HunterKind::HumanTracker,
-            current_location_id: "location.black_beach.processional_ramp".into(),
+            current_location_id: "world.cell.processional_ramp".into(),
             spawned_on_day: 1,
             level: 5,
             defeated_on_day: None,
@@ -1651,7 +1675,7 @@ mod tests {
         // staying ahead is possible -- this asserts the party is not instantly
         // caught the moment it takes a single step.
         state
-            .travel("route.black_beach.to_estate", &geography)
+            .travel("world.portal.black_beach_to_damaged_estate", &geography)
             .expect("legal route");
         assert_ne!(
             state.hunters[0].current_location_id,
@@ -1676,7 +1700,7 @@ mod tests {
             id: "hunter.test.tracker".into(),
             definition_id: HunterKind::HumanTracker.definition_id().to_owned(),
             kind: HunterKind::HumanTracker,
-            current_location_id: "location.black_beach".into(),
+            current_location_id: "world.cell.black_beach".into(),
             spawned_on_day: 1,
             level: 5,
             defeated_on_day: None,
@@ -1685,7 +1709,7 @@ mod tests {
             id: "hunter.test.revenant".into(),
             definition_id: HunterKind::Revenant.definition_id().to_owned(),
             kind: HunterKind::Revenant,
-            current_location_id: "location.black_beach".into(),
+            current_location_id: "world.cell.black_beach".into(),
             spawned_on_day: 1,
             level: 8,
             defeated_on_day: None,

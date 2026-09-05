@@ -95,7 +95,8 @@ character.heroine.betty
 character.captain.michael
 skill.betty.guarded_strike
 enemy.raptor.razorbeak
-location.black_beach.reception_terrace
+world.cell.reception_terrace
+world.portal.river_landing_to_reception_terrace_safe_road
 ```
 
 Do not rename these casually. Add a record beside the data it describes and extend the content bundle through `tools/src/build-content-bundle.mjs`; do not crawl `content/` dynamically in Godot.
@@ -160,11 +161,16 @@ Requirements:
 Use the current world records as the starting point. Complete the connected graph:
 
 ```text
-location.black_beach -> location.black_beach.estate
--> location.black_beach.river_landing
--> location.black_beach.reception_terrace
--> location.black_beach.processional_ramp
+world.cell.black_beach -> world.cell.damaged_estate
+-> world.cell.river_landing
+-> world.cell.reception_terrace
+-> world.cell.processional_ramp
 ```
+
+Those are the IDs `content/world/*.world_cell.json` authors, and per A2 they are
+the only location namespace: the estate is the hinge between the beach and
+everything inland, and `Geography::black_beach_vertical_slice()` is held equal
+to the authored cells by `fixture_matches_the_authored_world_cells`.
 
 Each location record must define stable ID, region, visible exits, entry anchors, observation records, interaction anchors, route cost/time, return policy, persistence policy, and encounter eligibility. Each exit points to a stable destination and has one clear availability predicate.
 

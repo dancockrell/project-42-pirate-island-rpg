@@ -31,8 +31,8 @@
     {"id": "action.processional_ramp.assess_tomb_gate", "type": "locked_departure", "result": "gate.tomb.threshold_locked", "once": false}
   ],
   "readableDescriptions": [
-    {"id": "location.processional_ramp.plaque", "text": "The ramp was cut for a procession of honored dead. Bronze name plaques line the wet stone, and several bear scratches where someone has tried to remove names that keep returning."},
-    {"id": "location.processional_ramp.threshold", "text": "At the top of the ramp, a sealed inner door sits under a fractured bronze arch. It is a destination beyond the first route, not an empty backdrop or a doorway the party can fake open."}
+    {"id": "observation.processional_ramp.plaque", "text": "The ramp was cut for a procession of honored dead. Bronze name plaques line the wet stone, and several bear scratches where someone has tried to remove names that keep returning."},
+    {"id": "observation.processional_ramp.threshold", "text": "At the top of the ramp, a sealed inner door sits under a fractured bronze arch. It is a destination beyond the first route, not an empty backdrop or a doorway the party can fake open."}
   ],
   "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 2, "browserPerformanceGate": "pending", "releaseLegal": false}

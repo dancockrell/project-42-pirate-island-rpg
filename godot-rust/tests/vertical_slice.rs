@@ -21,7 +21,7 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
             "character.protagonist.captain".into(),
             "character.heroine.betty".into(),
         ],
-        "location.black_beach",
+        "world.cell.black_beach",
     )
     .expect("fresh campaign constructs");
     state.supplies = SupplyState {
@@ -39,16 +39,19 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     // 2. Travel by the safe road and persist its actual consequence.
     state.inspect(&geography);
     state
-        .travel("route.black_beach.to_river_landing", &geography)
+        .travel("world.portal.black_beach_to_damaged_estate", &geography)
+        .expect("legal route");
+    state
+        .travel("world.portal.damaged_estate_to_river_landing", &geography)
         .expect("legal route");
     let rations_before_river = state.supplies.rations;
     let travel_outcome = state
-        .travel("route.river_landing.safe_road", &geography)
+        .travel(
+            "world.portal.river_landing_to_reception_terrace_safe_road",
+            &geography,
+        )
         .expect("legal route");
-    assert_eq!(
-        travel_outcome.arrived_at,
-        "location.black_beach.reception_terrace"
-    );
+    assert_eq!(travel_outcome.arrived_at, "world.cell.reception_terrace");
     assert!(state.supplies.rations < rations_before_river);
     assert_boundary_round_trips(&state);
 
@@ -119,61 +122,79 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     //     gated on the reception space's own truth-telling observation, and
     //     the party returns to the terrace by the same door it entered.
     state
-        .travel("route.reception_terrace.to_processional_ramp", &geography)
+        .travel(
+            "world.portal.reception_terrace_to_processional_ramp",
+            &geography,
+        )
         .expect("legal route");
     state
-        .travel("route.processional_ramp.to_tomb_threshold", &geography)
+        .travel(
+            "world.portal.processional_ramp_to_tomb_threshold",
+            &geography,
+        )
         .expect("legal route");
     state
-        .travel("route.tomb_threshold.to_reception", &geography)
+        .travel("world.portal.tomb_threshold_to_tomb_reception", &geography)
         .expect("legal route");
     let archive_core_before_discovery = state
-        .travel("route.tomb_reception.to_archive_core", &geography)
+        .travel(
+            "world.portal.tomb_reception_to_tomb_archive_core",
+            &geography,
+        )
         .unwrap_err();
     assert_eq!(
         archive_core_before_discovery,
         ExpeditionError::MissingDiscovery {
-            route_id: "route.tomb_reception.to_archive_core".into(),
+            route_id: "world.portal.tomb_reception_to_tomb_archive_core".into(),
             discovery_id: "observation.tomb_reception.true_name".into(),
         }
     );
     let discovered = state.inspect(&geography);
     assert!(discovered.contains(&"observation.tomb_reception.true_name".to_owned()));
     state
-        .travel("route.tomb_reception.to_archive_core", &geography)
+        .travel(
+            "world.portal.tomb_reception_to_tomb_archive_core",
+            &geography,
+        )
         .expect("the truth-space discovery unlocks the archive core");
-    assert_eq!(
-        state.active_location_id,
-        "location.tomb.returning_names.archive_core"
-    );
+    assert_eq!(state.active_location_id, "world.cell.tomb_archive_core");
     assert_boundary_round_trips(&state);
     state
-        .travel("route.tomb_archive_core.to_reception", &geography)
+        .travel(
+            "world.portal.tomb_archive_core_to_tomb_reception",
+            &geography,
+        )
         .expect("legal route");
     state
-        .travel("route.tomb_reception.to_threshold", &geography)
+        .travel("world.portal.tomb_reception_to_tomb_threshold", &geography)
         .expect("legal route");
     state
-        .travel("route.tomb_threshold.to_processional_ramp", &geography)
+        .travel(
+            "world.portal.tomb_threshold_to_processional_ramp",
+            &geography,
+        )
         .expect("legal route");
     state
-        .travel("route.processional_ramp.to_reception_terrace", &geography)
+        .travel(
+            "world.portal.processional_ramp_to_reception_terrace",
+            &geography,
+        )
         .expect("legal route");
-    assert_eq!(
-        state.active_location_id,
-        "location.black_beach.reception_terrace"
-    );
+    assert_eq!(state.active_location_id, "world.cell.reception_terrace");
 
     state
-        .travel("route.reception_terrace.to_river_landing", &geography)
+        .travel(
+            "world.portal.reception_terrace_to_river_landing",
+            &geography,
+        )
         .expect("legal route");
+    // The river gate lands the party back at the estate directly: the authored
+    // map hangs the estate between the beach and the river, so coming home from
+    // the road no longer detours across the sand.
     state
-        .travel("route.river_landing.to_black_beach", &geography)
+        .travel("world.portal.river_landing_to_damaged_estate", &geography)
         .expect("legal route");
-    state
-        .travel("route.black_beach.to_estate", &geography)
-        .expect("legal route");
-    assert_eq!(state.active_location_id, "location.black_beach.estate");
+    assert_eq!(state.active_location_id, "world.cell.damaged_estate");
     assert_boundary_round_trips(&state);
 
     // 5. Take one estate action that changes a durable tactical fact.
