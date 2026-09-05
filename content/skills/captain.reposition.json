@@ -9,8 +9,7 @@
     "movementBands": 1,
     "guardGain": 1,
     "endsTurn": true,
-    "damageBase": 0,
-    "requiresUnoccupiedBand": true
+    "damageBase": 0
   },
   "animation": {
     "cardId": "animation.captain.reposition",

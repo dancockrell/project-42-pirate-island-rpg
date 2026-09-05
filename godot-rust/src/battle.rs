@@ -3463,7 +3463,7 @@ mod tests {
             0,
             10,
         );
-        michael.display_name = "Captain Michael".into();
+        michael.display_name = "Michael Corrigan".into();
         michael.band = Band::PartyRear.index();
         michael
     }
@@ -3797,5 +3797,34 @@ mod tests {
                 .guard,
             2
         );
+    }
+
+    /// The protagonist's name is authored in `content/characters/captain.json`,
+    /// whose own notes reconcile it: the full canonical name is Captain Michael
+    /// Corrigan, ordinary usage is Michael, and `Captain Corrigan` is the formal
+    /// address. The brief's instruction to "use Captain Michael" supersedes
+    /// Captain Jack; it does not remove the surname.
+    ///
+    /// A6 built the actor with a name written into Rust, which disagreed with
+    /// the record. Content owns it and this holds the two equal, the same way
+    /// loot yields and bond ranks are held.
+    #[test]
+    fn the_captain_carries_his_authored_display_name() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../content/characters/captain.json"
+        );
+        let text = std::fs::read_to_string(path).expect("the captain record is readable");
+        let record: serde_json::Value =
+            serde_json::from_str(&text).expect("the captain record is JSON");
+        let authored = record["displayName"]
+            .as_str()
+            .expect("the captain record declares a string displayName");
+        assert_eq!(
+            captain().display_name,
+            authored,
+            "content/characters/captain.json owns the protagonist's display name"
+        );
+        assert_eq!(captain().id.0, "character.protagonist.captain");
     }
 }

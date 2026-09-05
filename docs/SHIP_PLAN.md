@@ -346,9 +346,10 @@ top of the document is never stale:
 
 - **M0** shipped 7/13 · A1 A2 A11 B1 H6 H7 H9 · H2 and H10 superseded by
   `main`'s own rewrite · **remaining: C2, B2, H5, H8**
-- **M1** shipped 5/12 — **C1, C2, C4** (loot, portal costs, Michael's
+- **M1** shipped 6/12 — **C1, C2, C4** (loot, portal costs, Michael's
   commands), **A3** (the supply loop closes: anchors produce, rations bite,
-  victory pays) and **A5** (five named bands, Composure, the Shaken gate)
+  victory pays), **A5** (five named bands, Composure, the Shaken gate) and
+  **A6** (Michael is a playable actor: Weapon Attack, Guard, Reposition)
 - **M2** shipped 5/9 — **E1** (CI live and green on GitHub), **E2** (Godot
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures; E5 open with a hard
@@ -366,7 +367,7 @@ top of the document is never stale:
 | A3 | Economy: anchors, salvage, loot, scarcity | A2 | shipped 9360f66 2026-09-05 — loot ownership reconciled with C1 on merge |
 | A4 | Estate actions as anchor actions; delete `rest_at_estate` | A3 | open |
 | A5 | Five named bands and Composure | A1 | shipped 906411c 2026-09-05 — skill_rank reconciled to authored bondRank on merge |
-| A6 | Captain Michael as a battle actor: Weapon Attack, Guard, Reposition | A5, C4 | open |
+| A6 | Captain Michael as a battle actor: Weapon Attack, Guard, Reposition | A5, C4 | shipped SHAMARK 2026-09-05 — name and reposition record reconciled on merge |
 | A7 | Ayla's Deny Activation and Override Tomb Rule via site rules | A2, H5 | open |
 | A8 | Reconcile `hold_position` with the Guard decision | A6 | open |
 | A9 | Faction-agent observation record (was "Champion") | A6, S5 | open |
@@ -678,9 +679,13 @@ Two follow-ups A5 reported rather than reached for, both correct:
   Order. That is A6 and A9, not a gap in A5.
 
 ### A6 · Captain Michael as a battle actor
-Status: open · Depends on: A5, C4
-Build `character.protagonist.captain` — display name **Captain Michael**
-(brief; not player-named) — `Faction::Party`, level 3, vitality 90, guard 0,
+Status: shipped `SHAMARK` 2026-09-05 · Depends on: A5, C4
+Build `character.protagonist.captain` — display name read from
+`content/characters/captain.json`, which owns it (**Michael Corrigan**). The
+brief's "use Captain Michael" supersedes Captain Jack; it does not remove the
+surname, and the record's own notes reconcile the two — full canonical name
+Captain Michael Corrigan, ordinary usage Michael, formal address Captain
+Corrigan. Not player-named. — `Faction::Party`, level 3, vitality 90, guard 0,
 initiative 10, band PartyRear. Allowlist `skill.captain.weapon_attack`
 (default damage arm, one hostile target) and `skill.captain.reposition`
 (zero targets; extract the band move from `resolve_rescue_charge` into
@@ -690,6 +695,41 @@ else `RepositionNotLegal`). Owner prefix `skill.captain.` mirrors
 the doc). Echo and Field Order are not built here.
 Done when: the slice test shows Michael acting; Betty submitting his skill
 fails the owner check; both band moves share one helper.
+
+**Shipped.** Nine tests, two of which read `content/skills/*.json` at test time
+rather than restating its numbers — the lane applied that rule on its own,
+having been told it once. Both were proven to bite: quietly falling back to the
+generic damage arm fails the damage test, and permitting a move out of
+`Contested` fails the band test with the illegal `ActorMoved` event printed.
+
+The band move was extracted out of `resolve_rescue_charge` into
+`move_actor_to_band` and shared, never copied. It takes `i8` rather than `Band`
+because Rescue Charge copies whatever band its ally stands in, including a
+value outside the five — which is exactly why `Band::from_index` returns
+`Option`.
+
+`prototype_vertical_slice()` was deliberately left alone, because
+`native_simulation_port_test.gd` asserts it holds four actors and `game/` was
+not this lane's to edit. Michael enters through the slice test instead, where
+the razorbeak now survives the first round so the fight lasts long enough for
+him to reposition and then land the killing attack.
+
+**Two content contradictions the lane reported rather than papered over, both
+resolved by the integrator:**
+
+- `captain.reposition.json` authored `requiresUnoccupiedBand: true`, which
+  nothing implemented and nothing validated. The five-band model cannot support
+  it: A5's own fixture stands Betty and Vix both in `PartyFront`, so bands are
+  zones rather than tiles, and honouring the flag would make Reposition's only
+  legal destination unreachable whenever an ally happened to be standing in it.
+  The field is removed. A flag that no code reads and no test checks is a
+  promise the content makes and the game silently breaks.
+- The actor's display name was written into Rust as "Captain Michael" while
+  `content/characters/captain.json` authors "Michael Corrigan". Content owns it;
+  the Rust now reads from the record and
+  `the_captain_carries_his_authored_display_name` holds them equal. The A6 card
+  above carried the wrong instruction and has been corrected — the card was
+  wrong, not the lane.
 
 ### A7 · Ayla's Deny Activation and Override Tomb Rule via site rules
 Status: open · Depends on: A2, H5

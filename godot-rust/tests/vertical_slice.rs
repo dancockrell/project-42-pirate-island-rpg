@@ -137,7 +137,7 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
         [
             Actor {
                 id: ActorId("character.protagonist.captain".into()),
-                display_name: "Captain Michael".into(),
+                display_name: "Michael Corrigan".into(),
                 faction: Faction::Party,
                 level: 3,
                 vitality: 90,
