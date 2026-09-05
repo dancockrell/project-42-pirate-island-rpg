@@ -3,7 +3,7 @@
   "task_id": "e3-portable-godot-gates",
   "agent": "claude-opus-5-lane-e3",
   "summary": "E3: shell equivalents of the two PowerShell gates so the Godot headless suites can run on Linux and in CI",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-05T00:00:00Z",
   "updated_at": "2026-09-05T00:00:00Z",
   "paths": [
@@ -15,10 +15,27 @@
   "coordination": {
     "depends_on": [],
     "conflicts_with": [],
-    "notes": "E1 owns .github/** in the same round; this task adds no workflow. The Windows gates tools/build-native-bridge.ps1 and tools/verify-godot.ps1 are left untouched and remain the Windows path. game/bin/project42_sim.gdextension declares only windows.* libraries, so the Linux .so this build script produces is not yet registered by Godot; game/ is inside the active claim backend-p0-unify-expedition-spines, so that entry is left for its owner and for E2."
+    "notes": "E1 owns .github/** in the same round; this task adds no workflow. The Windows gates tools/build-native-bridge.ps1 and tools/verify-godot.ps1 are left untouched and remain the Windows path. game/bin/project42_sim.gdextension declares only windows.* libraries, so the Linux .so this build script produces is not yet registered by Godot; game/ is inside the active claim backend-p0-unify-expedition-spines, so that entry is left for its owner and for E2. The suites were never executed here: no Godot binary exists in this environment. The scripts were proved against a logging stub engine that records every invocation, so the command sequence, ordering, enumeration and exit-code propagation are verified while the GDScript assertions remain unverified until a runner with Godot 4 exists (E2)."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "5344b7b",
+    "checks": [
+      "bash -n tools/verify-godot.sh: passed",
+      "bash -n tools/build-native-bridge.sh: passed",
+      "shellcheck tools/verify-godot.sh tools/build-native-bridge.sh -- no findings: passed",
+      "tools/verify-godot.sh with no Godot on PATH and GODOT unset -- printed \"Godot executable not found: set GODOT to a Godot 4 binary, or put godot4 or godot on PATH.\" and exited 1: passed",
+      "tools/verify-godot.sh with GODOT=/nonexistent/godot -- printed \"Godot executable not found: /nonexistent/godot\" and exited 1: passed",
+      "tools/verify-godot.sh against a logging stub engine -- issued the 22 expected invocations in order (editor import, main scene --quit-after 3, 3 review scenes, 17 suites) and exited 0: passed",
+      "tools/verify-godot.sh with the stub failing on world_cell_test.gd -- stopped at that suite and exited 7: passed",
+      "tools/verify-godot.sh with the stub failing on the editor import -- stopped after 1 invocation and exited 7: passed",
+      "tools/build-native-bridge.sh debug -- cargo build --features godot-ext succeeded and installed game/bin/linux/project42_sim.linux.expedition_v5_debug.x86_64.so from libproject42_sim.so; the produced binary was then deleted, not committed: passed",
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml -- 111 unit + 1 integration: passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext -- covered by the build script run above: passed",
+      "node tools/src/validate.mjs -- 173 stable IDs: passed",
+      "node tools/src/build-content-bundle.mjs -- 28 records, sha256:62caf06493afeb11e154c5c54a99c78c2a531098c986fc17e32d388a9e6bad9d, no diff: passed",
+      "SHIP_PLAN section 8 docs dangle sweep -- no matches: passed",
+      "the seventeen GDScript suites themselves: not_run -- no Godot engine is installed in this environment, so only the driver was exercised (against a stub) and never the suites"
+    ]
   }
 }
