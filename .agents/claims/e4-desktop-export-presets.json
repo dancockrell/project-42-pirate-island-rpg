@@ -18,7 +18,7 @@
     "notes": "SHIP_PLAN.md section 9 assigns game/export_presets.cfg to Lane E and records that it collides with nothing. The active claim backend-p0-unify-expedition-spines lists game/ as a whole; this task touches only game/export_presets.cfg, which that task's summary does not concern. Per section 9 a worktree agent does not edit docs/SHIP_PLAN.md, so the E4 ledger row is left for the integrator. Left for another task: game/bin/linux/ and game/bin/macos/ contain no artifacts, so the Linux and macOS presets reference libraries the .gdextension declares but the tree does not yet carry; and /work/web-preview/ is gitignored while the new ../work/windows-desktop, ../work/linux-desktop and ../work/macos-desktop output directories are not."
   },
   "completion": {
-    "commit": "2111ec0",
+    "commit": "838824e",
     "checks": [
       "python3 configparser read of game/export_presets.cfg: passed (parses, 8 sections)",
       "structural check: [preset.N]/[preset.N.options] paired for N=0..3, contiguous, no orphans: passed",
