@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "task_id": "a5-bands-and-composure",
+  "agent": "claude-opus-5 (lane A5 worktree /home/user/p42-lane-A5)",
+  "summary": "Five named combat bands, Composure with Shaken, and the SS/SSS rank gate on submit",
+  "status": "completed",
+  "claimed_at": "2026-09-05T00:00:00Z",
+  "updated_at": "2026-09-05T00:00:00Z",
+  "paths": [
+    "godot-rust/src/battle.rs",
+    "godot-rust/src/godot_bridge.rs"
+  ],
+  "symbols": [
+    "Band",
+    "Band::from_index",
+    "Band::name",
+    "Actor.composure",
+    "Actor::spend_composure",
+    "StatusKind::Shaken",
+    "BattleError::ShakenCannotUse",
+    "skill_rank",
+    "Battle::prototype_vertical_slice",
+    "actor_dictionary",
+    "battle_error_code"
+  ],
+  "coordination": {
+    "depends_on": [
+      "A1"
+    ],
+    "conflicts_with": [],
+    "notes": "Reads content/skills/betty.*.json for bondRank but edits nothing outside the two owned Rust files. Does not edit docs/SHIP_PLAN.md (SS 8 rule). No Composure costs attached to existing skills -- A6/A9 own those numbers. Repaired one caller outside the two owned files: godot-rust/tests/vertical_slice.rs constructs Actor literally and had the same wrong fixture bands (Betty 0, Razorbeak 1)."
+  },
+  "completion": {
+    "commit": "56d63d1a0c3c238c35af4885c9e1a8791f8bf1aa",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed (no output)",
+      "cargo test --manifest-path godot-rust/Cargo.toml: passed (121 unit + 1 integration)",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed"
+    ]
+  }
+}

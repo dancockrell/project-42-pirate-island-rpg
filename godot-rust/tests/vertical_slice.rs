@@ -7,6 +7,7 @@
 
 use std::collections::BTreeMap;
 
+use project42_sim::battle::Band;
 use project42_sim::*;
 
 #[test]
@@ -139,7 +140,8 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
                 vitality: 100,
                 max_vitality: 100,
                 guard: 0,
-                band: 0,
+                band: Band::PartyFront.index(),
+                composure: 10,
                 initiative: 12,
                 statuses: Vec::new(),
                 intercepts_for: None,
@@ -153,7 +155,8 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
                 vitality: 1,
                 max_vitality: 70,
                 guard: 0,
-                band: 1,
+                band: Band::EnemyFront.index(),
+                composure: 10,
                 initiative: 11,
                 statuses: Vec::new(),
                 intercepts_for: None,

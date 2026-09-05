@@ -17,12 +17,71 @@ pub enum BattlePhase {
     Retreated,
 }
 
+/// The five combat bands, LOCKED by the design bible (`req.combat.bands.five`).
+/// `Actor.band` stays an `i8` so the save format does not change; every read of
+/// it goes through [`Band::from_index`] so an out-of-range value is visible
+/// rather than silently meaningful.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum Band {
+    PartyRear = 0,
+    PartyFront = 1,
+    Contested = 2,
+    EnemyFront = 3,
+    EnemyRear = 4,
+}
+
+impl Band {
+    pub fn from_index(index: i8) -> Option<Band> {
+        match index {
+            0 => Some(Band::PartyRear),
+            1 => Some(Band::PartyFront),
+            2 => Some(Band::Contested),
+            3 => Some(Band::EnemyFront),
+            4 => Some(Band::EnemyRear),
+            _ => None,
+        }
+    }
+
+    pub fn index(&self) -> i8 {
+        *self as i8
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self {
+            Band::PartyRear => "party_rear",
+            Band::PartyFront => "party_front",
+            Band::Contested => "contested",
+            Band::EnemyFront => "enemy_front",
+            Band::EnemyRear => "enemy_rear",
+        }
+    }
+}
+
+/// Bond rank of an authored skill, read from the `bondRank` field of the
+/// records under `content/skills/`. Used by the Composure gate: a Shaken actor
+/// may not spend an SS or SSS command.
+pub fn skill_rank(skill_id: &str) -> Option<&'static str> {
+    match skill_id {
+        "skill.betty.guarded_strike" => Some("D"),
+        "skill.betty.condition_cleanse" => Some("C"),
+        "skill.betty.rescue_charge" => Some("B"),
+        "skill.betty.healing_impact" => Some("A"),
+        "skill.betty.fatal_intercept" => Some("S"),
+        "skill.betty.mobile_infirmary" => Some("SS"),
+        "skill.betty.combat_revival" => Some("SSS"),
+        _ => None,
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StatusKind {
     Bleeding,
     Poisoned,
     Burning,
     Stunned,
+    /// Composure has hit zero. The actor keeps acting, but SS and SSS commands
+    /// (and, once it exists, Echo) are closed to them until it is restored.
+    Shaken,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -58,6 +117,9 @@ pub struct Actor {
     pub max_vitality: i32,
     pub guard: i32,
     pub band: i8,
+    /// Composure ranges 0-10. Costs and hostile effects reduce it; at 0 the
+    /// actor gains `Shaken` and cannot use SS, SSS or Echo commands.
+    pub composure: u8,
     pub initiative: i16,
     pub statuses: Vec<StatusInstance>,
     pub intercepts_for: Option<ActorId>,
@@ -66,6 +128,32 @@ pub struct Actor {
 impl Actor {
     pub fn is_alive(&self) -> bool {
         self.vitality > 0
+    }
+
+    /// The actor's stored band index resolved to a named band, or `None` when
+    /// the stored value is outside the five.
+    pub fn band_kind(&self) -> Option<Band> {
+        Band::from_index(self.band)
+    }
+
+    pub fn is_shaken(&self) -> bool {
+        self.statuses
+            .iter()
+            .any(|status| status.kind == StatusKind::Shaken)
+    }
+
+    /// Reduce Composure, saturating at zero. Reaching zero pushes `Shaken`
+    /// exactly once -- spending again while already at zero does not stack it.
+    pub fn spend_composure(&mut self, amount: u8) {
+        self.composure = self.composure.saturating_sub(amount);
+        if self.composure == 0 && !self.is_shaken() {
+            self.statuses.push(StatusInstance {
+                id: format!("status.{}.shaken", self.id.0),
+                kind: StatusKind::Shaken,
+                remaining_rounds: 0,
+                source_id: self.id.clone(),
+            });
+        }
     }
 }
 
@@ -289,6 +377,11 @@ pub enum BattleError {
         skill_id: String,
         actor_id: ActorId,
     },
+    /// Composure is spent: a Shaken actor may not spend an SS or SSS command.
+    ShakenCannotUse {
+        skill_id: String,
+        actor_id: ActorId,
+    },
     UnsupportedSkill(String),
     RetreatNotAllowed,
     IllegalRetreatActor(ActorId),
@@ -344,6 +437,7 @@ impl Battle {
                     max_vitality: vitality,
                     guard,
                     band: 0,
+                    composure: 10,
                     initiative,
                     statuses: Vec::new(),
                     intercepts_for: None,
@@ -359,6 +453,7 @@ impl Battle {
             0,
             12,
         );
+        betty.band = Band::PartyFront.index();
         betty
             .skill_uses_remaining
             .insert("skill.betty.fatal_intercept".into(), 1);
@@ -375,6 +470,7 @@ impl Battle {
             0,
             9,
         );
+        ayla.band = Band::PartyRear.index();
         ayla.vitality = 0;
         ayla.statuses.push(StatusInstance {
             id: "status.ayla.bleeding.prototype".into(),
@@ -385,7 +481,7 @@ impl Battle {
 
         let mut vix = actor("character.heroine.vix", "Vix", Faction::Party, 3, 80, 0, 10);
         vix.vitality = 10;
-        vix.band = 1;
+        vix.band = Band::PartyFront.index();
         vix.statuses.push(StatusInstance {
             id: "status.vix.poisoned.prototype".into(),
             kind: StatusKind::Poisoned,
@@ -402,7 +498,7 @@ impl Battle {
             3,
             11,
         );
-        razorbeak.band = 2;
+        razorbeak.band = Band::EnemyFront.index();
 
         Self::new(
             "battle.prototype.returning_names",
@@ -631,6 +727,12 @@ impl Battle {
             return Err(BattleError::ActorIncapacitated {
                 actor_id: command.actor_id,
                 status: StatusKind::Stunned,
+            });
+        }
+        if actor.is_shaken() && matches!(skill_rank(&command.skill_id), Some("SS") | Some("SSS")) {
+            return Err(BattleError::ShakenCannotUse {
+                skill_id: command.skill_id,
+                actor_id: command.actor_id,
             });
         }
         if !matches!(
@@ -972,11 +1074,19 @@ impl Battle {
         let target_id = &command.target_ids[0];
         let target = self.actors.get_mut(target_id).expect("target checked");
         target.statuses.sort_by(|left, right| {
-            status_priority(&left.kind)
-                .cmp(&status_priority(&right.kind))
+            cleanse_priority(&left.kind)
+                .unwrap_or(u8::MAX)
+                .cmp(&cleanse_priority(&right.kind).unwrap_or(u8::MAX))
                 .then_with(|| left.id.cmp(&right.id))
         });
-        let remove_count = target.statuses.len().min(2);
+        // Statuses the cleanse cannot remove sort last, so the drain stops at
+        // the first of them rather than reaching into them.
+        let remove_count = target
+            .statuses
+            .iter()
+            .take_while(|status| cleanse_priority(&status.kind).is_some())
+            .count()
+            .min(2);
         for status in target.statuses.drain(0..remove_count).collect::<Vec<_>>() {
             events.push(BattleEvent::StatusRemoved {
                 command_id: command.command_id.clone(),
@@ -1463,12 +1573,19 @@ impl Battle {
     }
 }
 
-fn status_priority(kind: &StatusKind) -> u8 {
+/// Sort key for `skill.betty.condition_cleanse`, whose `removalPriority` is
+/// authored in `content/skills/betty.condition_cleanse.json` as exactly
+/// `["stunned", "burning", "poisoned", "bleeding"]` and pinned by
+/// `tools/src/validate.mjs`. `Shaken` is deliberately absent: Composure is not
+/// restored by a rank C cleanse, so `None` marks a status the cleanse sorts
+/// last and never removes.
+fn cleanse_priority(kind: &StatusKind) -> Option<u8> {
     match kind {
-        StatusKind::Stunned => 0,
-        StatusKind::Burning => 1,
-        StatusKind::Poisoned => 2,
-        StatusKind::Bleeding => 3,
+        StatusKind::Stunned => Some(0),
+        StatusKind::Burning => Some(1),
+        StatusKind::Poisoned => Some(2),
+        StatusKind::Bleeding => Some(3),
+        StatusKind::Shaken => None,
     }
 }
 
@@ -1498,6 +1615,7 @@ mod tests {
             max_vitality: vitality,
             guard,
             band: 0,
+            composure: 10,
             initiative,
             statuses: Vec::new(),
             intercepts_for: None,
@@ -1942,8 +2060,8 @@ mod tests {
                 source_id: ActorId("enemy.test".into()),
             },
         ];
-        betty.band = 1;
-        ayla.band = 1;
+        betty.band = Band::PartyFront.index();
+        ayla.band = Band::PartyFront.index();
         let mut battle = Battle::new(
             "battle.cleanse",
             [
@@ -1979,9 +2097,9 @@ mod tests {
     #[test]
     fn rescue_charge_moves_betty_sets_interception_and_hits_named_hostile() {
         let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
-        betty.band = 0;
+        betty.band = Band::PartyRear.index();
         let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 80, 0, 10);
-        ayla.band = 2;
+        ayla.band = Band::PartyFront.index();
         let enemy = actor("enemy.test", Faction::Hostile, 4, 50, 3, 8);
         let mut battle = Battle::new("battle.rescue", [betty, ayla, enemy]);
         battle.start();
@@ -1999,7 +2117,7 @@ mod tests {
         let betty = battle
             .actor(&ActorId("character.heroine.betty".into()))
             .unwrap();
-        assert_eq!(betty.band, 2);
+        assert_eq!(betty.band_kind(), Some(Band::PartyFront));
         assert_eq!(
             betty.intercepts_for,
             Some(ActorId("character.heroine.ayla".into()))
@@ -2021,12 +2139,12 @@ mod tests {
     #[test]
     fn rescue_interception_redirects_exactly_one_enemy_attack() {
         let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
-        betty.band = 0;
+        betty.band = Band::PartyRear.index();
         betty
             .skill_uses_remaining
             .insert("skill.betty.fatal_intercept".into(), 1);
         let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 80, 0, 8);
-        ayla.band = 2;
+        ayla.band = Band::PartyFront.index();
         let enemy = actor(
             "enemy.raptor.razorbeak.prototype",
             Faction::Hostile,
@@ -2946,5 +3064,229 @@ mod tests {
             event,
             BattleEvent::DamageApplied { target_id, .. } if target_id.0 == "character.heroine.betty"
         )));
+    }
+
+    #[test]
+    fn every_band_round_trips_through_from_index_and_has_a_name() {
+        let bands = [
+            (0i8, Band::PartyRear, "party_rear"),
+            (1, Band::PartyFront, "party_front"),
+            (2, Band::Contested, "contested"),
+            (3, Band::EnemyFront, "enemy_front"),
+            (4, Band::EnemyRear, "enemy_rear"),
+        ];
+        for (index, band, name) in bands {
+            assert_eq!(Band::from_index(index), Some(band));
+            assert_eq!(band.index(), index);
+            assert_eq!(band.name(), name);
+        }
+        assert_eq!(Band::from_index(-1), None);
+        assert_eq!(Band::from_index(5), None);
+        assert_eq!(Band::from_index(i8::MAX), None);
+    }
+
+    #[test]
+    fn prototype_fixture_places_every_actor_in_a_named_band() {
+        let battle = Battle::prototype_vertical_slice();
+        let band_of = |id: &str| {
+            battle
+                .actor(&ActorId(id.into()))
+                .expect("fixture actor exists")
+                .band_kind()
+        };
+        assert_eq!(band_of("character.heroine.betty"), Some(Band::PartyFront));
+        assert_eq!(band_of("character.heroine.vix"), Some(Band::PartyFront));
+        assert_eq!(band_of("character.heroine.ayla"), Some(Band::PartyRear));
+        assert_eq!(
+            band_of("enemy.raptor.razorbeak.prototype"),
+            Some(Band::EnemyFront)
+        );
+    }
+
+    #[test]
+    fn prototype_fixture_starts_every_actor_at_full_composure() {
+        let battle = Battle::prototype_vertical_slice();
+        for actor in battle.snapshot().actors {
+            assert_eq!(actor.composure, 10, "{}", actor.id.0);
+            assert!(!actor.is_shaken(), "{}", actor.id.0);
+        }
+    }
+
+    #[test]
+    fn spending_composure_to_zero_applies_shaken_exactly_once() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        assert_eq!(betty.composure, 10);
+
+        betty.spend_composure(4);
+        assert_eq!(betty.composure, 6);
+        assert!(!betty.is_shaken());
+
+        betty.spend_composure(6);
+        assert_eq!(betty.composure, 0);
+        assert_eq!(
+            betty
+                .statuses
+                .iter()
+                .filter(|status| status.kind == StatusKind::Shaken)
+                .count(),
+            1
+        );
+
+        // Saturates at zero, and does not stack a second Shaken.
+        betty.spend_composure(200);
+        assert_eq!(betty.composure, 0);
+        assert_eq!(
+            betty
+                .statuses
+                .iter()
+                .filter(|status| status.kind == StatusKind::Shaken)
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn skill_rank_reads_the_authored_bond_ranks() {
+        assert_eq!(skill_rank("skill.betty.guarded_strike"), Some("D"));
+        assert_eq!(skill_rank("skill.betty.condition_cleanse"), Some("C"));
+        assert_eq!(skill_rank("skill.betty.rescue_charge"), Some("B"));
+        assert_eq!(skill_rank("skill.betty.healing_impact"), Some("A"));
+        assert_eq!(skill_rank("skill.betty.fatal_intercept"), Some("S"));
+        assert_eq!(skill_rank("skill.betty.mobile_infirmary"), Some("SS"));
+        assert_eq!(skill_rank("skill.betty.combat_revival"), Some("SSS"));
+        assert_eq!(skill_rank("skill.system.hold_position"), None);
+        assert_eq!(skill_rank("skill.betty.not_real"), None);
+    }
+
+    fn shaken_betty_battle() -> Battle {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty.band = Band::PartyFront.index();
+        betty
+            .skill_uses_remaining
+            .insert("skill.betty.combat_revival".into(), 1);
+        betty.spend_composure(10);
+        assert!(betty.is_shaken());
+        let mut enemy = actor("enemy.test", Faction::Hostile, 4, 50, 3, 8);
+        enemy.band = Band::EnemyFront.index();
+        let mut battle = Battle::new("battle.shaken", [betty, enemy]);
+        battle.start();
+        battle
+    }
+
+    #[test]
+    fn shaken_betty_cannot_submit_an_sss_command() {
+        let mut battle = shaken_betty_battle();
+        let mut fallen = actor("character.heroine.ayla", Faction::Party, 3, 80, 0, 4);
+        fallen.vitality = 0;
+        let error = battle
+            .submit(SkillCommand {
+                command_id: "revive".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.combat_revival".into(),
+                target_ids: vec![ActorId("character.heroine.ayla".into())],
+            })
+            .unwrap_err();
+        assert_eq!(
+            error,
+            BattleError::ShakenCannotUse {
+                skill_id: "skill.betty.combat_revival".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+            }
+        );
+    }
+
+    #[test]
+    fn shaken_betty_cannot_submit_an_ss_command() {
+        let mut battle = shaken_betty_battle();
+        let error = battle
+            .submit(SkillCommand {
+                command_id: "infirmary".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.mobile_infirmary".into(),
+                target_ids: Vec::new(),
+            })
+            .unwrap_err();
+        assert!(matches!(error, BattleError::ShakenCannotUse { .. }));
+    }
+
+    #[test]
+    fn shaken_betty_can_still_submit_her_rank_d_command() {
+        let mut battle = shaken_betty_battle();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "strike".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.guarded_strike".into(),
+                target_ids: vec![ActorId("enemy.test".into())],
+            })
+            .expect("a rank D command survives Shaken");
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::DamageApplied { .. }))
+        );
+    }
+
+    #[test]
+    fn an_unshaken_betty_may_still_use_her_sss_command() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty
+            .skill_uses_remaining
+            .insert("skill.betty.combat_revival".into(), 1);
+        assert!(!betty.is_shaken());
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 80, 0, 4);
+        ayla.vitality = 0;
+        let enemy = actor("enemy.test", Faction::Hostile, 4, 50, 3, 8);
+        let mut battle = Battle::new("battle.unshaken", [betty, ayla, enemy]);
+        battle.start();
+        battle
+            .submit(SkillCommand {
+                command_id: "revive".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.combat_revival".into(),
+                target_ids: vec![ActorId("character.heroine.ayla".into())],
+            })
+            .expect("Composure intact, so the SSS command is legal");
+    }
+
+    #[test]
+    fn condition_cleanse_leaves_shaken_alone() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty.band = Band::PartyFront.index();
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 100, 0, 10);
+        ayla.band = Band::PartyFront.index();
+        ayla.spend_composure(10);
+        ayla.statuses.push(StatusInstance {
+            id: "status.ayla.bleeding".into(),
+            kind: StatusKind::Bleeding,
+            remaining_rounds: 2,
+            source_id: ActorId("enemy.test".into()),
+        });
+        let mut battle = Battle::new(
+            "battle.cleanse.shaken",
+            [
+                betty,
+                ayla,
+                actor("enemy.test", Faction::Hostile, 3, 50, 0, 8),
+            ],
+        );
+        battle.start();
+        battle
+            .submit(SkillCommand {
+                command_id: "cleanse".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.condition_cleanse".into(),
+                target_ids: vec![ActorId("character.heroine.ayla".into())],
+            })
+            .unwrap();
+        let ayla = battle
+            .actor(&ActorId("character.heroine.ayla".into()))
+            .unwrap();
+        assert!(
+            ayla.is_shaken(),
+            "a rank C cleanse does not restore Composure"
+        );
+        assert_eq!(ayla.statuses.len(), 1);
+        assert_eq!(ayla.statuses[0].kind, StatusKind::Shaken);
     }
 }
