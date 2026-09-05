@@ -5,8 +5,16 @@ written 2026-09-04 from a full survey of this repository, every open branch,
 the design bible, the production contracts in `docs/`, and the sibling
 `dr-companion` repository; rebuilt the same day when the **Pirate Island
 Continuation Brief** (`docs/PIRATE_ISLAND_CONTINUATION_BRIEF.md`) arrived
-and became the current design authority. This document supersedes
-`GAME_BUILD_PLAN.md` §7.
+and became the current design authority.
+
+**What owns what.** `docs/PIRATE_ISLAND_CONTINUATION_BRIEF.md` is the design
+authority. `docs/GAME_BUILD_PLAN.md` is the **design contract** — the accepted
+system contracts, the dependency order, and which older documents survive; it
+was rewritten on `main` in parallel with this plan's first edition, and it
+wins on direction. **This document owns the execution path only**: what is
+actually built, in what order, by whom, with what proof. Where this plan and
+the build plan disagree about direction, the build plan is right and this one
+is corrected.
 
 This is two documents in one. **Part I** (§1–§4) is the argument: what the
 game now is, where the code actually is, what shipping means, the milestones
@@ -72,6 +80,10 @@ Accepted and load-bearing for this plan:
 - **Fixed-view isometric presentation.** Blockouts first; standard
   building envelopes; **animation deferred**; assets future-ready (pivots,
   sockets, rigs, metadata).
+- **Dual clocks** (`GAME_BUILD_PLAN.md`): world time and Cthulhu
+  patience/heat are distinct state dimensions. Advancing time must not
+  silently imply an equal heat increase, and each must be independently
+  testable.
 - **Persistence:** seed, graph, ownership, buildings, queues, resources,
   relationships, goals, forces, weather, corruption, hidden pressure,
   elimination, dungeon signatures, companion theories, recruitment and
@@ -363,7 +375,7 @@ top of the document is never stale:
 | S5 | Utility AI and strategic states | S4 | open |
 | S6 | `StrategicDirective` vocabulary and plain-language explanation | S5 | open |
 | S7 | Offscreen forces and materialisation through routes and sockets | S4, S2 | open |
-| S8 | Weather, corruption, hidden pressure, Day 100 | S4 | open |
+| S8 | Weather, corruption, and the dual clocks (world time vs patience/heat) | S4 | open |
 | S9 | `DungeonContext` and generation signature | S3, S8 | open |
 | S10 | Elimination and the recovery chain | S3, S7 | open |
 | S11 | Event journal and the strategic save fields | S4 | open |
@@ -448,7 +460,7 @@ G1 is the acceptance script; G2/G3 two external rounds.
 | ID | Task | Depends on | Status |
 |---|---|---|---|
 | H1 | `docs/STATUS.md` adopted and current | — | done (this pass) |
-| H2 | `GAME_BUILD_PLAN.md` §7 rewritten | — | done (this pass) |
+| H2 | `GAME_BUILD_PLAN.md` §7 rewritten | — | superseded — `main` replaced the whole document (e77c9e6); its version is canonical and this plan defers to it |
 | H3 | Bible wording: 3D; romance and the pack | — | done (this pass) |
 | H4 | 3D production docs: rigging is a switch; clips wait for the tool | — | done (this pass) |
 | H5 | Site-rule spec into `HEROINE_AYLA_DESIGN.md` | — | open |
@@ -456,7 +468,7 @@ G1 is the acceptance script; G2/G3 two external rounds.
 | H7 | dr-companion `.gitmodules` branch pointer | — | open |
 | H8 | Regenerate the design bible `.docx` | H3, H9 | open (needs `python-docx`) |
 | H9 | Bible: superseded entries marked; brief named as authority | — | done (this pass) |
-| H10 | `GAME_BUILD_PLAN.md` C2 roster and E2 exit test reconciled to the brief | — | done (this pass) |
+| H10 | `GAME_BUILD_PLAN.md` C2 roster and E2 exit test reconciled to the brief | — | superseded — same rewrite; `main` states the roster contract directly |
 
 ## 7. Task cards
 
@@ -762,11 +774,19 @@ identity survive the aggregate↔local transition.
 Done when: a test moves a force three cells and asserts its arrival event
 carries the same composition it left with.
 
-### S8 · Weather, corruption, hidden pressure, Day 100
+### S8 · Weather, corruption, and the dual clocks
 Status: open · Depends on: S4
-`WeatherState` per region; `corruption: BTreeMap<cell, u8>`; `hidden_pressure: u32`
-(separate from world time — brief §13); confrontation trigger by discovery,
-Day 100, or maximum pressure. Cthulhu assistance events are weighted and
+`GAME_BUILD_PLAN.md` names this a system contract: **world time and Cthulhu
+patience/heat are distinct dimensions**, advancing one must not silently
+advance the other, and each must be independently testable. So: `campaign_day`
+(existing) is world time; `cthulhu_heat: u32` is its own field with its own
+inputs (rituals completed, corrupted cells held, party interference — not the
+passage of days by itself). The required test is the contract's own wording:
+advance world time by thirty days with no Cthulhu-relevant event and assert
+heat is unchanged; then trigger one heat event on a single day and assert heat
+moved while the day count did not jump.
+Also: `WeatherState` per region; `corruption: BTreeMap<cell, u8>`;
+confrontation trigger by discovery, Day 100, or maximum heat. Cthulhu assistance events are weighted and
 state-gated (only when `strategic_state ∈ {Advantaged, Closing}`), never a
 rescue when losing. Reversibility of corruption is **Open** — implement
 accumulation only and mark decay `blocked: needs decision`.
@@ -941,8 +961,18 @@ beside the nightly; the adult-store build is base + pack, never a second build.
 `req.scope.campaign.duration` rewritten to the brief; protagonist hypothesis
 → Captain Michael; a "current authority" callout added at the top of the
 generator naming the brief.
-### H10 · `GAME_BUILD_PLAN.md` reconciled · done — C2's roster and E2's exit
-test no longer name six heroines; §4.1's party cap reads five.
+### H2 / H10 · superseded by `main`
+While this plan's first edition was being written, `main` rewrote
+`GAME_BUILD_PLAN.md` end to end (`e77c9e6`, "replace side-view build direction
+with autonomous RTS contract") and stamped a prototype-scope banner into every
+other document. That rewrite states the roster, the party size, the dual
+clocks and the board contract directly, so the targeted edits H2 and H10
+described no longer have anything to edit. Both sides reached the same
+conclusion independently; `main`'s is canonical and was taken wholesale in the
+merge. The edits that were *additive* rather than duplicative — the rigging
+and animation-tool wording in the 3D contracts, the shared-asset platform's
+presentation line, the RUNBOOK's generator wording — survived the merge and
+stand.
 
 ---
 

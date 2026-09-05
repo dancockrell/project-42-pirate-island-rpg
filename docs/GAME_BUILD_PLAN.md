@@ -1,432 +1,58 @@
-# Project 42: Pirate Island RPG — Build Plan
-
-## 1. The game being built
-
-Project 42 is a party-based, side-view tactical RPG about Captain Michael
-Corrigan and the adult women who choose to join his household on a lost,
-dangerous tropical island. Michael is the captain and inventor who survived
-the destruction of the steam-refitted tea cutter *Handsome Jack*. The island
-is predominantly ancient elven magical Bronze Age infrastructure reclaimed by
-jungle. Colonial ports, forts, fox-folk docks and orc institutions exist as
-small foreign footholds; they do not turn the island into a built-up colonial
-city map. Dinosaurs are wild across the island. The party explores, reads the
-world through detailed authored observation text, enters dangerous sites,
-fights individual high-presence threats, returns to an estate, gains allies,
-and changes what can be attempted tomorrow.
-
-This plan builds one coherent game, in dependency order. A phase is complete
-only when its exit test passes in the running game and its changed files are
-committed and pushed. A sketch, an attractive screenshot or a disconnected
-screen is not completion.
-
-## 2. Fixed player-facing promises
-
-### 2.1 The first playable chapter
-
-The first chapter begins at Black Beach after the wreck of the *Handsome
-Jack*. Michael reaches the damaged coastal estate, makes it defensible enough
-to function, then leads a party along the river approach to Reception Terrace,
-the first open elven processional site. The chapter ends when the party has
-survived the terrace encounter, returned to the estate, and carried a real
-change back into household life.
-
-### 2.2 What every battle looks like
-
-The battle camera is one broad, theatrical side-view field. It uses the
-reference battle composition as the spatial target: deep jungle and enormous
-elven ruin at left and in the distance; a clear ground plane through the
-middle; the active heroine in the party foreground; an individual enemy at
-the enemy front; compact party cards only at the lower left; actual commands
-only at the lower centre. The card-to-active transition is the central visual
-rule. A party member is compressed into her card until she is selected or
-acts. She then unfolds into a complete full-body fighter on the shared battle
-floor. The camera never cuts off her head, boots, weapon, target, or the
-meaningful part of her effect envelope.
-
-The initial encounter contains Betty, Michael, and one Razorbeak. It does not
-pretend that a fourth heroine or an orc is present merely because the reference
-composition has room for them. As authored characters and enemies become live,
-they occupy those already-defined spaces.
-
-### 2.3 The relationship fantasy
-
-This is adult haremlit with adult characters. Michael is admired because he is
-capable, decent, brave and increasingly able to protect the people who choose
-him. The household is stable. Its women are interested in Michael and in one
-another, and the fantasy is affectionate expansion, not betrayal, surprise
-romantic rivals or an analysis of relationship failure. The player is never
-asked to force a woman, manage hidden outside affairs, or discover that a
-committed heroine has been taken away by a romance twist. Romance scenes and
-household scenes earn new skills, scenes, outfit variants and tactical links
-through authored story progress.
-
-### 2.4 The island’s strange daily law
-
-At midnight, eligible dead people and monsters return in flashes of light.
-Named people remember their deaths and keep a death counter. They may mention
-it in conversation. They are used to the horror in the practical, uneasy way
-people become used to a fact that cannot be changed. Monsters repopulate their
-habitats individually, at the day’s encounter level. The result is a dense
-island of memorable foes, not waves of disposable one-shot enemies.
-
-## 3. Reference ledger and non-negotiable visual reading
-
-The following files are production references, not decorative mood boards:
-
-| Reference | It approves | It does not approve |
-| --- | --- | --- |
-| `work/art/battle-ui.png` | one large active fighter, individual threat scale, compact party rail, bronze-dark UI, rich ruin/jungle depth | a fake top progress track, anonymous corner crests, a second enemy that is not simulated, dead UI ornaments |
-| `work/art/betty-keyframes.png` | readable pose sequence: card state, unfold, ready, action, impact, recovery; full body in frame | a static portrait standing in for a rig, effects that obscure the actor |
-| `work/art/world-visual-grammar-v1.png` | immense magical Bronze Age elven ruins, wild jungle, wild dinosaurs, sparse outsider settlements | an island built mostly from colonial blocks, captive dinosaur pens |
-| `content/art/betty.reference_ledger.json` | adult, slender, small-busted, auburn curls, green eyes, medicine gear, short boarding mace, cute/sexy confident silhouette | bulky realism, oversized bust, wizard staff, cropped body or weapon |
-
-Every temporary visual asset must carry machine-readable metadata: stable ID,
-purpose, camera, full-body-safe-frame, layer order, required body parts,
-weapon socket, replacement source, and test that proves it can be removed
-without changing gameplay. No dummy visual is allowed to masquerade as an
-approved final asset.
-
-## 4. Runtime architecture before content expansion
-
-### 4.1 Single source of truth
-
-`ExpeditionState` owns campaign truth:
-
-```text
-ExpeditionState
-  campaign_day: int
-  time_segment: Dawn | Day | Dusk | Midnight
-  party_ids: CharacterId[1..5]
-  active_location_id: LocationId
-  route_history: RouteStep[]
-  supplies: SupplyState
-  character_states: Map<CharacterId, CharacterState>
-  named_person_memory: Map<PersonId, DeathMemory>
-  habitat_states: Map<HabitatId, HabitatState>
-  discoveries: Set<DiscoveryId>
-  household_progress: HouseholdProgress
-  pending_encounter: EncounterState | null
-  rng_seed: int
-```
-
-Scenes render this state and send commands to it. A scene must not keep a
-second health value, encounter result, day counter or romance-progress value.
-The battle receives a snapshot and emits an authoritative result transaction.
-
-### 4.2 Presentation boundary
-
-Game rules use data IDs and records. Godot presentation receives only the
-resolved state it needs: actor identity, visible health/guard, selected pose,
-action timing, target IDs, safe frame and art contract. Presentation cannot
-silently alter damage, unlock a skill, revive a character or advance time.
-
-### 4.3 Save boundary
-
-Save at four boundaries only: entering a location, choosing a route, beginning
-an encounter and resolving an encounter/estate action. Autosave writes the
-same serializable `ExpeditionState`; it never serializes Godot nodes.
-
-## 5. Build sequence
-
-## Phase A — Make the first chapter navigable
-
-### A1. Campaign bootstrap
-
-Build the start menu, new-game seed, save slot, and first `ExpeditionState`.
-New game creates Michael, Betty, a damaged estate, Black Beach as the current
-location, and a single available route toward Reception Terrace. The title
-card says **Michael Corrigan**, captain of the *Handsome Jack*.
-
-**Exit test:** start a fresh game, quit at the estate, reload, and receive the
-same legal actions, character state and seeded Razorbeak encounter.
-
-### A2. Black Beach and estate
-
-Build the shore scene and estate scene as separate playable spaces. Black
-Beach gives the wreck, salvage choice and first observation. The estate gives
-four immediately useful anchors: workshop, infirmary, map table and household
-room. Each anchor has one current action and one textual observation that
-changes when state changes. No decorative button exists without a command.
-
-**Exit test:** salvage at the beach changes supplies; return to the estate;
-the workshop and infirmary report the changed state after reload.
-
-### A3. Route screen
-
-Build a compact island route presentation, not a full open-world map. It shows
-the river landing, safe road, jungle edge, discovered sites, travel cost,
-known risk and return path. The visible art follows the world reference:
-elven ruins dominate the terrain, vegetation breaks up every route, one small
-outsider landmark may appear only where its location data says it exists.
-
-**Exit test:** choose road or jungle edge; advance time; receive distinct
-observation text and an encounter seed tied to that route choice.
-
-#### A3 implementation contract: expedition route board
-
-The default playable scene is `ExpeditionPrototype`. It is not an open-world
-map, a menu full of fake destinations, or a second campaign simulation.
-`NativeExpeditionPort` configures Rust from the validated world-cell records;
-the screen renders `active_location_id`, `campaign_day`, `time_segment`, and
-only the `legal_route_commands` returned by that native snapshot.
-
-```text
-Top:      Michael Corrigan / Black Beach Expedition, day and time segment.
-Left:     Black Beach route board. It shows the five authored cells and their
-          true portal graph. Teal paths are currently legal. Bronze paths are
-          known links. The current cell is the only filled current-location pin.
-Right:    current cell name, its two authored observations, then only legal
-          departures. Each departure identifies destination and travel mode.
-Bottom:   party identity and the Rust authority/save-boundary statement.
-```
-
-The route board never offers a direct click command. Buttons are created from
-the current cell's portal records only after their stable IDs match native
-`travel:<portal_id>` commands. Pressing a button calls `ExpeditionPort.travel`;
-the returned snapshot completely replaces the projected state. An unavailable
-native bridge blocks startup with a literal error rather than inventing a
-browser-only route state. The authored first path is Black Beach → Damaged
-Coastal Estate → River Landing → either safe road or jungle edge → Reception
-Terrace.
-
-**Native reload gate:** the expedition screen is tested against the live Rust
-bridge after the GDExtension DLL is rebuilt and no active Godot process is
-holding the previous DLL. Until then, compilation, content validation, Rust
-route tests, and a truthful blocked-startup path are the only valid evidence;
-do not call the route playable in a process with the old extension loaded.
-
-## Phase B — Make Reception Terrace a real combat location
-
-### B1. Location blockout and authored text
-
-Build Reception Terrace as a two-layer scene: exploration entrance and combat
-field. The exploration entrance has the broken elven processional ramp, a
-collapsed reception arch, one obvious observation point, one loot point, one
-retreat path and the Razorbeak’s territorial sign. The combat field preserves
-the same left ruin, distant terraces, jungle depth, and stone floor so combat
-is recognizably occurring in that place.
-
-**Exit test:** the player can identify where the party is standing, where they
-can retreat, and why the Razorbeak is here without opening a codex panel.
-
-### B2. Exact battle screen composition
-
-Use a 1920×1080 logical canvas. Reserve the 8% safe frame around all
-full-body action.
-
-```text
-0–150 px     only location/time and current enemy intent; no progress rail
-150–780 px   shared battle plane and all active actors
-780–1060 px  party cards at lower-left; active skill grid lower-centre
-
-Party foreground:  x 230–650
-Contested space:   x 650–1020
-Enemy foreground:  x 1020–1430
-Enemy rear:        x 1430–1810
-```
-
-Current first encounter layout:
-
-- Michael: compact card, bottom left; present as party leader, not expanded.
-- Betty: selected active fighter at party foreground; 420×560 interaction box;
-  full body, satchel, short mace and effects remain inside safe frame.
-- Razorbeak: one active enemy at enemy foreground; 385×420 interaction box;
-  full body and bite envelope remain inside safe frame.
-- Party rail: only Michael and Betty cards until additional party members are
-  authored and active. No empty portrait frames.
-- Commands: Betty’s actual seven skills as a centred four-over-three diamond
-  grid. D-rank `Guarded Strike` is actionable. C through SSS identify the
-  real authored skill and are locked until their actual bond milestone. No
-  invented eighth diamond.
-
-**Exit test:** a screenshot at 1920×1080 contains complete actors, weapon,
-target and effect envelopes. Every visible card, bar, text label and diamond
-has a data source and a live purpose.
-
-### B3. 3D actor standard
-
-The production presentation is a 3D fighter and stage viewed through a fixed
-side-view battle camera, with the card rail and command grid remaining 2D.
-Temporary paper rigs remain technical blocking tools only. They do not define
-the visual source and cannot replace an approved rigged model.
-
-Every production actor has a root, named skeleton, named weapon socket,
-separate held weapon, material slots and literal clips. Betty’s minimum 3D
-hierarchy is:
-
-```text
-BettyRoot → Hips → Spine → Chest → Neck → Head
-  LeftUpperArm → LeftLowerArm → LeftHand
-  RightUpperArm → RightLowerArm → RightHand → Socket_Weapon_R → boarding_mace
-  LeftUpperLeg → LeftLowerLeg → LeftFoot
-  RightUpperLeg → RightLowerLeg → RightFoot
-  optional: hair, coat-tail, satchel and ampoule-rack secondary bones
-```
-
-The active camera must allow pose changes without clipping. The required first
-clip set is `Idle_Ready`, `Step_Forward`, `GuardedStrike_Anticipation`,
-`GuardedStrike_Contact` and `GuardedStrike_Recovery`. Betty is not a generic
-nurse or a large-busted fantasy pin-up: her reference ledger controls the mesh
-silhouette, source plate, materials and final animation work.
-
-**Exit test:** a GLB inspection finds the required skeleton, weapon socket and
-five named clips. Five camera screenshots of one action use the same mesh and
-show no crop. The model cannot be admitted as an animated fighter merely
-because it is a good static render.
-
-### B4. First complete command
-
-Implement `skill.betty.guarded_strike` exactly before adding another skill.
-
-```text
-Input: choose Guarded Strike → choose legal enemy.
-Validation: one adjacent enemy and one threatened party ally share a legal band relation.
-Presentation: Betty steps across the ally line, raises her short mace,
-  catches the incoming threat, strikes Razorbeak, then plants the mace in a
-  recovery guard pose.
-Resolution: damage target; grant 2 Guard to threatened ally; log result;
-  update cards and enemy intent.
-```
-
-This is a five-pose sequence: ready, forward step, anticipation, contact,
-recovery. It must be clear at the game camera before any VFX are added.
-
-**Exit test:** player command, target preview, resolution, card update,
-Razorbeak reply, victory, defeat and retreat all execute deterministically in
-the browser.
-
-## Phase C — Turn combat into a party game
-
-### C1. Active-card transition system
-
-Build the transition that changes a compact card into an active battle actor
-and returns that actor to a card. It uses the same `CharacterId`, health,
-guard, readiness, pose rig and target context. The transition is gameplay
-readable: selected card glows, the active stage box opens, actor enters,
-command grid binds to that actor, actor resolves, card updates.
-
-**Exit test:** Betty, Michael and the next authored heroine can each take one
-turn using the same transition path. No actor remains visible on the stage
-after her state says she is inactive.
-
-### C2. Party roster order
-
-The core cast is Captain Michael and four women (`docs/PIRATE_ISLAND_CONTINUATION_BRIEF.md`
-§1). Two are established in this repository and are authored in this order:
-
-1. **Betty** — combat surgeon; boarding mace; protection, rescue and healing.
-2. **Ayla** — jungle-elf tomb warden; bronze spear; crossings, structure and
-   tomb-rule override.
-
-The identities, origins and portfolios of the other two women are **open**
-(brief §20). Do not author a third or fourth woman until that decision is
-recorded; the bible's earlier six-name roster is superseded.
-
-**Exit test:** each heroine’s D-rank skill alone demonstrates her combat role.
-No roster entry is a portrait with unimplemented promises.
-
-## Phase D — Make the island persistent and dangerous
-
-### D1. Individual encounter ecology
-
-Build named or generated individual encounters, habitat by habitat. An
-encounter has one leader/creature identity, rank, behaviour, intent suite,
-territory, drop, return eligibility and daily-level rule. Pack size is not a
-difficulty substitute. A high-rank lone animal can control a trail; a named
-orc patrol can dictate who enters a ruin.
-
-**Exit test:** three habitat encounters of different rank produce distinct
-threat descriptions, action priorities and tactical consequences.
-
-### D2. Midnight Return
-
-At midnight run one explicit campaign transaction:
-
-```text
-for each eligible named person: restore life state; increment death memory if dead today
-for each habitat: create its daily individual encounter set from its seed and day level
-for each changed resident/location: queue its authored acknowledgement text
-advance day; save ExpeditionState; request return-flash presentation where visible
-```
-
-**Exit test:** defeat a named fixture, reach midnight, reload the next day;
-the fixture exists, retains counter/memory, and a habitat contains its correct
-new individual encounter set.
-
-### D3. Tomb architecture
-
-Every tomb uses an elven public-purpose plan before it becomes a dungeon:
-approach, ceremonial threshold, reception/truth space, burial or archive core,
-service/passages, failure condition, exit/return logic. Puzzles state what the
-player can observe, what action is possible, what it changes, and what danger
-responds. Tombs are not anonymous corridor generators.
-
-**Exit test:** the first tomb has a readable purpose, at least one observation
-that changes a choice, a recoverable failure, and a clear return path.
-
-## Phase E — Make the household and story carry progression
-
-### E1. Estate as operating base
-
-Workshop upgrades Michael’s steampunk kit. Infirmary converts supplies and
-recovery into expedition readiness. Map room expands route knowledge. Rooms
-and people change after real expeditions. Michael’s Echo abilities are
-mechanically related to a heroine’s learned pattern, never a copied skill.
-
-**Exit test:** return from Reception Terrace with a discovery; choose one
-estate action; begin the next day with a material tactical or route change.
-
-### E2. Haremlit progression
-
-The household’s story structure is direct and positive. Recruitment occurs
-through competence, kindness, attraction, shared danger and a clear choice to
-join. Once a heroine commits, she stays within the household’s romantic
-future. Her relationship scenes with Michael and other women strengthen the
-household and unlock practical content. There is no cheating subplot, no
-outside male romance lane, no bait-and-switch breakup system, and no coercive
-player command.
-
-**Exit test:** every principal woman has a recruitment, commitment, household
-scene, one girl-with-girl connection and a bond unlock whose exact combat
-effect is specified.
-
-### E3. Main threat
-
-The cosmic intelligence is an alien intruder using ancient elven systems to
-learn from the island. Its adaptive Champion changes tactics only through
-declared observable adaptation records: what party behaviour it observed,
-what countermeasure became available, and how the player can identify it.
-It never secretly invalidates a build.
-
-**Exit test:** a Champion rematch displays its previous observation and its
-new response before combat begins; the player can choose a counter-plan.
-
-## 6. Build discipline
-
-For every implementation pass:
-
-1. State the phase and exit test being built.
-2. Read the reference ledger and the relevant implementation contract.
-3. Make the smallest coherent change that completes the defined slice, not a
-   disconnected component.
-4. Validate content and run Godot checks.
-5. Open the exported browser build if the work is visual or interactive.
-6. Compare the screen to its named reference and list the mismatch honestly.
-7. Commit the finished coherent change and push it.
-8. Start the next blocked phase.
-
-If a task cannot prove its exit test, it remains unfinished. It is not carried
-forward as an invisible assumption.
-
-## 7. Current position
-
-Superseded. The live plan is `docs/SHIP_PLAN.md`; what was last verified and
-when is `docs/STATUS.md`; who is doing what is `.agents/claims/`.
-
-As of 2026-09-04: Phases B and D1–D3 exist in the Rust simulation with 110
-passing tests; Phase A's route board and the campaign bridge exist in Godot;
-the two were written on separate branches and are being unified (Ship Plan
-M0). Phases C2 (Ayla, 5/7), E1 (one estate action) are partial; E2 and E3
-are not started. Every asset is a placeholder behind the visual authority
-gate. There is no CI and no desktop export preset. The next steps, in
-dependency order, are the Ship Plan's lane tasks.
+# Pirate Island: Current Game Direction and Build Plan
+
+Status: **current design authority, reaffirmed 5 September 2026**. This document describes the accepted target. It does not certify that the existing prototype implements it.
+
+## The game being built
+
+Pirate Island is a HaremLit multi-faction RTS simulation experienced through Captain Michael and four adult female companions. All five are controllable heroes inside the island world. The companions are investigators, leaders, and quest drivers with their own theories, requests, competencies, and relationships. Their quest lines reveal the island and drive campaign progression.
+
+The world is presented on a fixed isometric board. The player directs the heroes and establishes strategic intent; autonomous factions carry out routine world activity. The game is not defined by an overhead unit-micromanagement interface or by the earlier side-view active-fighter/card presentation.
+
+## Accepted system contracts
+
+| System | Current contract |
+| --- | --- |
+| Heroes | Captain Michael plus four female companions are controllable participants. Companion agency must affect investigation, choices, faction opportunities, and campaign progress. |
+| Factions | Multiple factions pursue goals, resources, territory, survival, and opportunities autonomously. Their relations with one another matter independently of their relation to the player. |
+| Strategic behavior | Decisions respond to incentives, constraints, alliances, rival actions, and changes in the world. Game-theoretic behavior must produce understandable consequences rather than a fixed sequence of player-triggered encounters. |
+| Dual clocks | World time and Cthulhu patience/heat are distinct state dimensions. Advancing time must not silently imply an identical heat increase. The exact rules and presentation must follow accepted design decisions and remain independently testable. |
+| Board | One fixed isometric presentation makes places, connections, heroes, and faction changes readable. A layout or art asset cannot invent a legal connection or simulation outcome. |
+| Art | Broad reusable fantasy art families support the island's different cultures, factions, terrain, and sites. Local visual references remain local; one port or ruin reference does not dictate the whole island. |
+| Character production | Preserve rigs, rest poses, sockets, identity, scale, and provenance now. Animation is a later production stage; static readability and usable controls come first. |
+| Story progression | Companion investigations and personal quest lines change knowledge, access, relationships, and campaign possibilities. Companions do not wait passively for Michael to discover everything. |
+
+Normal pause and a calm, readable interface remain part of the accepted continuation brief. Exact faction names, founding sequence, clock tuning, and unapproved victory details must not be invented by implementation or promoted from provisional notes.
+
+## One authoritative implementation
+
+Keep the existing ownership split: Rust owns simulation state, commands, validation, saves, deterministic decisions, and typed outcomes; GDScript owns Godot presentation, input, and projection; TypeScript owns offline content validation and authoring transforms; authored records use stable IDs.
+
+Extend or replace the existing implementation in place. Existing expedition, combat, world-clock, and save work is useful evidence and reusable implementation where compatible. A prototype's turn order, midnight law, camera, or party-card behavior does not by itself make that behavior a requirement of the new RTS design.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the existing technical boundary. Verify implementation and tests before reporting a feature as complete.
+
+## Work already in progress
+
+At this audit, [PR #3](https://github.com/dancockrell/project-42-pirate-island-rpg/pull/3) contains expedition/backend work and the longer [Pirate Island continuation brief](https://github.com/dancockrell/project-42-pirate-island-rpg/blob/84ddb4720e965fd920767a41f20e365927bf4986/docs/PIRATE_ISLAND_CONTINUATION_BRIEF.md). That brief distinguishes accepted decisions from provisional proposals; this plan consolidates the current contract on the default branch. Its old instruction to locate a repository is historical context: this repository has now been inspected.
+
+[PR #4](https://github.com/dancockrell/project-42-pirate-island-rpg/pull/4) contains the earlier systems handoff and [PR #2](https://github.com/dancockrell/project-42-pirate-island-rpg/pull/2) contains character/content work. These links identify preserved work, not merge or validation approval. Before integrating them, reconcile their README, build-plan, ship-plan, and handoff claims with this direction. Do not restore side-view promises simply to resolve a documentation conflict.
+
+## Dependency order and proof
+
+1. **Reconcile the simulation spine.** Identify the actual campaign owner, legal commands, persistence, and pending branch work. Prove that one save and event sequence owns the outcome across presentation changes.
+2. **Prove the static board and five-hero control.** Show current locations, selection, legal interactions, and confirmed transitions with readable rigged stand-ins. Clearly mark prototype art.
+3. **Prove autonomous faction behavior.** Exercise resource use, competing goals, and at least one relation between non-player factions that changes a visible world opportunity. Record the rules and a reproducible scenario.
+4. **Prove the two clocks independently.** Save and restore both; exercise changes to one without assuming the other changed; trace consequences back to the relevant rule.
+5. **Connect a companion investigation.** A companion raises a question, pursues evidence, and changes a campaign option. Persist the consequence and make the next action understandable.
+6. **Admit art at gameplay distance.** Validate sources and license records, silhouettes, scale, sockets, and board readability before expanding content. Add animation only after the static interaction and simulation contracts hold.
+
+These are acceptance milestones, not claims of completed systems. Detailed tuning and additional systems remain provisional until their design is accepted.
+
+## Documentation to retain without reviving obsolete scope
+
+- [Character authoring](CHARACTER_AND_HAREMLIT_AUTHORING.md) retains character depth and relationship guidance under the current companion-agency contract.
+- [Shared asset platform](SHARED_ASSET_PLATFORM.md) and [integration protocol](SHARED_ASSET_INTEGRATION_PROTOCOL.md) retain provenance and consumer admission rules.
+- The earlier [vertical slice](VERTICAL_SLICE_BUILD_CONTRACT.md), [3D production plan](THREE_D_PRODUCTION_PLAN.md), [visual authority](VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md), and [Betty asset contract](BETTY_3D_ASSET_CONTRACT.md) retain prototype and asset-review evidence. Their side-view staging and animation-first gates are superseded.
+- [RUNBOOK.md](RUNBOOK.md) and [NATIVE_BRIDGE.md](NATIVE_BRIDGE.md) document existing tooling and prototype interfaces. They are not proof of an implemented RTS campaign.
+
+The prior side-view build plan is preserved in Git history. Source assets, approved reference records, runtime code, and open PRs remain intact. This fantasy island does not inherit the alternate-WW2 lore of the separately retained Project 42 worldbuilding and World Aflame repositories merely because the names overlap.

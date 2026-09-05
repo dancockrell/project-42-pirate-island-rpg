@@ -1,5 +1,7 @@
 # Project 42 3D Production Plan
 
+> **Historical prototype contract — superseded where it defines product direction (5 September 2026).** The [current build plan](GAME_BUILD_PLAN.md) governs the fixed isometric autonomous RTS, five controllable heroes, dual clocks, and companion-led progression. The side-view stage, card-to-active-fighter composition, and animation-first production sequence below are not current requirements. Preserve this body as implementation/reference provenance; reuse individual assets only after review for the current board.
+
 ## Production decision
 
 Project 42 is now a **fully 3D island game with a 2D theatrical interface**.

@@ -1,5 +1,7 @@
 # Architecture contract
 
+> **Scope, 5 September 2026:** this describes the existing prototype architecture. [GAME_BUILD_PLAN.md](GAME_BUILD_PLAN.md) owns the current autonomous RTS design. Rust/GDScript/TypeScript ownership, stable IDs, and ordered authoritative events remain useful; side-view turn presentation, camera registries, and animation directors below are implementation history, not the new product contract. Faction relations, five-hero control, companion investigation state, and the two clocks require explicit implementation evidence before being called complete.
+
 ## Authority
 
 The simulation is the only authority for vitality, guard, composure, initiative, legal targets, costs, hit results, damage, status application, defeat, loot, time advancement, respawn and death memory. Godot submits commands and projects returned events. A visual animation may anticipate an accepted command, but it may not change authoritative state.
