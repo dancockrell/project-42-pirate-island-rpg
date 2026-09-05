@@ -35,7 +35,7 @@
     "notes": "C1 and C2 also edit tools/src/validate.mjs; SHIP_PLAN 9 holds them until A2 ships. Branch lane/A2-canonical-world-cell-ids is based on the trunk tip 6b010e9, which is ahead of origin/backend/b0-expedition-state (415ccf2) -- the merge with main is not pushed yet. The four tomb cells stay fixture-only until B6 authors them in content/world/; the new test skips world.cell.tomb_* for exactly that reason."
   },
   "completion": {
-    "commit": "e1c5609",
+    "commit": "c1804ea",
     "checks": [
       "cargo test --manifest-path godot-rust/Cargo.toml -- 111 unit + 1 integration: passed",
       "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
