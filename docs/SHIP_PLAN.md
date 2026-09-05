@@ -1082,30 +1082,39 @@ an existing field's meaning. Two agents adding fields then merge cleanly; a
 reordering does not. `CURRENT_SAVE_VERSION` bumps only when a field's
 meaning changes, and only with a migration fixture (E6).
 
-**Two environment repairs, both done — do not reintroduce the workarounds.**
+**Two environment facts, learned by getting both wrong first.**
 
-*The repo is attached.* Agents launched with `isolation: "worktree"` once
-landed in a `dr-companion` checkout with no `godot-rust/`, because this
-repository was on disk but never registered as a session root. It is now
-attached and registered, so worktree isolation is correct and needs no
-explicit path. An agent should still verify before editing — one line:
+*Worktree isolation cuts from the session's primary repository, not from the
+one your task names — and attaching this repo does not change that.* The
+session's primary repo is `dr-companion`; this one is attached and registered
+as a second root, and agent isolation **still** produces a `dr-companion`
+checkout (219 MB of it, per agent, under `.claude/worktrees/`). So do not rely
+on `isolation: "worktree"` for work in this repository. Have the agent make
+its own worktree from the real clone, and verify before it edits anything:
 
 ```bash
+cd /home/user/project-42-pirate-island-rpg && git fetch origin
+git worktree add -b lane/<ID>-<slug> /home/user/p42-lane-<ID> origin/backend/b0-expedition-state
+cd /home/user/p42-lane-<ID>
 git remote -v | grep -q project-42-pirate-island-rpg && ls godot-rust/src/geography.rs
 ```
 
-*The fetch refspec is repaired.* This clone was made with `--depth 1`, which
-sets a single-branch refspec (`+refs/heads/main:refs/remotes/origin/main`).
-Every `origin/<other-branch>` tracking ref was therefore frozen at whatever it
-was when the clone was made, which made pushed work look unpushed and made
-`git log origin/backend/b0-expedition-state` lie. It cost one agent a wrong
-base branch and cost the integrator a false "nothing was pushed" conclusion.
-The refspec is now `+refs/heads/*:refs/remotes/origin/*`.
+Give every agent that check as step 0 and have it report the output. An agent
+that finds itself in the wrong repository must stop, not improvise — one did
+exactly that and was right to.
 
-**The lesson worth keeping: `git ls-remote origin <branch>` asks the server;
+*The fetch refspec was single-branch, and lied about what was published.* This
+clone was made with `--depth 1`, which sets
+`+refs/heads/main:refs/remotes/origin/main`, so every `origin/<other-branch>`
+tracking ref stayed frozen at clone time. Pushed work read as unpushed, and
+`git log origin/backend/b0-expedition-state` showed hours-old history. It cost
+one agent a wrong base branch and cost the integrator two contradictory wrong
+conclusions in a row. Repaired to `+refs/heads/*:refs/remotes/origin/*`.
+
+**The rule worth keeping: `git ls-remote origin <branch>` asks the server;
 `git rev-parse origin/<branch>` asks a local cache that may be stale.** When
-the two disagree, the server is right. Use `ls-remote` to settle any question
-about what is actually published.
+they disagree the server is right. Settle every "is it actually pushed?"
+question with `ls-remote`.
 
 ### Spawning agents for lanes
 
