@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "task_id": "e1-ci-rust-and-content",
+  "agent": "claude-code-agent-E1",
+  "summary": "E1: first GitHub Actions workflow running the engine-free Rust and content checks",
+  "status": "active",
+  "claimed_at": "2026-09-05T00:00:00Z",
+  "updated_at": "2026-09-05T00:00:00Z",
+  "paths": [".github/workflows/verify.yml"],
+  "symbols": [],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [],
+    "notes": "Does not attempt the Godot headless suites; that is E2 and waits on E3's shell gates, which agent-E3 is writing in parallel. Touches no file under tools/, godot-rust/src/ or content/. docs/SHIP_PLAN.md is left to the integrator."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
