@@ -57,11 +57,20 @@ impl Band {
     }
 }
 
-/// Bond rank of an authored skill, read from the `bondRank` field of the
+/// Bond rank of an authored skill, mirroring the `bondRank` field of the
 /// records under `content/skills/`. Used by the Composure gate: a Shaken actor
 /// may not spend an SS or SSS command.
+///
+/// `content/skills/` is the owner and this is its twin, held equal by
+/// `every_authored_skill_has_its_authored_rank`. That test exists because the
+/// table arrived already incomplete: Michael's two commands were authored in
+/// the same round and were missing here, and while both are rank D -- so the
+/// gate behaved identically -- an SS skill added the same way would have
+/// slipped past the Shaken gate in silence.
 pub fn skill_rank(skill_id: &str) -> Option<&'static str> {
     match skill_id {
+        "skill.captain.weapon_attack" => Some("D"),
+        "skill.captain.reposition" => Some("D"),
         "skill.betty.guarded_strike" => Some("D"),
         "skill.betty.condition_cleanse" => Some("C"),
         "skill.betty.rescue_charge" => Some("B"),
@@ -3288,5 +3297,48 @@ mod tests {
         );
         assert_eq!(ayla.statuses.len(), 1);
         assert_eq!(ayla.statuses[0].kind, StatusKind::Shaken);
+    }
+
+    /// The Composure gate decides which commands a Shaken actor may spend, and
+    /// it decides on rank. `content/skills/*.json` authors `bondRank`;
+    /// [`skill_rank`] mirrors it so the gate does not read the disk mid-battle.
+    /// Two tables answering one question is the fork AGENTS.md section 0
+    /// forbids, so this holds them equal in both directions: every authored
+    /// skill must have a rank here, and it must be the authored one.
+    ///
+    /// It is not hypothetical. The table shipped already missing Michael's two
+    /// commands, authored in the same parallel round. Both are rank D, so the
+    /// gate behaved the same and nothing failed -- which is exactly why an SS
+    /// skill added the same way would have slipped through in silence.
+    #[test]
+    fn every_authored_skill_has_its_authored_rank() {
+        let skills_directory = concat!(env!("CARGO_MANIFEST_DIR"), "/../content/skills/");
+        let mut checked = 0;
+        for entry in std::fs::read_dir(skills_directory).expect("content/skills/ is readable") {
+            let path = entry.expect("a readable directory entry").path();
+            if path.extension().and_then(|name| name.to_str()) != Some("json") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).expect("the skill file is readable");
+            let record: serde_json::Value =
+                serde_json::from_str(&text).expect("the skill file is JSON");
+            let id = record["id"]
+                .as_str()
+                .expect("an authored skill declares a string id");
+            let authored = record["bondRank"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{id} declares a string bondRank"));
+            assert_eq!(
+                skill_rank(id),
+                Some(authored),
+                "{id} is authored at rank {authored}; skill_rank disagrees. \
+                 content/skills/ is the owner -- add or correct the arm."
+            );
+            checked += 1;
+        }
+        assert!(
+            checked >= 9,
+            "only {checked} skill records were read; the content path is wrong"
+        );
     }
 }

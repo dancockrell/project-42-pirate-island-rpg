@@ -14,8 +14,8 @@ pub mod world;
 mod godot_bridge;
 
 pub use battle::{
-    Actor, ActorId, Battle, BattleError, BattleEvent, BattlePhase, BattleSnapshot,
-    BattlefieldEffect, Faction, SkillCommand, StatusInstance, StatusKind,
+    Actor, ActorId, Band, Battle, BattleError, BattleEvent, BattlePhase, BattleSnapshot,
+    BattlefieldEffect, Faction, SkillCommand, StatusInstance, StatusKind, skill_rank,
 };
 pub use expedition::{
     AnchorOutcome, CharacterState, EncounterOutcome, EncounterResolution, EncounterState,
