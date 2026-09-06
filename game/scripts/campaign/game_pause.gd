@@ -69,15 +69,6 @@ func pause_reasons() -> Array[String]:
 	return reasons
 
 
-## Releases every reason at once. This is how a scene change or a test leaves a
-## known state; ordinary play releases the reason it took.
-func clear() -> void:
-	if _reasons.is_empty():
-		return
-	_reasons.clear()
-	apply(true)
-
-
 func apply(was_paused: bool) -> bool:
 	var now_paused := is_paused()
 	var tree := get_tree()

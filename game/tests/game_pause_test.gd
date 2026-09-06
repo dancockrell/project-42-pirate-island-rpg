@@ -27,6 +27,10 @@ func _init() -> void:
 		print("Game pause native test skipped: bridge is not registered in this running Godot process.")
 		quit(0)
 		return
+	# Autoloads are added to the root after a `--script` main loop is
+	# instantiated, so `_init` runs before GamePause and CampaignSession exist.
+	# One frame is the whole difference.
+	await process_frame
 	var game_pause: Node = root.get_node_or_null("GamePause")
 	check(game_pause != null, "GamePause must be registered as an autoload")
 	var session: Node = root.get_node_or_null("CampaignSession")
