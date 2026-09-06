@@ -150,6 +150,54 @@ for (const { file, value } of await readJsonDirectory("loot")) {
   if (typeof value.metadata?.releaseLegal !== "boolean") fail(file, "loot metadata.releaseLegal must be boolean");
 }
 
+// C9: the six authored faction records, mirroring `FactionDefinition::validate`
+// in `godot-rust/src/strategy/faction.rs` on the content side. Rust refuses a
+// record whose ID is not exactly `faction.<concept_key>`; this refuses the same
+// record before it ever reaches Rust, and adds the check Rust has no field to
+// make -- that no proper faction name has been invented. Brief section 4: "Do
+// not invent proper faction names without explicit approval", so `displayName`
+// must keep saying it is undecided. When a human approves names, this rule is
+// what they replace.
+const factionConceptKeys = ["fox_people", "colonial_powers", "pirates", "elves", "cthulhu", "michael"];
+const factionMapFields = ["resource_priorities", "building_priorities", "movement_preferences", "relationship_tendencies", "board_position_behavior", "weather_preferences", "terrain_influence"];
+const factionStringFields = ["doctrine", "recruitment_or_population_rules", "recovery_rules", "elimination_rules", "corruption_interactions", "dungeon_grammar", "loot_grammar"];
+const factionArrayFields = ["victory_conditions", "building_kit", "actor_kit"];
+const authoredConceptKeys = new Set();
+for (const { file, value } of await readJsonDirectory("factions")) {
+  if (!factionConceptKeys.includes(value.concept_key)) fail(file, `concept_key ${value.concept_key} is not one of the six the brief accepts: ${factionConceptKeys.join(", ")}`);
+  else if (authoredConceptKeys.has(value.concept_key)) fail(file, `a second record claims concept_key ${value.concept_key}; one concept, one record`);
+  else authoredConceptKeys.add(value.concept_key);
+  if (value.id !== `faction.${value.concept_key}`) fail(file, `id ${value.id} must be exactly faction.${value.concept_key}`);
+  requireString(value, "displayName", file);
+  // Deliberately inverted: the validator enforces that a name has NOT been
+  // invented. A record that reads as named fails until the decision lands.
+  if (typeof value.displayName === "string" && !value.displayName.includes("needs decision")) fail(file, "displayName must stay a placeholder containing \"needs decision\" until proper faction names are approved (brief section 4)");
+  for (const field of factionStringFields) {
+    if (typeof value[field] !== "string") fail(file, `${field} must be a string note, empty when the decision is still Open`);
+  }
+  for (const field of factionMapFields) {
+    if (!value[field] || typeof value[field] !== "object" || Array.isArray(value[field])) fail(file, `${field} must be an object keyed by authored strings`);
+  }
+  for (const field of factionArrayFields) {
+    if (!Array.isArray(value[field])) fail(file, `${field} must be an array`);
+    else if (value[field].some(entry => typeof entry !== "string")) fail(file, `${field} must contain only strings`);
+  }
+  // Brief section 20 leaves the exact resource list Open, so a record may only
+  // key `resource_priorities` by an obvious placeholder. An invented category
+  // here would be this repository deciding the economy.
+  for (const [key, weight] of Object.entries(value.resource_priorities ?? {})) {
+    if (!key.startsWith("resource.open.")) fail(file, `resource_priorities key ${key} invents a resource category; brief section 20 leaves the resource list Open, so keys stay under resource.open.`);
+    if (!Number.isInteger(weight)) fail(file, `resource_priorities.${key} must be an integer weight`);
+  }
+  requireString(value.metadata ?? {}, "implementationOwner", file);
+  requireString(value.metadata ?? {}, "maturity", file);
+  if (typeof value.metadata?.releaseLegal !== "boolean") fail(file, "faction metadata.releaseLegal must be boolean");
+  if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "faction metadata.notes must list what stays Provisional or Open");
+}
+for (const key of factionConceptKeys) {
+  if (!authoredConceptKeys.has(key)) failures.push(`content/factions/: no record authors concept_key ${key}; the brief accepts exactly six factions`);
+}
+
 for (const { file, value } of await readJsonDirectory("enemies")) {
   requireString(value, "displayName", file);
   if (value.worldPresence?.penAllowed !== false) fail(file, "island monsters may not be designed as pen exhibits");

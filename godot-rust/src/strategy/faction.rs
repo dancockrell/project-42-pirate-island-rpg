@@ -466,6 +466,62 @@ mod tests {
         assert_eq!(ConceptKey::from_key("FoxPeople"), None);
     }
 
+    /// C9's records are the owner; this module carries them. The standing rule
+    /// from `fixture_matches_the_authored_loot_tables` and
+    /// `fixture_matches_the_authored_world_cells`: when Rust mirrors authored
+    /// content, a test holds the two equal.
+    ///
+    /// Every file in `content/factions/` must deserialize into a
+    /// `FactionDefinition`, pass `validate`, and load into the registry S4
+    /// takes -- and the set of concepts authored must be exactly
+    /// `ConceptKey::ALL`, no more and no fewer. A record whose `id` drifted
+    /// from its `concept_key` fails here, and a seventh faction cannot be
+    /// added by writing a file.
+    #[test]
+    fn every_authored_faction_record_loads_and_validates() {
+        let faction_directory = concat!(env!("CARGO_MANIFEST_DIR"), "/../content/factions/");
+        let mut definitions = FactionDefinitions::new();
+        let mut authored: BTreeSet<ConceptKey> = BTreeSet::new();
+        for entry in std::fs::read_dir(faction_directory).expect("content/factions/ is readable") {
+            let path = entry.expect("a readable directory entry").path();
+            if path.extension().and_then(|name| name.to_str()) != Some("json") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).expect("the faction file is readable");
+            let record: FactionDefinition = serde_json::from_str(&text).unwrap_or_else(|error| {
+                panic!("{} is a FactionDefinition: {error}", path.display())
+            });
+            record
+                .validate()
+                .unwrap_or_else(|error| panic!("{} fails validate: {error:?}", path.display()));
+            assert!(
+                authored.insert(record.concept_key),
+                "{} is a second record for concept {}",
+                path.display(),
+                record.concept_key.as_key()
+            );
+            definitions
+                .insert(record)
+                .unwrap_or_else(|error| panic!("{} does not load: {error:?}", path.display()));
+        }
+
+        assert_eq!(
+            authored,
+            ConceptKey::ALL.into_iter().collect::<BTreeSet<_>>(),
+            "content/factions/ must author exactly the brief's six concepts"
+        );
+        assert_eq!(definitions.len(), 6);
+        for concept in ConceptKey::ALL {
+            assert!(
+                definitions
+                    .by_concept(concept)
+                    .is_some_and(|record| record.id == concept.faction_id()),
+                "no authored record for {}",
+                concept.faction_id()
+            );
+        }
+    }
+
     fn a_definition(concept: ConceptKey) -> FactionDefinition {
         FactionDefinition {
             id: concept.faction_id(),
