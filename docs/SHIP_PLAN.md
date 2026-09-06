@@ -356,7 +356,7 @@ top of the document is never stale:
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 open
 - **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `b9c6ad5`. If this line is older than
+- Last updated 2026-09-06 against trunk `95ada6f`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -405,7 +405,7 @@ top of the document is never stale:
 | B3 | Expose midnight, anchors, inspect and full legal commands | B1, A3 | shipped 9090284 2026-09-06 — S2's control/risk surface is the next B item |
 | B4 | Route board shows anchor and estate commands | B3 | shipped 9090284 2026-09-06 |
 | B5 | Battle screen: Michael's card unfolds; bands and Composure drawn | A5, A6 | shipped ab81aee 2026-09-06 |
-| B6 | World cells for the tomb interior | A2 | open |
+| B6 | World cells for the tomb interior | A2 | shipped 95ada6f 2026-09-06 |
 | B7 | Battle-entry sockets bound to habitat holders | B3 | open |
 | B8 | New game, save slots, continue | E6 | open |
 | B9 | Settings, accessibility, and **pause** | — | open |
@@ -1361,7 +1361,7 @@ record, so "GUARD" is a screen string — a C-lane item (a `skill.system.*`
 record, with `every_authored_skill_has_its_authored_rank` extended to it).
 
 ### B6 · World cells for the tomb interior
-Status: open · Depends on: A2
+Status: shipped `95ada6f` 2026-09-06 · Depends on: A2
 Touches: `content/world/tomb_*.world_cell.json` (new), `game/generated/content_bundle.json`
 (regenerated), `godot-rust/src/geography.rs` (the equality test only).
 D3 put four tomb cells in the Rust fixture — threshold, reception, archive
@@ -1373,6 +1373,17 @@ existing cells use, values read from the fixture verbatim, and widen
 equal, not the beach alone. Content owns, Rust carries.
 Done when: the equality test covers every fixture cell and bites when a
 tomb portal is removed from either side; validator and bundle green.
+**Shipped:** four `tomb_*.world_cell.json` records read from the fixture
+verbatim, the region file and the processional ramp's portal to the
+threshold; every tomb tolerance deleted from
+`fixture_matches_the_authored_world_cells`, which now holds nine cells,
+twenty portals, every gate, anchor and observation equal. Proven to bite
+from both sides (a portal deleted from content, then from the fixture, each
+named). Stable IDs 214 → 223; bundle 47 → 51 records; the route contract
+suite's expected cells grew from five to nine. **Left, on purpose:** the
+tomb cells' visual shells and collision scenes name `res://` files that do
+not exist yet, exactly as the estate and river landing do — that is D12's
+work, not content's.
 
 ### B7 · Battle-entry sockets bound to habitat holders
 Status: open · Depends on: B3
