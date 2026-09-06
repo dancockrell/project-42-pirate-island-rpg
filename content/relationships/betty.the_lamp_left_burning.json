@@ -1,0 +1,58 @@
+{
+  "id": "scene.betty.the_lamp_left_burning",
+  "womanId": "character.heroine.betty",
+  "displayName": "The Lamp Left Burning",
+  "grantsMilestoneId": "milestone.betty.the_lamp_left_burning",
+  "presentationLevel": "fade_to_black",
+  "proseStatus": "placeholder",
+  "rule": {
+    "advancesTo": "Committed",
+    "requiresStageAtLeast": "Contact",
+    "requiresAtLeast": {
+      "TrustInMichael": 60,
+      "RomanticInterest": 50
+    },
+    "requiresAtMost": {
+      "FearOfRetaliation": 60
+    },
+    "blockedByConditions": [
+      "condition.betty.wreck_dead_unburied"
+    ],
+    "clearsConditions": []
+  },
+  "beats": [
+    {
+      "id": "beat.betty.the_lamp_left_burning.she_comes_to_him",
+      "kind": "action",
+      "text": "PLACEHOLDER PROSE. She comes to him. Courtship in this game is not one-directional (brief section 5.6), and Betty has never in her life waited to be chosen."
+    },
+    {
+      "id": "beat.betty.the_lamp_left_burning.terms",
+      "kind": "conversation",
+      "text": "PLACEHOLDER PROSE. She says what she wants plainly, and then says the harder thing: that she is asking to stay, that this is her joining, and that she wants it said out loud before anything else happens."
+    },
+    {
+      "id": "beat.betty.the_lamp_left_burning.answer",
+      "kind": "choice",
+      "text": "PLACEHOLDER PROSE. Michael answers her in kind or does not. Either answer is a real one; the arc does not punish him for the second and does not pretend the first cost nothing."
+    },
+    {
+      "id": "beat.betty.the_lamp_left_burning.the_lamp",
+      "kind": "fade",
+      "text": "PLACEHOLDER PROSE. She leaves the lamp burning, which in her whole life she has never done for anyone, and the scene closes there."
+    }
+  ],
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "source": "continuation-brief-5.6",
+    "maturity": "prototype",
+    "releaseLegal": false,
+    "notes": [
+      "Placeholder prose. Every beat text is a stand-in; final lines are unwritten and are not approved dialogue.",
+      "The fade beat is last and is the whole of what the base game shows. This is the seam C8's pack manifest overrides by scene ID; the base tree carries no explicit content and never will.",
+      "Blocked while condition.betty.wreck_dead_unburied stands: scene.betty.the_wreck_dead_are_buried is the authored beat that settles it.",
+      "requiresAtMost on FearOfRetaliation is the shape the brief's attraction-without-defection section needs: a woman can want this and still be too exposed to act on it."
+    ]
+  }
+}

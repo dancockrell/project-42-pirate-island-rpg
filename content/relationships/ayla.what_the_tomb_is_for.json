@@ -1,0 +1,50 @@
+{
+  "id": "scene.ayla.what_the_tomb_is_for",
+  "womanId": "character.heroine.ayla",
+  "displayName": "What the Tomb Is For",
+  "grantsMilestoneId": "milestone.ayla.what_the_tomb_is_for",
+  "presentationLevel": "fade_to_black",
+  "proseStatus": "placeholder",
+  "rule": {
+    "advancesTo": "Contact",
+    "requiresStageAtLeast": "Interested",
+    "requiresAtLeast": {
+      "TrustInMichael": 50,
+      "PerceivedOpportunity": 40
+    },
+    "requiresAtMost": {},
+    "blockedByConditions": [],
+    "clearsConditions": []
+  },
+  "beats": [
+    {
+      "id": "beat.ayla.what_the_tomb_is_for.the_reading",
+      "kind": "conversation",
+      "text": "PLACEHOLDER PROSE. Ayla tells Michael what the tomb is actually for, which is not what her own people have been told, and watches his face while she says it."
+    },
+    {
+      "id": "beat.ayla.what_the_tomb_is_for.the_offer",
+      "kind": "choice",
+      "text": "PLACEHOLDER PROSE. She offers to keep telling him -- from where she stands, without leaving it. She is not joining. She is choosing to be his way in, which is a different and possibly permanent thing."
+    },
+    {
+      "id": "beat.ayla.what_the_tomb_is_for.close",
+      "kind": "fade",
+      "text": "PLACEHOLDER PROSE. She stays until the lamp is low, and neither of them pretends the evening was only about the tomb. The scene closes there."
+    }
+  ],
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "source": "continuation-brief-5.6",
+    "maturity": "prototype",
+    "releaseLegal": false,
+    "notes": [
+      "Placeholder prose. Every beat text is a stand-in; final lines are unwritten and are not approved dialogue.",
+      "Contact is a real and possibly permanent stage, not a way-point: brief section 5.6's attraction-without-immediate-defection list. This scene deliberately does not advance her toward Committed.",
+      "TrustInMichael carries the rule, and it is above the floor S12's test cares about; PerceivedOpportunity is the second half of her actual motive.",
+      "The fade beat is last and is the whole of what the base game shows; the adult pack overrides it by ID (C8/B10/E9).",
+      "Ayla's character record is C3's lane and does not exist yet."
+    ]
+  }
+}

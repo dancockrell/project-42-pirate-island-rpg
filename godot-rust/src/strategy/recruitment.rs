@@ -189,24 +189,25 @@ impl Inclination {
 pub struct MilestoneRule {
     /// Where this beat can carry her. It only ever advances: a rule whose
     /// target is at or below her current stage does nothing.
+    #[serde(alias = "advancesTo")]
     pub advances_to: RecruitmentStage,
     /// She must stand at least here for the beat to land. An authored beat
     /// written for a long-term contact does not fire on a stranger.
-    #[serde(default)]
+    #[serde(default, alias = "requiresStageAtLeast")]
     pub requires_stage_at_least: RecruitmentStage,
     /// Minimum dispositions. Every entry must be met.
-    #[serde(default)]
+    #[serde(default, alias = "requiresAtLeast")]
     pub requires_at_least: BTreeMap<Inclination, Disposition>,
     /// Maximum dispositions -- the shape fear of retaliation needs. Every entry
     /// must be met.
-    #[serde(default)]
+    #[serde(default, alias = "requiresAtMost")]
     pub requires_at_most: BTreeMap<Inclination, Disposition>,
     /// Outstanding conditions of hers that block this beat while they stand.
-    #[serde(default)]
+    #[serde(default, alias = "blockedByConditions")]
     pub blocked_by_conditions: BTreeSet<String>,
     /// Conditions this beat settles. Cleared before the rest of the rule is
     /// judged, so one authored beat may both answer her condition and move her.
-    #[serde(default)]
+    #[serde(default, alias = "clearsConditions")]
     pub clears_conditions: BTreeSet<String>,
 }
 
@@ -243,6 +244,49 @@ impl MilestoneRule {
         }
         true
     }
+}
+
+/// The only presentation level the base content tree may carry.
+///
+/// C6 authors every scene at fade-to-black; C8's presentation pack is a
+/// separate artifact that overrides a scene's beats by ID, and it is the pack
+/// -- never this repository -- that can raise the level. `tools/src/validate.mjs`
+/// refuses any other value in `content/relationships/`, and
+/// `every_authored_scene_rule_loads` refuses it again here.
+pub const BASE_TREE_PRESENTATION_LEVEL: &str = "fade_to_black";
+
+/// One `content/relationships/*.json` record, in the shape content authors it.
+///
+/// This is the **one** translation between the authored spelling and the
+/// simulation's types, in the manner of `geography::AuthoredAnchor`: the
+/// camelCase field names content writes are `serde` aliases on the real
+/// fields, so there is no second copy of [`MilestoneRule`] and no hand-written
+/// parser to drift from it. A record naming a stage or an inclination the
+/// enums do not know fails to deserialize, which is the whole reason the
+/// vocabularies are enums rather than strings.
+///
+/// The scene's beats are deliberately absent: they are presentation, the
+/// simulation never reads them, and the fields below are exactly what
+/// [`RecruitmentState::adopt_authored_scenes`] needs.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct AuthoredScene {
+    /// `scene.<woman>.<slug>`.
+    pub id: String,
+    /// The woman the scene belongs to. Only the two established women exist;
+    /// the content validator is what refuses a third, because "which women
+    /// exist" is a content decision (brief section 20) and not a type.
+    #[serde(alias = "womanId")]
+    pub woman_id: String,
+    /// `milestone.<woman>.<slug>` -- the key this scene's rule is filed under
+    /// in [`RecruitmentState::milestone_rules`], and the milestone ID
+    /// [`RecruitmentState::record_milestone`] is later given.
+    #[serde(alias = "grantsMilestoneId")]
+    pub grants_milestone_id: String,
+    /// [`BASE_TREE_PRESENTATION_LEVEL`] for every record in this repository.
+    #[serde(alias = "presentationLevel")]
+    pub presentation_level: String,
+    /// The authored rule, verbatim.
+    pub rule: MilestoneRule,
 }
 
 /// Everything the presentation layer is ever told about a recruitment arc.
@@ -398,6 +442,32 @@ impl RecruitmentState {
             }
         }
         Some(self.recruitment_stage)
+    }
+
+    /// Fills her milestone-rule table from authored scenes.
+    ///
+    /// This is where C6's records replace the seam S12 left: the table is data,
+    /// so adopting content is an insert and not a rewrite of behaviour. Scenes
+    /// for other women are skipped rather than refused, so a caller may hand
+    /// the whole authored set to each woman in turn.
+    ///
+    /// Refuses before inserting anything if a milestone ID is not a stable ID.
+    pub fn adopt_authored_scenes(
+        &mut self,
+        scenes: &[AuthoredScene],
+    ) -> Result<(), ExpeditionError> {
+        let mine: Vec<&AuthoredScene> = scenes
+            .iter()
+            .filter(|scene| scene.woman_id == self.character_id)
+            .collect();
+        for scene in &mine {
+            require_stable_id("scene.grants_milestone_id", &scene.grants_milestone_id)?;
+        }
+        for scene in mine {
+            self.milestone_rules
+                .insert(scene.grants_milestone_id.clone(), scene.rule.clone());
+        }
+        Ok(())
     }
 
     /// Everything the bridge may see. See this module's projection contract.
@@ -701,6 +771,90 @@ mod tests {
                 state.record_recruitment_milestone(BETTY, "milestone.test.open_invitation"),
                 Ok(RecruitmentStage::Interested)
             );
+        }
+    }
+
+    /// C6's records are the owner; this module carries them. The standing rule
+    /// from `every_authored_faction_record_loads_and_validates` and
+    /// `fixture_matches_the_authored_world_cells`: when Rust mirrors authored
+    /// content, a test holds the two equal.
+    ///
+    /// Every file in `content/relationships/` must deserialize into an
+    /// [`AuthoredScene`] -- which is what proves every stage and inclination
+    /// name in the content tree is one the enums actually know, since an
+    /// unknown variant is a deserialization failure and not a silent default.
+    /// On top of that this asserts what the wire types have no field to say:
+    /// that only the two established women are authored, that every
+    /// `grantsMilestoneId` is unique, that the base tree is fade-to-black
+    /// throughout, that no rule can move a woman backwards, and that at least
+    /// one rule rests on trust rather than on attraction -- the content-side
+    /// half of `attraction_alone_does_not_move_her_through_the_command`.
+    #[test]
+    fn every_authored_scene_rule_loads() {
+        let scene_directory = concat!(env!("CARGO_MANIFEST_DIR"), "/../content/relationships/");
+        const AYLA: &str = "character.heroine.ayla";
+        let mut scenes: Vec<AuthoredScene> = Vec::new();
+        let mut milestone_ids: BTreeSet<String> = BTreeSet::new();
+        for entry in std::fs::read_dir(scene_directory).expect("content/relationships/ is readable")
+        {
+            let path = entry.expect("a readable directory entry").path();
+            if path.extension().and_then(|name| name.to_str()) != Some("json") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).expect("the scene file is readable");
+            let scene: AuthoredScene = serde_json::from_str(&text)
+                .unwrap_or_else(|error| panic!("{} is an AuthoredScene: {error}", path.display()));
+            assert!(
+                scene.woman_id == BETTY || scene.woman_id == AYLA,
+                "{} authors a woman who does not exist: {}",
+                path.display(),
+                scene.woman_id
+            );
+            assert_eq!(
+                scene.presentation_level,
+                BASE_TREE_PRESENTATION_LEVEL,
+                "{} carries a presentation level the base tree may not",
+                path.display()
+            );
+            assert!(
+                scene.rule.advances_to.rank() > scene.rule.requires_stage_at_least.rank(),
+                "{} cannot move her: advancesTo is not past requiresStageAtLeast",
+                path.display()
+            );
+            assert!(
+                milestone_ids.insert(scene.grants_milestone_id.clone()),
+                "{} grants a milestone another scene already grants: {}",
+                path.display(),
+                scene.grants_milestone_id
+            );
+            scenes.push(scene);
+        }
+
+        assert!(
+            !scenes.is_empty(),
+            "content/relationships/ authors no scenes"
+        );
+        assert!(
+            scenes.iter().any(|scene| scene
+                .rule
+                .requires_at_least
+                .contains_key(&Inclination::TrustInMichael)),
+            "no authored rule rests on trust; attraction creates openings, not allegiance"
+        );
+
+        // The rules reach the table content wrote them for, and only that one.
+        for woman in [BETTY, AYLA] {
+            let mut state = RecruitmentState::new(woman);
+            state
+                .adopt_authored_scenes(&scenes)
+                .expect("authored milestone IDs are stable IDs");
+            let expected: BTreeMap<String, MilestoneRule> = scenes
+                .iter()
+                .filter(|scene| scene.woman_id == woman)
+                .map(|scene| (scene.grants_milestone_id.clone(), scene.rule.clone()))
+                .collect();
+            assert!(!expected.is_empty(), "{woman} has no authored scenes");
+            assert_eq!(state.milestone_rules, expected);
         }
     }
 

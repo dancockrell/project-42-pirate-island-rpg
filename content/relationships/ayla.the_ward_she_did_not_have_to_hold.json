@@ -1,0 +1,50 @@
+{
+  "id": "scene.ayla.the_ward_she_did_not_have_to_hold",
+  "womanId": "character.heroine.ayla",
+  "displayName": "The Ward She Did Not Have to Hold",
+  "grantsMilestoneId": "milestone.ayla.the_ward_she_did_not_have_to_hold",
+  "presentationLevel": "fade_to_black",
+  "proseStatus": "placeholder",
+  "rule": {
+    "advancesTo": "Interested",
+    "requiresStageAtLeast": "Aware",
+    "requiresAtLeast": {
+      "AwarenessOfMichael": 25
+    },
+    "requiresAtMost": {
+      "FearOfRetaliation": 80
+    },
+    "blockedByConditions": [],
+    "clearsConditions": []
+  },
+  "beats": [
+    {
+      "id": "beat.ayla.the_ward_she_did_not_have_to_hold.the_line",
+      "kind": "action",
+      "text": "PLACEHOLDER PROSE. Ayla sets a ward line across a doorway that is not hers to defend, for people who are not hers, and holds it longer than the reading justifies."
+    },
+    {
+      "id": "beat.ayla.the_ward_she_did_not_have_to_hold.the_argument",
+      "kind": "conversation",
+      "text": "PLACEHOLDER PROSE. Afterward she argues with Michael about the tomb rather than about herself. She is a scholar first, and the fastest route to her attention is a problem she has not solved."
+    },
+    {
+      "id": "beat.ayla.the_ward_she_did_not_have_to_hold.what_he_does_with_it",
+      "kind": "choice",
+      "text": "PLACEHOLDER PROSE. He can take her reading, argue it, or hand her the machine and let her test it. She is measuring whether he wants her work or her agreement."
+    }
+  ],
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "source": "continuation-brief-5.6",
+    "maturity": "prototype",
+    "releaseLegal": false,
+    "notes": [
+      "Placeholder prose. Every beat text is a stand-in; final lines are unwritten and are not approved dialogue.",
+      "Ayla has no content/characters/ayla.json yet -- that record is C3's lane, blocked on A7/H5. She is nonetheless one of the two established women, so her scenes are authored against her stable ID and the validator names her as the one womanId whose character record is still pending.",
+      "The scene is about the tomb, not about Michael. Brief section 5.6: recruitment must not dominate every scene; attraction is the secondary layer here.",
+      "presentationLevel is fade_to_black; the adult pack overrides beats by ID and is a separate artifact (C8/B10/E9)."
+    ]
+  }
+}
