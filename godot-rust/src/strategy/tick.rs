@@ -48,6 +48,7 @@ use serde::{Deserialize, Serialize};
 use crate::expedition::ExpeditionState;
 use crate::geography::Geography;
 use crate::strategy::faction::FactionDefinitions;
+use crate::strategy::force::{ForceId, HaltReason};
 use crate::strategy::utility::{BoardView, GoalWeights, choose_goals, recompute_strategic_state};
 use crate::world::mix_seed;
 
@@ -139,6 +140,52 @@ pub enum StrategicEvent {
     /// One in-world hour of `day` elapsed. `hour` is the hour that just ran
     /// (`0..HOURS_PER_DAY`), not the one about to.
     HourPassed { day: u32, hour: u8 },
+    /// S7: a force was given a destination and set off. `steps` is how many
+    /// roads its planned route holds, so a reader knows how far it has to go
+    /// without re-walking the graph. Emitted by
+    /// [`ExpeditionState::dispatch_force`](crate::expedition::ExpeditionState::dispatch_force)
+    /// and handed to its caller to journal: an order given from outside the
+    /// hour is not the hour's event.
+    ForceDeparted {
+        force_id: ForceId,
+        faction_id: String,
+        from_cell_id: String,
+        destination_cell_id: String,
+        steps: u32,
+    },
+    /// S7: a force crossed one real road. Every position change a force ever
+    /// makes emits one of these, which is what makes "forces never teleport"
+    /// checkable from the journal alone rather than only from the code.
+    ForceMoved {
+        force_id: ForceId,
+        faction_id: String,
+        route_id: String,
+        from_cell_id: String,
+        to_cell_id: String,
+    },
+    /// S7: a force reached the end of its route, **carrying its full
+    /// composition**. Brief section 10 requires composition, damage and supply
+    /// to survive the aggregate-to-local transition, so the arrival hands the
+    /// materialiser (B11's spawn sockets) what to build rather than a strength
+    /// number to guess from.
+    ForceArrived {
+        force_id: ForceId,
+        faction_id: String,
+        cell_id: String,
+        composition: BTreeMap<String, u32>,
+        strength: u32,
+        readiness: u8,
+        supply: u32,
+    },
+    /// S7: a force stopped short of where it was sent, and why. It is still on
+    /// the board, still whole, still holding its orders -- a force that cannot
+    /// march does not vanish.
+    ForceHalted {
+        force_id: ForceId,
+        faction_id: String,
+        cell_id: String,
+        reason: HaltReason,
+    },
 }
 
 /// The draws one faction is entitled to make in one hour, in the order it
