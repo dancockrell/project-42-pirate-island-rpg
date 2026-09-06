@@ -406,6 +406,13 @@ func relay_cards() -> void:
 	if layout.is_empty():
 		return
 	var card_size := Vector2(layout.card_width, layout.card_height)
+	var copy_width: float = layout.copy_width
+	var names := roster_names()
+	var name_height := BattleMetricsScript.name_height(theme, copy_width, names)
+	var mark_size := BattleMetricsScript.shaken_mark_size(theme)
+	var beside := BattleMetricsScript.mark_beside_name(theme, copy_width, names)
+	var name_box := Vector2(BattleMetricsScript.name_width(theme, copy_width, names),
+		name_height if beside else name_height - mark_size.y)
 	for id in card_buttons:
 		var holder := card_buttons[id] as Control
 		holder.size = card_size
@@ -415,17 +422,10 @@ func relay_cards() -> void:
 		var copy := holder.get_node_or_null("Copy") as Control
 		if copy == null:
 			continue
-		var copy_width: float = layout.copy_width
-		var name_height := BattleMetricsScript.name_height(theme, copy_width, roster_names())
 		copy.position = Vector2(BattleMetricsScript.PORTRAIT_GUTTER, BattleMetricsScript.CARD_COPY_TOP)
 		copy.size = Vector2(copy_width,
 			card_size.y - BattleMetricsScript.CARD_COPY_TOP - BattleMetricsScript.WELL_GAP
 				- BattleMetricsScript.well_height(theme) - BattleMetricsScript.CARD_INSET)
-		var mark_size := BattleMetricsScript.shaken_mark_size(theme)
-		var names := roster_names()
-		var beside := BattleMetricsScript.mark_beside_name(theme, copy_width, names)
-		var name_box := Vector2(BattleMetricsScript.name_width(theme, copy_width, names),
-			name_height if beside else name_height - mark_size.y)
 		var mark := shaken_marks.get(id) as Label
 		if mark != null:
 			mark.position = Vector2(copy_width - mark_size.x, 0.0) if beside else Vector2(0.0, name_box.y)
