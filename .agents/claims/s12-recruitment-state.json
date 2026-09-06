@@ -3,12 +3,13 @@
   "task_id": "s12-recruitment-state",
   "agent": "claude-opus-5-lane-s12",
   "summary": "S12: RecruitmentState for the women -- authored milestones advance a named stage, never a timer, and only a stage string plus the current beat ID ever leaves the simulation",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
     "godot-rust/src/strategy/recruitment.rs",
-    "godot-rust/src/expedition.rs"
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/godot_bridge.rs"
   ],
   "symbols": [
     "RecruitmentState",
@@ -27,10 +28,21 @@
     "conflicts_with": [
       "B3"
     ],
-    "notes": "Only additions to godot-rust/src/expedition.rs are one appended ExpeditionState field (recruitment), two appended ExpeditionError variants, and record_recruitment_milestone. strategy/mod.rs, lib.rs and godot_bridge.rs are untouched; B3 owns the bridge and consumes RecruitmentState::projection() only."
+    "notes": "Only additions to godot-rust/src/expedition.rs are one appended ExpeditionState field (recruitment), two appended ExpeditionError variants, and record_recruitment_milestone. strategy/mod.rs and lib.rs are untouched. godot_bridge.rs (B3's file) gained exactly two string arms in expedition_error_code, which is an exhaustive match over ExpeditionError and would not compile under --features godot-ext without them -- the same in-file precedent A3 and A4 set. No recruitment data is projected there; B3 must pass RecruitmentState::projection() through and nothing else."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "65cc982",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml -- 168 unit (15 new in strategy::recruitment) + 2 authored_world + 4 save_migration + 1 vertical_slice: passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs -- 194 stable IDs: passed",
+      "tests/save_migration.rs -- v1_minimal.json and v1_current.json still load with the appended serde(default) recruitment field: passed",
+      "attraction-vs-trust: high_attraction_with_low_trust_does_not_advance_the_stage and through_the_expedition_state::attraction_alone_does_not_move_her_through_the_command: passed",
+      "round trip: through_the_expedition_state::recruitment_survives_a_save_load_round_trip (byte-identical to_json): passed",
+      "replay refusal: through_the_expedition_state::a_second_recording_is_rejected_without_mutating (to_json unchanged): passed",
+      "bite proof: bypassing MilestoneRule requires_at_least when attraction_to_michael >= 80 failed exactly high_attraction_with_low_trust_does_not_advance_the_stage, attraction_alone_does_not_move_her_through_the_command and the_projection_carries_a_stage_word_and_a_beat_and_nothing_else (3 failed, 165 passed); reverted and green: passed",
+      "grep recruitment godot-rust/src/godot_bridge.rs -- one comment line, no dictionary key, no numeric field: passed"
+    ]
   }
 }
