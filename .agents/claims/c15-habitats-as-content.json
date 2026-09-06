@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "task_id": "c15-habitats-as-content",
+  "agent": "claude-code (lane C15)",
+  "summary": "Author the two rostered creatures content never declared, settle the enemy ID suffix on the registry's spelling for all nine records, author every habitat in the Rust fixture as a content record, and hold Habitats equal to content/habitats/ the way content/loot/ is already held.",
+  "status": "active",
+  "claimed_at": "2026-09-06T12:00:00Z",
+  "updated_at": "2026-09-06T12:00:00Z",
+  "paths": [
+    "content/enemies/",
+    "content/habitats/",
+    "content/encounters/returning_names.prototype.json",
+    "content/presentation/paper_dolls.prototype.json",
+    "content/world/reception_road.spawn_rule.json",
+    "content/art/creature_plan.json",
+    "content/art/placeholders.json",
+    "reports/placeholder-art.md",
+    "tools/src/validate.mjs",
+    "tools/src/build-content-bundle.mjs",
+    "game/generated/content_bundle.json",
+    "godot-rust/src/habitat.rs"
+  ],
+  "symbols": [
+    "habitat::Habitats::black_beach_vertical_slice",
+    "habitat::HabitatRecord",
+    "habitat::tests::fixture_matches_the_authored_habitats"
+  ],
+  "coordination": {
+    "depends_on": [
+      "b7-battle-entries-habitats",
+      "c14-machine-records"
+    ],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at cb4f57e. B7's claim recorded the gap this card closes and chose the external habitat. prefix as a stopgap; that prefix leaves intentionallyExternalPrefixes here. godot-rust/src/battle.rs, expedition.rs and strategy/ are NOT touched -- lanes A7 and S16 hold them -- so the vertical-slice battle fixture's ActorId literal keeps its own spelling; see the completion notes for exactly what that leaves behind and why it is a battle-instance ID rather than a creature definition ID. In habitat.rs only the test module is appended to."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
