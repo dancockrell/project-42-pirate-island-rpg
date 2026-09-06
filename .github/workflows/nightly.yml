@@ -16,8 +16,20 @@ name: Nightly
 # steps from `verify.yml`'s `godot-suites` job, reused as they stand. Nightly
 # additionally needs the export templates, which the test gate does not, so
 # those are pinned the same way.
+#
+# E10. The `macos` job is that same sequence on a macOS runner, because that is
+# the only host that can build the macOS dylib. It is a job of its own rather
+# than a third `desktop` matrix leg: `runs-on` would have to move into the
+# matrix, and the archive layout, the binary path inside it, the checksum tool
+# and the export-templates directory all differ from the Linux ones.
 
 on:
+  # TEMPORARY (E10 proof): GitHub only registers workflow_dispatch from the
+  # default branch, so this branch-scoped push trigger is the only way to run
+  # this file as it stands. Removed before the completion commit.
+  push:
+    branches:
+      - lane/E10-macos-nightly
   schedule:
     # 06:17 UTC daily. Off the hour deliberately: GitHub's scheduler queues the
     # top of the hour heavily, and a nightly that starts twenty minutes late is
@@ -36,6 +48,16 @@ env:
   # archive is unpacked; never skipped.
   GODOT_TEMPLATES_ASSET: Godot_v4.7.2-stable_export_templates.tpz
   GODOT_TEMPLATES_SHA512: ca4d71c4d7b81dfc15d1a98baa07534aa95b03fdda78a0075b06672e1648d2e5f40980c9adc28d23e1b92e732ee7bf3461997aa804af74ec2fcd7a93ccb84079
+  # E10. The macOS engine, taken from the same published SHA512-SUMS.txt of the
+  # same 4.7.2-stable release of godotengine/godot-builds that the two digests
+  # above were copied from -- its line for Godot_v4.7.2-stable_macos.universal.zip,
+  # confirmed by the fact that the engine and template lines in that file match
+  # the pins above character for character. The export templates are the very
+  # same .tpz: one archive carries every platform's templates, so the macOS job
+  # reuses GODOT_TEMPLATES_SHA512 rather than adding a second pin. Verified
+  # before the archive is unpacked; never skipped, never --no-verify.
+  GODOT_MACOS_ASSET: Godot_v4.7.2-stable_macos.universal.zip
+  GODOT_MACOS_SHA512: 38aa16e5bba2083941fc5b3e54be0089bd4cc35e32415f5b9fd9a8a6a7b9818255d44532ea8ef94b5aef56c4b407c2d634fa4f657e4ebe681ebbf59b7bac69ca
 
 jobs:
   desktop:
@@ -71,20 +93,15 @@ jobs:
             library: game/bin/windows/project42_sim.windows.expedition_v5_release.x86_64.dll
             declared: windows.release.x86_64
           #
-          # macOS is deliberately absent, and this is the honest reason rather
-          # than an omission. E4's preset exists and is correct; what does not
-          # exist is the library. game/bin/macos/ is empty, tools/build-native-bridge.sh
-          # builds for the host it runs on and a Linux runner is not a macOS
-          # host, so nothing on this runner can produce
-          # project42_sim.macos.expedition_v5_release.x86_64.dylib. It was
-          # tried: run 34023865769's "Export macOS" job failed at the assertion
-          # below with "The macOS export needs
-          # game/bin/macos/project42_sim.macos.expedition_v5_release.x86_64.dylib
-          # and it is not there", which is exactly the refusal E5 asked for --
-          # Godot would happily have exported an unsigned .zip with no
-          # simulation inside it. Adding macOS back means either a macos-latest
-          # runner in this matrix or a cross-compiled dylib; a preset entry
-          # alone would only produce a hollow build.
+          # macOS is not a leg of this matrix because it is not a Linux target.
+          # tools/build-native-bridge.sh builds for the host it runs on, so no
+          # Linux runner can produce
+          # project42_sim.macos.expedition_v5_release.x86_64.dylib, and when E5
+          # tried it anyway the assertion below refused the export (run
+          # 34023865769) rather than let Godot write a .zip with no simulation
+          # inside it. E10 supplied the macos-latest runner that comment asked
+          # for: the `macos` job below does this same work there. A pointer,
+          # not an omission.
 
     steps:
       - name: Check out the repository
@@ -216,6 +233,209 @@ jobs:
         with:
           name: project42-${{ matrix.slug }}-${{ github.sha }}
           path: ${{ runner.temp }}/export/${{ matrix.slug }}
+          if-no-files-found: error
+
+  macos:
+    name: Export macOS
+    # E10, and the answer to the comment in `desktop` above. Only a macOS host
+    # can build the dylib that game/bin/project42_sim.gdextension declares, so
+    # the macOS build lives on a macOS runner and nowhere else.
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install the Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache the Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: godot-rust
+
+      # Two things differ from the Linux download and nothing else does. The
+      # macOS engine ships as a bundle, so the executable is
+      # Godot.app/Contents/MacOS/Godot rather than a bare file; and macOS has
+      # no sha512sum, so the pin is checked with `shasum -a 512`, which is the
+      # same check with the tool the runner actually has. Still before the
+      # archive is unpacked, still --strict, still never skipped.
+      - name: Download and verify Godot ${{ env.GODOT_VERSION }} for macOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/${GODOT_MACOS_ASSET}"
+          echo "Downloading $url"
+          curl --fail --location --silent --show-error \
+               --retry 3 --retry-delay 5 --retry-all-errors \
+               --output "${RUNNER_TEMP}/godot-macos.zip" "$url"
+          printf '%s  %s\n' "$GODOT_MACOS_SHA512" "${RUNNER_TEMP}/godot-macos.zip" \
+            | shasum -a 512 --check --strict
+          unzip -q "${RUNNER_TEMP}/godot-macos.zip" -d "${RUNNER_TEMP}/godot"
+          binary="${RUNNER_TEMP}/godot/Godot.app/Contents/MacOS/Godot"
+          if [[ ! -f "$binary" ]]; then
+            echo "The pinned archive did not contain $binary. Its contents were:" >&2
+            ls -lR "${RUNNER_TEMP}/godot" >&2
+            exit 1
+          fi
+          chmod +x "$binary"
+          echo "GODOT=$binary" >> "$GITHUB_ENV"
+
+      - name: Confirm the engine runs and reports the pinned version
+        shell: bash
+        run: |
+          set -euo pipefail
+          reported="$("$GODOT" --headless --version)"
+          echo "Godot reports: $reported"
+          case "$reported" in
+            4.7.2.stable.official*) ;;
+            *)
+              echo "Expected a 4.7.2.stable.official build, got: $reported" >&2
+              exit 1
+              ;;
+          esac
+
+      # The same .tpz, pinned by the same digest: one archive carries every
+      # platform's export templates. Only the directory Godot reads them from
+      # is different -- macOS looks under ~/Library/Application Support/Godot,
+      # not ~/.local/share/godot.
+      - name: Download and verify the export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/${GODOT_TEMPLATES_ASSET}"
+          echo "Downloading $url"
+          curl --fail --location --silent --show-error \
+               --retry 3 --retry-delay 5 --retry-all-errors \
+               --output "${RUNNER_TEMP}/templates.tpz" "$url"
+          printf '%s  %s\n' "$GODOT_TEMPLATES_SHA512" "${RUNNER_TEMP}/templates.tpz" \
+            | shasum -a 512 --check --strict
+          unzip -q "${RUNNER_TEMP}/templates.tpz" -d "${RUNNER_TEMP}/templates"
+          version_directory="${GODOT_VERSION/-/.}"
+          destination="${HOME}/Library/Application Support/Godot/export_templates/${version_directory}"
+          mkdir -p "$destination"
+          mv "${RUNNER_TEMP}/templates/templates/"* "$destination/"
+          echo "Installed $(ls -1 "$destination" | wc -l) template files into $destination"
+
+      # The whole reason this job exists. tools/build-native-bridge.sh already
+      # knows Darwin: `uname -s` picks platform macos, libproject42_sim.dylib
+      # and game/bin/macos/, so it is run exactly as the Linux job runs it,
+      # with no macOS special case anywhere in this workflow.
+      - name: Build the native bridge
+        shell: bash
+        run: bash tools/build-native-bridge.sh release
+
+      # Honest about what one runner can produce. The script builds for the
+      # host, so this dylib carries the runner's architecture only, while the
+      # file name and E4's preset both say x86_64. Nothing here can make a
+      # universal binary out of a single-architecture host build, so the facts
+      # are printed instead of assumed, and the artifact's README repeats them.
+      - name: Report what architecture this runner built
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Runner architecture: $(uname -m)"
+          lipo -archs game/bin/macos/project42_sim.macos.expedition_v5_release.x86_64.dylib
+          file game/bin/macos/project42_sim.macos.expedition_v5_release.x86_64.dylib
+
+      # E5's assertion, unchanged in substance and applied to the macOS row of
+      # the .gdextension. If the dylib is not at the declared path the export
+      # would package a game with no simulation in it, so the job stops here.
+      - name: Confirm the GDExtension library is installed where Godot looks
+        shell: bash
+        run: |
+          set -euo pipefail
+          library="game/bin/macos/project42_sim.macos.expedition_v5_release.x86_64.dylib"
+          declared="res://${library#game/}"
+          if ! grep -qF "macos.release.x86_64 = \"$declared\"" game/bin/project42_sim.gdextension; then
+            echo "game/bin/project42_sim.gdextension no longer declares macos.release.x86_64 = $declared." >&2
+            exit 1
+          fi
+          if [[ ! -f "$library" ]]; then
+            echo "The macOS export needs $library and it is not there." >&2
+            echo "Exporting now would package a build with no simulation in it. Refusing." >&2
+            exit 1
+          fi
+          ls -la "$library"
+
+      - name: Import the project
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GODOT" --headless --editor --path game --quit
+
+      # work/macos-desktop/project42.zip is the path E4's preset already names
+      # in its export_path, and .gitignore already covers it.
+      - name: Export macOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="${GITHUB_WORKSPACE}/work/macos-desktop"
+          mkdir -p "$output"
+          "$GODOT" --headless --path game \
+            --export-release "macOS" "$output/project42.zip"
+          if [[ ! -s "$output/project42.zip" ]]; then
+            echo "The export reported success but wrote no $output/project42.zip." >&2
+            ls -la "$output" >&2
+            exit 1
+          fi
+          ls -la "$output"
+
+      # The point of the assertion above was that the simulation travels with
+      # the build. Proving it in the exported archive costs one unzip -l.
+      - name: Confirm the exported archive carries the dylib
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="${GITHUB_WORKSPACE}/work/macos-desktop/project42.zip"
+          if ! unzip -l "$archive" | grep -F "project42_sim.macos.expedition_v5_release.x86_64.dylib"; then
+            echo "$archive does not contain the macOS GDExtension library." >&2
+            unzip -l "$archive" >&2
+            exit 1
+          fi
+
+      # Unsigned and unnotarised is the honest state of this build: the preset
+      # sets codesign/codesign=0 and notarization/notarization=0, and no signing
+      # identity or Apple credential is available to a public CI runner. Say so
+      # beside the artifact rather than letting somebody discover it from
+      # Gatekeeper.
+      - name: Write the artifact README
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="${GITHUB_WORKSPACE}/work/macos-desktop"
+          {
+            echo "Project 42: Pirate Island RPG -- macOS nightly build"
+            echo ""
+            echo "Commit:  ${GITHUB_SHA}"
+            echo "Run:     ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "Engine:  Godot ${GODOT_VERSION}, exported with the macOS preset in game/export_presets.cfg"
+            echo "Built:   $(uname -s) $(uname -m) runner"
+            echo ""
+            echo "THIS BUILD IS UNSIGNED AND UNNOTARISED."
+            echo ""
+            echo "It carries no Apple Developer signature and has not been through"
+            echo "notarisation, because no signing identity exists on a public CI"
+            echo "runner. macOS Gatekeeper will refuse to open it on a normal"
+            echo "download, and clearing the quarantine attribute to run it anyway"
+            echo "is a decision for whoever does it. This is a nightly for testing,"
+            echo "not a release."
+            echo ""
+            echo "Architecture: the GDExtension library inside was built by"
+            echo "tools/build-native-bridge.sh on this runner, which builds for its"
+            echo "own host, so it carries that host's architecture alone --"
+            echo "$(uname -m) -- despite the x86_64 in its file name and in the"
+            echo "preset's binary_format/architecture. A universal build needs both"
+            echo "architectures built and merged, which one host build cannot do."
+          } > "$output/README.txt"
+          cat "$output/README.txt"
+
+      - name: Upload the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: project42-macos-${{ github.sha }}
+          path: work/macos-desktop
           if-no-files-found: error
 
   packs:
