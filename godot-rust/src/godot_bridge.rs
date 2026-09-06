@@ -1050,6 +1050,37 @@ fn expedition_state_dictionary(
     for machine_id in machines.ids() {
         machine_ids.push(&GString::from(machine_id));
     }
+    // P4/B12: where S7's offscreen forces are, so the board's route distance can
+    // draw them moving between cells instead of inventing motion. Five fields,
+    // all of them places and names: the force's own ID, whose it is, the cell it
+    // stands in, the cell its next hop reaches (empty while it is not marching)
+    // and how far into that hop it has marched, as a fraction the screen can
+    // interpolate along a tether.
+    //
+    // What is deliberately NOT here: strength, readiness, supply, composition,
+    // roles, assignment and evidence. Brief section 10 makes a force an
+    // aggregate the party learns about through evidence, and a screen that could
+    // read an army's strength off the snapshot would start drawing a bar over
+    // one nobody has seen. `progress` is a ratio rather than the accrued
+    // minutes for the same reason: a miniature needs where along the road it
+    // is, not the marching arithmetic.
+    let mut forces_projected = Array::<VarDictionary>::new();
+    for force in state.forces.values() {
+        let next_route = force.route.first().and_then(|id| geography.route(id));
+        let progress = match next_route {
+            Some(route) if route.time_cost_minutes > 0 => {
+                f64::from(force.progress_minutes) / f64::from(route.time_cost_minutes)
+            }
+            _ => 0.0,
+        };
+        forces_projected.push(&vdict! {
+            "id" => force.id.as_str(),
+            "faction_id" => force.faction_id.as_str(),
+            "position_cell_id" => force.position_cell_id.as_str(),
+            "next_cell_id" => next_route.map(|route| route.to_location_id.as_str()).unwrap_or(""),
+            "progress" => progress.clamp(0.0, 1.0),
+        });
+    }
     let mut result = vdict! {
         "configured" => true,
         "save_version" => i64::from(state.save_version),
@@ -1068,6 +1099,7 @@ fn expedition_state_dictionary(
         "estate_upgrades" => &estate_upgrades,
     };
     result.set("factions", &factions_projected);
+    result.set("forces", &forces_projected);
     result.set("buildings", &building_ids);
     // P3: what the sky is allowed to know. Six read-only keys, every one of
     // them a *name* or a position on a clock the simulation already owns, so

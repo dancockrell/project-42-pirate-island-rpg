@@ -1107,6 +1107,10 @@ for (const { file, value } of worldCellsById.values()) {
   }
 }
 
+/// The standard room footprints, by ID, as `board.registry.json` declares them.
+/// Filled by the `board_footprint_registry` branch below and read by the world
+/// cells' `board` blocks after this loop, so there is one table and one reader.
+const boardFootprints = new Map();
 for (const { file, value } of await readJsonDirectory("presentation")) {
   if (!Array.isArray(value.entries) || value.entries.length === 0) fail(file, "presentation registry must contain entries");
   if (value.kind === "camera_registry") {
@@ -1176,8 +1180,107 @@ for (const { file, value } of await readJsonDirectory("presentation")) {
       if (!Array.isArray(entry.identityInvariants) || entry.identityInvariants.length < 5) fail(file, `${entry.id} requires at least five identity invariants`);
       if (!Array.isArray(entry.replacementTests) || entry.replacementTests.length < 4) fail(file, `${entry.id} requires at least four replacement tests`);
     }
+  } else if (value.kind === "board_footprint_registry") {
+    // B11/P4: the one table of standard room footprints. Brief section 18
+    // requires standard sizes so procedural placement cannot collide, and the
+    // exact numbers are Open item O3 -- so every entry must carry the mark, and
+    // a world cell names an entry here instead of writing metres of its own.
+    // When O3 closes, six numbers change in one file and no room is re-authored.
+    for (const [index, entry] of (value.entries ?? []).entries()) {
+      registerId(entry.id, file);
+      if (!entry.id?.startsWith("presentation.board.footprint.")) fail(file, `entries[${index}].id must use the presentation.board.footprint prefix`);
+      requireString(entry, "usage", file);
+      for (const field of ["widthMetres", "depthMetres"]) {
+        if (!Number.isInteger(entry[field]) || entry[field] < 8 || entry[field] > 200) fail(file, `${entry.id} ${field} must be a whole number of metres from 8 through 200`);
+      }
+      if (entry.needsDecision !== "O3") fail(file, `${entry.id} must be marked needsDecision O3: the exact standard dimensions are an open decision and a number here that claims otherwise is an invented one`);
+      boardFootprints.set(entry.id, entry);
+    }
   } else {
     fail(file, `unsupported presentation registry kind ${value.kind}`);
+  }
+}
+
+// B11/P4: every world cell's `board` block, held against that table and against
+// the room the cell already declares. Field names are dr-companion's
+// (`footprint`, `spawnPoints`, `tethers`) so a single owner later is a rename
+// rather than a rewrite. Four things are checked and none of them is believed:
+// the footprint is a table entry rather than loose metres; the room's own entry
+// anchors and every spawn point lie inside that footprint, so a cell cannot
+// declare a box its authored doors are outside of; there is exactly one tether
+// per portal, its kind is this file's classification of the portal's
+// travelMode, and its anchor sits on the footprint edge facing the target room.
+const TETHER_KIND_BY_TRAVEL_MODE = new Map([["on_foot", "walk"], ["safe_road", "road"], ["jungle_edge", "trail"]]);
+const SPAWN_ROLES = new Map([["player", "humanoid-root"], ["occupant", "humanoid-root"], ["hostile", "creature-root"], ["item", "item-root"]]);
+const BOARD_SPAWN_POINT_MINIMUM = 7;
+for (const { file, value } of worldCellsById.values()) {
+  const board = value.board;
+  if (!board || typeof board !== "object" || Array.isArray(board)) {
+    fail(file, "world cell requires a board block: B11's footprint, spawn points and tethers");
+    continue;
+  }
+  const size = boardFootprints.get(board.footprint?.sizeId);
+  reference(board.footprint?.sizeId, file, "board.footprint.sizeId");
+  if (board.footprint?.sizeId !== undefined && !size) fail(file, `board.footprint.sizeId ${board.footprint.sizeId} is not an entry in content/presentation/board.registry.json; a room may not write its own metres while O3 is open`);
+  if (!Array.isArray(board.islandPositionMetres) || board.islandPositionMetres.length !== 2 || board.islandPositionMetres.some(component => typeof component !== "number")) fail(file, "board.islandPositionMetres must be the room's two-component place on the island, in metres");
+  if (typeof board.elevationMetres !== "number") fail(file, "board.elevationMetres must be the room's height above sea level, in metres");
+  const halfWidth = size ? size.widthMetres / 2 : Infinity;
+  const halfDepth = size ? size.depthMetres / 2 : Infinity;
+  const inside = (position, margin = 0) => Math.abs(position[0]) <= halfWidth + margin && Math.abs(position[2]) <= halfDepth + margin;
+  for (const anchor of value.entryAnchors ?? []) {
+    if (Array.isArray(anchor.positionMetres) && !inside(anchor.positionMetres)) fail(file, `entry anchor ${anchor.id} stands outside the ${board.footprint?.sizeId} footprint this cell declares`);
+  }
+  if (!Array.isArray(board.spawnPoints) || board.spawnPoints.length < BOARD_SPAWN_POINT_MINIMUM) fail(file, `board.spawnPoints must offer at least ${BOARD_SPAWN_POINT_MINIMUM} sockets; S7's forces materialise into these`);
+  for (const [index, spawn] of (Array.isArray(board.spawnPoints) ? board.spawnPoints : []).entries()) {
+    registerId(spawn.id, file);
+    if (!spawn.id?.startsWith("spawn.")) fail(file, `board.spawnPoints[${index}].id must use the spawn. prefix`);
+    if (!SPAWN_ROLES.has(spawn.role)) fail(file, `board.spawnPoints[${index}].role must be one of ${[...SPAWN_ROLES.keys()].join(", ")}`);
+    if (SPAWN_ROLES.has(spawn.role) && spawn.rigSocket !== SPAWN_ROLES.get(spawn.role)) fail(file, `board.spawnPoints[${index}] is a ${spawn.role} socket and must carry rigSocket ${SPAWN_ROLES.get(spawn.role)}`);
+    if (!Array.isArray(spawn.positionMetres) || spawn.positionMetres.length !== 3 || spawn.positionMetres.some(component => typeof component !== "number")) fail(file, `board.spawnPoints[${index}].positionMetres must be three numeric metres`);
+    else if (!inside(spawn.positionMetres)) fail(file, `board.spawnPoints[${index}] ${spawn.id} stands outside the ${board.footprint?.sizeId} footprint`);
+  }
+  for (const role of SPAWN_ROLES.keys()) {
+    if (!(board.spawnPoints ?? []).some(spawn => spawn?.role === role)) fail(file, `board.spawnPoints must include at least one ${role} socket`);
+  }
+  const tetherPortalIds = (Array.isArray(board.tethers) ? board.tethers : []).map(tether => tether?.portalId);
+  for (const [index, portal] of (value.portals ?? []).entries()) {
+    if (!tetherPortalIds.includes(portal.id)) fail(file, `board.tethers is missing the tether for portals[${index}] ${portal.id}; B11 requires one tether per portal`);
+  }
+  for (const [index, tether] of (Array.isArray(board.tethers) ? board.tethers : []).entries()) {
+    const portal = (value.portals ?? []).find(candidate => candidate.id === tether?.portalId);
+    if (!portal) {
+      fail(file, `board.tethers[${index}].portalId must name a portal of this cell`);
+      continue;
+    }
+    const expectedKind = TETHER_KIND_BY_TRAVEL_MODE.get(portal.travelMode);
+    if (tether.kind !== expectedKind) fail(file, `board.tethers[${index}].kind must be ${expectedKind}, this file's classification of travelMode ${portal.travelMode}`);
+    if (!Array.isArray(tether.anchorMetres) || tether.anchorMetres.length !== 3 || tether.anchorMetres.some(component => typeof component !== "number")) {
+      fail(file, `board.tethers[${index}].anchorMetres must be three numeric metres`);
+      continue;
+    }
+    if (!size) continue;
+    const [x, , z] = tether.anchorMetres;
+    const onEdge = Math.abs(Math.abs(x) - halfWidth) < 0.05 || Math.abs(Math.abs(z) - halfDepth) < 0.05;
+    if (!onEdge || !inside(tether.anchorMetres, 0.05)) fail(file, `board.tethers[${index}] anchor must sit on the ${board.footprint.sizeId} footprint's edge, not inside it and not beyond it`);
+    const target = worldCellsById.get(portal.targetCellId)?.value?.board?.islandPositionMetres;
+    const here = board.islandPositionMetres;
+    if (Array.isArray(target) && Array.isArray(here)) {
+      if ((target[0] - here[0]) * x + (target[1] - here[1]) * z <= 0) fail(file, `board.tethers[${index}] anchor faces away from ${portal.targetCellId}; a tether leaves the room toward the room it reaches`);
+    }
+  }
+}
+
+// Brief section 18: standard footprint sizes exist so procedural placement
+// cannot collide. Two rooms whose declared boxes overlap on the island are that
+// collision, authored -- and the board would draw one room inside another.
+const boardPlacements = [...worldCellsById.values()]
+  .map(({ file, value }) => ({ file, id: value.id, island: value.board?.islandPositionMetres, size: boardFootprints.get(value.board?.footprint?.sizeId) }))
+  .filter(placement => Array.isArray(placement.island) && placement.size);
+for (const [index, left] of boardPlacements.entries()) {
+  for (const right of boardPlacements.slice(index + 1)) {
+    const apart = Math.abs(left.island[0] - right.island[0]) >= (left.size.widthMetres + right.size.widthMetres) / 2
+      || Math.abs(left.island[1] - right.island[1]) >= (left.size.depthMetres + right.size.depthMetres) / 2;
+    if (!apart) fail(left.file, `board footprint overlaps ${right.id}; standard footprints exist so two rooms cannot occupy the same island ground`);
   }
 }
 

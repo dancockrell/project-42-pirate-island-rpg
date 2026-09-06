@@ -37,5 +37,24 @@
   ],
   "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
   "dungeonContext": {"dungeonId": "dungeon.tomb_of_returning_names", "space": "registry_court", "ownerConceptKey": "elves", "corruptedVariantConceptKey": "cthulhu", "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.registry_order"]},
+  "board": {
+    "footprint": {"sizeId": "presentation.board.footprint.hall"},
+    "islandPositionMetres": [132.0, -78.0],
+    "elevationMetres": 40.0,
+    "spawnPoints": [
+      {"id": "spawn.tomb_threshold.ramp_door", "role": "player", "positionMetres": [-9.0, 0.0, 8.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.tomb_threshold.inner_door", "role": "player", "positionMetres": [0.0, 0.0, 1.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.tomb_threshold.register_jamb", "role": "occupant", "positionMetres": [-5.0, 0.0, -6.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.tomb_threshold.watch_post", "role": "occupant", "positionMetres": [9.0, 0.0, -3.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.tomb_threshold.rain_channel", "role": "hostile", "positionMetres": [3.0, 0.0, 5.0], "rigSocket": "creature-root"},
+      {"id": "spawn.tomb_threshold.service_mouth", "role": "hostile", "positionMetres": [6.5, 0.0, -10.0], "rigSocket": "creature-root"},
+      {"id": "spawn.tomb_threshold.sealed_register", "role": "item", "positionMetres": [-8.0, 0.8, -8.0], "rigSocket": "item-root"},
+      {"id": "spawn.tomb_threshold.standing_water", "role": "item", "positionMetres": [-2.0, 0.0, 11.0], "rigSocket": "item-root"}
+    ],
+    "tethers": [
+      {"portalId": "world.portal.tomb_threshold_to_processional_ramp", "kind": "walk", "anchorMetres": [-17.0, 0.0, 13.4]},
+      {"portalId": "world.portal.tomb_threshold_to_tomb_reception", "kind": "walk", "anchorMetres": [17.0, 0.0, -11.6]}
+    ]
+  },
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 1, "browserPerformanceGate": "pending", "releaseLegal": false}
 }
