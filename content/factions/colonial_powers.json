@@ -1,0 +1,42 @@
+{
+  "id": "faction.colonial_powers",
+  "concept_key": "colonial_powers",
+  "displayName": "[needs decision: display name for faction.colonial_powers]",
+  "doctrine": "Provisional (brief section 6.2): a centralized administrative and military occupation faction built on ports, roads, forts, standardized production, taxation, artillery and external supply. Proposed strengths: disciplined forces, fortification, artillery, standardization, ports, major-road logistics, administrative control, external reinforcement. Proposed weaknesses: rigid command, expensive occupation, long supply chains, isolated garrisons, dependence on ports and formal routes, and resistance by local populations. Prose only; nothing in the strategy tree may branch on it before S15.",
+  "resource_priorities": {
+    "resource.open.needs_decision": 0
+  },
+  "building_priorities": {},
+  "recruitment_or_population_rules": "",
+  "movement_preferences": {},
+  "relationship_tendencies": {},
+  "board_position_behavior": {},
+  "victory_conditions": [
+    "Provisional (brief section 6.2 proposed victory pressure): convert the island into governable, taxable, militarily controlled territory connected to external authority. Not an ordinary-faction victory condition -- brief section 20 leaves those Open."
+  ],
+  "recovery_rules": "",
+  "elimination_rules": "",
+  "weather_preferences": {},
+  "terrain_influence": {},
+  "corruption_interactions": "",
+  "building_kit": [],
+  "actor_kit": [],
+  "dungeon_grammar": "",
+  "loot_grammar": "",
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "maturity": "vertical_slice",
+    "releaseLegal": true,
+    "notes": [
+      "Provisional (brief section 6.2): the whole doctrine string.",
+      "Open (brief section 4): population or recruitment source, recovery behaviour and elimination consequences are required of every faction and are not yet decided, so recruitment_or_population_rules, recovery_rules and elimination_rules are empty rather than invented.",
+      "Open (brief section 20, \"Exact resource list\"): resource_priorities carries the single placeholder key resource.open.needs_decision at weight 0. No resource category is chosen here and no code may read a weight of zero as a preference.",
+      "Open (brief section 4): no proper faction name is approved. displayName is a needs-decision placeholder and no Rust field reads it; validate.mjs fails any record whose displayName stops saying so.",
+      "Open: building_priorities, building_kit and actor_kit stay empty until C10 authors building.<...> records and S3 loads them. An ID here before then would dangle.",
+      "Open (brief section 7, Provisional pairwise relationship pressures): relationship_tendencies stays empty. S6 owns how relationships move; an authored opening position would be a number acting before approval.",
+      "Open: movement_preferences, weather_preferences and terrain_influence stay empty until the authored terrain, travel-mode and weather key spaces exist to key them by.",
+      "Open (brief section 9, Provisional strategic board-position categories): board_position_behavior stays empty; S5 owns the categories' behaviour.",
+      "Open (brief section 4): dungeon grammar and loot grammar are required of every faction and are not decided; dungeon_grammar and loot_grammar are empty. The character-scale drop tables in content/loot/ are a separate economy and are not mirrored here."
+    ]
+  }
+}

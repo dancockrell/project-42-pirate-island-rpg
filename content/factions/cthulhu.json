@@ -1,0 +1,43 @@
+{
+  "id": "faction.cthulhu",
+  "concept_key": "cthulhu",
+  "displayName": "[needs decision: display name for faction.cthulhu]",
+  "doctrine": "Accepted broad identity (brief section 6.5): an unusual hidden victory function, escalating corruption, weather and terrain influence, weighted assistance events and a summoning endgame. The staged operating model is Provisional (brief section 20): proposed stages are Hidden (recruitment and infiltration, dreams and secrets, isolated corruption, hidden ritual anchors, avoidance of direct confrontation), Emerging (connected corrupted regions, monster production, weather destabilization, attacks on weakened settlements, protection of ritual infrastructure) and Dominant (open territorial expansion, destruction of containment, isolation of enemies, summoning preparation, final ritual defense). Proposed economy: corruption, fear, death, captives, secrets, magical sites, ritual materials, compromised people, storms, abandoned settlements. Prose only; nothing in the strategy tree may branch on it before S15.",
+  "resource_priorities": {
+    "resource.open.needs_decision": 0
+  },
+  "building_priorities": {},
+  "recruitment_or_population_rules": "",
+  "movement_preferences": {},
+  "relationship_tendencies": {},
+  "board_position_behavior": {},
+  "victory_conditions": [
+    "Accepted (brief section 6.5 victory pressure): corrupt the island sufficiently to complete the summoning of the major threat. The rules that would carry it out -- early-elimination and summoning-interruption -- are Open (brief section 20)."
+  ],
+  "recovery_rules": "",
+  "elimination_rules": "",
+  "weather_preferences": {},
+  "terrain_influence": {},
+  "corruption_interactions": "",
+  "building_kit": [],
+  "actor_kit": [],
+  "dungeon_grammar": "",
+  "loot_grammar": "",
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "maturity": "vertical_slice",
+    "releaseLegal": true,
+    "notes": [
+      "Accepted (brief section 6.5): the broad identity and the victory pressure. Provisional (brief section 20): the staged operating model, summarized in the doctrine note.",
+      "Open (brief section 20): Cthulhu early-elimination rules and summoning-interruption rules. elimination_rules is empty rather than invented.",
+      "Open (brief section 20): which corruption effects are reversible. corruption_interactions is empty even though this faction is the corruption source.",
+      "Open (brief section 20, \"Exact resource list\"): resource_priorities carries the single placeholder key resource.open.needs_decision at weight 0. No resource category is chosen here and no code may read a weight of zero as a preference.",
+      "Open (brief section 4): no proper faction name is approved. displayName is a needs-decision placeholder and no Rust field reads it; validate.mjs fails any record whose displayName stops saying so.",
+      "Open: building_priorities, building_kit and actor_kit stay empty until C10 authors building.<...> records and S3 loads them. An ID here before then would dangle.",
+      "Open (brief section 7, Provisional pairwise relationship pressures): relationship_tendencies stays empty. S6 owns how relationships move; an authored opening position would be a number acting before approval.",
+      "Open: movement_preferences, weather_preferences and terrain_influence stay empty until the authored terrain, travel-mode and weather key spaces exist to key them by.",
+      "Open (brief section 9, Provisional strategic board-position categories): board_position_behavior stays empty; S5 owns the categories' behaviour.",
+      "Open (brief section 4): dungeon grammar and loot grammar are required of every faction and are not decided; dungeon_grammar and loot_grammar are empty. The character-scale drop tables in content/loot/ are a separate economy and are not mirrored here."
+    ]
+  }
+}

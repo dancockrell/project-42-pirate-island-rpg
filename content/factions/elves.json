@@ -1,0 +1,43 @@
+{
+  "id": "faction.elves",
+  "concept_key": "elves",
+  "displayName": "[needs decision: display name for faction.elves]",
+  "doctrine": "Provisional (brief section 6.4): an old territorial power whose economy, military, magic and infrastructure are integrated into the island's living systems. Proposed strengths: terrain shaping, defensive depth, high-quality specialists, ranged combat, magical support, ecological recovery, weather stabilization, corruption resistance. Proposed weaknesses: slow population replacement, attachment to specific irreplaceable places, fire and industrial damage, simultaneous attacks on several ancient anchors, and reduced effectiveness away from prepared living terrain. Prose only; nothing in the strategy tree may branch on it before S15.",
+  "resource_priorities": {
+    "resource.open.needs_decision": 0
+  },
+  "building_priorities": {},
+  "recruitment_or_population_rules": "",
+  "movement_preferences": {},
+  "relationship_tendencies": {},
+  "board_position_behavior": {},
+  "victory_conditions": [
+    "Provisional (brief section 6.4 proposed victory pressure): restore or impose a stable ecological and magical order across enough of the island to prevent destructive domination and Cthulhu corruption. Not an ordinary-faction victory condition -- brief section 20 leaves those Open."
+  ],
+  "recovery_rules": "",
+  "elimination_rules": "",
+  "weather_preferences": {},
+  "terrain_influence": {},
+  "corruption_interactions": "",
+  "building_kit": [],
+  "actor_kit": [],
+  "dungeon_grammar": "",
+  "loot_grammar": "",
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "maturity": "vertical_slice",
+    "releaseLegal": true,
+    "notes": [
+      "Provisional (brief section 6.4): the whole doctrine string.",
+      "Provisional: \"corruption resistance\" is a proposed strength, not a rule. corruption_interactions stays empty -- brief section 20 leaves which corruption effects are reversible Open.",
+      "Open (brief section 4): population or recruitment source, recovery behaviour and elimination consequences are required of every faction and are not yet decided, so recruitment_or_population_rules, recovery_rules and elimination_rules are empty rather than invented.",
+      "Open (brief section 20, \"Exact resource list\"): resource_priorities carries the single placeholder key resource.open.needs_decision at weight 0. No resource category is chosen here and no code may read a weight of zero as a preference.",
+      "Open (brief section 4): no proper faction name is approved. displayName is a needs-decision placeholder and no Rust field reads it; validate.mjs fails any record whose displayName stops saying so.",
+      "Open: building_priorities, building_kit and actor_kit stay empty until C10 authors building.<...> records and S3 loads them. An ID here before then would dangle.",
+      "Open (brief section 7, Provisional pairwise relationship pressures): relationship_tendencies stays empty. S6 owns how relationships move; an authored opening position would be a number acting before approval.",
+      "Open: movement_preferences, weather_preferences and terrain_influence stay empty until the authored terrain, travel-mode and weather key spaces exist to key them by.",
+      "Open (brief section 9, Provisional strategic board-position categories): board_position_behavior stays empty; S5 owns the categories' behaviour.",
+      "Open (brief section 4): dungeon grammar and loot grammar are required of every faction and are not decided; dungeon_grammar and loot_grammar are empty. The character-scale drop tables in content/loot/ are a separate economy and are not mirrored here."
+    ]
+  }
+}
