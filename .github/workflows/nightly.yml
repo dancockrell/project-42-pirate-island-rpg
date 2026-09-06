@@ -359,7 +359,7 @@ jobs:
       # with no macOS special case anywhere in this workflow.
       - name: Build the native bridge
         shell: bash
-        run: echo "E10 BITE -- the native bridge build is a no-op in this commit"
+        run: bash tools/build-native-bridge.sh release
 
       # E5's assertion, applied to the macOS row of the .gdextension. If the
       # dylib is not at the path Godot resolves, the export would package a
