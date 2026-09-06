@@ -12,6 +12,7 @@ use crate::geography::{
 use crate::habitat::Habitats;
 use crate::protocol::{CommandEnvelope, CommandKind, PROTOCOL_VERSION};
 use crate::strategy::building::{BuildingDefinition, BuildingDefinitions, BuildingError};
+use crate::strategy::dungeon::{CorruptionBand, HeatBand};
 use crate::strategy::faction::{
     FactionDefinition, FactionDefinitions, FactionError, StrategicState,
 };
@@ -937,6 +938,52 @@ fn expedition_state_dictionary(
     };
     result.set("factions", &factions_projected);
     result.set("buildings", &building_ids);
+    // P3: what the sky is allowed to know. Six read-only keys, every one of
+    // them a *name* or a position on a clock the simulation already owns, so
+    // the atmosphere is driven by the island and never by the host's clock.
+    //
+    // `weather` is S8's draw, one word per region -- `WeatherCondition::as_str`
+    // and no number, because a screen that could read the draw would start
+    // drawing the roll. `active_region_id` rides beside it so Godot never has
+    // to guess which region the party is standing in; guessing is how two
+    // answers to one question start.
+    //
+    // `corruption` is S9's band per cell, not the `u8` it was banded from, for
+    // the reason `strategy/dungeon.rs` gives: a raw value would regenerate the
+    // world's look on every point of accumulation, and a screen that could see
+    // the number would be reading a hidden quantity through the wrong door. A
+    // cell with no corruption at all is simply absent, exactly as it is absent
+    // from `ExpeditionState::corruption`.
+    //
+    // `heat_band` is the one thing brief section 13 permits about hidden
+    // pressure: which of four rooms the world is in, named, and never the
+    // number. `cthulhu_heat` itself does not cross this boundary and no key
+    // here can be arithmetic'd back into it.
+    //
+    // `hour_of_day` is S4's strategic clock, and `is_night` is
+    // `habitat::is_night` -- the same function the Midnight Return already
+    // reads, asked here rather than re-decided in GDScript.
+    let mut weather = VarDictionary::new();
+    for (region_id, state) in &state.weather {
+        weather.set(region_id.as_str(), state.condition.as_str());
+    }
+    let mut corruption = VarDictionary::new();
+    for (cell_id, value) in &state.corruption {
+        corruption.set(cell_id.as_str(), CorruptionBand::of(*value).as_str());
+    }
+    result.set("weather", &weather);
+    result.set("corruption", &corruption);
+    result.set("heat_band", HeatBand::of(state.cthulhu_heat).as_str());
+    result.set("hour_of_day", i64::from(state.strategic_clock.hour_of_day));
+    result.set(
+        "active_region_id",
+        geography
+            .locations
+            .get(&state.active_location_id)
+            .map(|location| location.region_id.as_str())
+            .unwrap_or(""),
+    );
+    result.set("is_night", crate::habitat::is_night(&state.time_segment));
     result.set("metadata", &metadata);
     result
 }

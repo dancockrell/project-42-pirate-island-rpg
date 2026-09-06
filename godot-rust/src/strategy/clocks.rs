@@ -198,6 +198,18 @@ impl WeatherCondition {
             WeatherCondition::Unnatural => "unnatural",
         }
     }
+
+    /// Every condition, ordinary end first. [`ORDINARY`](Self::ORDINARY) is the
+    /// draw's table and deliberately stops short of `Unnatural`; this is the
+    /// whole axis, for a reader that must cover all five -- an authored
+    /// weather table, a test.
+    pub const ALL: [WeatherCondition; 5] = [
+        WeatherCondition::Clear,
+        WeatherCondition::Overcast,
+        WeatherCondition::Rain,
+        WeatherCondition::Storm,
+        WeatherCondition::Unnatural,
+    ];
 }
 
 /// One region's weather, and the day it was drawn for.

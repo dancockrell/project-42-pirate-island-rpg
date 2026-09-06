@@ -1,0 +1,35 @@
+{
+  "id": "atmosphere.transitions",
+  "kind": "atmosphere_transitions",
+  "displayName": "Named transition durations and the night lamps",
+  "description": "How long each half of the atmosphere takes to travel between two snapshots, and what a lamp at a held building is. Every duration is named so a test and a capture can talk about the same one.",
+  "durationsSeconds": {
+    "sun": 2.4,
+    "fog": 3.2,
+    "wind": 1.8,
+    "grade": 4.0,
+    "heat": 12.0
+  },
+  "reducedMotion": {
+    "durationScale": 0.2,
+    "particlesStilled": true,
+    "note": "B9's reduced motion, read from user://settings.cfg. Nothing is cut: the same values arrive, in a fifth of the time, and the rain and mist emitters stop moving rather than disappearing."
+  },
+  "nightPointLight": {
+    "colourTemperatureKelvin": 2100,
+    "energy": 7.5,
+    "rangeMetres": 24.0,
+    "heightMetres": 3.2,
+    "attenuation": 1.6,
+    "note": "One warm lamp per held building at night. Placement comes from the board (P4) through Atmosphere.board_anchor_provider; with no board attached the lamps are resolved and reported but nothing is spawned, and the snapshot's building list is still what decides how many there would be."
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "presentationOwner": "godot-gdscript",
+    "releaseLegal": true,
+    "notes": [
+      "Durations are wall-clock seconds of tween, not simulation time. Nothing here reads a clock to decide a value: the values come from the snapshot and only their travel takes time.",
+      "The heat duration is the longest on purpose -- a sky that changed as fast as the weather would read as weather."
+    ]
+  }
+}

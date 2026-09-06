@@ -47,7 +47,12 @@ const repo = resolve(import.meta.dirname, "../..");
 // renders each one's synth parameters at load. An audio record that never
 // reached Godot would leave a battle event silent that the validator had just
 // proved was covered.
-const domains = ["audio", "characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships", "buildings", "machines", "dungeons", "habitats", "site_rules"];
+// `atmosphere` joined with P3: the segment, weather, corruption and heat
+// tables are what the `Atmosphere` autoload reads to decide what the island's
+// sky is, and it reads them through `ContentCatalog` like every other runtime
+// system. A table that never reached Godot would leave the sky ungraded while
+// the validator and the Rust band tests both passed.
+const domains = ["audio", "characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships", "buildings", "machines", "dungeons", "habitats", "site_rules", "atmosphere"];
 const records = [];
 
 for (const domain of domains) {

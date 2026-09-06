@@ -1,0 +1,79 @@
+{
+  "id": "atmosphere.weather_table",
+  "kind": "atmosphere_weather_table",
+  "displayName": "Fog, particles and wind by weather condition",
+  "description": "One row per WeatherCondition S8 can draw, keyed by the same lowercase word the simulation projects. The snapshot carries weather per region; the row read is the row for the region the party is standing in.",
+  "conditions": {
+    "clear": {
+      "exposureScale": 1.0,
+      "fogSkyAffect": 0.15,
+      "fogDensity": 0.0016,
+      "fogColour": "#9dc0c6",
+      "sunEnergyScale": 1.0,
+      "ambientEnergyScale": 1.0,
+      "glowIntensity": 0.3,
+      "particleKind": "none",
+      "particleIntensity": 0.0,
+      "windStrength": 0.15
+    },
+    "overcast": {
+      "exposureScale": 0.95,
+      "fogSkyAffect": 0.5,
+      "fogDensity": 0.0065,
+      "fogColour": "#7f9299",
+      "sunEnergyScale": 0.55,
+      "ambientEnergyScale": 1.1,
+      "glowIntensity": 0.22,
+      "particleKind": "none",
+      "particleIntensity": 0.0,
+      "windStrength": 0.32
+    },
+    "rain": {
+      "exposureScale": 0.88,
+      "fogSkyAffect": 0.65,
+      "fogDensity": 0.0125,
+      "fogColour": "#6d838c",
+      "sunEnergyScale": 0.4,
+      "ambientEnergyScale": 1.05,
+      "glowIntensity": 0.34,
+      "particleKind": "rain",
+      "particleIntensity": 0.6,
+      "windStrength": 0.5
+    },
+    "storm": {
+      "exposureScale": 0.78,
+      "fogSkyAffect": 0.85,
+      "fogDensity": 0.0235,
+      "fogColour": "#4d5c66",
+      "sunEnergyScale": 0.26,
+      "ambientEnergyScale": 0.9,
+      "glowIntensity": 0.42,
+      "particleKind": "rain",
+      "particleIntensity": 1.0,
+      "windStrength": 1.0
+    },
+    "unnatural": {
+      "exposureScale": 0.84,
+      "fogSkyAffect": 0.8,
+      "fogDensity": 0.0305,
+      "fogColour": "#5c4a70",
+      "sunEnergyScale": 0.3,
+      "ambientEnergyScale": 0.7,
+      "glowIntensity": 0.5,
+      "particleKind": "mist",
+      "particleIntensity": 0.78,
+      "windStrength": 0.62
+    }
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "presentationOwner": "godot-gdscript",
+    "releaseLegal": true,
+    "notes": [
+      "Art direction. The one non-negotiable relation is the order: clear reads lightest and unnatural reads least like weather, because S8 authored that axis and the sky is the player's evidence of it.",
+      "particleKind is a name, not an asset path. Nothing here ships a texture; the emitters atmosphere.gd builds are procedural and marked as placeholders.",
+      "exposureScale is the weather's hand on the whole plate: a storm at noon must read heavier than an overcast afternoon even where the sun reaches. It multiplies the segment's exposure and never replaces it.",
+      "fogSkyAffect is how much of the sky the weather is allowed to swallow. At 1.0 the depth fog erases the authored sky entirely, which is what a storm should do and what a clear morning must not."
+    ]
+  }
+}

@@ -1546,6 +1546,164 @@ for (const { value } of worldRecords.filter(({ value }) => value.kind === "world
 const audioCueCount = audioCueIds.size;
 const audioAmbienceCount = audioAmbienceTriples.size;
 
+// P3: `content/atmosphere/` -- the five tables the `Atmosphere` autoload reads
+// to decide what the island's sky is. Every number the sky is made of lives
+// here; the *names* those numbers are keyed by belong to Rust, because they are
+// the bands and segments the simulation actually has.
+//
+// The three ladders below are written once here and once in Rust
+// (`strategy::dungeon::CorruptionBand::ALL`, `HeatBand::ALL`,
+// `strategy::clocks::WeatherCondition::ALL`), exactly as `bondRanks` above is
+// written once here and once in `battle::rank_index` -- and, as there, a test
+// holds them equal rather than a comment: `strategy::dungeon`'s
+// `authored_atmosphere` module reads these very files and fails the build if a
+// key here is not a band there. So this block checks what Rust cannot see --
+// ranges, monotonicity, colour syntax and the presence of every field the
+// autoload reads -- and does not re-litigate the names.
+const atmosphereSegments = ["dawn", "day", "dusk", "midnight"];
+const atmosphereWeather = ["clear", "overcast", "rain", "storm", "unnatural"];
+const atmosphereCorruptionBands = ["untouched", "touched", "spreading", "consumed"];
+const atmosphereHeatBands = ["dormant", "stirring", "rising", "imminent"];
+const atmosphereParticleKinds = new Set(["none", "rain", "mist"]);
+const atmosphereDurations = ["sun", "fog", "wind", "grade", "heat"];
+let atmosphereRowCount = 0;
+
+function atmosphereColour(record, value, file, where) {
+  if (typeof value !== "string" || !/^#[0-9a-f]{6}$/.test(value)) fail(file, `${where} must be a #rrggbb colour the Godot Color constructor accepts`);
+}
+function atmosphereNumber(value, file, where, { min = -Infinity, max = Infinity } = {}) {
+  if (typeof value !== "number" || !Number.isFinite(value)) fail(file, `${where} must be a finite number`);
+  else if (value < min || value > max) fail(file, `${where} must be between ${min} and ${max}`);
+}
+function atmosphereRows(value, field, expectedKeys, file) {
+  const rows = value[field];
+  if (!rows || typeof rows !== "object" || Array.isArray(rows)) { fail(file, `${field} must be an object keyed by name`); return null; }
+  const actual = Object.keys(rows).sort();
+  const expected = [...expectedKeys].sort();
+  if (actual.join(",") !== expected.join(",")) fail(file, `${field} must carry exactly ${expected.join(", ")}; found ${actual.join(", ") || "nothing"}`);
+  return rows;
+}
+function atmosphereMetadata(value, file) {
+  requireString(value.metadata ?? {}, "implementationOwner", file);
+  requireString(value.metadata ?? {}, "presentationOwner", file);
+  if (typeof value.metadata?.releaseLegal !== "boolean") fail(file, "metadata.releaseLegal must be boolean");
+  if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "metadata.notes must say what this table is and what it deliberately does not decide");
+  requireString(value, "displayName", file);
+  requireString(value, "description", file);
+}
+
+const atmosphereRecordsById = new Map();
+for (const { file, value } of await readJsonDirectory("atmosphere")) {
+  atmosphereRecordsById.set(value.id, { file, value });
+  if (typeof value.id !== "string" || !value.id.startsWith("atmosphere.")) fail(file, "id must be an atmosphere.<...> stable ID");
+  atmosphereMetadata(value, file);
+
+  if (value.id === "atmosphere.segment_table") {
+    atmosphereNumber(value.hourFraction?.hoursPerSegment, file, "hourFraction.hoursPerSegment", { min: 1, max: 24 });
+    const rows = atmosphereRows(value, "segments", atmosphereSegments, file);
+    for (const [name, row] of Object.entries(rows ?? {})) {
+      atmosphereRowCount += 1;
+      atmosphereNumber(row?.sunElevationDegrees, file, `segments.${name}.sunElevationDegrees`, { min: -90, max: 90 });
+      atmosphereNumber(row?.sunAzimuthDegrees, file, `segments.${name}.sunAzimuthDegrees`, { min: 0, max: 360 });
+      // The kelvin is the only spelling of the sun's colour: atmosphere.gd
+      // converts it once. An authored hex beside it would be a second answer.
+      atmosphereNumber(row?.sunColourTemperatureKelvin, file, `segments.${name}.sunColourTemperatureKelvin`, { min: 1000, max: 20000 });
+      if (row?.sunColour !== undefined) fail(file, `segments.${name} may not author a sunColour beside its kelvin; the temperature is the owner`);
+      atmosphereNumber(row?.sunEnergy, file, `segments.${name}.sunEnergy`, { min: 0, max: 16 });
+      atmosphereNumber(row?.ambientEnergy, file, `segments.${name}.ambientEnergy`, { min: 0, max: 16 });
+      atmosphereNumber(row?.exposure, file, `segments.${name}.exposure`, { min: 0.1, max: 4 });
+      for (const key of ["ambientColour", "skyHorizonColour", "skyTopColour"]) atmosphereColour(value, row?.[key], file, `segments.${name}.${key}`);
+    }
+  } else if (value.id === "atmosphere.weather_table") {
+    const rows = atmosphereRows(value, "conditions", atmosphereWeather, file);
+    for (const [name, row] of Object.entries(rows ?? {})) {
+      atmosphereRowCount += 1;
+      atmosphereNumber(row?.fogDensity, file, `conditions.${name}.fogDensity`, { min: 0, max: 1 });
+      atmosphereNumber(row?.fogSkyAffect, file, `conditions.${name}.fogSkyAffect`, { min: 0, max: 1 });
+      atmosphereNumber(row?.exposureScale, file, `conditions.${name}.exposureScale`, { min: 0.25, max: 1.5 });
+      atmosphereColour(value, row?.fogColour, file, `conditions.${name}.fogColour`);
+      atmosphereNumber(row?.sunEnergyScale, file, `conditions.${name}.sunEnergyScale`, { min: 0, max: 2 });
+      atmosphereNumber(row?.ambientEnergyScale, file, `conditions.${name}.ambientEnergyScale`, { min: 0, max: 2 });
+      atmosphereNumber(row?.glowIntensity, file, `conditions.${name}.glowIntensity`, { min: 0, max: 4 });
+      atmosphereNumber(row?.windStrength, file, `conditions.${name}.windStrength`, { min: 0, max: 2 });
+      atmosphereNumber(row?.particleIntensity, file, `conditions.${name}.particleIntensity`, { min: 0, max: 1 });
+      if (!atmosphereParticleKinds.has(row?.particleKind)) fail(file, `conditions.${name}.particleKind must be one of ${[...atmosphereParticleKinds].join(", ")}`);
+      // A kind with nothing to draw, or an intensity with nothing to draw it
+      // with, is a row that says two different things about the same sky.
+      if (row?.particleKind === "none" && row?.particleIntensity !== 0) fail(file, `conditions.${name} draws no particles but declares an intensity`);
+      if (row?.particleKind !== "none" && !(row?.particleIntensity > 0)) fail(file, `conditions.${name} names a particle kind but never emits it`);
+    }
+    // The axis S8 authored, held: clear is the lightest sky and the corrupted
+    // end is the heaviest, so the player reads the weather as evidence.
+    const density = atmosphereWeather.map(name => rows?.[name]?.fogDensity ?? 0);
+    for (let index = 1; index < density.length; index += 1) {
+      if (!(density[index] > density[index - 1])) fail(file, `conditions.${atmosphereWeather[index]}.fogDensity must be thicker than ${atmosphereWeather[index - 1]}'s; the weather axis runs one way`);
+    }
+  } else if (value.id === "atmosphere.corruption_palette") {
+    const rows = atmosphereRows(value, "bands", atmosphereCorruptionBands, file);
+    const paletteNames = new Set();
+    for (const [name, row] of Object.entries(rows ?? {})) {
+      atmosphereRowCount += 1;
+      requireString(row ?? {}, "paletteName", file);
+      if (paletteNames.has(row?.paletteName)) fail(file, `bands.${name}.paletteName ${row?.paletteName} is used by another band; a grade's name is how a capture and a test say which one they mean`);
+      else paletteNames.add(row?.paletteName);
+      atmosphereNumber(row?.saturation, file, `bands.${name}.saturation`, { min: 0, max: 1 });
+      atmosphereNumber(row?.tintStrength, file, `bands.${name}.tintStrength`, { min: 0, max: 1 });
+      atmosphereNumber(row?.contrast, file, `bands.${name}.contrast`, { min: 0.5, max: 2 });
+      atmosphereColour(value, row?.tintColour, file, `bands.${name}.tintColour`);
+    }
+    // Corruption only ever takes colour out. A band that read livelier than a
+    // cleaner one would make the grade decorative instead of evidence.
+    for (let index = 1; index < atmosphereCorruptionBands.length; index += 1) {
+      const here = rows?.[atmosphereCorruptionBands[index]];
+      const before = rows?.[atmosphereCorruptionBands[index - 1]];
+      if (!(here?.saturation < before?.saturation)) fail(file, `bands.${atmosphereCorruptionBands[index]}.saturation must be lower than ${atmosphereCorruptionBands[index - 1]}'s`);
+      if (!(here?.tintStrength > before?.tintStrength)) fail(file, `bands.${atmosphereCorruptionBands[index]}.tintStrength must be stronger than ${atmosphereCorruptionBands[index - 1]}'s`);
+    }
+  } else if (value.id === "atmosphere.heat_shift") {
+    const rows = atmosphereRows(value, "bands", atmosphereHeatBands, file);
+    const shiftNames = new Set();
+    for (const [name, row] of Object.entries(rows ?? {})) {
+      atmosphereRowCount += 1;
+      requireString(row ?? {}, "shiftName", file);
+      if (shiftNames.has(row?.shiftName)) fail(file, `bands.${name}.shiftName ${row?.shiftName} is used by another band`);
+      else shiftNames.add(row?.shiftName);
+      atmosphereNumber(row?.skyHueShiftDegrees, file, `bands.${name}.skyHueShiftDegrees`, { min: -60, max: 60 });
+      atmosphereNumber(row?.ambientEnergyScale, file, `bands.${name}.ambientEnergyScale`, { min: 0.5, max: 1 });
+      atmosphereNumber(row?.horizonDesaturation, file, `bands.${name}.horizonDesaturation`, { min: 0, max: 1 });
+      // Brief section 13 keeps hidden pressure hidden. A band may carry a name
+      // and a shift; it may never carry the number it was banded from.
+      for (const forbidden of ["heat", "cthulhuHeat", "pressure", "score", "percent"]) {
+        if (row?.[forbidden] !== undefined) fail(file, `bands.${name} may not carry a ${forbidden}; only the band's name crosses the bridge`);
+      }
+    }
+    if (rows?.dormant?.skyHueShiftDegrees !== 0) fail(file, "bands.dormant.skyHueShiftDegrees must be 0; a world under no pressure is the sky everything else is read against");
+  } else if (value.id === "atmosphere.transitions") {
+    const durations = value.durationsSeconds;
+    if (!durations || typeof durations !== "object" || Array.isArray(durations)) fail(file, "durationsSeconds must be an object");
+    else {
+      const actual = Object.keys(durations).sort();
+      if (actual.join(",") !== [...atmosphereDurations].sort().join(",")) fail(file, `durationsSeconds must name exactly ${atmosphereDurations.join(", ")}`);
+      for (const key of atmosphereDurations) atmosphereNumber(durations[key], file, `durationsSeconds.${key}`, { min: 0.05, max: 120 });
+      atmosphereRowCount += atmosphereDurations.length;
+      // The sky shift hidden pressure makes is the slowest thing on the
+      // island: faster than the weather and it would read as weather.
+      if (!(durations.heat > durations.fog)) fail(file, "durationsSeconds.heat must be slower than the weather's; pressure is felt before it is read");
+    }
+    atmosphereNumber(value.reducedMotion?.durationScale, file, "reducedMotion.durationScale", { min: 0.01, max: 1 });
+    if (value.reducedMotion?.particlesStilled !== true) fail(file, "reducedMotion.particlesStilled must be true; B9's reduced motion stills the weather rather than removing it");
+    atmosphereNumber(value.nightPointLight?.colourTemperatureKelvin, file, "nightPointLight.colourTemperatureKelvin", { min: 1000, max: 4000 });
+    for (const [key, bounds] of [["energy", { min: 0, max: 32 }], ["rangeMetres", { min: 0.5, max: 200 }], ["heightMetres", { min: 0, max: 50 }], ["attenuation", { min: 0.1, max: 8 }]]) {
+      atmosphereNumber(value.nightPointLight?.[key], file, `nightPointLight.${key}`, bounds);
+    }
+  } else {
+    fail(file, `${value.id} is not one of the five tables the Atmosphere autoload reads; a sixth table would be a number with no reader`);
+  }
+}
+for (const id of ["atmosphere.segment_table", "atmosphere.weather_table", "atmosphere.corruption_palette", "atmosphere.heat_shift", "atmosphere.transitions"]) {
+  if (!atmosphereRecordsById.has(id)) failures.push(`content/atmosphere/: ${id} is missing; the Atmosphere autoload refuses to apply a sky without it`);
+}
+
 // An enemy *skill* is the one reference that still resolves outside this ID
 // map. `content/skills/` authors the party's skills; an enemy's skill is
 // declared inline by the creature record that uses it and by the habitat that
@@ -1570,4 +1728,4 @@ if (failures.length) {
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
-console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${enemyCount} creature records, ${habitatCount} habitats, ${buildingCount} building records, ${machineCount} machine records, ${dungeonSpaceCount} authored dungeon spaces, ${siteRuleCount} site rules, ${relationshipSceneCount} relationship scenes, ${packCount} presentation packs carrying ${packOverrideCount} scene overrides, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked; ${audioCueCount} audio cues and ${audioAmbienceCount} ambience triples resolve, ${audioPlaceholderCount} audio records still procedural placeholders.`);
+console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${enemyCount} creature records, ${habitatCount} habitats, ${buildingCount} building records, ${machineCount} machine records, ${atmosphereRecordsById.size} atmosphere tables carrying ${atmosphereRowCount} rows., ${dungeonSpaceCount} authored dungeon spaces, ${siteRuleCount} site rules, ${relationshipSceneCount} relationship scenes, ${packCount} presentation packs carrying ${packOverrideCount} scene overrides, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked; ${audioCueCount} audio cues and ${audioAmbienceCount} ambience triples resolve, ${audioPlaceholderCount} audio records still procedural placeholders.`);

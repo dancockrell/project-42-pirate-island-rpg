@@ -18,7 +18,20 @@ extends SceneTree
 ##       <res://scenes/a.tscn> [<res://scenes/b.tscn> ...] \
 ##       (--out-dir <absolute directory> | --output <absolute.png>) \
 ##       [--thumbnails] [--thumbnail <absolute.png>] \
-##       [--frames N] [--size WxH] [--thumbnail-size WxH]
+##       [--frames N] [--size WxH] [--thumbnail-size WxH] [--snapshot NAME]
+##
+## A scene entry may carry two suffixes, and both are the merge of two lanes'
+## needs into this one tool rather than a second tool each:
+##   - `a.tscn,b.tscn` (P8): the scenes are instanced into the root in order,
+##     so a surface that exists over a running screen -- the pause menu over
+##     the expedition -- is captured over the screen it is drawn over, not over
+##     an empty viewport that would flatter it. The first scene is the primary:
+##     it names the output and decides whether anything drew.
+##   - `a.tscn@dusk` (P3): after the scene settles, the named
+##     AtmosphereReviewSnapshots entry is applied through the Atmosphere
+##     autoload exactly as a campaign snapshot would be, so a capture wants the
+##     sky it asked for this frame. `--snapshot NAME` applies one to every
+##     entry that names none. The output stem gains `-<name>`.
 ##
 ## With --out-dir each scene is written as <out-dir>/<scene stem>.png, and as
 ## <out-dir>/<scene stem>.thumb.png as well when --thumbnails is given. With
@@ -48,9 +61,17 @@ const DEFAULT_THUMBNAIL_SIZE := Vector2i(1280, 720)
 ## and a capture under it is reported as a failure rather than written out as a
 ## pass.
 const UNIFORM_STDDEV_THRESHOLD := 0.65
+## The scripts rather than their class names: a `--script` run compiles this
+## file before the SceneTree's global class cache exists, and naming a class
+## here is a parse error there and nowhere else (content_registry.gd records
+## the same finding).
+const AtmosphereReviewSnapshotsScript := preload("res://scripts/atmosphere/atmosphere_review_snapshots.gd")
+const AtmosphereReviewBoardScript := preload("res://scripts/atmosphere/atmosphere_review_board.gd")
 const ANALYSIS_WIDTH := 128
 
 var _scene_paths: Array[String] = []
+var _snapshot := ""
+var _overlays: Array[Node] = []
 var _out_dir := ""
 var _output_path := ""
 var _thumbnail_path := ""
@@ -97,10 +118,13 @@ func capture_all() -> void:
 
 ## Renders one scene and writes it out. Every scene starts from the same state:
 ## no leftover instance, no leftover camera, and debug drawing off.
-func _capture_one(scene_path: String) -> Verdict:
-	print("==> %s" % scene_path)
+func _capture_one(entry: String) -> Verdict:
+	print("==> %s" % entry)
 	debug_collisions_hint = false
 	debug_navigation_hint = false
+	var parts := _split_entry(entry)
+	var scene_path: String = parts.scenes[0]
+	var snapshot_name: String = parts.snapshot
 
 	var packed := load(scene_path) as PackedScene
 	if packed == null:
@@ -109,6 +133,21 @@ func _capture_one(scene_path: String) -> Verdict:
 
 	var instance := packed.instantiate()
 	root.add_child(instance)
+	_overlays.clear()
+	for overlay_path in parts.scenes.slice(1):
+		var overlay_packed := load(overlay_path) as PackedScene
+		if overlay_packed == null:
+			_discard(instance, null)
+			fail("Could not load overlay scene: %s" % overlay_path)
+			return Verdict.FAILED
+		var overlay := overlay_packed.instantiate()
+		root.add_child(overlay)
+		_overlays.append(overlay)
+		await process_frame
+	await process_frame
+	if snapshot_name != "" and not _apply_atmosphere(snapshot_name, instance):
+		_discard(instance, null)
+		return Verdict.FAILED
 	for _settle in range(_frames):
 		await process_frame
 
@@ -171,7 +210,7 @@ func _capture_one(scene_path: String) -> Verdict:
 		)
 		return Verdict.FAILED
 
-	var output := _output_for(scene_path)
+	var output := _output_for(entry)
 	var error := image.save_png(output)
 	if error != OK:
 		_discard(instance, framing_camera)
@@ -179,7 +218,7 @@ func _capture_one(scene_path: String) -> Verdict:
 		return Verdict.FAILED
 	print("  captured to %s" % output)
 
-	var thumbnail_output := _thumbnail_for(scene_path)
+	var thumbnail_output := _thumbnail_for(entry)
 	if thumbnail_output != "":
 		var thumbnail := Image.new()
 		thumbnail.copy_from(image)
@@ -212,22 +251,92 @@ func _discard(instance: Node, framing_camera: Camera3D) -> void:
 	if framing_camera != null:
 		root.remove_child(framing_camera)
 		framing_camera.queue_free()
+	for overlay in _overlays:
+		root.remove_child(overlay)
+		overlay.queue_free()
+	_overlays.clear()
 	root.remove_child(instance)
 	instance.queue_free()
 
 
-func _output_for(scene_path: String) -> String:
+## `a.tscn,b.tscn@dusk` -> { scenes: [a, b], snapshot: "dusk" }; a bare path
+## is a one-scene entry with the run-wide --snapshot, if any.
+func _split_entry(entry: String) -> Dictionary:
+	var snapshot := _snapshot
+	var scene_part := entry
+	var at := entry.rfind("@")
+	if at >= 0:
+		snapshot = entry.substr(at + 1)
+		scene_part = entry.substr(0, at)
+	var scenes: Array[String] = []
+	for piece in scene_part.split(",", false):
+		scenes.append(piece)
+	return {"scenes": scenes, "snapshot": snapshot}
+
+
+## Drives the `Atmosphere` autoload with one authored snapshot, with no travel
+## (P3). The night's lamps need somewhere to stand; for a review capture the
+## scene's own entry markers stand in through AtmosphereReviewBoard, which is
+## marked review-only. In the game there is no provider and the lamps stay
+## unplaced until P4's board says where a building is.
+func _apply_atmosphere(snapshot_name: String, scene: Node) -> bool:
+	var atmosphere := root.get_node_or_null("Atmosphere")
+	if atmosphere == null:
+		fail("Atmosphere autoload is not registered; a snapshot cannot be applied")
+		return false
+	var board = AtmosphereReviewBoardScript.new(scene)
+	atmosphere.board_anchor_provider = board if board.has_anchors() else null
+	var snapshot: Dictionary = AtmosphereReviewSnapshotsScript.of(snapshot_name)
+	if snapshot.is_empty():
+		fail(
+			(
+				"Unknown atmosphere snapshot %s; the authored names are %s"
+				% [snapshot_name, ", ".join(AtmosphereReviewSnapshotsScript.NAMES)]
+			)
+		)
+		return false
+	var applied: Dictionary = atmosphere.apply_immediately(snapshot)
+	if applied.is_empty():
+		fail("Atmosphere refused the %s snapshot: %s" % [snapshot_name, atmosphere.refusal()])
+		return false
+	var target: Object = atmosphere.target
+	print(
+		(
+			"  atmosphere %s applied through %s: %s weather, %s grade, %s shift"
+			% [
+				snapshot_name,
+				"nothing" if target == null else target.describes(),
+				applied.weather_kind,
+				applied.grade.palette_name,
+				applied.grade.heat_shift_name,
+			]
+		)
+	)
+	return true
+
+
+func _stem_for(entry: String) -> String:
+	var parts := _split_entry(entry)
+	var stem: String = parts.scenes[0].get_file().get_basename()
+	for overlay_path in parts.scenes.slice(1):
+		stem += "+%s" % overlay_path.get_file().get_basename()
+	if parts.snapshot != "":
+		stem += "-%s" % parts.snapshot
+	return stem
+
+
+func _output_for(entry: String) -> String:
 	if _output_path != "":
 		return _output_path
-	return _out_dir.path_join("%s.png" % scene_path.get_file().get_basename())
+	return _out_dir.path_join("%s.png" % _stem_for(entry))
 
 
-func _thumbnail_for(scene_path: String) -> String:
+func _thumbnail_for(entry: String) -> String:
 	if _output_path != "":
 		return _thumbnail_path
 	if not _thumbnails:
 		return ""
-	return _out_dir.path_join("%s.thumb.png" % scene_path.get_file().get_basename())
+	return _out_dir.path_join("%s.thumb.png" % _stem_for(entry))
 
 
 ## Mean and standard deviation of luminance over a downsampled copy, both on the
@@ -308,6 +417,12 @@ func _parse_arguments(arguments: PackedStringArray) -> bool:
 					fail("--out-dir needs an absolute directory")
 					return false
 				_out_dir = arguments[index]
+			"--snapshot":
+				index += 1
+				if index >= arguments.size() or arguments[index].begins_with("--"):
+					fail("--snapshot needs an AtmosphereReviewSnapshots name")
+					return false
+				_snapshot = arguments[index]
 			"--output":
 				index += 1
 				if index >= arguments.size():
@@ -324,10 +439,11 @@ func _parse_arguments(arguments: PackedStringArray) -> bool:
 	if _scene_paths.is_empty():
 		fail("Expected at least one res:// scene path")
 		return false
-	for scene_path in _scene_paths:
-		if not scene_path.begins_with("res://") or not scene_path.ends_with(".tscn"):
-			fail("Scene must be a res:// .tscn path, got: %s" % scene_path)
-			return false
+	for entry in _scene_paths:
+		for scene_path in _split_entry(entry).scenes:
+			if not scene_path.begins_with("res://") or not scene_path.ends_with(".tscn"):
+				fail("Scene must be a res:// .tscn path, got: %s" % scene_path)
+				return false
 	if _output_path != "":
 		if _scene_paths.size() != 1:
 			fail("--output names one file, so it takes one scene; use --out-dir for a list")

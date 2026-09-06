@@ -12,6 +12,7 @@ CrashLog="*res://scripts/diagnostics/crash_log.gd"
 GamePause="*res://scripts/campaign/game_pause.gd"
 ContentPackRegistry="*res://scripts/content/pack_registry.gd"
 Soundscape="*res://scripts/audio/soundscape.gd"
+Atmosphere="*res://scripts/atmosphere/atmosphere.gd"
 
 [display]
 window/size/viewport_width=1920
