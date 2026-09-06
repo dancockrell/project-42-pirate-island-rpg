@@ -396,6 +396,7 @@ top of the document is never stale:
 | S15 | Two Provisional doctrines approved and encoded | S1, human | blocked: needs approval of brief §6.x doctrines |
 | S16 | Production runs in the tick: interval rules produce on the economy draw | S13, B16 | shipped 7a715f7 2026-09-06 |
 | S17 | Goals become actions: Develop places a building, Supply gathers, Expand and Pressure dispatch a force | S16, S5, S7, B16 | shipped `24b1332` 2026-09-06 |
+| S18 | Arrival resolves control: an arriving force takes an unheld or undefended cell, stands contested against a defender; the player's own forces raised and dispatched through the bridge | S17, S7, S2 | open |
 
 ### Lane B — Bridge, board and Godot
 
@@ -473,6 +474,7 @@ top of the document is never stale:
 | E9 | Pack build script and pack artifact | C8, E5 | shipped ab23ab9 2026-09-06 |
 | E10 | macOS nightly on a macOS runner; the dylib built where it can be | E5 | shipped 252b3fb 2026-09-06 — the job refuses by name until E11 lands |
 | E11 | The macOS export actually exports: arm64 rows in the `.gdextension`, a universal preset, the build script names the host architecture | E10 | shipped `10ee623` 2026-09-06 |
+| E12 | Third-party attribution as content: the engine, the bindings and every bundled component in a ledger the credits read and a test holds equal | P8 | open |
 
 ### Lane F — Audio · Lane G — QA
 
@@ -499,6 +501,9 @@ captured by P1's gate, and no card claims a look it has not captured.
 | P7 | RTS controls on the board (B18 resumed): select, then order a move by tile, words or hotkey; the drawn markers go | B14 | shipped 1a03dd7 2026-09-06 |
 | P8 | The shell: title, new game, continue, settings, pause, save slots, loading; one scene flow shell → expedition → battle and back | B8, B9 | shipped `5375229` 2026-09-06 |
 | P9 | Audio: buses, ambience by region, time and weather, cues keyed to battle events, a music state machine; procedural placeholders until assets | P3 | shipped 174f029 2026-09-06 |
+| P10 | The expedition screen is the board: P7's RTS controls on P4's isometric board, the 2D route board retired, one owner of travel on screen | P4, P7 | open |
+| P11 | One palette owner, adopted: battle, shell, settings and review scenes take colour and type from the Theme; the restated hexes deleted | P5, P6, P8 | open |
+| P12 | Blockout kits for buildings and machines (D9 + D10): procedural envelopes from the C10 and C14 records in the library's riveted iron and clay, reviewed at gameplay distance | P2, C10, C14 | open |
 
 ### Lane H — Docs and hygiene
 
@@ -1417,6 +1422,40 @@ hour reports `RecoveryLinkLost` for every link and `FactionEliminated`
 once. Also open: `advance_construction` has no caller on a clock, so a
 placed building stands `UnderConstruction`. Integration `24b1332`: the
 three events given prose and a level at the bridge.
+
+### S18 · Arrival resolves control, and the player's forces through the bridge
+Status: open · Depends on: S17, S7, S2
+Touches: `godot-rust/src/strategy/force.rs` (arrival resolution),
+`godot-rust/src/strategy/tick.rs` (one call after `advance_forces`; new
+`StrategicEvent` variants at the END), `godot-rust/src/godot_bridge.rs` (two
+`#[func]`s at the END of the impl: `raise_force`, `dispatch_force`, and the
+port line each needs), `game/scripts/simulation/native_expedition_port.gd`
+(pass-through only), `godot-rust/tests/strategic_determinism.rs`.
+S17 shipped with the M3 done-when `failed` because nothing writes
+`ExpeditionState::ownership` from a tick, and P4 shipped `blocked: needs a
+bridge verb` because nothing raises or dispatches a force through the
+bridge. Both are generic strategy, not §6 doctrine, and this card closes
+them without touching what is Open. Arrival: when `ForceArrived` lands a
+force in a cell (a) held by nobody, the force's faction takes it through
+`set_control` and a `ControlTaken` event says so; (b) held by another
+faction with no force of theirs standing there, the cell changes hands the
+same way and `ControlTaken { from }` names the loser; (c) held by another
+faction with a force of theirs standing there, nothing changes hands and
+`ArrivalContested` is journaled, because how two forces resolve is a
+decision the brief has not made (`needs decision`, named). Buildings on a
+cell that changes hands stand as they were, because capture-versus-
+destruction is Open; the event carries their IDs so the day it closes the
+rule has its inputs. Michael's own cells and forces obey the same rules.
+The bridge verbs let the player direct Michael's faction (brief §5): both
+refuse while paused, refuse an unplannable order with the force module's
+own error, and are recorded in the journal like any faction's act.
+Done when: S17's `the_m3_opening_does_not_eliminate_anybody_and_names_the_link_that_never_falls`
+becomes the passing M3 test (rename it; one faction eliminated with its
+recovery chain demonstrably exhausted inside 100 days from the scripted
+opening, byte-identical twice); the 2,400-hour hash contract still holds
+or its expected hash is updated in the same commit with the reason;
+`board_verification_campaign.gd`'s save round-trip force is replaced by
+the verb and the file's own note honoured.
 
 ### B19 · The bridge loads the machine records and hands the registry to the tick
 Status: shipped `1fca984` 2026-09-06 · Depends on: C14, S16
@@ -2484,6 +2523,30 @@ failure in the claim and leave E5's comment in place, corrected.
 Done when: a nightly run uploads a macOS artifact whose zip contains the
 dylib, or the claim names the exact reason it cannot.
 
+### E12 · Third-party attribution as content
+Status: open · Depends on: P8
+Touches: `content/art/third_party_ledger.json` (new), `tools/src/validate.mjs`
+(one block), `game/scripts/shell/credits.gd` (reads it), `game/tests/shell_flow_test.gd`
+(the equality check widened), `docs/ASSET_PROVENANCE.md` or the doc that
+owns provenance (one section).
+P8's credits page says in words that the engine and other third-party
+components have no admission record in this repository. Give them one: a
+ledger record per bundled component with its name, version as pinned in
+this repo (Godot 4.7.2 from `tools/verify-godot.sh`'s pin; godot-rust and
+every Rust crate in `Cargo.lock` that ships in the extension; the Godot
+export templates; Mesa where the CI plate names it), the SPDX licence, the
+canonical URL, and the notice text the licence requires, copied from the
+project's own LICENSE file rather than paraphrased. Nothing is invented: a
+component whose licence text you cannot read from a file in this
+environment is recorded with `noticeText: null` and `needsReview: true`
+and the credits page says "notice pending" for it. The validator holds
+every Rust dependency in `Cargo.lock` that is compiled into the extension
+equal to the ledger (no ghost, no orphan); the credits suite holds the page
+equal to the ledger as it already does for the art ledgers.
+Done when: the validator and the suite bite (remove a crate's record →
+both fail by name); the credits capture shows the engine and bindings
+credited with their notices.
+
 ### Lane H — cards for this pass
 
 ### H5 · Site-rule spec into `HEROINE_AYLA_DESIGN.md`
@@ -2917,6 +2980,84 @@ match — never the other way round.
 
 Lanes exist so several agents can work at once without meeting in a file.
 The rules below are what make that safe. They are short on purpose.
+
+### P10 · The expedition screen is the board
+Status: open · Depends on: P4, P7
+Touches: `game/scripts/world/expedition_prototype.gd` (host), `game/scripts/world/expedition_route_board.gd`
+(deleted), `game/scripts/board/**` and `game/scenes/board/**` (P4's, now
+yours), `game/tests/expedition_prototype_test.gd`, `game/tests/isometric_board_test.gd`,
+`game/tests/board_verification_campaign.gd`.
+P4's card said the 2D `ExpeditionRouteBoard` stays the owner of the board
+until a later card retires it against the isometric one; this is that card.
+The expedition screen hosts `isometric_board.tscn` in its viewport and the
+2D board is deleted with its callers repaired, not hidden. P7's controls
+move onto the 3D board unchanged in meaning: left-click selects the party's
+miniature (a ring) or inspects a cell (name, risk, contested, from
+`route_options`), right-click on a reachable cell orders the move, the words
+and digit hotkeys issue the same order, every path is `request_travel`, and
+an unreachable cell refuses in the status line with no bridge call. The
+three distances become the screen's camera modes (world / route / room)
+with the hotkeys the shell documents; the miniature snaps on confirmed
+travel only. `SceneFlow.enter_battle()` stays the one door into a fight
+through `EncounterLens`. Palette: `BoardPalette` takes its colours from the
+Theme through `ThemeTokens` (P5) and its own constants go; P11 owns every
+other file's adoption and must not touch `world/` or `board/`. Nothing here
+decides a result; O1 and O3 stay as P4 left them.
+Done when: `expedition_prototype_test.gd` drives select → order → confirmed
+travel across three cells on the 3D board through the live bridge and
+asserts the miniature's cell and the same `legal_commands` the 2D board
+gave; `grep -rn ExpeditionRouteBoard game/` is empty; captures of the
+screen at each distance with the party selected and an order refused.
+
+### P11 · One palette owner, adopted
+Status: open · Depends on: P5, P6, P8
+Touches: `game/scripts/battle/battle_palette.gd`, `game/scripts/shell/shell_style.gd`,
+`game/scripts/battle/**` and `game/scripts/shell/**` where they read a
+colour or a font size, `game/scripts/review/**`, `game/scripts/atmosphere/**`
+and `game/scripts/audio/**` where they draw UI, `game/themes/bronze_vellum.tres`
+(P5's owner; additive only), one suite.
+Rule 17 says the palette has one owner after P5; P6 and P8 shipped before
+P5 landed and each restates the seven tones, and P5's own card names the
+prototypes as the adopters. Every colour, StyleBox and font size a screen
+draws comes from `ThemeTokens` (`color`, `style`, `font_size`) or from a
+Theme variation; `BattlePalette` and `ShellStyle` become thin readers of the
+Theme or are deleted with callers repaired; a hex literal survives only
+where it is a *game* colour rather than a UI colour (a faction's tint on the
+board, an effect's authored palette word) and is marked as such. High
+contrast and text scale then reach the battle and the shell for free, which
+is the point: the settings-and-accessibility capture must show the battle
+and the title obeying them. Do not touch `game/scripts/world/` or
+`game/scripts/board/` (P10's); say in the claim which of their constants
+remain for P10.
+Done when: a suite walks every `.gd` under `game/scripts/` except `world/`
+and `board/` and refuses an unmarked `Color(` or `Color.` hex literal, and
+asserts the battle and the title re-theme when `apply_settings` is called;
+captures of the battle and the title under high contrast at 1.3× text.
+
+### P12 · Blockout kits for buildings and machines (D9 + D10)
+Status: open · Depends on: P2, C10, C14
+Touches: `game/scripts/blockouts/` (new: `building_blockout_kit.gd`,
+`machine_blockout_kit.gd`), `game/scenes/review/blockout_kit_review.tscn`
+(new review scene), `game/scripts/review/blockout_kit_review.gd`, one suite.
+Brief §8 and §18: a building is its envelope and nothing outside the box;
+C10's three building records carry envelopes and sockets and C14's two
+machine records carry clearance and pivots, and nothing draws either yet.
+The kits build a `Node3D` from a record alone: a building as the cube or
+multi-cube envelope the record declares, tiered by its `tiers` and marked
+by name per the P rules; a machine as a riveted-iron blockout (the
+`mechanical_dog` on four pivots, the `steam_wagon` on its axle sockets)
+with the pivot and socket names the record gives as empty `Node3D`s a rig
+can find later. Materials only from P2's library through
+`SetpieceMeshFactory`. No dimension is invented: every metre comes from the
+record or from the O3 footprint table by ID, and where a record gives none
+the kit uses a named constant marked `needs decision` and the suite asserts
+that mark. The review scene shows every record's blockout side by side at
+gameplay distance under the island environment. Placement on the board is
+P10's or a later card's; this card ships kits and the seam
+(`build(record) -> Node3D`).
+Done when: a suite builds every authored building and machine record,
+asserts the envelope's extents equal the record's and every named
+socket/pivot exists as a child by name; captures of the review scene.
 
 ### One lane, one clean checkout
 
