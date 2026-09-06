@@ -8,6 +8,14 @@ extends Control
 ## `band_label` is the `band_name` string the bridge sends -- the card never
 ## spells a band name of its own -- and the ten Composure pips and the Shaken
 ## mark come from `composure` and `statuses` on the same actor dictionary.
+##
+## P14: the Shaken mark used to be drawn here too, as a 68-pixel tab pinned to
+## the card's top-right corner -- which is inside the copy column, over the
+## actor's name, and which stayed 68 pixels wide while the word inside it grew
+## with the text scale. It is a Label in the copy column now, laid out beside
+## the name and sized from the caption step like every other line on this
+## screen. What this card still says about the state is the frame: a Shaken
+## actor's frame is drawn in the danger colour.
 
 ## The one door onto the palette and the type scale (card P11). The card's
 ## frame, its Composure well and its Shaken tab are interface and come from the
@@ -112,6 +120,7 @@ func _draw() -> void:
 		draw_arc(Vector2(35, 36), 9, deg_to_rad(20), deg_to_rad(160), 8, PORTRAIT["mouth"], 2)
 	draw_composure(s, theme)
 
+
 func draw_composure(s: Vector2, theme: Theme) -> void:
 	# Ten pips, one for each point of Composure. A count, not a bar and not a
 	# percentage: the player must be able to see how many are left at a glance,
@@ -139,15 +148,6 @@ func draw_composure(s: Vector2, theme: Theme) -> void:
 			draw_circle(centre, radius, lit)
 		else:
 			draw_arc(centre, radius, 0, TAU, 14, ThemeTokensScript.color(theme, "muted").darkened(0.42), 1.6, true)
-
-
-## Card P14: the Shaken mark used to be drawn here, as a 68-pixel tab pinned to
-## the card's top-right corner -- which is inside the copy column, over the
-## actor's name, and which stayed 68 pixels wide while the word inside it grew
-## with the text scale. It is a Label in the copy column now, laid out beside
-## the name and sized from the caption step like every other line on this
-## screen; the frame's danger colour, which is drawn above, is what this card
-## still says about it.
 
 
 func make_box(background: Color, border: Color, width: int, radius: int) -> StyleBoxFlat:
