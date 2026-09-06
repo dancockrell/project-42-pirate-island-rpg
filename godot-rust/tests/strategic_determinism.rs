@@ -16,14 +16,20 @@
 //! is a stable fingerprint of the save, and the save is already byte-stable by
 //! construction (`BTreeMap`/`BTreeSet` everywhere).
 //!
-//! **Why the harness can bite at all.** No faction acts yet, so the drawn
-//! numbers decide nothing -- and a harness that hashed only the clock would
-//! pass no matter what happened to the draws. `StrategicClock::draw_digest`
-//! folds every draw, in order, into the save, so the sequence itself is under
-//! the hash. Verified by temporarily seeding a draw from
-//! `SystemTime::now()` (test 1 failed: two runs, two hashes) and by
-//! temporarily iterating the purposes through a `HashMap` (test 1 failed
-//! again, on iteration order); both were restored.
+//! **Why the harness can bite at all.** `StrategicClock::draw_digest` folds
+//! every draw, in order, into the save, so the draw sequence is under the hash
+//! even where nothing acts on it. Verified by temporarily seeding a draw from
+//! `SystemTime::now()` (test 1 failed: two runs, two hashes) and by temporarily
+//! iterating the purposes through a `HashMap` (test 1 failed again, on
+//! iteration order); both were restored.
+//!
+//! **B15: the harness runs the island Godot runs.** Every midnight here is
+//! handed the registry loaded from `content/factions/` -- the same six files the
+//! expedition bridge loads out of the Godot content bundle -- rather than the
+//! empty one `resolve_midnight_in` used to build for itself. A fourth claim
+//! comes with that: the registry reaches the hour and the hour is a function of
+//! it (`the_authored_registry_changes_the_tick`, which replaced
+//! `the_registry_cannot_change_a_tick_yet`).
 
 use std::collections::BTreeMap;
 
@@ -52,19 +58,81 @@ fn hash_of(state: &ExpeditionState) -> u64 {
     hash
 }
 
-/// The six concepts, loaded as authored records. Fixtures name factions by
+/// C9's six records, read off disk exactly as `authored_world.rs` reads content
+/// and exactly as the bridge loads them from the Godot bundle.
+///
+/// B15: the harness used to build its own six placeholder records in code. That
+/// was a second answer to "what factions exist", and while the bridge loaded
+/// none it did not matter; now that the bridge loads `content/factions/`, the
+/// harness reading the same files is what makes "the harness runs the same
+/// island Godot does" a fact rather than a hope. Fixtures still name factions by
 /// `ConceptKey` and never by a proper name -- brief section 4 refuses to invent
 /// one, and `FactionDefinition` has no field a name could live in.
-fn all_six_definitions() -> FactionDefinitions {
+fn the_authored_registry() -> FactionDefinitions {
+    let directory = concat!(env!("CARGO_MANIFEST_DIR"), "/../content/factions/");
     let mut definitions = FactionDefinitions::new();
-    for concept in ConceptKey::ALL {
+    for entry in std::fs::read_dir(directory).expect("content/factions/ is readable") {
+        let path = entry.expect("a readable directory entry").path();
+        if path.extension().and_then(|name| name.to_str()) != Some("json") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).expect("the faction record is readable");
+        let record: FactionDefinition = serde_json::from_str(&text)
+            .unwrap_or_else(|error| panic!("{} is a FactionDefinition: {error}", path.display()));
         definitions
-            .insert(FactionDefinition {
-                id: concept.faction_id(),
-                concept_key: concept,
-                ..FactionDefinition::default()
-            })
-            .expect("each concept is authored exactly once");
+            .insert(record)
+            .unwrap_or_else(|error| panic!("{} does not load: {error:?}", path.display()));
+    }
+    assert_eq!(
+        definitions.len(),
+        ConceptKey::ALL.len(),
+        "content/factions/ must author exactly the brief's six concepts"
+    );
+    definitions
+}
+
+/// One authored record with its weights turned up, and the other five as
+/// authored.
+///
+/// Why a probe record exists at all: every record C9 shipped is deliberately
+/// *neutral*. `resource_priorities` is the single placeholder key
+/// `resource.open.needs_decision` at weight zero (the validator refuses any
+/// other namespace, because brief section 20 leaves the resource list Open) and
+/// `relationship_tendencies` is empty (brief section 7 is Provisional, and an
+/// authored opening position would be a number acting before approval). Every
+/// signal `GoalWeights::from_definition` reads is therefore zero, and
+/// `nudge_weight(0)` is exactly `NEUTRAL_WEIGHT` -- so today's authored registry
+/// scores identically to the empty one *by design*, and a test that only
+/// compared those two would pass whether or not `run_hour` ever looked at the
+/// registry.
+///
+/// This is what a record looks like once one of those Open questions is
+/// answered. `resource.example` is the same deliberate abstract placeholder
+/// `a_campaign` uses: a fixture must not pretend to know a category name.
+fn the_authored_registry_with_one_weighted_record() -> FactionDefinitions {
+    let mut definitions = FactionDefinitions::new();
+    for id in the_authored_registry().ids() {
+        let mut record = the_authored_registry()
+            .get(id)
+            .expect("the ID came from this registry")
+            .clone();
+        if record.concept_key == ConceptKey::Pirates {
+            record
+                .resource_priorities
+                .insert("resource.example".into(), 40);
+            record.relationship_tendencies.insert(
+                ConceptKey::Michael.faction_id(),
+                Relationship {
+                    fear: 30,
+                    hatred: 30,
+                    perceived_opportunity: 40,
+                    ..Relationship::default()
+                },
+            );
+        }
+        definitions
+            .insert(record)
+            .expect("each concept appears exactly once");
     }
     definitions
 }
@@ -74,6 +142,18 @@ fn all_six_definitions() -> FactionDefinitions {
 /// `resource.example` is a deliberate abstract placeholder, following
 /// `strategy/faction.rs`: brief section 20 leaves the resource list Open, so a
 /// fixture must not pretend to know a category name.
+///
+/// **Every signal S5 reads is nonzero here, and that is B15's doing.** The
+/// fixture used to stock a faction with `index` units and give it one
+/// relationship carrying `fear: index` -- numbers so small that
+/// `stock_percent`, `hostility_percent` and `invitation_percent` all rounded to
+/// zero for every faction. While no weight was read that cost nothing. It is not
+/// free now: a consideration whose *signal* is zero cannot be moved by any
+/// weight, so a harness built on that board could not tell a registry that
+/// reaches `run_hour` from one that does not, whatever it asserted. The
+/// stockpiles and the pairwise pressures below are spread across the signal
+/// range so the six factions sit in genuinely different positions and the
+/// weights have something to act on.
 fn a_campaign() -> ExpeditionState {
     let mut state = ExpeditionState::new(
         SEED,
@@ -83,17 +163,32 @@ fn a_campaign() -> ExpeditionState {
     .expect("a fresh campaign constructs");
 
     for (index, concept) in ConceptKey::ALL.into_iter().enumerate() {
+        let step = index as i16;
         let mut faction = FactionState::new();
+        // 0, 20, 40, 60, 80, 100 percent of `WELL_STOCKED`: one faction with
+        // nothing, one fully supplied, and four in between.
         faction
             .resources
-            .insert("resource.example".into(), index as u32);
-        faction.relationships.insert(
-            ConceptKey::Michael.faction_id(),
-            Relationship {
-                fear: index as i16,
-                ..Relationship::default()
-            },
-        );
+            .insert("resource.example".into(), index as u32 * 20);
+        // A pairwise position toward every other faction, not toward one of
+        // them, because `hostility_percent` and `invitation_percent` are means
+        // over the neighbours present and a single entry among five is noise.
+        for other in ConceptKey::ALL {
+            if other == concept {
+                continue;
+            }
+            faction.relationships.insert(
+                other.faction_id(),
+                Relationship {
+                    fear: 10 * step,
+                    hatred: 8 * step,
+                    territorial_conflict: 6 * step,
+                    recent_aggression: 4 * step,
+                    perceived_opportunity: 100 - 15 * step,
+                    ..Relationship::default()
+                },
+            );
+        }
         state.factions.insert(concept.faction_id(), faction);
     }
     state
@@ -110,7 +205,7 @@ fn island() -> (Geography, Habitats) {
 /// `resolve_midnight_in` every twenty-four -- which is the only way the game
 /// itself ever advances the strategic clock, so the harness measures the real
 /// path rather than a test-only one.
-fn run_hours(state: &mut ExpeditionState, hours: u64) {
+fn run_hours(state: &mut ExpeditionState, hours: u64, factions: &FactionDefinitions) {
     let (geography, habitats) = island();
     assert_eq!(
         hours % u64::from(HOURS_PER_DAY),
@@ -119,7 +214,7 @@ fn run_hours(state: &mut ExpeditionState, hours: u64) {
     );
     for _ in 0..(hours / u64::from(HOURS_PER_DAY)) {
         state
-            .resolve_midnight_in(&geography, &habitats)
+            .resolve_midnight_in(&geography, &habitats, factions)
             .expect("nothing in this harness blocks midnight");
     }
 }
@@ -127,10 +222,11 @@ fn run_hours(state: &mut ExpeditionState, hours: u64) {
 /// Done-when, first half: the same seed runs the same island twice.
 #[test]
 fn two_thousand_four_hundred_hours_from_seed_seven_hash_identically_twice() {
+    let factions = the_authored_registry();
     let mut first = a_campaign();
-    run_hours(&mut first, TOTAL_HOURS);
+    run_hours(&mut first, TOTAL_HOURS, &factions);
     let mut second = a_campaign();
-    run_hours(&mut second, TOTAL_HOURS);
+    run_hours(&mut second, TOTAL_HOURS, &factions);
 
     assert_eq!(
         hash_of(&first),
@@ -148,11 +244,12 @@ fn two_thousand_four_hundred_hours_from_seed_seven_hash_identically_twice() {
 /// Done-when, second half: a save at hour 1,200 reloads into the same future.
 #[test]
 fn a_save_at_hour_twelve_hundred_reloads_into_the_same_hour_twenty_four_hundred() {
+    let factions = the_authored_registry();
     let mut uninterrupted = a_campaign();
-    run_hours(&mut uninterrupted, TOTAL_HOURS);
+    run_hours(&mut uninterrupted, TOTAL_HOURS, &factions);
 
     let mut saved = a_campaign();
-    run_hours(&mut saved, SAVE_AT_HOUR);
+    run_hours(&mut saved, SAVE_AT_HOUR, &factions);
     let midpoint_json = saved.to_json();
     let mut reloaded =
         ExpeditionState::from_json(&midpoint_json).expect("the halfway save reloads");
@@ -161,7 +258,7 @@ fn a_save_at_hour_twelve_hundred_reloads_into_the_same_hour_twenty_four_hundred(
         midpoint_json,
         "the reload is byte-identical before it is asked to simulate anything"
     );
-    run_hours(&mut reloaded, TOTAL_HOURS - SAVE_AT_HOUR);
+    run_hours(&mut reloaded, TOTAL_HOURS - SAVE_AT_HOUR, &factions);
 
     assert_eq!(
         hash_of(&reloaded),
@@ -179,7 +276,7 @@ fn a_save_at_hour_twelve_hundred_reloads_into_the_same_hour_twenty_four_hundred(
 #[test]
 fn pausing_at_any_hour_produces_a_byte_identical_save() {
     let (geography, _habitats) = island();
-    let definitions = all_six_definitions();
+    let definitions = the_authored_registry();
     const HOURS: usize = 200;
 
     let mut uninterrupted = a_campaign();
@@ -217,12 +314,13 @@ fn pausing_at_any_hour_produces_a_byte_identical_save() {
 #[test]
 fn the_strategic_hour_and_the_campaign_day_agree_after_every_midnight() {
     let (geography, habitats) = island();
+    let factions = the_authored_registry();
     let mut state = a_campaign();
 
     for day in 1..=10u32 {
         assert_eq!(state.campaign_day, day);
         state
-            .resolve_midnight_in(&geography, &habitats)
+            .resolve_midnight_in(&geography, &habitats, &factions)
             .expect("midnight resolves");
         assert_eq!(state.campaign_day, day + 1);
         assert_eq!(
@@ -272,26 +370,80 @@ fn midnights_hours_are_drawn_under_the_day_that_is_ending() {
     }
 }
 
-/// While no faction acts, an hour reads only the faction states the save
-/// carries -- so `resolve_midnight_in` passing an empty registry cannot change
-/// what midnight does.
+/// The registry reaches the tick, and the tick is a function of it.
 ///
-/// **This test is written to be deleted.** The moment S5 scores an authored
-/// record it will fail, and the failure is the instruction: the bridge must
-/// start loading `content/factions/*.json` and handing it to
-/// `resolve_midnight_in`.
+/// B15 replaces `the_registry_cannot_change_a_tick_yet`, which asserted the
+/// opposite and said of itself that it was written to be deleted. The seam it
+/// guarded is closed: the bridge loads `content/factions/`, `resolve_midnight_in`
+/// passes the registry down, and `run_hour` scores it through
+/// `GoalWeights::from_definition`.
+///
+/// Three claims, in the order they matter.
+///
+/// 1. **The authored records reach the hour.** Six of them, loaded from the
+///    same files the bridge loads, driven through 2,400 hours of real midnights.
+/// 2. **A record changes the island.** One record with an answered Open
+///    question -- see `the_authored_registry_with_one_weighted_record` -- hashes
+///    differently from the empty registry over the same 2,400 hours. This is the
+///    bite: revert `run_hour` to `GoalWeights::default()` and this assertion
+///    fails, because nothing else in the crate reads the registry.
+/// 3. **Both are individually reproducible.** A registry that changed the island
+///    non-deterministically would be worse than one that changed nothing.
+///
+/// And one honest negative, pinned rather than hidden: today's *authored*
+/// registry hashes identically to the empty one, because every record C9
+/// shipped weights nothing (the resource list and the pairwise pressures are
+/// still Open, so the records say so instead of inventing an answer). That is a
+/// fact about the content, not about the wiring -- claim 2 is what proves the
+/// wiring -- and when content answers either Open question this assertion is the
+/// one that will fail and tell whoever answered it that the island just moved.
 #[test]
-fn the_registry_cannot_change_a_tick_yet() {
-    let (geography, _habitats) = island();
+fn the_authored_registry_changes_the_tick() {
+    let authored = the_authored_registry();
+    assert_eq!(authored.len(), 6, "six authored records reach the harness");
 
-    let mut with_records = a_campaign();
-    let mut without_records = a_campaign();
-    for _ in 0..HOURS_PER_DAY {
-        with_records.strategic_tick(&geography, &all_six_definitions());
-        without_records.strategic_tick(&geography, &FactionDefinitions::new());
-    }
+    let empty = FactionDefinitions::new();
+    let weighted = the_authored_registry_with_one_weighted_record();
 
-    assert_eq!(with_records.to_json(), without_records.to_json());
+    // The island's whole hundred days, not only its last morning. S5's verdicts
+    // are recomputed from the board and the hour's draw rather than accumulated,
+    // so the final save carries only the *last* hour's goals -- and comparing two
+    // registries on one hour is a coin toss, not a proof. This folds the save
+    // after every midnight into one number, so a difference on any of the
+    // hundred days is a difference in the digest.
+    let hash_with = |factions: &FactionDefinitions| {
+        let mut state = a_campaign();
+        let mut digest: u64 = 0xcbf2_9ce4_8422_2325;
+        for _ in 0..(TOTAL_HOURS / u64::from(HOURS_PER_DAY)) {
+            run_hours(&mut state, u64::from(HOURS_PER_DAY), factions);
+            digest ^= hash_of(&state);
+            digest = digest.wrapping_mul(0x100_0000_01B3);
+        }
+        assert_eq!(state.strategic_clock.total_hours, TOTAL_HOURS);
+        digest
+    };
+
+    let empty_hash = hash_with(&empty);
+    let authored_hash = hash_with(&authored);
+    let weighted_hash = hash_with(&weighted);
+
+    // Claim 2: the registry is live.
+    assert_ne!(
+        weighted_hash, empty_hash,
+        "run_hour is ignoring the registry: a weighted record ran the same island as no records"
+    );
+
+    // Claim 3: each is a reproducible island in its own right.
+    assert_eq!(empty_hash, hash_with(&empty));
+    assert_eq!(authored_hash, hash_with(&authored));
+    assert_eq!(weighted_hash, hash_with(&weighted));
+
+    // The honest negative.
+    assert_eq!(
+        authored_hash, empty_hash,
+        "an authored record now weights something -- update this assertion and \
+         say which Open question content answered"
+    );
 }
 
 /// The draw sequence S5 inherits, pinned as a fixture: seven purposes per

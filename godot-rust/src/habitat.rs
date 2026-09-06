@@ -572,7 +572,11 @@ mod tests {
         .expect("fresh campaign constructs");
 
         let events = state
-            .resolve_midnight_in(&geography, &habitats)
+            .resolve_midnight_in(
+                &geography,
+                &habitats,
+                &crate::strategy::faction::FactionDefinitions::new(),
+            )
             .expect("resolves");
 
         let spawned: Vec<_> = events
@@ -610,7 +614,11 @@ mod tests {
         .expect("fresh campaign constructs");
 
         let events = state
-            .resolve_midnight_in(&geography, &habitats)
+            .resolve_midnight_in(
+                &geography,
+                &habitats,
+                &crate::strategy::faction::FactionDefinitions::new(),
+            )
             .expect("resolves");
 
         let level_in = |region: &str| {
@@ -741,7 +749,11 @@ mod tests {
         .expect("fresh campaign constructs");
         state.campaign_day = 8;
         state
-            .resolve_midnight_in(&geography, &habitats)
+            .resolve_midnight_in(
+                &geography,
+                &habitats,
+                &crate::strategy::faction::FactionDefinitions::new(),
+            )
             .expect("resolves");
 
         let region = "world.region.black_beach.terrace_precinct";

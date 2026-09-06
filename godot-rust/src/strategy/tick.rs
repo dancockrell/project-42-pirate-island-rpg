@@ -228,15 +228,15 @@ pub fn hour_draws(
 /// sequence exists to prevent.
 ///
 /// `geography` is the board S5 scores against. `factions` is the authored
-/// registry, and it is still unread: the bridge does not load
-/// `content/factions/*.json` yet, so `resolve_midnight_in` hands this function
-/// an empty registry and a game launched from Godot would otherwise be a
-/// different island from the same game run in the harness. S5 therefore scores
-/// with `GoalWeights::default()`, and
-/// `strategic_determinism.rs::the_registry_cannot_change_a_tick_yet` still
-/// holds -- `GoalWeights::from_definition` is the seam the lane that loads the
-/// records will swap in, and that test says of itself that it is written to be
-/// deleted when they do.
+/// registry, and B15 made it real: the bridge loads `content/factions/*.json`
+/// and `resolve_midnight_in` passes it down, so `GoalWeights::from_definition`
+/// scores the record where one is loaded and `GoalWeights::default()` -- read
+/// the board and nothing else -- where none is. That is the same registry the
+/// harness loads from the same files, which is what makes a game launched from
+/// Godot and a game run in the test harness one island.
+/// `strategic_determinism.rs::the_authored_registry_changes_the_tick` is the
+/// guard, and the `the_registry_cannot_change_a_tick_yet` it replaced was
+/// written to be deleted by this lane.
 ///
 /// ## What S5 does with the hour's draws
 ///
@@ -263,7 +263,7 @@ pub fn hour_draws(
 pub(crate) fn run_hour(
     state: &mut ExpeditionState,
     geography: &Geography,
-    _factions: &FactionDefinitions,
+    factions: &FactionDefinitions,
 ) -> Vec<StrategicEvent> {
     let day = state.campaign_day;
     let hour = state.strategic_clock.hour_of_day;
@@ -288,7 +288,16 @@ pub(crate) fn run_hour(
             .get("strategic.goal")
             .copied()
             .expect("PURPOSES reserves strategic.goal and hour_draws makes every purpose");
-        let goals = choose_goals(&view, strategic_state, goal_draw, &GoalWeights::default());
+        // B15: the authored record decides how loudly this faction hears each
+        // consideration; a faction with no loaded record reads the board and
+        // nothing else. One registry reaches here now -- the bridge's, loaded
+        // from `content/factions/`, and the harness's, loaded from the same
+        // files -- so the engine's island and the harness's island are one.
+        let weights = match factions.get(faction_id) {
+            Some(record) => GoalWeights::from_definition(record),
+            None => GoalWeights::default(),
+        };
+        let goals = choose_goals(&view, strategic_state, goal_draw, &weights);
 
         let faction = state
             .factions

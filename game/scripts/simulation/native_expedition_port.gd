@@ -106,13 +106,25 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 			if not estate_upgrade_id.is_empty():
 				trigger["estate_upgrade_id"] = estate_upgrade_id
 			encounter_triggers.append(trigger)
+	# B15: C9's six faction records, forwarded verbatim. They are authored in
+	# the Rust field names already -- `concept_key`, `resource_priorities`,
+	# `relationship_tendencies` -- so unlike cells and portals there is no
+	# renaming here and no chance of the two halves drifting apart; the extra
+	# authoring keys (`displayName`, `metadata`) have no Rust field and are
+	# ignored on the way in. Without this the bridge ran the strategic hours on
+	# an empty registry while the Rust harness ran them on the loaded one, and
+	# Godot's island and the harness's island were two different islands.
+	var factions: Array[Dictionary] = []
+	for faction_id in catalog.ids_with_prefix("faction."):
+		factions.append(catalog.get_record(faction_id))
 	var configuration := {
 		"seed": seed,
 		"party_ids": INITIAL_PARTY,
 		"active_location_id": INITIAL_LOCATION_ID,
 		"cells": cells,
 		"portals": portals,
-		"encounter_triggers": encounter_triggers
+		"encounter_triggers": encounter_triggers,
+		"factions": factions
 	}
 	return bridge.configure(JSON.stringify(configuration))
 
