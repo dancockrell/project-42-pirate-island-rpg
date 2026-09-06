@@ -355,8 +355,8 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
-- **M3** shipped 8/16 — **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
-- Last updated 2026-09-06 against trunk `9b4765e`. If this line is older than
+- **M3** shipped 10/16 — **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
+- Last updated 2026-09-06 against trunk `777a943`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -385,8 +385,8 @@ top of the document is never stale:
 | S3 | Buildings: envelopes, sockets, tiers, capture and ruin | S1, S2 | open |
 | S4 | Strategic tick, pause semantics, determinism | S1 | shipped fefed40 2026-09-06 — the draw sequence is under the save hash |
 | S5 | Utility AI and strategic states | S4 | shipped 9b4765e 2026-09-06 — neutral weights until the bridge loads records |
-| S6 | `StrategicDirective` vocabulary and plain-language explanation | S5 | open |
-| S7 | Offscreen forces and materialisation through routes and sockets | S4, S2 | open |
+| S6 | `StrategicDirective` vocabulary and plain-language explanation | S5 | shipped 7a63396 2026-09-06 |
+| S7 | Offscreen forces and materialisation through routes and sockets | S4, S2 | shipped 092533f 2026-09-06 — movement and arrival; **materialisation blocked: needs B11** |
 | S8 | Weather, corruption, and the dual clocks (world time vs patience/heat) | S4 | shipped ba1cb56 2026-09-06 — every tuning number marked needs decision |
 | S9 | `DungeonContext` and generation signature | S3, S8 | open |
 | S10 | Elimination and the recovery chain | S3, S7 | open |
@@ -414,7 +414,7 @@ top of the document is never stale:
 | B12 | The isometric board: world / route / room distances | B11, S2, O1 | open |
 | B13 | Calm information surface: ambient / notable / urgent | S6, B12 | open |
 | B14 | Control and risk surface: `set_control`, `controller_of`, `effective_risk`, `contested` on routes | S2, B3 | shipped 58fbdb3 2026-09-06 |
-| B15 | The bridge loads the faction records and hands the registry down; S5's seam closed | C9, S5 | open |
+| B15 | The bridge loads the faction records and hands the registry down; S5's seam closed | C9, S5 | shipped 777a943 2026-09-06 — the seam is closed as an honest negative until a record carries a real weight |
 
 ### Lane C — Content and validator (`content/`, `tools/src/validate.mjs`)
 
@@ -988,7 +988,7 @@ fact about the board, and a future perception model is where that draw
 earns its meaning.
 
 ### S6 · `StrategicDirective` vocabulary and plain-language explanation
-Status: open · Depends on: S5
+Status: shipped `7a63396` 2026-09-06 · Depends on: S5
 `StrategicDirective` with brief §19's fields; `intent` ∈ {Protect, Supply,
 Develop, Expand, Pressure, Attack, Support, Investigate, Avoid, Withdraw}.
 `fn explain(&directive, board) -> Explanation { goal, why_target, resources,
@@ -998,8 +998,19 @@ impossible, or returned. Directives are high-weight inputs to S5, not
 commands.
 Done when: `explain` for an `Attack` names a blocker when supply is short.
 
+**Shipped.** The ten intents and six statuses; `issue`, `cancel`, `mark` and
+`explain_directive` live in `directive.rs` as an impl on `ExpeditionState`, so
+the shared file gained only the field. The explanation is words — goal, why
+this target, resources, blockers, withdrawal conditions, whether the party
+could help — computed from `BoardView` and the graph before confirmation; an
+`Attack` short of supply names the blocker, a contested route names the road.
+`DIRECTIVE_WEIGHT = 480` (provisional): one standing directive moves the
+leading goal of a faction that has a choice, and `directive_signal` is zero
+for a Desperate faction, so Recover still leads and the directive waits rather
+than being discarded — an input, not a command.
+
 ### S7 · Offscreen forces and materialisation
-Status: open · Depends on: S4, S2
+Status: shipped `092533f` 2026-09-06 (movement and arrival) · materialisation `blocked: needs B11` · Depends on: S4, S2
 `ForceRecord` with brief §10's fields (faction, roles, composition, strength,
 readiness, supply, origin, route, destination, assignment, progress,
 player-detectable evidence). Forces move along `Geography` routes one step
@@ -1009,6 +1020,17 @@ teleports. Composition, damage, supply, leadership, equipment and recruited
 identity survive the aggregate↔local transition.
 Done when: a test moves a force three cells and asserts its arrival event
 carries the same composition it left with.
+
+**Shipped, movement and arrival.** `ForceRecord` carries §10's fields; a force
+plans with the graph's own `next_step_toward` and moves one real hop as its
+progress crosses each route's authored time cost, emitting `ForceDeparted`,
+`ForceMoved`, `ForceArrived` (composition copied whole) and `ForceHalted` (zero
+supply halts, never vanishes). Three cells out, the same composition in; a hop
+that skips a cell fails the test. Every method lives in `force.rs`; the shared
+file gained the field, its initialiser and one line in `strategic_tick`.
+**Materialisation through spawn sockets is B11's and blocked on it** (and B11
+on O3): this lane stops at `ForceArrived` and `forces_at(cell_id)`, the seam
+B11 attaches to. A9's faction actor, when it exists, arrives through here.
 
 ### S8 · Weather, corruption, and the dual clocks
 Status: shipped `ba1cb56` 2026-09-06 · Depends on: S4
@@ -1258,7 +1280,7 @@ own `CONTESTED_RISK_MODIFIER := 2` as the expected value (accepted — a fourth
 `Geography::held_by` immediately after the merge.
 
 ### B15 · The bridge loads the faction records and hands the registry down
-Status: open · Depends on: C9, S5
+Status: shipped `777a943` 2026-09-06 · Depends on: C9, S5
 Touches: `tools/src/build-content-bundle.mjs`, `game/generated/content_bundle.json`
 (regenerated), `game/scripts/simulation/native_expedition_port.gd`,
 `godot-rust/src/godot_bridge.rs`, `godot-rust/src/expedition.rs`
@@ -1286,6 +1308,22 @@ Traps: no widening of `from_definition` (it reads resource and relationship
 weights only; doctrine never acts). Bundle freshness is a CI gate.
 Done when: the new harness test passes; the Godot job green; the prototype
 suite asserts six factions in the snapshot and no numeric score key.
+
+**Shipped.** `factions` in the bundle; the port forwards records verbatim —
+after its own CI caught Godot's `JSON.stringify` writing integers with a
+decimal point and serde refusing every record; the port now coerces and says
+why a configuration was refused. The bridge validates into `FactionDefinitions`
+and `resolve_midnight_in` takes it; `run_hour` scores with
+`from_definition`; the harness loads `content/factions/` and runs the island
+Godot runs; `the_registry_cannot_change_a_tick_yet` is deleted.
+**The seam is closed honestly, not by assertion:** today's records are
+placeholder-neutral by rule (one Open resource key at weight zero, empty
+relationship tendencies), so a loaded registry scores exactly as an empty
+one and the card's literal "hashes differ" cannot hold without answering an
+Open brief question. `the_authored_registry_changes_the_tick` pins that
+equality as a negative and proves the wiring against a probe record with one
+weighted signal; reverting `run_hour` fails it. The day content carries a
+real weight, the negative flips on its own.
 
 ### Lane C — new cards
 

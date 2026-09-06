@@ -121,3 +121,38 @@ this entry records what was *verified*, not what was planned.
 playable through the engine with real costs and gates, and the strategic
 layer begun. Next: S4/S8 (the tick and the dual clocks), S5 (utility AI)
 once S4 lands, and C6/C12 when O2 is decided.
+
+### 2026-09-06, later — the strategic layer thinks
+
+Three more strategic rounds on `backend/b0-expedition-state`, each lane in its
+own worktree, integrated only after the four proofs re-ran on the trunk. Trunk
+`777a943`, green on both CI jobs at every integration commit.
+
+- **Factions decide (S5):** the five strategic states recomputed every hour
+  from share of the island and pressure on the border, goals scored over the
+  brief's considerations, raw scores never leaving the module. **Directives
+  (S6):** the player's request is a high-weight input a faction weighs, never
+  a command, explained in words before confirmation. **Forces (S7):**
+  aggregate bodies walk the routes one real hop at a time and arrive with the
+  composition they left with; materialisation waits on B11. **The tick (S4)**
+  drives it all deterministically, with the draw sequence under the save
+  hash; **the journal (S11)** keeps a bounded window plus a digest that loses
+  nothing; **the dual clocks (S8)** never move each other, proven in the
+  contract's own words. **Six factions exist as content (C9)** with a validator
+  rule that refuses a real name until one is approved; **the bridge loads them
+  (B15)** and the Rust harness runs the same island Godot runs.
+- `cargo test --manifest-path godot-rust/Cargo.toml`: **260 unit + 5
+  authored-world + 5 save-migration + 7 strategic-determinism + 1 integration
+  pass.** `cargo check --features godot-ext`: passes. `cargo fmt -- --check`:
+  clean. `node tools/src/validate.mjs`: 200 stable IDs. Bundle fresh.
+- **Honest negatives recorded rather than papered over:** the authored faction
+  records are neutral by rule, so a loaded registry scores as an empty one
+  until content carries a real weight; every tuning number in S5, S6, S8 is a
+  named constant marked `needs decision`.
+- **Not decided, unchanged:** O1, O2, O3 (which now blocks B11 and therefore
+  force materialisation), resource categories, faction names, doctrines (S15).
+
+**Summary:** M1 7/12, M2 5/9, **M3 10/16**. Next: S3 (buildings, shapes
+only), C6 (relationship scenes), B5 (Michael's card on the battle screen), E8
+(claims enforced in CI).
+
