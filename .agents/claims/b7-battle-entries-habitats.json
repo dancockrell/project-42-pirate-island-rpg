@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "task_id": "b7-battle-entries-habitats",
+  "agent": "claude-code (lane B7)",
+  "summary": "A battle entry may declare the habitat that holds it, so a cell whose fight is the habitat holder's is encounter-eligible from content alone; the fixture/content equality test then compares encounter_eligible and B6's last Rust-side-only field goes.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "content/world/reception_terrace.world_cell.json",
+    "content/world/tomb_service_passage.world_cell.json",
+    "tools/src/validate.mjs",
+    "game/generated/content_bundle.json",
+    "game/scripts/simulation/native_expedition_port.gd",
+    "godot-rust/src/geography.rs",
+    "godot-rust/tests/authored_world.rs"
+  ],
+  "symbols": [
+    "geography::AuthoredBattleEntry",
+    "geography::AuthoredCell",
+    "geography::tests::fixture_matches_the_authored_world_cells",
+    "NativeExpeditionPort.configure_from_catalog"
+  ],
+  "coordination": {
+    "depends_on": [
+      "b6-tomb-interior-cells",
+      "backend-d3-tomb-architecture"
+    ],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at 2ec3243. Only the battleEntries block of each world cell is touched: lane C5 is adding a dungeonContext block to the same tomb files, so the hunks do not meet. expedition.rs, strategy/ and godot_bridge.rs are untouched -- the fight at a habitat-bound entry is the existing begin_encounter habitat path, not a second spawn rule."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
