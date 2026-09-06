@@ -356,7 +356,7 @@ top of the document is never stale:
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 open
 - **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `f75cc64`. If this line is older than
+- Last updated 2026-09-06 against trunk `b9c6ad5`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -416,7 +416,7 @@ top of the document is never stale:
 | B14 | Control and risk surface: `set_control`, `controller_of`, `effective_risk`, `contested` on routes | S2, B3 | shipped 58fbdb3 2026-09-06 |
 | B15 | The bridge loads the faction records and hands the registry down; S5's seam closed | C9, S5 | shipped 777a943 2026-09-06 — the seam is closed as an honest negative until a record carries a real weight |
 | B16 | The bridge loads the building records and hands the registry to the tick; S10's sweep reads real buildings | C10, S10 | open |
-| B17 | A battle is built from the campaign: bond ranks reach the fight | A10 | open |
+| B17 | A battle is built from the campaign: bond ranks reach the fight | A10 | shipped b9c6ad5 2026-09-06 |
 
 ### Lane C — Content and validator (`content/`, `tools/src/validate.mjs`)
 
@@ -1543,7 +1543,7 @@ faction, ruins it, and the sweep reports `RecoveryLink::OperationalCore`
 lost — proven to bite by reverting the threading; the Godot job green.
 
 ### B17 · A battle is built from the campaign: bond ranks reach the fight
-Status: open · Depends on: A10
+Status: shipped `b9c6ad5` 2026-09-06 · Depends on: A10
 Touches: `godot-rust/src/battle.rs` (one constructor that takes the ranks),
 `godot-rust/src/godot_bridge.rs` (`begin_pending_battle` and
 `create_debug_battle` read `ExpeditionState::bond_ranks`), `game/tests/`
@@ -1560,6 +1560,17 @@ Done when: a Rust test builds a battle from a campaign at rank D and Betty's
 rank C command is refused through the bridge's own path; raising the rank by
 recording the burial milestone makes the same command legal; the Godot job
 green.
+**Shipped:** `Battle::prototype_vertical_slice_from_bond_ranks` — the fixture
+has one owner and the campaign constructor delegates to it, then stands each
+woman where her bond stands (`is_woman_actor_id`; Michael and the Razorbeak
+untouched); `begin_pending_battle` reads `ExpeditionState::bond_ranks`, and
+the review fixture still stands Betty at SSS because a debug battle has no
+campaign. The end-to-end test: a fresh campaign refuses Betty's rank C
+command with `BondRankTooLow`, recording the burial milestone opens it in
+the next battle. Proven to bite (dropping the copy fails two tests). **No
+bridge setter for a bond rank was added and none is blocked:** an authored
+beat remains the only thing that moves a bond. Two live-bridge assertions in
+the Godot suites; CI's Godot job is their proof.
 
 ### Lane C — new cards
 
