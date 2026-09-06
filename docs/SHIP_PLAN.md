@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 (S16 and S17 are additions outside the bracket) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `1a03dd7`. If this line is older than
+- Last updated 2026-09-06 against trunk `174f029`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -498,7 +498,7 @@ captured by P1's gate, and no card claims a look it has not captured.
 | P6 | Battle presentation: skill VFX and camera beats from the registries, hit-stop, band motion, site-rule ambience, the paper rigs until models | A5, A7, C3 | open |
 | P7 | RTS controls on the board (B18 resumed): select, then order a move by tile, words or hotkey; the drawn markers go | B14 | shipped 1a03dd7 2026-09-06 |
 | P8 | The shell: title, new game, continue, settings, pause, save slots, loading; one scene flow shell → expedition → battle and back | B8, B9 | open |
-| P9 | Audio: buses, ambience by region, time and weather, cues keyed to battle events, a music state machine; procedural placeholders until assets | P3 | open |
+| P9 | Audio: buses, ambience by region, time and weather, cues keyed to battle events, a music state machine; procedural placeholders until assets | P3 | shipped 174f029 2026-09-06 |
 
 ### Lane H — Docs and hygiene
 
@@ -2656,7 +2656,7 @@ save → title → continue and asserts the same legal actions; captures of the
 title and the pause menu.
 
 ### P9 · Audio
-Status: open · Depends on: P3
+Status: shipped `174f029` 2026-09-06 · Depends on: P3
 Touches: `game/scripts/audio/` (new autoload `Soundscape`), `content/audio/`
 (new records: ambience by region/segment/weather, cue by battle event and
 skill, music states), `tools/src/validate.mjs`, the bundle, one suite.
@@ -2670,6 +2670,21 @@ record, replaced by name when a real asset is admitted.
 Done when: a suite asserts every battle event and every skill resolves to
 a cue record and every region/segment/weather triple to an ambience record;
 the placeholder count is in the validator's summary line.
+**Shipped:** five buses and `Soundscape`; `content/audio/` owns 110 records —
+a cue for each of the thirty-five battle event kinds and each of the
+sixteen skills' beats (`audioCueId` on every binding), twenty ambience
+records (the whole region × segment × weather cross product for the one
+authored region, derived not listed), music states — every one
+`procedural_placeholder`, rendered once at load by `placeholder_synth.gd`
+into a `AudioStreamWAV` (a generator re-draws samples on every replay, so
+the card's suggestion was replaced by the deterministic form); the
+validator resolves every event and beat and refuses a missing cue; the
+bundle carries them (93 → 227 records; stable IDs 300 → 434). Two bites
+proven (suite and validator). The waveform sheet of all 110 placeholders is
+committed as the capture. **Left, on purpose:** the bridge does not project
+weather yet, so ambience by weather reads a hook until P3 adds the snapshot
+key; every sound is a placeholder by declaration until a real asset is
+admitted with provenance.
 
 ## 8. Claiming, finishing, and keeping this document true
 
