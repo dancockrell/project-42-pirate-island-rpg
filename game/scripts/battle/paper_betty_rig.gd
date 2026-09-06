@@ -6,6 +6,12 @@ extends Node2D
 ## intentionally simple art, yet it is a usable animation hierarchy rather
 ## than a single illustration translated around the battle plane.
 
+## Betty's own colours. Card P11 leaves these where they are and marks them: a
+## character's skin, hair, tartan, leather and glass are what she looks like,
+## not what the interface looks like, and they must not move when the player
+## turns high contrast on -- she is still the same woman.
+# game colour: a placeholder character rig's authored appearance, replaced by
+# name when a character package is admitted (content/art/placeholders.json).
 const SKIN := Color("f1c9ad")
 const AUBURN := Color("8e3d2e")
 const LEATHER := Color("6d3c29")
@@ -17,6 +23,22 @@ const TARTAN_WINE := Color("784446")
 const BOOT := Color("3a2928")
 const BRONZE := Color("b78948")
 const GLASS := Color("5bcabe")
+const BELT := Color("2d1d1b")
+const COAT_TAIL := Color("4a2b25")
+const SKIN_SHADE := Color("e2a98e")
+const BOOT_SOLE := Color("1a1518")
+const MACE_HAFT := Color("76512e")
+const MACE_RING := Color("e4c487")
+const SATCHEL := Color("6e4d2c")
+const SATCHEL_CLASP := Color("e6bf63")
+const AMPOULE := Color("d1e8dd")
+const BROW := Color("5d382d")
+const LASH := Color("244a45")
+const FRECKLE := Color("c36f53")
+const MOUTH := Color("a94f50")
+const AUBURN_LIGHT := Color("a94f32")
+const AUBURN_MID := Color("b05a39")
+const IMPACT_FLASH := Color("fff6df")
 
 var torso: PaperBettyPiece
 var head: PaperBettyPiece
@@ -106,6 +128,7 @@ func piece_z(kind: String) -> int:
 ## a direction without a shader that this project's compatibility path cannot
 ## run. `shade` is the strength the doll's lighting pass names.
 func apply_lighting(shade: float) -> void:
+	# not a colour: a self-modulate multiplier, which is shade rather than hue.
 	var low := Color.WHITE.darkened(shade)
 	var mid := Color.WHITE.darkened(shade * .55)
 	for piece in [left_leg, right_leg, left_boot, right_boot, coat_left, coat_right]:
@@ -167,7 +190,8 @@ func animate_to_pose(pose_name: String, motion := "") -> void:
 		# The contact pose is held long enough to read, then the next authored
 		# beat takes control. This is presentation timing only; it never delays
 		# or changes the simulation event sequence.
-		pose_tween.tween_property(self, "modulate", Color("fff6df"), duration * .55)
+		pose_tween.tween_property(self, "modulate", IMPACT_FLASH, duration * .55)
+		# not a colour: back to no tint at all.
 		pose_tween.tween_property(self, "modulate", Color.WHITE, duration)
 
 func apply_pose(pose_name: String) -> void:
@@ -238,54 +262,54 @@ class PaperBettyPiece:
 				draw_line(Vector2(-28,38),Vector2(30,38),TARTAN_WINE,2)
 				for x in [-25.0, 0.0, 25.0]: draw_line(Vector2(x,26),Vector2(x+7,39),TARTAN_NAVY,2)
 				draw_line(Vector2(0,-13),Vector2(0,38),BRONZE,3)
-				draw_line(Vector2(-24,7),Vector2(24,7),Color("2d1d1b"),2)
+				draw_line(Vector2(-24,7),Vector2(24,7),BELT,2)
 				# Open shoulders, blouse folds and fitted corset are separate visual
 				# reads even in a simple paper proxy; do not substitute a box torso.
 				draw_arc(Vector2(-43,-38),16,deg_to_rad(205),deg_to_rad(350),8,LACE,5,true)
 				draw_arc(Vector2(43,-38),16,deg_to_rad(190),deg_to_rad(335),8,LACE,5,true)
 			"coat_tail":
-				draw_colored_polygon(PackedVector2Array([Vector2(-30,-12),Vector2(30,-12),Vector2(42,108),Vector2(-12,96)]), Color("4a2b25"))
+				draw_colored_polygon(PackedVector2Array([Vector2(-30,-12),Vector2(30,-12),Vector2(42,108),Vector2(-12,96)]), COAT_TAIL)
 				draw_line(Vector2(-24,4),Vector2(26,4),BRONZE,2)
 			"leg":
 				draw_line(Vector2.ZERO,Vector2(0,108),SKIN,24,true)
-				draw_line(Vector2(-7,18),Vector2(7,18),Color("e2a98e"),2)
+				draw_line(Vector2(-7,18),Vector2(7,18),SKIN_SHADE,2)
 			"boot":
 				draw_line(Vector2.ZERO,Vector2(0,85),BOOT,32,true)
 				draw_line(Vector2(-7,10),Vector2(7,10),BRONZE,2)
-				draw_line(Vector2(-8,88),Vector2(26,88),Color("1a1518"),13,true)
+				draw_line(Vector2(-8,88),Vector2(26,88),BOOT_SOLE,13,true)
 			"arm":
 				draw_line(Vector2.ZERO,Vector2(0,98),SKIN,18,true)
 				draw_circle(Vector2(0,101),8,SKIN)
 			"mace":
 				# A short heavy boarding mace, not a wizard staff. The body geometry
 				# leaves a reinforced bronze neck and a luminous impact chamber clear.
-				draw_line(Vector2.ZERO,Vector2(0,118),Color("76512e"),13,true)
+				draw_line(Vector2.ZERO,Vector2(0,118),MACE_HAFT,13,true)
 				draw_circle(Vector2(0,132),31,BRONZE)
 				draw_circle(Vector2(0,132),18,GLASS)
-				draw_arc(Vector2(0,132),33,0,TAU,16,Color("e4c487"),2,true)
+				draw_arc(Vector2(0,132),33,0,TAU,16,MACE_RING,2,true)
 			"satchel":
-				draw_rect(Rect2(-28,-24,56,47),Color("6e4d2c"),true)
+				draw_rect(Rect2(-28,-24,56,47),SATCHEL,true)
 				draw_rect(Rect2(-28,-24,56,47),BRONZE,false,3)
-				draw_circle(Vector2(0,-1),9,Color("e6bf63"))
-				draw_line(Vector2(-22,-28),Vector2(22,-42),Color("b78948"),4,true)
+				draw_circle(Vector2(0,-1),9,SATCHEL_CLASP)
+				draw_line(Vector2(-22,-28),Vector2(22,-42),BRONZE,4,true)
 			"ampoule_rack":
 				draw_line(Vector2(-16,8),Vector2(16,8),BRONZE,4,true)
 				for x in [-12.0,0.0,12.0]:
-					draw_rect(Rect2(x-4,-17,8,22),Color("d1e8dd"),true)
+					draw_rect(Rect2(x-4,-17,8,22),AMPOULE,true)
 					draw_circle(Vector2(x,-18),4,GLASS)
 			"head":
 				draw_paper_ellipse(Vector2(0,5),Vector2(37,49),SKIN)
-				draw_line(Vector2(-17,1),Vector2(-6,0),Color("5d382d"),2)
-				draw_line(Vector2(6,0),Vector2(17,1),Color("5d382d"),2)
-				draw_line(Vector2(-16,5),Vector2(-6,5),Color("244a45"),3)
-				draw_line(Vector2(6,5),Vector2(16,5),Color("244a45"),3)
+				draw_line(Vector2(-17,1),Vector2(-6,0),BROW,2)
+				draw_line(Vector2(6,0),Vector2(17,1),BROW,2)
+				draw_line(Vector2(-16,5),Vector2(-6,5),LASH,3)
+				draw_line(Vector2(6,5),Vector2(16,5),LASH,3)
 				draw_circle(Vector2(-10,6),2.8,GLASS); draw_circle(Vector2(10,6),2.8,GLASS)
-				for x in [-21.0,-16.0,16.0,21.0]: draw_circle(Vector2(x,20),1.7,Color("c36f53"))
-				draw_arc(Vector2(0,23),11,deg_to_rad(20),deg_to_rad(160),8,Color("a94f50"),2,true)
+				for x in [-21.0,-16.0,16.0,21.0]: draw_circle(Vector2(x,20),1.7,FRECKLE)
+				draw_arc(Vector2(0,23),11,deg_to_rad(20),deg_to_rad(160),8,MOUTH,2,true)
 			"hair":
 				draw_arc(Vector2(0,0),48,deg_to_rad(195),deg_to_rad(345),20,AUBURN,14,true)
-				draw_circle(Vector2(-22,-34),16,AUBURN); draw_circle(Vector2(20,-39),19,Color("a94f32"))
-				draw_arc(Vector2(-18,-8),25,deg_to_rad(125),deg_to_rad(250),8,Color("b05a39"),4,true)
+				draw_circle(Vector2(-22,-34),16,AUBURN); draw_circle(Vector2(20,-39),19,AUBURN_LIGHT)
+				draw_arc(Vector2(-18,-8),25,deg_to_rad(125),deg_to_rad(250),8,AUBURN_MID,4,true)
 
 	func draw_paper_ellipse(center: Vector2, radii: Vector2, color: Color) -> void:
 		var points := PackedVector2Array()

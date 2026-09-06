@@ -1,6 +1,9 @@
 class_name PlaceholderActionPresenter
 extends Node
 
+## The one door onto the palette (card P11).
+const ThemeTokensScript = preload("res://scripts/ui/theme_tokens.gd")
+
 ## The rigs' reaction to one authored presentation cue: the pose the doll takes,
 ## the lunge or recoil of the panel it stands in, and the cue's technical
 ## contract on a tooltip for the art pass.
@@ -80,11 +83,13 @@ func reset() -> void:
 	if actor_panel != null:
 		set_actor_offset(Vector2.ZERO)
 		actor_panel.scale = actor_home_scale
+		# not a colour: no tint.
 		actor_panel.modulate = Color.WHITE
 	if enemy_panel != null:
 		set_enemy_offset(Vector2.ZERO)
 		enemy_panel.scale = enemy_home_scale
 		enemy_panel.rotation = 0.0
+		# not a colour: no tint.
 		enemy_panel.modulate = Color.WHITE
 		reset_paper_pose(enemy_panel)
 	if actor_panel != null:
@@ -128,7 +133,12 @@ func animate_actor_plane(motion: String, camera_zoom: float, vfx_id: String) -> 
 		target_scale = actor_home_scale * .96
 		duration = .18
 	actor_panel.scale = start_scale
-	actor_panel.modulate = Color("d8f6ee") if vfx_id != "presentation.vfx.none" else Color.WHITE
+	# The acting figure is lifted into the effect's own light for the beat. The
+	# tint is the grammar's teal at a whisper rather than a pale green stated
+	# here, so an actor lit under high contrast is lit in that palette.
+	var lift := ThemeTokensScript.color(ThemeTokensScript.active(actor_panel), "teal").lightened(0.82)
+	# not a colour: no tint, for a beat with no effect on it.
+	actor_panel.modulate = lift if vfx_id != "presentation.vfx.none" else Color.WHITE
 	actor_tween = actor_panel.create_tween().set_parallel(true)
 	actor_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	actor_tween.tween_method(set_actor_offset, actor_offset, target_offset, duration)
@@ -139,6 +149,7 @@ func animate_enemy_reaction(motion: String, shake: float) -> void:
 		enemy_tween.kill()
 	var target_offset := Vector2.ZERO
 	var target_rotation := 0.0
+	# not a colour: no tint unless the recoil below asks for one.
 	var target_modulate := Color.WHITE
 	var duration := .12
 	if motion == "contact_lunge" and shake > 0.0:
@@ -146,7 +157,7 @@ func animate_enemy_reaction(motion: String, shake: float) -> void:
 		# power dynamic instead of making enemies look like disposable mob packs.
 		target_offset = Vector2(18, -8)
 		target_rotation = deg_to_rad(2.5 * shake)
-		target_modulate = Color("ffd6bf")
+		target_modulate = ThemeTokensScript.color(ThemeTokensScript.active(enemy_panel), "danger_soft").lightened(0.62)
 		duration = .08
 	enemy_tween = enemy_panel.create_tween().set_parallel(true)
 	enemy_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

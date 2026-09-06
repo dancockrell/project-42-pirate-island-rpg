@@ -18,6 +18,8 @@ extends Control
 ## Reduced motion (card B9) stops the shader clock and freezes the embers where
 ## they stand rather than hiding them.
 
+const ThemeTokensScript = preload("res://scripts/ui/theme_tokens.gd")
+
 const SEED := 42
 const EMBER_COUNT := 44
 const EMBER_RISE := 0.021
@@ -27,10 +29,15 @@ const SHADER_CODE := """
 shader_type canvas_item;
 
 uniform float motion : hint_range(0.0, 1.0) = 1.0;
-uniform vec3 night_color : source_color = vec3(0.020, 0.051, 0.047);
-uniform vec3 sky_color : source_color = vec3(0.031, 0.110, 0.106);
-uniform vec3 horizon_color : source_color = vec3(0.404, 0.302, 0.169);
-uniform vec3 sea_color : source_color = vec3(0.016, 0.071, 0.067);
+// Card P11: these four are set from the Theme's palette in `repaint()`, so the
+// weather behind the title is painted out of the same tokens the type is and
+// high contrast reaches the sky. The values written here are never used --
+// `repaint()` runs before the first frame -- and are kept only so the shader
+// compiles when read on its own.
+uniform vec3 night_color : source_color = vec3(0.0);
+uniform vec3 sky_color : source_color = vec3(0.0);
+uniform vec3 horizon_color : source_color = vec3(0.0);
+uniform vec3 sea_color : source_color = vec3(0.0);
 uniform float horizon_y = 0.60;
 
 float band(float x, float phase) {
@@ -110,6 +117,14 @@ var _embers: PackedVector2Array = PackedVector2Array()
 var _ember_sizes: PackedFloat32Array = PackedFloat32Array()
 var _ember_drift: PackedFloat32Array = PackedFloat32Array()
 var _phase := 0.0
+## The plate's colours, resolved from the Theme by `repaint()`. Nothing here is
+## a hex: the island is drawn out of the same palette the menu is.
+# not a colour: five placeholders until `repaint()` runs on the first frame.
+var _far_ridge_colour := Color.BLACK
+var _near_ridge_colour := Color.BLACK
+var _shore_colour := Color.BLACK
+var _ink_colour := Color.BLACK
+var _ember_colour := Color.BLACK
 
 
 func _ready() -> void:
@@ -117,7 +132,32 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	build_background()
 	build_embers()
+	repaint(ThemeTokensScript.active(self))
 	set_process(motion_enabled)
+
+
+## Take the plate's whole palette from the Theme. The title calls this again
+## whenever the grammar is rebuilt, which is how high contrast reaches the sky
+## and the headlands and not only the lettering.
+func repaint(theme: Theme) -> void:
+	var night := ThemeTokensScript.color(theme, "night")
+	var deep := ThemeTokensScript.color(theme, "deep")
+	var bronze := ThemeTokensScript.color(theme, "bronze")
+	if _material != null:
+		_material.set_shader_parameter("night_color", night)
+		_material.set_shader_parameter("sky_color", deep.lightened(0.06))
+		_material.set_shader_parameter("horizon_color", bronze.darkened(0.30))
+		_material.set_shader_parameter("sea_color", deep.darkened(0.10))
+	if _background != null:
+		_background.color = night
+	# Three silhouettes, each a step further forward and a step darker, so the
+	# island reads as depth rather than as one flat shape.
+	_far_ridge_colour = deep
+	_near_ridge_colour = night
+	_shore_colour = night.darkened(0.50)
+	_ink_colour = night.darkened(0.35)
+	_ember_colour = bronze
+	queue_redraw()
 
 
 func set_motion_enabled(enabled: bool) -> void:
@@ -137,7 +177,7 @@ func build_background() -> void:
 	_background = ColorRect.new()
 	_background.name = "Weather"
 	_background.material = _material
-	_background.color = ShellStyle.NIGHT
+	# Painted by `repaint()` from the Theme before the first frame.
 	_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# The ridges, the cutter and the embers are this control's own `_draw`, and
@@ -162,10 +202,10 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var box := size
-	draw_ridge(FAR_RIDGE, box, Color(0.035, 0.086, 0.086, 1.0), FAR_RIDGE_WATERLINE)
+	draw_ridge(FAR_RIDGE, box, _far_ridge_colour, FAR_RIDGE_WATERLINE)
 	draw_cutter(box)
-	draw_ridge(NEAR_RIDGE, box, Color(0.016, 0.047, 0.047, 1.0), 1.0)
-	draw_ridge(SHORE, box, Color(0.008, 0.027, 0.027, 1.0), 1.0)
+	draw_ridge(NEAR_RIDGE, box, _near_ridge_colour, 1.0)
+	draw_ridge(SHORE, box, _shore_colour, 1.0)
 	draw_embers(box)
 
 
@@ -184,7 +224,7 @@ func draw_ridge(profile: Array[Vector2], box: Vector2, color: Color, bottom: flo
 func draw_cutter(box: Vector2) -> void:
 	var anchor := Vector2(CUTTER_AT.x * box.x, CUTTER_AT.y * box.y)
 	var unit := box.y * 0.001
-	var ink := Color(0.012, 0.035, 0.035, 1.0)
+	var ink := _ink_colour
 	var hull := PackedVector2Array([
 		anchor + Vector2(-26.0 * unit, 0.0),
 		anchor + Vector2(26.0 * unit, 0.0),
@@ -212,4 +252,4 @@ func draw_embers(box: Vector2) -> void:
 		# Embers fade out where the sky is brightest so they never read as dust
 		# on the lens, and fade in as they climb.
 		var alpha: float = clampf((y - 0.30) * 1.4, 0.0, 1.0) * 0.42
-		draw_circle(at, _ember_sizes[index] * (box.y / 1080.0) + 0.6, Color(ShellStyle.BRONZE, alpha))
+		draw_circle(at, _ember_sizes[index] * (box.y / 1080.0) + 0.6, Color(_ember_colour, alpha))

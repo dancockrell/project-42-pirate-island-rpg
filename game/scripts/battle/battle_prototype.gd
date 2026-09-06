@@ -7,7 +7,6 @@ const PaperCardScript = preload("res://scripts/battle/paper_card.gd")
 const PaperSkillDiamondScript = preload("res://scripts/battle/paper_skill_diamond.gd")
 const BattleStageScript = preload("res://scripts/battle/battle_stage.gd")
 const DamageNumberScript = preload("res://scripts/battle/damage_number.gd")
-const PaletteScript = preload("res://scripts/battle/battle_palette.gd")
 const CampaignEncounterSimulationPortScript = preload("res://scripts/simulation/campaign_encounter_simulation_port.gd")
 
 ## Presentation-only prototype. Gameplay truth comes through SimulationPort.
@@ -20,15 +19,29 @@ const CampaignEncounterSimulationPortScript = preload("res://scripts/simulation/
 ## here is the screen -- the HUD, the rail, the command dock -- and the wiring
 ## from a simulation event to the stage beat that shows it.
 
-## The palette has one owner. Until `game/themes/bronze_vellum.tres` exists,
-## that owner is `battle_palette.gd`, and these six names are aliases of it so
-## the rest of this file reads as it always did.
-const BRONZE := PaletteScript.BRONZE
-const DEEP := PaletteScript.DEEP
-const PANEL := PaletteScript.PANEL
-const CREAM := PaletteScript.CREAM
-const TEAL := PaletteScript.TEAL
-const DANGER := PaletteScript.DANGER
+## The palette has one owner and it is `game/themes/bronze_vellum.tres`. Card
+## P11: the six aliases that stood here are gone -- every colour and every font
+## size on this screen is read from the Theme through `ThemeTokens`, and every
+## label names a Theme variation rather than a size and a colour, so B9's text
+## scale and high contrast reach the battle the moment the player changes them.
+const ThemeTokensScript = preload("res://scripts/ui/theme_tokens.gd")
+
+## The actors' accents: the tint that says which side a card belongs to. These
+## are the one thing on this screen that stays a stated colour, because they are
+## a *game* colour -- an actor's identity on the board -- and not an interface
+## one. They must not move when the interface does, or the player would lose the
+## read at exactly the moment high contrast is meant to help.
+# game colour: an actor's faction tint on the band rail.
+const ACTOR_ACCENTS := {
+	"captain": Color("536c79"),
+	"heroine": Color("2d7770"),
+	"hostile": Color("8d3b34")
+}
+
+## How heavily the plate is outlined behind a HUD line. Every label on this
+## screen sits over a painted plate whose brightness the screen does not
+## control, so the outline is what keeps text legible over stone and sky alike.
+const PLATE_OUTLINE_SIZE := 5
 
 const BETTY_ID := "character.heroine.betty"
 const CAPTAIN_ID := "character.protagonist.captain"
@@ -119,6 +132,8 @@ var actor_display_names := {
 }
 
 func _ready() -> void:
+	# The grammar first: `build_screen` reads `theme` for every box it builds.
+	ThemeTokensScript.adopt(self)
 	load_accessibility_settings()
 	text_renderer.configure(actor_display_names)
 	if catalog.load_default() != OK:
@@ -171,7 +186,7 @@ func load_accessibility_settings() -> void:
 
 func build_screen() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(make_color_rect(PaletteScript.VOID, "BackgroundBase"))
+	add_child(make_color_rect(ThemeTokensScript.color(theme, "night"), "BackgroundBase"))
 	# The Bible's battle screen is one shared theatrical plane. The stage owns
 	# the plate and everything standing on it; the HUD sits above and is never
 	# scaled by the camera, because text that scales with a punch-in is text the
@@ -189,10 +204,10 @@ func build_screen() -> void:
 
 
 func build_actors() -> void:
-	actor_panel = make_actor_placeholder("presentation.paper_doll.betty.active", TEAL)
+	actor_panel = make_actor_placeholder("presentation.paper_doll.betty.active", ACTOR_ACCENTS["heroine"])
 	actor_panel.size = Vector2(520, 600)
 	stage.add_body(BETTY_ID, actor_panel, actor_panel.get_meta("paper_doll"), "party_front")
-	enemy_panel = make_actor_placeholder("presentation.paper_doll.razorbeak.active", DANGER)
+	enemy_panel = make_actor_placeholder("presentation.paper_doll.razorbeak.active", ACTOR_ACCENTS["hostile"])
 	enemy_panel.size = Vector2(560, 460)
 	enemy_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	enemy_panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -203,7 +218,7 @@ func build_actors() -> void:
 func build_hud(hud: Control) -> void:
 	# The only persistent information at the top is information the player can
 	# use: location/time and the current enemy intent. No ornamental meter.
-	round_label = make_label("DAY 18  •  16:40", 16, CREAM)
+	round_label = make_label("DAY 18  •  16:40", &"BodyLabel")
 	round_label.position = Vector2(38, 30)
 	round_label.size = Vector2(280, 28)
 	hud.add_child(round_label)
@@ -211,21 +226,18 @@ func build_hud(hud: Control) -> void:
 	description_label.name = "CombatDescription"
 	description_label.bbcode_enabled = true
 	description_label.fit_content = false
-	description_label.add_theme_font_size_override("normal_font_size", 15)
-	description_label.add_theme_color_override("default_color", CREAM)
-	description_label.add_theme_color_override("font_outline_color", PaletteScript.VOID)
-	description_label.add_theme_constant_override("outline_size", 5)
-	description_label.text = "[color=#b78a4b]RECEPTION ROAD[/color]  •  ELVEN GATE  •  LATE AFTERNOON"
+	restyle_description()
+	description_label.text = "[color=#%s]RECEPTION ROAD[/color]  •  ELVEN GATE  •  LATE AFTERNOON" % ThemeTokensScript.color(theme, "bronze").to_html(false)
 	description_label.position = Vector2(38, 58)
 	description_label.size = Vector2(880, 64)
 	description_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.add_child(description_label)
-	intent_label = make_label("RAZORBEAK  •  RUSHING BITE  •  16 DAMAGE", 16, Color("f0938a"))
+	intent_label = make_label("RAZORBEAK  •  RUSHING BITE  •  16 DAMAGE", &"DangerLabel")
 	intent_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	intent_label.position = Vector2(1120, 30)
 	intent_label.size = Vector2(760, 30)
 	hud.add_child(intent_label)
-	action_cue_label = make_label("BETTY IS READY", 15, PaletteScript.GOLD)
+	action_cue_label = make_label("BETTY IS READY", &"CueLabel")
 	action_cue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	action_cue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	action_cue_label.position = Vector2(1120, 736)
@@ -248,8 +260,7 @@ func build_hud(hud: Control) -> void:
 	return_to_expedition_button.name = "ReturnToExpedition"
 	return_to_expedition_button.text = "RETURN TO RECEPTION TERRACE"
 	return_to_expedition_button.tooltip_text = "Return to the expedition after the authoritative encounter outcome has been recorded."
-	return_to_expedition_button.add_theme_font_size_override("font_size", 15)
-	return_to_expedition_button.add_theme_stylebox_override("normal", make_command_box(Color("1a322e"), TEAL))
+	style_command_button(return_to_expedition_button)
 	return_to_expedition_button.position = Vector2(1400, 676)
 	return_to_expedition_button.size = Vector2(460, 72)
 	return_to_expedition_button.visible = false
@@ -265,20 +276,11 @@ func build_command_dock() -> Control:
 	var dock := PanelContainer.new()
 	dock.name = "CommandDock"
 	dock.mouse_filter = Control.MOUSE_FILTER_PASS
-	var box := StyleBoxFlat.new()
-	box.bg_color = Color(PANEL.r, PANEL.g, PANEL.b, 0.82)
-	box.border_color = Color(BRONZE, 0.55)
-	box.set_border_width_all(2)
-	box.set_corner_radius_all(12)
-	box.content_margin_left = 16
-	box.content_margin_right = 16
-	box.content_margin_top = 10
-	box.content_margin_bottom = 10
-	dock.add_theme_stylebox_override("panel", box)
+	dock.add_theme_stylebox_override("panel", command_dock_box())
 	var rows := VBoxContainer.new()
 	rows.add_theme_constant_override("separation", 4)
 	dock.add_child(rows)
-	target_label = make_label("BETTY  •  D-RANK", 14, BRONZE)
+	target_label = make_label("BETTY  •  D-RANK", &"BronzeLabel")
 	rows.add_child(target_label)
 	var first_row := HBoxContainer.new()
 	first_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -348,7 +350,7 @@ func actors_in_band(band: String) -> Array:
 
 func set_band_heading(band: String, band_index: int, occupied: bool) -> void:
 	if not band_headings.has(band):
-		var heading := make_label(band.replace("_", " ").to_upper(), 12, BRONZE)
+		var heading := make_label(band.replace("_", " ").to_upper(), &"MonoLabel")
 		heading.name = "Heading_" + band
 		heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		heading.position = Vector2(RAIL_COLUMN_WIDTH * float(band_index), 0.0)
@@ -401,12 +403,12 @@ func make_band_card(actor: Dictionary) -> Control:
 	copy.position = Vector2(74, 16)
 	copy.size = Vector2(CARD_SIZE.x - 82, CARD_SIZE.y - 52)
 	copy.add_theme_constant_override("separation", 0)
-	var name_label := make_label(display_name, 13, CREAM)
+	var name_label := make_label(display_name, &"BodyLabel")
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	name_label.clip_text = true
 	name_label.custom_minimum_size = Vector2(CARD_SIZE.x - 82, 18)
 	copy.add_child(name_label)
-	var status_label := make_label("", 11, Color("d7e0d7"))
+	var status_label := make_label("", &"CaptionLabel")
 	status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	copy.add_child(status_label)
 	holder.add_child(copy)
@@ -432,8 +434,7 @@ func make_captain_command_grid() -> Control:
 		button.name = "Command_" + skill_id.replace(".", "_")
 		button.text = captain_command_label(skill_id, entry[1])
 		button.custom_minimum_size = Vector2(190, 44)
-		button.add_theme_font_size_override("font_size", 14)
-		button.add_theme_stylebox_override("normal", make_command_box(Color("1a322e"), TEAL))
+		style_command_button(button)
 		button.tooltip_text = "Captain Michael's command. Stable skill ID: %s" % skill_id
 		button.pressed.connect(func() -> void: on_captain_command(skill_id))
 		grid.add_child(button)
@@ -466,9 +467,7 @@ func command_selects_another_actor(skill_id: String) -> bool:
 
 
 func accent_for(actor: Dictionary) -> Color:
-	if str(actor.get("id", "")) == CAPTAIN_ID:
-		return Color("536c79")
-	return DANGER if str(actor.get("faction", "")) == "hostile" else Color("2d7770")
+	return ACTOR_ACCENTS[portrait_kind_for(actor)]
 
 
 func portrait_kind_for(actor: Dictionary) -> String:
@@ -510,17 +509,41 @@ func drawn_card_ids() -> Array:
 	return card_buttons.keys()
 
 
-func make_command_box(background: Color, border: Color) -> StyleBoxFlat:
+## A command button in the grammar: the raised panel behind a teal edge, with
+## the sunken panel as its drop shadow so the dock reads as a physical row.
+func make_command_box() -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
-	box.bg_color = background
-	box.border_color = border
+	box.bg_color = ThemeTokensScript.color(theme, "panel_raised")
+	box.border_color = ThemeTokensScript.color(theme, "teal")
 	box.set_border_width_all(2)
 	box.set_corner_radius_all(7)
-	box.shadow_color = Color(0, 0, 0, .35)
+	box.shadow_color = Color(ThemeTokensScript.color(theme, "night"), .35)
 	box.shadow_size = 4
 	box.content_margin_left = 10
 	box.content_margin_right = 10
 	return box
+
+
+## The dock the commands sit in: the panel fill at four fifths, ruled in bronze.
+func command_dock_box() -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(ThemeTokensScript.color(theme, "panel"), 0.82)
+	box.border_color = Color(ThemeTokensScript.color(theme, "bronze"), 0.55)
+	box.set_border_width_all(2)
+	box.set_corner_radius_all(12)
+	box.content_margin_left = 16
+	box.content_margin_right = 16
+	box.content_margin_top = 10
+	box.content_margin_bottom = 10
+	return box
+
+
+## A command button wears the box above and the body step. Both are built in
+## code, so both are remade in `_on_theme_rebuilt`.
+func style_command_button(button: Button) -> void:
+	button.set_meta("command_button", true)
+	button.add_theme_font_size_override("font_size", ThemeTokensScript.font_size(theme, "body"))
+	button.add_theme_stylebox_override("normal", make_command_box())
 
 
 func make_actor_placeholder(spec_id: String, accent: Color) -> PanelContainer:
@@ -730,7 +753,7 @@ func project_event(event: Dictionary) -> void:
 			action_cue_label.visible = false
 			if stage != null:
 				stage.release_all_effects()
-			intent_label.add_theme_color_override("font_color", TEAL if event.payload.victory else DANGER)
+			intent_label.theme_type_variation = &"AccentLabel" if event.payload.victory else &"DangerLabel"
 			intent_label.text = "RAZORBEAK WITHDRAWS" if event.payload.victory else "BETTY IS DOWN"
 			description_label.text = "[color=#4fc7b4]The razorbeak breaks away into the jungle.[/color] The road is quiet for the moment." if event.payload.victory else "[color=#c24e45]Betty falls beneath the elven gate.[/color] The expedition must recover before midnight."
 			if is_campaign_encounter:
@@ -858,7 +881,9 @@ func update_guard_values(id: String, guard: int) -> void:
 func set_card_state(id: String, state: String) -> void:
 	for card_id in card_buttons:
 		var card := card_buttons[card_id] as Control
-		card.modulate = Color.WHITE if card_id == id else Color("9aa5a2")
+		# not a colour: the acting card keeps its own colours and every other
+		# card is dimmed towards the grammar's muted grey-green.
+		card.modulate = Color.WHITE if card_id == id else ThemeTokensScript.color(theme, "muted")
 		if card_id == id:
 			card.tooltip_text = "Card state: %s. Stable actor ID: %s" % [state, id]
 
@@ -917,14 +942,48 @@ func make_color_rect(color: Color, node_name: String) -> ColorRect:
 	return rect
 
 
-func make_label(value: String, size: int, color: Color) -> Label:
+## A HUD label in a named role. No size and no colour: the variation is the
+## whole of its appearance. The plate outline is the one thing a variation
+## cannot carry, so it is set here and set again when the grammar is rebuilt.
+func make_label(value: String, variation: StringName) -> Label:
 	var label := Label.new()
 	label.text = value
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", color)
-	# Every label on this screen sits over a painted plate whose brightness the
-	# screen does not control. An outline is what keeps text legible over the
-	# terrace stone and over the sky alike.
-	label.add_theme_color_override("font_outline_color", PaletteScript.VOID)
-	label.add_theme_constant_override("outline_size", 5)
+	label.theme_type_variation = variation
+	outline(label)
 	return label
+
+
+func outline(label: Label) -> void:
+	label.add_theme_color_override("font_outline_color", ThemeTokensScript.color(theme, "night"))
+	label.add_theme_constant_override("outline_size", PLATE_OUTLINE_SIZE)
+
+
+func restyle_description() -> void:
+	if description_label == null:
+		return
+	description_label.add_theme_font_size_override("normal_font_size", ThemeTokensScript.font_size(theme, "body"))
+	description_label.add_theme_color_override("default_color", ThemeTokensScript.color(theme, "cream"))
+	description_label.add_theme_color_override("font_outline_color", ThemeTokensScript.color(theme, "night"))
+	description_label.add_theme_constant_override("outline_size", PLATE_OUTLINE_SIZE)
+
+
+## The grammar changed under the battle. Every Label and every diamond is a
+## Theme item and has already moved; the plate outlines, the dock, the command
+## buttons, the stage's shadows and the effect factory's palette are built in
+## code and are put back here.
+func _on_theme_rebuilt(rebuilt: Theme) -> void:
+	theme = rebuilt
+	for node in find_children("*", "Label", true, false):
+		outline(node as Label)
+	restyle_description()
+	for node in find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.has_meta("command_button"):
+			style_command_button(button)
+	if command_dock != null:
+		(command_dock as PanelContainer).add_theme_stylebox_override("panel", command_dock_box())
+	var base := get_node_or_null("BackgroundBase") as ColorRect
+	if base != null:
+		base.color = ThemeTokensScript.color(rebuilt, "night")
+	if stage != null:
+		stage.repaint(rebuilt)

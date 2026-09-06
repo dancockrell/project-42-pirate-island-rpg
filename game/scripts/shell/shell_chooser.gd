@@ -15,6 +15,9 @@ extends Control
 signal chosen(payload: String)
 signal closed
 
+## The one door onto the palette and the type scale (card P11).
+const ThemeTokensScript = preload("res://scripts/ui/theme_tokens.gd")
+
 const ROW_HEIGHT := 46
 
 var rows_box: VBoxContainer
@@ -34,7 +37,7 @@ func configure(heading: String, note: String, lines: Array[String], payloads: Ar
 		var payload := payloads[index] if index < payloads.size() else ""
 		add_row(lines[index], payload)
 	if lines.is_empty():
-		rows_box.add_child(ShellStyle.label("No slot has been recorded yet.", 16, ShellStyle.MUTED))
+		rows_box.add_child(ShellStyle.label("No slot has been recorded yet.", ShellStyle.MUTED))
 	if is_inside_tree():
 		grab_first_focus()
 
@@ -42,13 +45,18 @@ func configure(heading: String, note: String, lines: Array[String], payloads: Ar
 ## `configure` is called before the chooser is added to the tree, and a control
 ## outside the tree cannot take focus, so the first row claims it here.
 func _ready() -> void:
+	# `configure` runs before the chooser is added, so the Theme it built with
+	# was the resource as authored. Now that it is in the tree it takes the one
+	# in force and subscribes to the next rebuild.
+	_on_theme_rebuilt(ThemeTokensScript.adopt(self))
 	grab_first_focus()
 
 
 func build(heading: String, note: String) -> void:
+	ThemeTokensScript.adopt(self)
 	var scrim := ColorRect.new()
 	scrim.name = "Scrim"
-	scrim.color = Color(ShellStyle.NIGHT, 0.90)
+	ShellStyle.paint(scrim, theme, "night", 0.90)
 	scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(scrim)
 
@@ -59,30 +67,30 @@ func build(heading: String, note: String) -> void:
 	var card := PanelContainer.new()
 	card.name = "ChooserCard"
 	card.custom_minimum_size = Vector2(880, 0)
-	card.add_theme_stylebox_override("panel", ShellStyle.card_box())
+	card.add_theme_stylebox_override("panel", ShellStyle.card_box(theme))
 	centre.add_child(card)
 
 	var page := VBoxContainer.new()
 	page.add_theme_constant_override("separation", 12)
 	card.add_child(page)
-	page.add_child(ShellStyle.label(heading, 26, ShellStyle.BRONZE))
-	page.add_child(ShellStyle.label(note, 14, ShellStyle.MUTED))
-	page.add_child(ShellStyle.rule(ShellStyle.HAIRLINE, 840.0))
+	page.add_child(ShellStyle.label(heading, ShellStyle.TITLE))
+	page.add_child(ShellStyle.label(note, ShellStyle.MUTED))
+	page.add_child(ShellStyle.rule(theme, "hairline", 840.0))
 
 	rows_box = VBoxContainer.new()
 	rows_box.name = "Rows"
 	rows_box.add_theme_constant_override("separation", 4)
 	page.add_child(rows_box)
 
-	page.add_child(ShellStyle.rule(ShellStyle.HAIRLINE, 840.0))
-	close_button = make_row_button("CLOSE", ShellStyle.MUTED)
+	page.add_child(ShellStyle.rule(theme, "hairline", 840.0))
+	close_button = make_row_button("CLOSE", "muted")
 	close_button.name = "CloseChooser"
 	close_button.pressed.connect(close)
 	page.add_child(close_button)
 
 
 func add_row(text: String, payload: String) -> void:
-	var button := make_row_button(text, ShellStyle.CREAM if not payload.is_empty() else ShellStyle.DANGER)
+	var button := make_row_button(text, "hairline" if not payload.is_empty() else "danger")
 	button.name = "Row%d" % row_buttons.size()
 	if payload.is_empty():
 		button.disabled = true
@@ -92,22 +100,25 @@ func add_row(text: String, payload: String) -> void:
 	row_buttons.append(button)
 
 
-func make_row_button(text: String, color: Color) -> Button:
+## `bar_token` is a palette token: a row that can be chosen carries the quiet
+## hairline bar, a row for a slot that will not load carries the danger bar. The
+## Theme decides what either of those looks like.
+func make_row_button(text: String, bar_token: String) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.custom_minimum_size = Vector2(840, ROW_HEIGHT)
-	button.add_theme_font_size_override("font_size", 17)
-	button.add_theme_color_override("font_color", color)
-	button.add_theme_color_override("font_hover_color", ShellStyle.TEAL)
-	button.add_theme_color_override("font_focus_color", ShellStyle.TEAL)
-	button.add_theme_color_override("font_disabled_color", ShellStyle.DANGER.darkened(0.25))
-	button.add_theme_stylebox_override("normal", ShellStyle.menu_box(ShellStyle.HAIRLINE, Color(0, 0, 0, 0)))
-	button.add_theme_stylebox_override("hover", ShellStyle.menu_box(ShellStyle.TEAL, Color(ShellStyle.TEAL, 0.09)))
-	button.add_theme_stylebox_override("focus", ShellStyle.menu_box(ShellStyle.TEAL, Color(ShellStyle.TEAL, 0.13)))
-	button.add_theme_stylebox_override("pressed", ShellStyle.menu_box(ShellStyle.TEAL, Color(ShellStyle.TEAL, 0.18)))
-	button.add_theme_stylebox_override("disabled", ShellStyle.menu_box(ShellStyle.DANGER.darkened(0.4), Color(0, 0, 0, 0)))
-	return button
+	return ShellStyle.bar_button(button, theme, bar_token)
+
+
+## The grammar changed under the chooser: the scrim, the card and every row are
+## built in code, so all three are put back here.
+func _on_theme_rebuilt(rebuilt: Theme) -> void:
+	theme = rebuilt
+	ShellStyle.repaint_marked(self, rebuilt)
+	ShellStyle.restyle_bar_buttons(self, rebuilt)
+	for node in find_children("ChooserCard", "PanelContainer", true, false):
+		(node as PanelContainer).add_theme_stylebox_override("panel", ShellStyle.card_box(rebuilt))
 
 
 func grab_first_focus() -> void:

@@ -25,12 +25,26 @@ const CampaignSessionScript = preload("res://scripts/campaign/campaign_session.g
 ## `--script` runs.
 const SceneFlowScript = preload("res://scripts/shell/scene_flow.gd")
 
+## The one door onto the palette and the type scale (card P11). The title used
+## to state its own sizes and read `ShellStyle`'s constants; it names roles now
+## and the Theme decides what a role looks like, which is how B9's text scale
+## and high contrast reach this screen at all.
+const ThemeTokensScript = preload("res://scripts/ui/theme_tokens.gd")
+
 const NEW_GAME := "new_game"
 const CONTINUE := "continue"
 const LOAD := "load"
 const SETTINGS := "settings"
 const CREDITS := "credits"
 const QUIT := "quit"
+
+## The title is a fixed composition and its type is not: at 200% text scale the
+## wordmark alone is 172 points a line, and a column laid out for 100% would
+## push the menu off the bottom of the glass -- which is exactly what the first
+## accessibility capture of this screen showed. So the gaps close as the type
+## grows. The squeeze is 1.0 at 100% and falls towards this floor, which keeps
+## every row on the glass at the largest scale the Theme allows.
+const MINIMUM_LAYOUT_SQUEEZE := 0.30
 
 const MENU_ROWS := [
 	[NEW_GAME, "NEW GAME", "Make landfall on the island for the first time."],
@@ -54,6 +68,7 @@ var credits_panel: Control
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ThemeTokensScript.adopt(self)
 	campaign_session = get_node_or_null("/root/CampaignSession")
 	scene_flow = get_node_or_null("/root/SceneFlow")
 	if catalog.load_default() != OK:
@@ -88,7 +103,6 @@ func build_screen() -> void:
 	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	frame.add_theme_constant_override("margin_left", 132)
 	frame.add_theme_constant_override("margin_right", 132)
-	frame.add_theme_constant_override("margin_top", 96)
 	frame.add_theme_constant_override("margin_bottom", 72)
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(frame)
@@ -104,25 +118,25 @@ func build_screen() -> void:
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.add_child(column)
 
-	var eyebrow := ShellStyle.label(ShellStyle.tracked("PROJECT 42"), 18, ShellStyle.BRONZE)
+	var eyebrow := ShellStyle.label(ShellStyle.tracked("PROJECT 42"), ShellStyle.BRONZE)
 	eyebrow.name = "Eyebrow"
 	column.add_child(eyebrow)
 	column.add_child(spacer(18))
 
-	var wordmark := ShellStyle.label(ShellStyle.tracked("PIRATE"), 86, ShellStyle.CREAM)
+	var wordmark := ShellStyle.label(ShellStyle.tracked("PIRATE"), ShellStyle.WORDMARK)
 	wordmark.name = "Wordmark"
 	column.add_child(wordmark)
-	var wordmark_second := ShellStyle.label(ShellStyle.tracked("ISLAND"), 86, ShellStyle.CREAM)
+	var wordmark_second := ShellStyle.label(ShellStyle.tracked("ISLAND"), ShellStyle.WORDMARK)
 	wordmark_second.name = "WordmarkSecond"
 	column.add_child(wordmark_second)
 
 	column.add_child(spacer(26))
-	column.add_child(ShellStyle.rule(ShellStyle.BRONZE, 470.0, 2.0))
+	column.add_child(ShellStyle.rule(theme, "bronze", 470.0, 2.0))
 	column.add_child(spacer(18))
 
 	# The brief's own sentence for what this is, quoted rather than written for
 	# the box: docs/PIRATE_ISLAND_CONTINUATION_BRIEF.md section 1.
-	var promise := ShellStyle.label("A character-scale RPG taking place inside a\nliving autonomous RTS simulation.", 19, ShellStyle.MUTED)
+	var promise := ShellStyle.label("A character-scale RPG taking place inside a\nliving autonomous RTS simulation.", ShellStyle.SUBTITLE)
 	promise.name = "Promise"
 	column.add_child(promise)
 
@@ -132,7 +146,7 @@ func build_screen() -> void:
 	menu.name = "Menu"
 	menu.add_theme_constant_override("separation", 2)
 	column.add_child(menu)
-	continue_detail = ShellStyle.label("", 14, ShellStyle.TEAL)
+	continue_detail = ShellStyle.label("", ShellStyle.ACCENT)
 	continue_detail.name = "ContinueDetail"
 	for row in MENU_ROWS:
 		menu.add_child(make_menu_button(str(row[0]), str(row[1]), str(row[2])))
@@ -141,8 +155,9 @@ func build_screen() -> void:
 		if str(row[0]) == CONTINUE:
 			menu.add_child(continue_detail)
 	wire_focus_chain()
+	squeeze_layout()
 
-	status_label = ShellStyle.label("", 15, ShellStyle.DANGER)
+	status_label = ShellStyle.label("", ShellStyle.DANGER)
 	status_label.name = "Status"
 	status_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	status_label.offset_left = 132.0
@@ -151,7 +166,7 @@ func build_screen() -> void:
 	status_label.offset_bottom = -40.0
 	add_child(status_label)
 
-	var footer := ShellStyle.label("ARROWS OR STICK TO MOVE  •  ENTER OR A TO CHOOSE", 13, ShellStyle.HAIRLINE.lightened(0.35))
+	var footer := ShellStyle.label("ARROWS OR STICK TO MOVE  •  ENTER OR A TO CHOOSE", ShellStyle.FAINT)
 	footer.name = "Footer"
 	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	footer.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
@@ -162,6 +177,35 @@ func build_screen() -> void:
 	add_child(footer)
 
 
+## The grammar changed under this screen. Everything that is a Theme item --
+## every Label's variation, every menu row -- has already moved; what is left is
+## the flat fills the Theme cannot reach and the weather plate's own palette.
+func _on_theme_rebuilt(rebuilt: Theme) -> void:
+	theme = rebuilt
+	squeeze_layout()
+	ShellStyle.repaint_marked(self, rebuilt)
+	if atmosphere != null:
+		atmosphere.repaint(rebuilt)
+
+
+## Close the composition's gaps in proportion to how far the type has grown, and
+## give the top margin the same treatment. Every gap on this screen is a spacer
+## that remembers the height it was authored at, so this is the only place the
+## squeeze is applied and there is no second layout for large type.
+func squeeze_layout() -> void:
+	var percent := 100
+	if theme != null and theme.has_constant("text_scale_percent", ThemeTokensScript.MOTION):
+		percent = theme.get_constant("text_scale_percent", ThemeTokensScript.MOTION)
+	var squeeze := clampf(2.0 - float(percent) * 0.01, MINIMUM_LAYOUT_SQUEEZE, 1.0)
+	for node in find_children("*", "Control", true, false):
+		var spacer_control := node as Control
+		if spacer_control != null and spacer_control.has_meta("spacer_height"):
+			spacer_control.custom_minimum_size.y = float(spacer_control.get_meta("spacer_height")) * squeeze
+	var frame := get_node_or_null("Frame") as MarginContainer
+	if frame != null:
+		frame.add_theme_constant_override("margin_top", roundi(96.0 * squeeze))
+
+
 func make_menu_button(action: String, text: String, hint: String) -> Button:
 	var button := Button.new()
 	button.name = action.to_pascal_case()
@@ -170,17 +214,10 @@ func make_menu_button(action: String, text: String, hint: String) -> Button:
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.custom_minimum_size = Vector2(470, 52)
 	button.focus_mode = Control.FOCUS_ALL
-	button.add_theme_font_size_override("font_size", 22)
-	button.add_theme_color_override("font_color", ShellStyle.CREAM)
-	button.add_theme_color_override("font_hover_color", ShellStyle.TEAL)
-	button.add_theme_color_override("font_focus_color", ShellStyle.TEAL)
-	button.add_theme_color_override("font_pressed_color", ShellStyle.TEAL)
-	button.add_theme_color_override("font_disabled_color", ShellStyle.HAIRLINE.lightened(0.3))
-	button.add_theme_stylebox_override("normal", ShellStyle.menu_box(ShellStyle.BRONZE, Color(0, 0, 0, 0)))
-	button.add_theme_stylebox_override("hover", ShellStyle.menu_box(ShellStyle.TEAL, Color(ShellStyle.TEAL, 0.09)))
-	button.add_theme_stylebox_override("focus", ShellStyle.menu_box(ShellStyle.TEAL, Color(ShellStyle.TEAL, 0.13)))
-	button.add_theme_stylebox_override("pressed", ShellStyle.menu_box(ShellStyle.TEAL, Color(ShellStyle.TEAL, 0.18)))
-	button.add_theme_stylebox_override("disabled", ShellStyle.menu_box(ShellStyle.HAIRLINE, Color(0, 0, 0, 0)))
+	# No colour and no size here: the row IS the Theme's `MenuRow` variation,
+	# so the bar, the fill, the focus ring and the type all move together when
+	# the player changes the text scale or turns high contrast on.
+	button.theme_type_variation = ShellStyle.MENU_ROW
 	button.pressed.connect(choose.bind(action))
 	menu_buttons[action] = button
 	return button
@@ -202,9 +239,12 @@ func wire_focus_chain() -> void:
 		button.focus_next = button.get_path_to(below)
 
 
+## A gap, which remembers the height it was authored at so `squeeze_layout` can
+## close it when the type grows.
 func spacer(height: int) -> Control:
 	var made := Control.new()
 	made.custom_minimum_size = Vector2(0, height)
+	made.set_meta("spacer_height", height)
 	made.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return made
 
@@ -224,14 +264,14 @@ func refresh_saves() -> void:
 		return
 	if slots.is_empty():
 		continue_detail.text = "        No campaign recorded yet."
-		continue_detail.add_theme_color_override("font_color", ShellStyle.MUTED)
+		continue_detail.theme_type_variation = ShellStyle.MUTED
 		return
 	var newest: Dictionary = slots[0]
 	for entry in slots:
 		if CampaignSessionScript.slot_is_newer(entry, newest):
 			newest = entry
 	continue_detail.text = "        %s" % slot_line(newest)
-	continue_detail.add_theme_color_override("font_color", ShellStyle.TEAL)
+	continue_detail.theme_type_variation = ShellStyle.ACCENT
 
 
 func all_slots() -> Array[Dictionary]:

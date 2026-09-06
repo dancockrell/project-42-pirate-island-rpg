@@ -24,6 +24,8 @@ extends Control
 const PaperBettyRigScript = preload("res://scripts/battle/paper_betty_rig.gd")
 const PaperRazorbeakRigScript = preload("res://scripts/battle/paper_razorbeak_rig.gd")
 const PaletteScript = preload("res://scripts/battle/battle_palette.gd")
+## The one door onto the palette (card P11).
+const ThemeTokensScript = preload("res://scripts/ui/theme_tokens.gd")
 
 ## The terrace's key light comes from the sky behind and above the gate, so the
 ## rim falls on the upper right of every figure. One direction for every actor:
@@ -52,13 +54,16 @@ const DISSOLVE_SECONDS := 0.85
 var show_anchors := false
 
 var spec: Dictionary = {}
-var accent := Color("4fc7b4")
+# not a colour: the stage calls `configure` with the actor's accent before the
+# first draw; this is what the rig wears if it is ever drawn without one.
+var accent := Color.WHITE
 var pose_name := "card_ready"
 var betty_rig: PaperBettyRig
 var razorbeak_rig
 var lighting: ShaderMaterial
 var backlight: TextureRect
-var plate_bleed := PaletteScript.BRONZE
+# not a colour: replaced by `set_plate_bleed` with the painting's own light.
+var plate_bleed := Color.WHITE
 var dissolving := false
 
 
@@ -137,8 +142,16 @@ void fragment() {
 	lighting.set_shader_parameter("bleed_color", plate_bleed)
 	lighting.set_shader_parameter("bleed_amount", PLATE_BLEED_AMOUNT)
 	lighting.set_shader_parameter("dissolve", 0.0)
-	lighting.set_shader_parameter("dissolve_color", PaletteScript.GOLD)
+	lighting.set_shader_parameter("dissolve_color", PaletteScript.word_color(ThemeTokensScript.active(self), "gold"))
 	return lighting
+
+
+## The grammar changed. The only colour this rig takes from it is the gold the
+## dissolve burns in; the accent is the actor's and the bleed is the painting's.
+func repaint(rebuilt: Theme) -> void:
+	if lighting != null:
+		lighting.set_shader_parameter("dissolve_color", PaletteScript.word_color(rebuilt, "gold"))
+	queue_redraw()
 
 
 ## The stage hands each doll the colour of the plate directly behind it, so the
@@ -244,6 +257,8 @@ func build_backlight() -> TextureRect:
 	var ramp := Gradient.new()
 	ramp.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
 	ramp.colors = PackedColorArray([
+		# not a colour: the halo is white light at three opacities, tinted by the
+		# plate's own bleed where it is placed.
 		Color(1.0, 1.0, 1.0, RIM_STRENGTH * 0.30),
 		Color(1.0, 1.0, 1.0, RIM_STRENGTH * 0.13),
 		Color(1.0, 1.0, 1.0, 0.0)
@@ -303,5 +318,6 @@ func _draw() -> void:
 	draw_rect(Rect2(size.x * pad, size.y * pad, size.x * (1.0 - pad * 2.0), size.y * (1.0 - pad * 2.0)), Color(accent, 0.55), false, 2.0)
 	for key in spec.get("attachmentAnchors", {}):
 		var point := anchor_point(str(key))
-		draw_circle(point, 4.0, Color("ffd166"))
-		draw_string(ThemeDB.fallback_font, point + Vector2(7, -5), str(key), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("ffe6a7"))
+		var marker := ThemeTokensScript.color(ThemeTokensScript.active(self), "focus")
+		draw_circle(point, 4.0, marker)
+		draw_string(ThemeDB.fallback_font, point + Vector2(7, -5), str(key), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, marker.lightened(0.25))

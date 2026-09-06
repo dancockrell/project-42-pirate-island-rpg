@@ -549,4 +549,5 @@ func _night_lamp() -> Dictionary:
 
 func _colour(value: Variant) -> Color:
 	var text := str(value)
+	# not a colour: white when a record authors no colour at all.
 	return Color(text) if text.begins_with("#") else Color.WHITE

@@ -36,10 +36,21 @@ const TOKENS: PackedStringArray = [
 	"deep", "panel", "panel_raised", "panel_sunken", "panel_hover", "panel_active",
 	"bronze", "bronze_bright", "rule", "rule_faint", "teal", "teal_deep",
 	"cream", "muted", "danger", "danger_soft", "focus", "ink",
+	# Card P11 added these two when the shell adopted the Theme: the ground a
+	# full-screen menu sits on (darker than `deep`, so a screen behind it reads
+	# as held rather than dimmed) and the hairline the shell rules its columns
+	# with. They were `ShellStyle.NIGHT` and `ShellStyle.HAIRLINE`; the Theme
+	# owns them now and `shell_style.gd` declares nothing.
+	"night", "hairline",
 ]
 
 ## The type scale's steps. `mono` is the one that carries a stable ID.
-const STEPS: PackedStringArray = ["display", "title", "body", "caption", "mono"]
+## Card P11 added `wordmark` (the title screen's lettering, which no other
+## screen wants) and `subtitle` (the step between a title and a body line that
+## the shell's menu rows and slot rows were each stating for themselves).
+const STEPS: PackedStringArray = [
+	"wordmark", "display", "title", "subtitle", "body", "caption", "mono",
+]
 
 ## Text scale bounds. The settings panel clamps to these too; they are stated
 ## here because the Theme is what the scale is applied to.
@@ -53,12 +64,13 @@ const MINIMUM_FONT_SIZE := 9
 static var _base: Theme = null
 
 
-## The Theme actually in force for `control`: its own if it carries one,
+## The Theme actually in force where `from` stands: its own if it is a Control
+## carrying one,
 ## otherwise the nearest ancestor's, otherwise the resource as authored. Every
 ## component in `scripts/ui/` asks this way, so one assignment at the top of a
 ## screen reaches all of them and no component keeps a Theme of its own.
-static func active(control: Control) -> Theme:
-	var walker: Node = control
+static func active(from: Node) -> Theme:
+	var walker: Node = from
 	while walker != null:
 		if walker is Control and (walker as Control).theme != null:
 			return (walker as Control).theme
@@ -100,6 +112,8 @@ static func color(theme: Theme, token: String) -> Color:
 	var source := theme if theme != null and theme.has_color(token, PALETTE) else base_theme()
 	if source == null or not source.has_color(token, PALETTE):
 		push_error("ThemeTokens: no palette token named '%s'." % token)
+		# not a colour: the siren for a token that does not exist, so a missing
+		# name is loud in a capture instead of silently black.
 		return Color.MAGENTA
 	return source.get_color(token, PALETTE)
 
@@ -186,3 +200,39 @@ static func _scale_type(theme: Theme, scale: float) -> void:
 		for size_name in theme.get_font_size_list(theme_type):
 			var scaled := roundi(float(theme.get_font_size(size_name, theme_type)) * scale)
 			theme.set_font_size(size_name, theme_type, maxi(MINIMUM_FONT_SIZE, scaled))
+
+
+## The method a screen implements to be told the grammar changed. Godot drops a
+## connection when its target is freed, so binding to the screen itself is what
+## keeps a closed screen from being restyled after it is gone.
+const REBUILT_METHOD := "_on_theme_rebuilt"
+
+
+## Wear the grammar, and keep wearing it.
+##
+## Card P11: a screen that assigned a Theme once would stop obeying the
+## accessibility settings the moment the player changed them, and a screen that
+## built its own Theme would be a second owner. So there is one door. The
+## screen's Theme comes from `InformationSurface`, and the same call subscribes
+## the screen's `_on_theme_rebuilt(theme)` to `theme_rebuilt`, which the
+## settings panel fires on every change; that method assigns the new Theme and
+## does whatever the Theme cannot reach on its own (a `queue_redraw`, a StyleBox
+## the screen builds in code). When the autoload is absent -- a review scene, a
+## suite -- the resource is built at the default settings and nothing connects.
+static func adopt(screen: Control) -> Theme:
+	if not screen.is_inside_tree():
+		# A screen configured before it is added -- the shell's chooser is one --
+		# cannot reach an autoload yet. It wears the resource as authored now and
+		# calls this again from `_ready`, where the subscription is made.
+		screen.theme = build()
+		return screen.theme
+	var surface := screen.get_node_or_null("/root/InformationSurface")
+	if surface == null:
+		screen.theme = build()
+		return screen.theme
+	screen.theme = surface.current_theme()
+	if screen.has_method(REBUILT_METHOD):
+		var listener := Callable(screen, REBUILT_METHOD)
+		if not surface.theme_rebuilt.is_connected(listener):
+			surface.theme_rebuilt.connect(listener)
+	return screen.theme

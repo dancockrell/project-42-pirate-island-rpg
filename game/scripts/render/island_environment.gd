@@ -26,6 +26,9 @@ extends WorldEnvironment
 		sun_yaw_degrees = value
 		_apply_sun()
 
+# game colour: the island's daylight. It is world lighting, not interface, and
+# `content/atmosphere/` overrides it per segment through the Atmosphere target;
+# this is the value the scene opens on before a snapshot arrives.
 @export var sun_color := Color("ffd8a2"):
 	set(value):
 		sun_color = value
@@ -38,6 +41,7 @@ extends WorldEnvironment
 
 ## Bounce light from the wet ground and the sea, opposite the sun. Never casts
 ## a shadow: it is a fill, and a second shadow map would read as an error.
+# game colour: bounce off the wet ground and the sea, as above.
 @export var fill_color := Color("6fd0c0"):
 	set(value):
 		fill_color = value
@@ -54,6 +58,7 @@ extends WorldEnvironment
 		fog_density = value
 		_apply_environment_overrides()
 
+# game colour: the weather's own colour, as above.
 @export var fog_color := Color("2f6f74"):
 	set(value):
 		fog_color = value
