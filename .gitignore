@@ -24,3 +24,7 @@ work/__pycache__/
 *.zip
 .git-empty-backup-*/
 .gh-auth/
+
+# E4: the Linux and macOS bridge libraries are built by the gate and the nightly, never committed; only game/bin/windows/ ships from the tree.
+game/bin/linux/
+game/bin/macos/
