@@ -15,6 +15,9 @@ extends Node
 ## swap because it is an autoload; this node never copies a snapshot, never
 ## reads one, and never decides a game result. It moves screens.
 
+## The one door onto the palette and the type scale (card P11).
+const ThemeTokensScript = preload("res://scripts/ui/theme_tokens.gd")
+
 const TITLE_SCENE := "res://scenes/shell/title.tscn"
 const EXPEDITION_SCENE := "res://scenes/world/expedition_prototype.tscn"
 const BATTLE_SCENE := "res://scenes/battle/battle_prototype.tscn"
@@ -35,9 +38,13 @@ const PAUSABLE_SCENES := [EXPEDITION_SCENE, BATTLE_SCENE]
 const FADE_SECONDS := 0.22
 
 ## The veil paints the same deep green-black every screen opens on, so a
-## transition reads as the island going dark rather than as a black frame.
-const VEIL_COLOR := Color("050d0c")
-const VEIL_TEXT_COLOR := Color("8fa79c")
+## transition reads as the island going dark rather than as a black frame. Card
+## P11: it is `night` and `muted` out of the Theme now, not two hexes stated
+## here, so a transition between two high-contrast screens is not the one frame
+## that forgets.
+const VEIL_TOKEN := "night"
+## The variation the loading line is written in, which is the `muted` token.
+const VEIL_TEXT_VARIATION := &"MutedLabel"
 
 ## What screen the flow last landed on, and the only thing outside this node
 ## that needs to know. A transition-started and a scene-changed signal were
@@ -50,6 +57,7 @@ const VEIL_TEXT_COLOR := Color("8fa79c")
 var current_scene_path := ""
 
 var _target_path := ""
+var _surface: Node
 var _veil_layer: CanvasLayer
 var _veil: ColorRect
 var _veil_label: Label
@@ -196,6 +204,18 @@ func pause_menu() -> Node:
 # ---------------------------------------------------------------------------
 
 
+## The grammar in force. The veil is drawn by an autoload rather than by a
+## screen, so it asks `InformationSurface` directly instead of walking up a
+## Control chain it does not have; before that autoload exists (a suite, a
+## review scene) the resource as authored is the answer.
+func veil_theme() -> Theme:
+	if _surface == null:
+		_surface = get_node_or_null("/root/InformationSurface")
+	if _surface == null:
+		return ThemeTokensScript.base_theme()
+	return _surface.current_theme()
+
+
 func build_veil() -> void:
 	_veil_layer = CanvasLayer.new()
 	_veil_layer.name = "TransitionVeil"
@@ -204,21 +224,23 @@ func build_veil() -> void:
 	add_child(_veil_layer)
 	_veil = ColorRect.new()
 	_veil.name = "Veil"
-	_veil.color = Color(VEIL_COLOR, 0.0)
+	_veil.color = Color(ThemeTokensScript.color(veil_theme(), VEIL_TOKEN), 0.0)
 	_veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_veil_layer.add_child(_veil)
 	_veil_label = Label.new()
 	_veil_label.name = "VeilLabel"
 	_veil_label.text = "MAKING LANDFALL"
-	_veil_label.add_theme_font_size_override("font_size", 15)
-	_veil_label.add_theme_color_override("font_color", VEIL_TEXT_COLOR)
+	_veil_label.theme = veil_theme()
+	_veil_label.theme_type_variation = VEIL_TEXT_VARIATION
 	_veil_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_veil_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	_veil_label.offset_left = -72.0
 	_veil_label.offset_top = -80.0
 	_veil_label.offset_right = -72.0
 	_veil_label.offset_bottom = -48.0
+	# not a colour: the label's own tint is opacity only -- the Theme decides
+	# what colour it is drawn in.
 	_veil_label.modulate = Color(1, 1, 1, 0)
 	_veil_layer.add_child(_veil_label)
 
@@ -226,9 +248,12 @@ func build_veil() -> void:
 func set_veil_alpha(alpha: float) -> void:
 	if _veil == null:
 		return
-	_veil.color = Color(VEIL_COLOR, alpha)
+	var built := veil_theme()
+	_veil.color = Color(ThemeTokensScript.color(built, VEIL_TOKEN), alpha)
 	_veil.visible = alpha > 0.0
 	if _veil_label != null:
+		_veil_label.theme = built
+		# not a colour: opacity only, as above.
 		_veil_label.modulate = Color(1, 1, 1, alpha)
 		_veil_label.visible = alpha > 0.0
 

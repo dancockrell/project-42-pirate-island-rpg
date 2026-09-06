@@ -4,6 +4,11 @@ extends SceneTree
 ## naming the class here is a parse error there and nowhere else (measured on
 ## paper_razorbeak_rig_test.gd in CI). Same reason content_registry records.
 const PlaceholderSynthScript := preload("res://scripts/audio/placeholder_synth.gd")
+## The one owner of the palette (card P11). The sheet is a picture of this
+## game's sounds and it is drawn in this game's grammar, read straight out of
+## `themes/bronze_vellum.tres` -- a `--script` run has no Control to walk up
+## from, so the resource as authored is what it asks for.
+const ThemeTokensScript := preload("res://scripts/ui/theme_tokens.gd")
 
 ## Draws every procedural placeholder this lane generates as a waveform sheet,
 ## so the sounds can be *looked at*. A placeholder that renders to silence, or
@@ -21,17 +26,21 @@ const PlaceholderSynthScript := preload("res://scripts/audio/placeholder_synth.g
 const SHEET_WIDTH := 1280
 const SHEET_HEIGHT := 720
 const COLUMNS := 8
-## The bronze, teal and deep green the prototypes already carry. The Theme owns
-## these values after P5; until it lands they are stated, not invented.
-const DEEP := Color("081211")
-const BRONZE := Color("b78a4b")
-const TEAL := Color("55c9ac")
+## The three tokens the sheet is drawn in: the deep ground, bronze for an
+## ambience bed and teal for a cue.
+const GROUND_TOKEN := "deep"
+const BED_TOKEN := "bronze"
+const CUE_TOKEN := "teal"
 
 
 func _init() -> void:
 	await process_frame
 	var arguments := OS.get_cmdline_user_args()
 	var output_path: String = arguments[0] if arguments.size() > 0 else "user://placeholder_waveforms.png"
+	var grammar := ThemeTokensScript.base_theme()
+	var ground := ThemeTokensScript.color(grammar, GROUND_TOKEN)
+	var bed := ThemeTokensScript.color(grammar, BED_TOKEN)
+	var cue := ThemeTokensScript.color(grammar, CUE_TOKEN)
 	var catalog := ContentCatalog.new()
 	if catalog.load_default() != OK:
 		print("Waveform sheet: the content bundle did not load.")
@@ -42,7 +51,7 @@ func _init() -> void:
 	ids.append_array(catalog.ids_with_prefix("audio.bed."))
 	ids.append_array(catalog.ids_with_prefix("audio.cue."))
 	var image := Image.create(SHEET_WIDTH, SHEET_HEIGHT, false, Image.FORMAT_RGBA8)
-	image.fill(DEEP)
+	image.fill(ground)
 	var rows: int = int(ceil(float(ids.size()) / float(COLUMNS)))
 	var cell_width: int = SHEET_WIDTH / COLUMNS
 	var cell_height: int = SHEET_HEIGHT / maxi(rows, 1)
@@ -57,7 +66,7 @@ func _init() -> void:
 		var left: int = column * cell_width
 		var middle: int = row * cell_height + cell_height / 2
 		var samples: int = stream.data.size() / 2
-		var colour := TEAL if ids[index].begins_with("audio.cue.") else BRONZE
+		var colour := cue if ids[index].begins_with("audio.cue.") else bed
 		for x in cell_width - 2:
 			var sample_index: int = int(float(x) / float(cell_width - 2) * float(samples - 1))
 			var value: float = float(stream.data.decode_s16(sample_index * 2)) / 32768.0

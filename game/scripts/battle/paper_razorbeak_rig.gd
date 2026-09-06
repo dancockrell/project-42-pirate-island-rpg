@@ -6,11 +6,19 @@ extends Node2D
 ## exists. Its joints give the contact sequence a real target before a painted
 ## or 3D creature package is admitted.
 
+## The creature's own colours. Card P11 leaves these where they are and marks
+## them: a razorbeak's hide, belly, claw and eye are what the animal looks like,
+## not what the interface looks like, and they must not move when the player
+## turns high contrast on -- the enemy is still the same animal.
+# game colour: a placeholder creature's authored appearance, replaced by name
+# when a creature package is admitted (content/art/placeholders.json).
 const HIDE := Color("78362f")
 const HIDE_LIGHT := Color("a74636")
 const BELLY := Color("d4b071")
 const CLAW := Color("e3c783")
 const INK := Color("271b1b")
+const EYE := Color("ffd166")
+const JAW := Color("8c4338")
 
 var body: RazorbeakPiece
 var neck: RazorbeakPiece
@@ -79,6 +87,7 @@ func add_child_piece(parent_piece: RazorbeakPiece, kind: String, piece_size: Vec
 ## shadow while the back and head keep the sky, and every piece renders through
 ## the doll's lighting material.
 func apply_lighting(shade: float) -> void:
+	# not a colour: a self-modulate multiplier, which is shade rather than hue.
 	var low := Color.WHITE.darkened(shade)
 	var mid := Color.WHITE.darkened(shade * .5)
 	for piece in [left_leg, right_leg, tail]:
@@ -174,10 +183,10 @@ class RazorbeakPiece:
 				draw_line(Vector2.ZERO, Vector2(45, -38), HIDE_LIGHT, 45, true)
 			"head":
 				draw_colored_polygon(PackedVector2Array([Vector2(-28,-25),Vector2(60,-18),Vector2(75,4),Vector2(28,28),Vector2(-33,19)]), HIDE_LIGHT)
-				draw_circle(Vector2(25,-5), 6, Color("ffd166")); draw_circle(Vector2(27,-5), 2, INK)
+				draw_circle(Vector2(25,-5), 6, EYE); draw_circle(Vector2(27,-5), 2, INK)
 				for x in [7.0, 20.0, 33.0, 46.0]: draw_line(Vector2(x,14),Vector2(x+4,22),CLAW,3)
 			"jaw":
-				draw_colored_polygon(PackedVector2Array([Vector2(-21,-5),Vector2(54,-4),Vector2(30,20),Vector2(-20,10)]), Color("8c4338"))
+				draw_colored_polygon(PackedVector2Array([Vector2(-21,-5),Vector2(54,-4),Vector2(30,20),Vector2(-20,10)]), JAW)
 
 	func draw_paper_ellipse(center: Vector2, radii: Vector2, color: Color) -> void:
 		var points := PackedVector2Array()

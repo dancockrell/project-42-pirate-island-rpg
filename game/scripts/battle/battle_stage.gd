@@ -19,6 +19,8 @@ const VfxFactoryScript = preload("res://scripts/battle/vfx_factory.gd")
 const CameraRigScript = preload("res://scripts/battle/battle_camera_rig.gd")
 const DamageNumberScript = preload("res://scripts/battle/damage_number.gd")
 const PaletteScript = preload("res://scripts/battle/battle_palette.gd")
+## The one door onto the palette (card P11).
+const ThemeTokensScript = preload("res://scripts/ui/theme_tokens.gd")
 
 ## The five bands A5 named, placed across the plate's floor. These fractions are
 ## the stage's only opinion about where a band is; the names are the bridge's.
@@ -35,9 +37,12 @@ const BAND_X := {
 const BODYLESS_CHEST_HEIGHT := 190.0
 ## The contact shadow: an ellipse under each rig, on the plate's floor line.
 ## Without it the rigs float, which is exactly what the baseline capture showed.
+## It is painted in the grammar's darkest ground rather than a stated near-black,
+## so a stage in high contrast casts a shadow the same contrast as everything
+## else on it.
 const SHADOW_HEIGHT_RATIO := 0.20
 const SHADOW_ALPHA := 0.88
-const SHADOW_COLOR := Color(0.03, 0.05, 0.05)
+const SHADOW_TOKEN := "night"
 ## How far an actor's body slides when its band changes, and how long it takes.
 const BAND_MOVE_SECONDS := 0.34
 ## Grave watch: the site rule the tomb carries. When the battle is under it,
@@ -90,6 +95,31 @@ func build(motion_reduced: bool, flash_reduced: bool) -> void:
 	camera.name = "BattleCameraRig"
 	add_child(camera)
 	camera.configure(self, reduced_motion)
+	factory.theme = stage_theme()
+	plate.repaint(factory.theme)
+
+
+## The grammar this stage is drawn in. The stage is a child of the battle
+## screen, which wears the Theme, so this is the Theme in force where it stands.
+func stage_theme() -> Theme:
+	return ThemeTokensScript.active(self)
+
+
+## The screen above rebuilt the grammar. Every effect the factory makes from
+## here takes the new palette; the plate, the shadows and the ring take it now.
+func repaint(rebuilt: Theme) -> void:
+	factory.theme = rebuilt
+	if plate != null:
+		plate.repaint(rebuilt)
+	var shadow_colour := ThemeTokensScript.color(rebuilt, SHADOW_TOKEN)
+	for actor_id in shadows:
+		var shadow := shadows[actor_id] as TextureRect
+		if shadow != null:
+			shadow.texture = contact_shadow_texture(shadow_colour, SHADOW_ALPHA)
+	for actor_id in dolls:
+		var doll := dolls[actor_id] as PaperDoll
+		if doll != null:
+			doll.repaint(rebuilt)
 
 
 func make_layer(layer_name: String) -> Control:
@@ -113,7 +143,7 @@ func add_body(actor_id: String, panel: PanelContainer, doll: PaperDoll, band: St
 	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	shadow.stretch_mode = TextureRect.STRETCH_SCALE
-	shadow.texture = contact_shadow_texture(SHADOW_COLOR, SHADOW_ALPHA)
+	shadow.texture = contact_shadow_texture(ThemeTokensScript.color(stage_theme(), SHADOW_TOKEN), SHADOW_ALPHA)
 	shadow_layer.add_child(shadow)
 	shadows[actor_id] = shadow
 	call_deferred("ground_actor", actor_id, false)
@@ -369,6 +399,7 @@ static func contact_shadow_texture(color: Color, strength: float) -> GradientTex
 	var ramp := Gradient.new()
 	ramp.offsets = PackedFloat32Array([0.0, 0.38, 1.0])
 	ramp.colors = PackedColorArray([
+		# not a colour: the caller's own colour at three opacities.
 		Color(color.r, color.g, color.b, strength),
 		Color(color.r, color.g, color.b, strength * 0.50),
 		Color(color.r, color.g, color.b, 0.0)
@@ -402,8 +433,8 @@ func pulse_site_rule(actor_id: String) -> void:
 	ring.position = at - GRAVE_WATCH_RING_SIZE * .5
 	var material := ShaderMaterial.new()
 	material.shader = factory.shader_for("ring")
-	material.set_shader_parameter("core_color", PaletteScript.BRONZE)
-	material.set_shader_parameter("edge_color", PaletteScript.TEAL)
+	material.set_shader_parameter("core_color", PaletteScript.word_color(stage_theme(), "bronze"))
+	material.set_shader_parameter("edge_color", PaletteScript.word_color(stage_theme(), "teal"))
 	material.set_shader_parameter("progress", 0.0)
 	material.set_shader_parameter("outline_only", 1.0 if reduced_flash else 0.0)
 	material.set_shader_parameter("inward", 0.0)
@@ -420,7 +451,7 @@ func show_number(variant: String, amount: int, actor_id: String, from_actor_id: 
 		return null
 	var number := DamageNumberScript.new()
 	number.name = "Number_" + variant
-	number.configure(variant, amount)
+	number.configure(stage_theme(), variant, amount)
 	number.position = body_point(actor_id, "torso") + Vector2(0, -60)
 	number_layer.add_child(number)
 	var drift := (body_point(actor_id, "torso") - body_point(from_actor_id, "torso")).normalized()

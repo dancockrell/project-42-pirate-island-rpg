@@ -54,6 +54,13 @@ const QUAD_EMITTERS := ["ring", "crescent", "beam", "panel"]
 ## same lifetime. `unchanged` means the record is already flash-free.
 const REDUCED_FLASH_OUTLINE := "replace_flash_with_outline"
 
+## The grammar a record's palette words are resolved in (card P11). The stage
+## that owns this factory sets it from the Theme it is wearing and sets it again
+## when the Theme is rebuilt, so an effect played after the player turns high
+## contrast on is played in the palette the rest of the screen just moved to.
+## Null is legal and means the resource as authored.
+var theme: Theme = null
+
 ## The direction vectors, in stage space. `forward` is the acting actor's facing
 ## (the caller supplies it, because only the stage knows which way an actor
 ## stands); the rest are absolute.
@@ -94,7 +101,7 @@ func build(record: Dictionary, context: Dictionary) -> Node2D:
 		return null
 	var reduced_flash := bool(context.get("reduced_flash", false))
 	var outline_only := reduced_flash and str(field(record, "reducedFlashMode", REDUCED_FLASH_OUTLINE)) == REDUCED_FLASH_OUTLINE
-	var colors: Array = PaletteScript.effect_colors(record.get("palette", []))
+	var colors: Array = PaletteScript.effect_colors(theme, record.get("palette", []))
 	var envelope := Vector2(
 		maxf(float(record.get("envelopeWidthPercent", 0.0)) * .01 * ENVELOPE_REFERENCE.x, MINIMUM_QUAD_SIZE.x),
 		maxf(float(record.get("envelopeHeightPercent", 0.0)) * .01 * ENVELOPE_REFERENCE.y, MINIMUM_QUAD_SIZE.y)

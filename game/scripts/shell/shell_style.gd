@@ -1,36 +1,47 @@
 class_name ShellStyle
 extends RefCounted
 
-## The bronze-and-vellum grammar the shell draws with.
+## How the shell says a thing in the bronze-and-vellum grammar.
 ##
-## These are the constants the two prototypes and the settings panel already
-## carry (`DEEP`, `PANEL`, `BRONZE`, `TEAL`, `CREAM`, `MUTED`, `DANGER`),
-## gathered here so the title, the pause menu and the credits state them once
-## instead of three times. They are stated in ONE place on purpose and they are
-## not the palette's owner: `game/themes/bronze_vellum.tres` (card P5) becomes
-## that owner, and when it lands this file's values are deleted and every
-## reference here resolves through the Theme instead. Nothing new is invented
-## here beyond the two shell-only tones marked below.
+## Card P11: this file used to restate the seven prototype tones and the two
+## shell-only ones, which made it a second owner of the palette beside
+## `game/themes/bronze_vellum.tres`. It declares no colour now. The seven were
+## already in the Theme; the two that were not (`night`, `hairline`) were added
+## to it, and every value below is read back out of the Theme through
+## `ThemeTokens`. What is left here is the shell's small vocabulary of shapes --
+## a menu row's bar, a framed card, a hairline rule, a display line's tracking
+## -- and each of them takes the Theme it is to be drawn in.
+##
+## A screen calls `ThemeTokens.adopt(self)` once and the Theme reaches every
+## Label and every `MenuRow` Button below it without another line of code, which
+## is why B9's text scale and high contrast now reach the title and the pause
+## menu at all.
 
-const DEEP := Color("081211")
-const PANEL := Color("132321")
-const BRONZE := Color("b78a4b")
-const TEAL := Color("55c9ac")
-const CREAM := Color("eadfca")
-const MUTED := Color("9eb0a7")
-const DANGER := Color("c24e45")
+const ThemeTokensScript := preload("res://scripts/ui/theme_tokens.gd")
 
-## Two tones the shell needs and the prototypes have no name for: the ground a
-## full-screen menu sits on, which is darker than DEEP so a screen behind it
-## reads as held rather than merely dimmed, and the hairline the shell rules
-## its columns with. Both belong to the Theme when P5 lands.
-const NIGHT := Color("050d0c")
-const HAIRLINE := Color("2a3d33")
+## Theme type variations the shell writes in, so a screen names a role rather
+## than a size and a colour. All seven live in the `.tres`.
+const WORDMARK := &"WordmarkLabel"
+const DISPLAY := &"DisplayLabel"
+const TITLE := &"TitleLabel"
+const SUBTITLE := &"SubtitleLabel"
+const BODY := &"BodyLabel"
+const CAPTION := &"CaptionLabel"
+const ACCENT := &"AccentLabel"
+const MUTED := &"MutedLabel"
+const BRONZE := &"BronzeLabel"
+const DANGER := &"DangerLabel"
+const FAINT := &"FaintLabel"
+## The Button variation that carries the shell's menu row: no fill, a bronze bar
+## down the left edge that moves and lights on focus. Its five StyleBoxes are in
+## the Theme, so high contrast repaints them with no code here.
+const MENU_ROW := &"MenuRow"
 
 
-## A menu row: no fill, a bronze bar down its left edge, cream text. The bar is
-## what moves on focus, so keyboard, gamepad and mouse all show the same thing
-## in the same place.
+## A menu row's box in a bar colour the Theme does not have a variation for --
+## the destructive Confirm, the Cancel beside it, the row for a slot that will
+## not load. The standard row uses the `MenuRow` variation instead and builds
+## nothing.
 static func menu_box(bar: Color, fill: Color) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.bg_color = fill
@@ -43,36 +54,84 @@ static func menu_box(bar: Color, fill: Color) -> StyleBoxFlat:
 	return box
 
 
-## A framed card: the panel fill inside a bronze hairline.
-static func card_box(border: Color = BRONZE, fill: Color = PANEL) -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = fill
-	box.border_color = border
-	box.set_border_width_all(1)
-	box.set_corner_radius_all(3)
-	box.content_margin_left = 20
-	box.content_margin_right = 20
-	box.content_margin_top = 16
-	box.content_margin_bottom = 16
-	return box
+## A menu row whose bar is a named palette token rather than the standard
+## bronze: the destructive Confirm in danger, the Cancel beside it in muted, the
+## row for a slot that will not load. A StyleBox built in code is the one thing
+## the Theme cannot restyle where it stands, so the token is remembered on the
+## button and `restyle_bar_buttons` puts it back after a rebuild.
+static func bar_button(button: Button, theme: Theme, token: String) -> Button:
+	button.set_meta("bar_token", token)
+	var bar := ThemeTokensScript.color(theme, token)
+	button.add_theme_font_size_override("font_size", ThemeTokensScript.font_size(theme, "subtitle"))
+	button.add_theme_color_override("font_color", ThemeTokensScript.color(theme, "cream"))
+	button.add_theme_color_override("font_focus_color", ThemeTokensScript.color(theme, "teal"))
+	button.add_theme_color_override("font_hover_color", ThemeTokensScript.color(theme, "teal"))
+	button.add_theme_color_override("font_disabled_color", ThemeTokensScript.color(theme, "hairline"))
+	button.add_theme_stylebox_override("normal", menu_box(bar, Color(bar, 0.0)))
+	button.add_theme_stylebox_override("hover", menu_box(bar, Color(bar, 0.12)))
+	button.add_theme_stylebox_override("focus", menu_box(ThemeTokensScript.color(theme, "focus"), Color(bar, 0.16)))
+	button.add_theme_stylebox_override("pressed", menu_box(bar, Color(bar, 0.2)))
+	button.add_theme_stylebox_override("disabled", menu_box(ThemeTokensScript.color(theme, "hairline"), Color(bar, 0.0)))
+	return button
 
 
-static func label(text: String, font_size: int, color: Color) -> Label:
+## Put every bar button under `root` back in the grammar after a rebuild.
+static func restyle_bar_buttons(root: Node, theme: Theme) -> void:
+	for node in root.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.has_meta("bar_token"):
+			bar_button(button, theme, str(button.get_meta("bar_token")))
+
+
+## A framed card: the panel fill inside a bronze hairline. The Theme's
+## `VellumPanel` is the same shape and a PanelContainer gets it for free; this
+## exists for the two places the shell needs the box itself.
+static func card_box(theme: Theme) -> StyleBoxFlat:
+	return ThemeTokensScript.style(theme, "VellumPanel", "panel")
+
+
+## A label in a named role. It carries no size and no colour of its own: the
+## variation is the whole of its appearance, so the Theme restyles it where it
+## stands when the player moves the text-scale slider.
+static func label(text: String, variation: StringName) -> Label:
 	var made := Label.new()
 	made.text = text
-	made.add_theme_font_size_override("font_size", font_size)
-	made.add_theme_color_override("font_color", color)
+	made.theme_type_variation = variation
 	return made
 
 
-## A hairline rule. Godot has no thin separator that takes a colour without a
-## Theme, so the shell draws one as a one-pixel ColorRect.
-static func rule(color: Color, width: float, thickness: float = 1.0) -> ColorRect:
+## A hairline rule in a palette token. Godot has no thin separator that takes a
+## colour without a Theme, so the shell draws one as a one-pixel ColorRect -- and
+## because a ColorRect's colour is a property rather than a theme item, the
+## screen that owns it repaints it in `_on_theme_rebuilt`.
+static func rule(theme: Theme, token: String, width: float, thickness: float = 1.0) -> ColorRect:
 	var made := ColorRect.new()
-	made.color = color
+	made.color = ThemeTokensScript.color(theme, token)
+	made.set_meta("palette_token", token)
 	made.custom_minimum_size = Vector2(width, thickness)
 	made.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return made
+
+
+## Repaint every ColorRect under `root` that `rule` (or a screen) marked with a
+## palette token. One call in `_on_theme_rebuilt` puts the whole screen's flat
+## fills back in the grammar, high contrast included.
+static func repaint_marked(root: Node, theme: Theme) -> void:
+	for node in root.find_children("*", "ColorRect", true, false):
+		var rect := node as ColorRect
+		if rect == null or not rect.has_meta("palette_token"):
+			continue
+		var alpha := float(rect.get_meta("palette_alpha", 1.0))
+		var painted := ThemeTokensScript.color(theme, str(rect.get_meta("palette_token")))
+		rect.color = Color(painted, alpha)
+
+
+## Mark a ColorRect the screen made itself, so `repaint_marked` finds it.
+static func paint(rect: ColorRect, theme: Theme, token: String, alpha := 1.0) -> ColorRect:
+	rect.set_meta("palette_token", token)
+	rect.set_meta("palette_alpha", alpha)
+	rect.color = Color(ThemeTokensScript.color(theme, token), alpha)
+	return rect
 
 
 ## Display lettering, spaced out by hand.

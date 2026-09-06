@@ -1,6 +1,9 @@
 class_name CreditsScreen
 extends Control
 
+## The one door onto the palette and the type scale (card P11).
+const ThemeTokensScript = preload("res://scripts/ui/theme_tokens.gd")
+
 ## Attribution for everything this build admitted.
 ##
 ## Every line below is copied from a provenance record in the repository and
@@ -74,13 +77,14 @@ func _init() -> void:
 
 
 func _ready() -> void:
+	ThemeTokensScript.adopt(self)
 	build()
 
 
 func build() -> void:
 	var ground := ColorRect.new()
 	ground.name = "Ground"
-	ground.color = ShellStyle.NIGHT
+	ShellStyle.paint(ground, theme, "night")
 	ground.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(ground)
 
@@ -96,9 +100,9 @@ func build() -> void:
 	page.add_theme_constant_override("separation", 10)
 	frame.add_child(page)
 
-	page.add_child(ShellStyle.label(ShellStyle.tracked("CREDITS"), 34, ShellStyle.BRONZE))
-	page.add_child(ShellStyle.label("Every line here is copied from a provenance record in this repository and names it.", 15, ShellStyle.MUTED))
-	page.add_child(ShellStyle.rule(ShellStyle.BRONZE, 1200.0, 2.0))
+	page.add_child(ShellStyle.label(ShellStyle.tracked("CREDITS"), ShellStyle.DISPLAY))
+	page.add_child(ShellStyle.label("Every line here is copied from a provenance record in this repository and names it.", ShellStyle.MUTED))
+	page.add_child(ShellStyle.rule(theme, "bronze", 1200.0, 2.0))
 	page.add_child(spacer(10))
 
 	var scroll := ScrollContainer.new()
@@ -113,21 +117,21 @@ func build() -> void:
 
 	body.add_child(heading("ASSETS IN THE BUILD"))
 	for entry in ADMITTED_ASSETS:
-		body.add_child(ShellStyle.label(str(entry["asset"]), 17, ShellStyle.CREAM))
-		body.add_child(ShellStyle.label("    %s" % str(entry["text"]), 15, ShellStyle.MUTED))
-		body.add_child(ShellStyle.label("    RECORD %s  •  %s" % [str(entry["record"]), str(entry["ledger"])], 13, ShellStyle.HAIRLINE.lightened(0.45)))
+		body.add_child(ShellStyle.label(str(entry["asset"]), ShellStyle.SUBTITLE))
+		body.add_child(ShellStyle.label("    %s" % str(entry["text"]), ShellStyle.MUTED))
+		body.add_child(ShellStyle.label("    RECORD %s  •  %s" % [str(entry["record"]), str(entry["ledger"])], ShellStyle.FAINT))
 		body.add_child(spacer(6))
 
 	body.add_child(heading("SHARED SOURCE LIBRARY  •  ADMITTED AS CANDIDATES, NOT YET IN THE BUILD"))
 	for entry in SHARED_SOURCES:
-		body.add_child(ShellStyle.label("%s — %s  •  %s  •  %s" % [str(entry["title"]), str(entry["creator"]), str(entry["license"]), str(entry["url"])], 16, ShellStyle.CREAM))
+		body.add_child(ShellStyle.label("%s — %s  •  %s  •  %s" % [str(entry["title"]), str(entry["creator"]), str(entry["license"]), str(entry["url"])], ShellStyle.BODY))
 	body.add_child(spacer(4))
-	body.add_child(ShellStyle.label("    %s" % SHARED_POLICY, 14, ShellStyle.MUTED))
-	body.add_child(ShellStyle.label("    LEDGER %s" % SHARED_LEDGER, 13, ShellStyle.HAIRLINE.lightened(0.45)))
+	body.add_child(ShellStyle.label("    %s" % SHARED_POLICY, ShellStyle.MUTED))
+	body.add_child(ShellStyle.label("    LEDGER %s" % SHARED_LEDGER, ShellStyle.FAINT))
 	body.add_child(spacer(8))
 
 	body.add_child(heading("STILL OWED"))
-	body.add_child(ShellStyle.label(STILL_OWED, 15, ShellStyle.DANGER))
+	body.add_child(ShellStyle.label(STILL_OWED, ShellStyle.DANGER))
 
 	page.add_child(spacer(10))
 	close_button = Button.new()
@@ -135,21 +139,21 @@ func build() -> void:
 	close_button.text = "BACK"
 	close_button.custom_minimum_size = Vector2(240, 48)
 	close_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	close_button.add_theme_font_size_override("font_size", 18)
-	close_button.add_theme_color_override("font_color", ShellStyle.CREAM)
-	close_button.add_theme_color_override("font_focus_color", ShellStyle.TEAL)
-	close_button.add_theme_color_override("font_hover_color", ShellStyle.TEAL)
-	close_button.add_theme_stylebox_override("normal", ShellStyle.menu_box(ShellStyle.BRONZE, Color(0, 0, 0, 0)))
-	close_button.add_theme_stylebox_override("hover", ShellStyle.menu_box(ShellStyle.TEAL, Color(ShellStyle.TEAL, 0.09)))
-	close_button.add_theme_stylebox_override("focus", ShellStyle.menu_box(ShellStyle.TEAL, Color(ShellStyle.TEAL, 0.13)))
+	close_button.theme_type_variation = ShellStyle.MENU_ROW
 	close_button.pressed.connect(close)
 	page.add_child(close_button)
 	close_button.grab_focus()
 
 
+## The grammar changed under the page. Every Label and the Back row are Theme
+## items and have already moved; the ground and the rule are flat fills.
+func _on_theme_rebuilt(rebuilt: Theme) -> void:
+	theme = rebuilt
+	ShellStyle.repaint_marked(self, rebuilt)
+
+
 func heading(text: String) -> Label:
-	var made := ShellStyle.label(text, 15, ShellStyle.BRONZE)
-	return made
+	return ShellStyle.label(text, ShellStyle.BRONZE)
 
 
 func spacer(height: int) -> Control:

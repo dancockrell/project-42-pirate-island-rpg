@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=19 format=3]
+[gd_resource type="Theme" load_steps=24 format=3]
 
 
 ; The bronze-and-vellum grammar: the ONE owner of this game's palette, type
@@ -301,6 +301,53 @@ content_margin_bottom = 4.0
 [sub_resource type="SystemFont" id="SystemFont_mono"]
 font_names = PackedStringArray("monospace")
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_menu_row"]
+content_margin_left = 22.0
+content_margin_top = 12.0
+content_margin_right = 18.0
+content_margin_bottom = 12.0
+draw_center = false
+bg_color = Color(0.0313725, 0.0705882, 0.0666667, 1)
+border_width_left = 4
+border_color = Color(0.717647, 0.541176, 0.294118, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_menu_row_hover"]
+content_margin_left = 22.0
+content_margin_top = 12.0
+content_margin_right = 18.0
+content_margin_bottom = 12.0
+bg_color = Color(0.129412, 0.239216, 0.223529, 1)
+border_width_left = 4
+border_color = Color(0.333333, 0.788235, 0.67451, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_menu_row_pressed"]
+content_margin_left = 22.0
+content_margin_top = 12.0
+content_margin_right = 18.0
+content_margin_bottom = 12.0
+bg_color = Color(0.164706, 0.301961, 0.27451, 1)
+border_width_left = 4
+border_color = Color(0.333333, 0.788235, 0.67451, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_menu_row_focus"]
+content_margin_left = 22.0
+content_margin_top = 12.0
+content_margin_right = 18.0
+content_margin_bottom = 12.0
+bg_color = Color(0.129412, 0.239216, 0.223529, 1)
+border_width_left = 4
+border_color = Color(0.941176, 0.827451, 0.560784, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_menu_row_disabled"]
+content_margin_left = 22.0
+content_margin_top = 12.0
+content_margin_right = 18.0
+content_margin_bottom = 12.0
+draw_center = false
+bg_color = Color(0.0313725, 0.0705882, 0.0666667, 1)
+border_width_left = 4
+border_color = Color(0.164706, 0.239216, 0.2, 1)
+
 [resource]
 default_base_scale = 1.0
 default_font_size = 15
@@ -322,6 +369,8 @@ Palette/colors/danger = Color(0.760784, 0.305882, 0.270588, 1)
 Palette/colors/danger_soft = Color(0.878431, 0.501961, 0.47451, 1)
 Palette/colors/focus = Color(0.941176, 0.827451, 0.560784, 1)
 Palette/colors/ink = Color(0.0431373, 0.0784314, 0.0745098, 1)
+Palette/colors/night = Color(0.0196078, 0.0509804, 0.0470588, 1)
+Palette/colors/hairline = Color(0.164706, 0.239216, 0.2, 1)
 PaletteHighContrast/colors/deep = Color(0, 0, 0, 1)
 PaletteHighContrast/colors/panel = Color(0.054902, 0.054902, 0.054902, 1)
 PaletteHighContrast/colors/panel_raised = Color(0.101961, 0.101961, 0.101961, 1)
@@ -340,7 +389,11 @@ PaletteHighContrast/colors/danger = Color(1, 0.560784, 0.517647, 1)
 PaletteHighContrast/colors/danger_soft = Color(1, 0.760784, 0.733333, 1)
 PaletteHighContrast/colors/focus = Color(1, 1, 1, 1)
 PaletteHighContrast/colors/ink = Color(0, 0, 0, 1)
+PaletteHighContrast/colors/night = Color(0, 0, 0, 1)
+PaletteHighContrast/colors/hairline = Color(0.6, 0.65, 0.62, 1)
+TypeScale/font_sizes/wordmark = 86
 TypeScale/font_sizes/display = 34
+TypeScale/font_sizes/subtitle = 19
 TypeScale/font_sizes/title = 22
 TypeScale/font_sizes/body = 15
 TypeScale/font_sizes/caption = 12
@@ -413,3 +466,33 @@ MonoLabel/base_type = &"Label"
 MonoLabel/font_sizes/font_size = 13
 MonoLabel/colors/font_color = Color(0.45098, 0.364706, 0.223529, 1)
 MonoLabel/fonts/font = SubResource("SystemFont_mono")
+WordmarkLabel/base_type = &"Label"
+WordmarkLabel/font_sizes/font_size = 86
+WordmarkLabel/colors/font_color = Color(0.917647, 0.87451, 0.792157, 1)
+SubtitleLabel/base_type = &"Label"
+SubtitleLabel/font_sizes/font_size = 19
+SubtitleLabel/colors/font_color = Color(0.619608, 0.690196, 0.654902, 1)
+BronzeLabel/base_type = &"Label"
+BronzeLabel/font_sizes/font_size = 15
+BronzeLabel/colors/font_color = Color(0.717647, 0.541176, 0.294118, 1)
+DangerLabel/base_type = &"Label"
+DangerLabel/font_sizes/font_size = 15
+DangerLabel/colors/font_color = Color(0.760784, 0.305882, 0.270588, 1)
+FaintLabel/base_type = &"Label"
+FaintLabel/font_sizes/font_size = 12
+FaintLabel/colors/font_color = Color(0.164706, 0.239216, 0.2, 1)
+MenuRow/base_type = &"Button"
+MenuRow/font_sizes/font_size = 22
+MenuRow/colors/font_color = Color(0.917647, 0.87451, 0.792157, 1)
+MenuRow/colors/font_hover_color = Color(0.333333, 0.788235, 0.67451, 1)
+MenuRow/colors/font_pressed_color = Color(0.333333, 0.788235, 0.67451, 1)
+MenuRow/colors/font_focus_color = Color(0.333333, 0.788235, 0.67451, 1)
+MenuRow/colors/font_disabled_color = Color(0.164706, 0.239216, 0.2, 1)
+MenuRow/styles/normal = SubResource("StyleBoxFlat_menu_row")
+MenuRow/styles/hover = SubResource("StyleBoxFlat_menu_row_hover")
+MenuRow/styles/pressed = SubResource("StyleBoxFlat_menu_row_pressed")
+MenuRow/styles/focus = SubResource("StyleBoxFlat_menu_row_focus")
+MenuRow/styles/disabled = SubResource("StyleBoxFlat_menu_row_disabled")
+CueLabel/base_type = &"Label"
+CueLabel/font_sizes/font_size = 15
+CueLabel/colors/font_color = Color(0.85098, 0.741176, 0.447059, 1)

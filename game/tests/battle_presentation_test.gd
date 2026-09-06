@@ -95,7 +95,7 @@ func test_every_palette_word_resolves() -> void:
 	var checked := 0
 	for entry in registry.get("entries", []):
 		for word in entry.get("palette", []):
-			check(PaletteScript.EFFECT_COLORS.has(str(word)), "the palette word '%s' on %s has no colour in BattlePalette.EFFECT_COLORS" % [word, entry.get("id", "")])
+			check(PaletteScript.has_word(str(word)), "the palette word '%s' on %s has no colour in BattlePalette" % [word, entry.get("id", "")])
 			checked += 1
 	check(checked >= 46, "every authored VFX record must name at least one palette colour; only %d words were seen" % checked)
 

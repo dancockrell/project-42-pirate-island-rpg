@@ -15,6 +15,9 @@ extends Control
 
 ## The reason this surface gives GamePause. The surface owns the name; the pause
 ## service counts reasons and never learns what any of them means.
+## The one door onto the palette and the type scale (card P11).
+const ThemeTokensScript = preload("res://scripts/ui/theme_tokens.gd")
+
 const PAUSE_REASON := "pause_menu"
 
 const RESUME := "resume"
@@ -68,6 +71,9 @@ func _init() -> void:
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# The grammar first: `build()` reads `theme` for the flat fills and the two
+	# confirm bars the Theme cannot restyle where they stand.
+	ThemeTokensScript.adopt(self)
 	campaign_session = get_node_or_null("/root/CampaignSession")
 	scene_flow = get_node_or_null("/root/SceneFlow")
 	catalog.load_default()
@@ -98,7 +104,7 @@ func release_pause() -> void:
 func build() -> void:
 	var scrim := ColorRect.new()
 	scrim.name = "Scrim"
-	scrim.color = Color(ShellStyle.NIGHT, 0.90)
+	ShellStyle.paint(scrim, theme, "night", 0.90)
 	scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(scrim)
 
@@ -107,7 +113,7 @@ func build() -> void:
 	# player can still half-read.
 	var plate := ColorRect.new()
 	plate.name = "Plate"
-	plate.color = Color(ShellStyle.NIGHT, 0.97)
+	ShellStyle.paint(plate, theme, "night", 0.97)
 	plate.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
 	plate.offset_right = PLATE_WIDTH
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -115,7 +121,7 @@ func build() -> void:
 
 	var plate_edge := ColorRect.new()
 	plate_edge.name = "PlateEdge"
-	plate_edge.color = Color(ShellStyle.BRONZE, 0.55)
+	ShellStyle.paint(plate_edge, theme, "bronze", 0.55)
 	plate_edge.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
 	plate_edge.offset_left = PLATE_WIDTH
 	plate_edge.offset_right = PLATE_WIDTH + 2.0
@@ -137,15 +143,15 @@ func build() -> void:
 	column.add_theme_constant_override("separation", 0)
 	frame.add_child(column)
 
-	column.add_child(ShellStyle.label(ShellStyle.tracked("HELD"), 20, ShellStyle.BRONZE))
+	column.add_child(ShellStyle.label(ShellStyle.tracked("HELD"), ShellStyle.BRONZE))
 	column.add_child(spacer(10))
-	var heading := ShellStyle.label("THE ISLAND IS STOPPED", 46, ShellStyle.CREAM)
+	var heading := ShellStyle.label("THE ISLAND IS STOPPED", ShellStyle.DISPLAY)
 	heading.name = "Heading"
 	column.add_child(heading)
 	column.add_child(spacer(14))
-	column.add_child(ShellStyle.rule(ShellStyle.BRONZE, 430.0, 2.0))
+	column.add_child(ShellStyle.rule(theme, "bronze", 430.0, 2.0))
 	column.add_child(spacer(12))
-	status_label = ShellStyle.label("", 15, ShellStyle.TEAL)
+	status_label = ShellStyle.label("", ShellStyle.ACCENT)
 	status_label.name = "Status"
 	column.add_child(status_label)
 	column.add_child(spacer(24))
@@ -176,10 +182,10 @@ func build() -> void:
 	foot.offset_right = PLATE_WIDTH - 60.0
 	foot.offset_bottom = -64.0
 	add_child(foot)
-	foot.add_child(ShellStyle.rule(ShellStyle.HAIRLINE, 430.0))
+	foot.add_child(ShellStyle.rule(theme, "hairline", 430.0))
 	foot.add_child(spacer(8))
-	foot.add_child(ShellStyle.label("The strategic clock does not turn while this menu is open.", 14, ShellStyle.MUTED))
-	foot.add_child(ShellStyle.label("ESCAPE CLOSES THIS MENU", 13, ShellStyle.HAIRLINE.lightened(0.45)))
+	foot.add_child(ShellStyle.label("The strategic clock does not turn while this menu is open.", ShellStyle.MUTED))
+	foot.add_child(ShellStyle.label("ESCAPE CLOSES THIS MENU", ShellStyle.FAINT))
 
 	menu_buttons[RESUME].grab_focus()
 
@@ -190,16 +196,8 @@ func make_menu_button(action: String, text: String) -> Button:
 	button.text = text
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.custom_minimum_size = Vector2(430, 50)
-	button.add_theme_font_size_override("font_size", 21)
-	button.add_theme_color_override("font_color", ShellStyle.CREAM)
-	button.add_theme_color_override("font_hover_color", ShellStyle.TEAL)
-	button.add_theme_color_override("font_focus_color", ShellStyle.TEAL)
-	button.add_theme_color_override("font_disabled_color", ShellStyle.HAIRLINE.lightened(0.3))
-	button.add_theme_stylebox_override("normal", ShellStyle.menu_box(ShellStyle.BRONZE, Color(0, 0, 0, 0)))
-	button.add_theme_stylebox_override("hover", ShellStyle.menu_box(ShellStyle.TEAL, Color(ShellStyle.TEAL, 0.09)))
-	button.add_theme_stylebox_override("focus", ShellStyle.menu_box(ShellStyle.TEAL, Color(ShellStyle.TEAL, 0.13)))
-	button.add_theme_stylebox_override("pressed", ShellStyle.menu_box(ShellStyle.TEAL, Color(ShellStyle.TEAL, 0.18)))
-	button.add_theme_stylebox_override("disabled", ShellStyle.menu_box(ShellStyle.HAIRLINE, Color(0, 0, 0, 0)))
+	# The row IS the Theme's `MenuRow`: no colour and no size stated here.
+	button.theme_type_variation = ShellStyle.MENU_ROW
 	button.pressed.connect(choose.bind(action))
 	menu_buttons[action] = button
 	return button
@@ -319,10 +317,10 @@ func save_to_slot(slot: String) -> void:
 	var saved: Dictionary = campaign_session.save_to_slot(slot)
 	if bool(saved.get("configured", false)):
 		status_label.text = "SAVED TO %s  •  DAY %d" % [slot.to_upper(), int(saved.get("campaign_day", 0))]
-		status_label.add_theme_color_override("font_color", ShellStyle.TEAL)
+		status_label.theme_type_variation = ShellStyle.ACCENT
 		return
 	status_label.text = "THE CAMPAIGN COULD NOT BE SAVED  •  %s" % str(saved.get("error", "unknown_error")).to_upper()
-	status_label.add_theme_color_override("font_color", ShellStyle.DANGER)
+	status_label.theme_type_variation = ShellStyle.DANGER
 
 
 # ---------------------------------------------------------------------------
@@ -335,7 +333,7 @@ func ask(action: String) -> void:
 	pending_confirmation = action
 	for child in confirm_row.get_children():
 		child.queue_free()
-	var question := ShellStyle.label(str(CONFIRMATIONS[action]), 15, ShellStyle.CREAM)
+	var question := ShellStyle.label(str(CONFIRMATIONS[action]), ShellStyle.BODY)
 	question.custom_minimum_size.x = 470
 	question.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var stack := VBoxContainer.new()
@@ -343,10 +341,10 @@ func ask(action: String) -> void:
 	stack.add_child(question)
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 10)
-	var yes := confirm_button("Confirm", ShellStyle.DANGER)
+	var yes := confirm_button("Confirm", "danger")
 	yes.pressed.connect(commit)
 	buttons.add_child(yes)
-	var no := confirm_button("Cancel", ShellStyle.MUTED)
+	var no := confirm_button("Cancel", "muted")
 	no.pressed.connect(cancel_confirmation)
 	buttons.add_child(no)
 	stack.add_child(buttons)
@@ -355,21 +353,25 @@ func ask(action: String) -> void:
 	yes.grab_focus()
 
 
-func confirm_button(text: String, bar: Color) -> Button:
+## `bar_token` is a palette token, not a colour: the two confirm rows are the
+## only buttons on this screen whose bar is not the standard bronze, and the
+## token is what lets `_on_theme_rebuilt` put them back.
+func confirm_button(text: String, bar_token: String) -> Button:
 	var button := Button.new()
 	button.name = text
 	button.text = text.to_upper()
 	button.custom_minimum_size = Vector2(210, 44)
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.add_theme_font_size_override("font_size", 17)
-	button.add_theme_color_override("font_color", ShellStyle.CREAM)
-	button.add_theme_color_override("font_focus_color", ShellStyle.TEAL)
-	button.add_theme_color_override("font_hover_color", ShellStyle.TEAL)
-	button.add_theme_stylebox_override("normal", ShellStyle.menu_box(bar, Color(0, 0, 0, 0)))
-	button.add_theme_stylebox_override("hover", ShellStyle.menu_box(bar, Color(bar, 0.12)))
-	button.add_theme_stylebox_override("focus", ShellStyle.menu_box(bar, Color(bar, 0.16)))
-	button.add_theme_stylebox_override("pressed", ShellStyle.menu_box(bar, Color(bar, 0.2)))
-	return button
+	return ShellStyle.bar_button(button, theme, bar_token)
+
+
+## The grammar changed under the menu. The Theme has already moved every Label
+## and every `MenuRow`; the scrim, the plate, the rules and the two confirm
+## buttons are built in code and are put back here.
+func _on_theme_rebuilt(rebuilt: Theme) -> void:
+	theme = rebuilt
+	ShellStyle.repaint_marked(self, rebuilt)
+	ShellStyle.restyle_bar_buttons(self, rebuilt)
 
 
 func cancel_confirmation() -> void:

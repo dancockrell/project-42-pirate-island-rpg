@@ -95,10 +95,13 @@ func set_sun(sun_values: Dictionary) -> void:
 		var elevation := float(sun_values.get("elevation_degrees", 45.0))
 		var azimuth := float(sun_values.get("azimuth_degrees", 180.0))
 		sun.rotation_degrees = Vector3(-elevation, azimuth, 0.0)
+		# not a colour: the fallback when the authored table has no entry, which
+		# is white light rather than an invented tone.
 		sun.light_color = sun_values.get("colour", Color.WHITE)
 		sun.light_energy = maxf(0.0, float(sun_values.get("energy", 1.0)))
 	if environment == null:
 		return
+	# not a colour: an absent-entry fallback, as above.
 	var ambient_colour: Color = sun_values.get("ambient_colour", Color.WHITE)
 	var ambient_energy := maxf(0.0, float(sun_values.get("ambient_energy", 0.5)))
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -116,6 +119,7 @@ func set_sun(sun_values: Dictionary) -> void:
 	# carries both on either renderer, so the sky is a gradient rather than a
 	# fill and the ground under it takes the ambient's colour.
 	_ensure_sky()
+	# not a colour: four absent-entry fallbacks and an identity tint.
 	_sky_base = {
 		"top": sun_values.get("sky_top_colour", Color.BLACK),
 		"horizon": sun_values.get("sky_horizon_colour", Color.BLACK),
@@ -129,6 +133,7 @@ func set_fog(fog: Dictionary) -> void:
 		return
 	environment.fog_enabled = true
 	environment.fog_density = maxf(0.0, float(fog.get("density", 0.0)))
+	# not a colour: an absent-entry fallback.
 	environment.fog_light_color = fog.get("colour", Color.WHITE)
 	# How much of the sky the weather swallows. Left at Godot's default of 1.0
 	# the depth fog paints over the whole sky and every hour of the day looks
@@ -180,12 +185,14 @@ func set_grade(grade: Dictionary) -> void:
 	environment.adjustment_enabled = true
 	environment.adjustment_saturation = maxf(0.0, float(grade.get("saturation", 1.0)))
 	environment.adjustment_contrast = maxf(0.0, float(grade.get("contrast", 1.0)))
+	# not a colour: no tint, when the band authors none.
 	var tint: Color = grade.get("tint_colour", Color.WHITE)
 	var strength := clampf(float(grade.get("tint_strength", 0.0)), 0.0, 1.0)
 	var shift := float(grade.get("sky_hue_shift_degrees", 0.0))
 	var desaturation := clampf(float(grade.get("horizon_desaturation", 0.0)), 0.0, 1.0)
 	_paint_sky(tint, strength, shift, desaturation)
 	environment.fog_light_color = _shift_hue(
+		# not a colour: the band's own tint at full opacity.
 		environment.fog_light_color.lerp(Color(tint.r, tint.g, tint.b, 1.0), strength * 0.6),
 		shift
 	)
@@ -223,6 +230,7 @@ func set_night_lamps(lamps: Array, lamp: Dictionary) -> void:
 			_lamp_nodes[building_id] = light
 		var position: Vector3 = entry.get("position", Vector3.ZERO)
 		light.position = position + Vector3(0.0, float(lamp.get("height_metres", 3.0)), 0.0)
+		# not a colour: an absent-entry fallback.
 		light.light_color = lamp.get("colour", Color.WHITE)
 		light.light_energy = float(lamp.get("energy", 2.0))
 		light.omni_range = float(lamp.get("range_metres", 12.0))
@@ -274,8 +282,10 @@ func _paint_sky(tint: Color, strength: float, shift: float, desaturation: float)
 func _graded(
 	colour: Color, tint: Color, strength: float, shift: float, desaturation: float
 ) -> Color:
+	# not a colour: the caller's own tint, given the caller's own opacity.
 	var graded := colour.lerp(Color(tint.r, tint.g, tint.b, colour.a), strength)
 	graded = _shift_hue(graded, shift)
+	# not a colour: the same colour at zero saturation.
 	return graded.lerp(Color(graded.v, graded.v, graded.v, graded.a), desaturation)
 
 
@@ -309,6 +319,7 @@ func _ensure_emitter() -> void:
 func _rain_mesh() -> Mesh:
 	var mesh := QuadMesh.new()
 	mesh.size = Vector2(0.03, 0.9)
+	# game colour: rain, seen against the island rather than against the UI.
 	mesh.material = _particle_material(Color(0.86, 0.92, 0.96, 0.8))
 	return mesh
 
@@ -316,6 +327,7 @@ func _rain_mesh() -> Mesh:
 func _mist_mesh() -> Mesh:
 	var mesh := QuadMesh.new()
 	mesh.size = Vector2(2.6, 2.6)
+	# game colour: mist, as above.
 	mesh.material = _particle_material(Color(0.66, 0.6, 0.78, 0.16))
 	return mesh
 
