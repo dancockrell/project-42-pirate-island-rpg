@@ -198,6 +198,97 @@ for (const key of factionConceptKeys) {
   if (!authoredConceptKeys.has(key)) failures.push(`content/factions/: no record authors concept_key ${key}; the brief accepts exactly six factions`);
 }
 
+// C6: relationship scene records. S12 left `RecruitmentState.milestone_rules` a
+// data table with nothing in it; a scene record is the row. The record owns the
+// rule, `MilestoneRule::from_authored` in
+// `godot-rust/src/strategy/recruitment.rs` is the one translation, and
+// `every_authored_scene_rule_loads` holds the two equal. This block refuses the
+// content before Rust ever sees it, and makes the checks Rust has no field to
+// make: which women exist, and what the base tree is allowed to depict.
+//
+// The stage and inclination vocabularies below are the serde spellings of
+// `RecruitmentStage` and `Inclination` -- the variant names verbatim, since
+// neither enum carries a rename attribute. `RecruitmentStage::as_str`'s
+// lowercase words are the bridge's vocabulary, not serde's, and are not what a
+// record writes. Rust's test is what keeps these two lists honest.
+const recruitmentStages = ["Unaware", "Aware", "Interested", "Contact", "Committed", "Joined", "Integrated"];
+const inclinations = ["AwarenessOfMichael", "AttractionToMichael", "RomanticInterest", "TrustInMichael", "IdeologicalAlignment", "DissatisfactionWithOrigin", "Ambition", "PerceivedSafety", "PerceivedOpportunity", "FearOfRetaliation"];
+// Brief section 20 leaves the other two women Open. Only these two exist, and a
+// record naming a third is authoring a woman nobody has designed.
+const establishedWomenIds = ["character.heroine.betty", "character.heroine.ayla"];
+// C3 owns `content/characters/ayla.json` and has not shipped it, so Ayla's
+// stable ID is registered nowhere yet. That is the single exception to
+// resolving `womanId` against the ID registry, and naming it here is what stops
+// the exception from quietly becoming "unregistered women are fine".
+const womanWithoutACharacterRecordYet = "character.heroine.ayla";
+// The base game is fade-to-black, full stop. C8's presentation pack is a
+// separate artifact that overrides this field; nothing in this repository may
+// carry another level, so this is an equality and not a set membership.
+const baseTreePresentationLevel = "fade_to_black";
+const sceneBeatKinds = new Set(["conversation", "action", "choice", "fade"]);
+let relationshipSceneCount = 0;
+let sceneRulesRestingOnTrust = 0;
+const grantedMilestoneIds = new Set();
+for (const { file, value } of await readJsonDirectory("relationships")) {
+  relationshipSceneCount += 1;
+  requireString(value, "displayName", file);
+  if (!establishedWomenIds.includes(value.womanId)) {
+    fail(file, `womanId ${value.womanId} is not one of the two women who exist (${establishedWomenIds.join(", ")}); the other two are Open, brief section 20`);
+  } else if (!ids.has(value.womanId) && value.womanId !== womanWithoutACharacterRecordYet) {
+    fail(file, `womanId references missing stable ID ${value.womanId}`);
+  }
+  const womanKey = typeof value.womanId === "string" ? value.womanId.split(".").pop() : null;
+  if (typeof value.id !== "string" || !value.id.startsWith(`scene.${womanKey}.`)) fail(file, `id ${value.id} must be scene.${womanKey}.<slug>`);
+  registerId(value.grantsMilestoneId, file);
+  if (typeof value.grantsMilestoneId !== "string" || !value.grantsMilestoneId.startsWith(`milestone.${womanKey}.`)) fail(file, `grantsMilestoneId ${value.grantsMilestoneId} must be milestone.${womanKey}.<slug>`);
+  else if (grantedMilestoneIds.has(value.grantsMilestoneId)) fail(file, `a second scene grants ${value.grantsMilestoneId}; one milestone, one scene`);
+  else grantedMilestoneIds.add(value.grantsMilestoneId);
+  if (value.presentationLevel !== baseTreePresentationLevel) fail(file, `presentationLevel must be ${baseTreePresentationLevel}; the base tree carries no other level and the adult pack is a separate artifact (C8)`);
+  if (!new Set(["placeholder", "final"]).has(value.proseStatus)) fail(file, "proseStatus must be placeholder or final, so stand-in prose says that it is");
+  const rule = value.rule;
+  if (!rule || typeof rule !== "object" || Array.isArray(rule)) fail(file, "rule must be an object mirroring MilestoneRule");
+  else {
+    if (!recruitmentStages.includes(rule.advancesTo)) fail(file, `rule.advancesTo ${rule.advancesTo} is not a RecruitmentStage: ${recruitmentStages.join(", ")}`);
+    if (!recruitmentStages.includes(rule.requiresStageAtLeast)) fail(file, `rule.requiresStageAtLeast ${rule.requiresStageAtLeast} is not a RecruitmentStage: ${recruitmentStages.join(", ")}`);
+    if (recruitmentStages.indexOf(rule.advancesTo) <= recruitmentStages.indexOf(rule.requiresStageAtLeast)) fail(file, "rule.advancesTo must be further along the ladder than rule.requiresStageAtLeast, or the scene can never move her");
+    for (const field of ["requiresAtLeast", "requiresAtMost"]) {
+      const thresholds = rule[field];
+      if (!thresholds || typeof thresholds !== "object" || Array.isArray(thresholds)) fail(file, `rule.${field} must be an object keyed by Inclination names`);
+      else for (const [inclination, threshold] of Object.entries(thresholds)) {
+        if (!inclinations.includes(inclination)) fail(file, `rule.${field} key ${inclination} is not an Inclination: ${inclinations.join(", ")}`);
+        if (!Number.isInteger(threshold) || threshold < 0 || threshold > 100) fail(file, `rule.${field}.${inclination} must be an integer disposition from 0 through 100`);
+      }
+    }
+    if (Number.isInteger(rule.requiresAtLeast?.TrustInMichael)) sceneRulesRestingOnTrust += 1;
+    for (const field of ["blockedByConditions", "clearsConditions"]) {
+      if (!Array.isArray(rule[field])) fail(file, `rule.${field} must be an array of authored condition IDs`);
+      else if (rule[field].some(condition => typeof condition !== "string" || !condition.startsWith("condition."))) fail(file, `rule.${field} must contain condition.<...> stable IDs`);
+    }
+  }
+  if (!Array.isArray(value.beats) || value.beats.length === 0) fail(file, "beats must contain at least one authored beat");
+  else {
+    const beatIds = new Set();
+    for (const [index, beat] of value.beats.entries()) {
+      if (typeof beat?.id !== "string" || !beat.id.startsWith("beat.")) fail(file, `beats[${index}].id must be a beat.<...> stable ID`);
+      else if (beatIds.has(beat.id)) fail(file, `beats[${index}].id ${beat.id} is duplicated`);
+      else beatIds.add(beat.id);
+      if (!sceneBeatKinds.has(beat?.kind)) fail(file, `beats[${index}].kind ${beat?.kind} must be one of ${[...sceneBeatKinds].join(", ")}`);
+      // A fade is where the base game stops, so nothing may be authored after
+      // it. C8's pack replaces the fade beat; it does not append to the scene.
+      if (beat?.kind === "fade" && index !== value.beats.length - 1) fail(file, `beats[${index}] is a fade beat with beats after it; a fade closes the scene`);
+      if (typeof beat?.text !== "string" || beat.text.trim().length < 20) fail(file, `beats[${index}].text must carry the authored line`);
+    }
+  }
+  requireString(value.metadata ?? {}, "implementationOwner", file);
+  requireString(value.metadata ?? {}, "maturity", file);
+  if (typeof value.metadata?.releaseLegal !== "boolean") fail(file, "relationship metadata.releaseLegal must be boolean");
+  if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "relationship metadata.notes must record what stays placeholder or Open");
+}
+// Attraction creates openings, not allegiance (brief section 5.6, and the test
+// S12 already carries). At least one authored scene must put a floor under
+// TrustInMichael, or nothing in the content tree is holding that line.
+if (relationshipSceneCount > 0 && sceneRulesRestingOnTrust === 0) failures.push("content/relationships/: no authored scene puts a floor under TrustInMichael, so nothing in the content tree holds the line that attraction creates openings rather than allegiance (brief section 5.6)");
+
 for (const { file, value } of await readJsonDirectory("enemies")) {
   requireString(value, "displayName", file);
   if (value.worldPresence?.penAllowed !== false) fail(file, "island monsters may not be designed as pen exhibits");
@@ -571,4 +662,4 @@ if (failures.length) {
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
-console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
+console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${relationshipSceneCount} relationship scenes, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);

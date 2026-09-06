@@ -1,0 +1,47 @@
+{
+  "id": "scene.betty.the_second_watch",
+  "womanId": "character.heroine.betty",
+  "displayName": "The Second Watch",
+  "grantsMilestoneId": "milestone.betty.the_second_watch",
+  "presentationLevel": "fade_to_black",
+  "proseStatus": "placeholder",
+  "rule": {
+    "advancesTo": "Interested",
+    "requiresStageAtLeast": "Aware",
+    "requiresAtLeast": {
+      "AwarenessOfMichael": 30
+    },
+    "requiresAtMost": {},
+    "blockedByConditions": [],
+    "clearsConditions": []
+  },
+  "beats": [
+    {
+      "id": "beat.betty.the_second_watch.she_takes_it",
+      "kind": "action",
+      "text": "PLACEHOLDER PROSE. Betty takes the second watch without being asked and without announcing it, because the man who had it is the man whose ribs she set that afternoon."
+    },
+    {
+      "id": "beat.betty.the_second_watch.what_she_asks",
+      "kind": "conversation",
+      "text": "PLACEHOLDER PROSE. She asks Michael what he intends to build here, and does not accept the short answer. She has buried enough people to have earned the long one."
+    },
+    {
+      "id": "beat.betty.the_second_watch.he_answers",
+      "kind": "choice",
+      "text": "PLACEHOLDER PROSE. Michael tells her the truth, tells her half of it, or asks her a question back. She is looking for whether he treats her as crew or as an audience."
+    }
+  ],
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "source": "continuation-brief-5.6",
+    "maturity": "prototype",
+    "releaseLegal": false,
+    "notes": [
+      "Placeholder prose. Every beat text is a stand-in written to prove the record shape and the beat kinds; final lines are unwritten and are not approved dialogue.",
+      "The opening beat of Betty's arc: awareness becomes interest. Interest is an opening and nothing more (brief section 5.6).",
+      "presentationLevel is fade_to_black because that is the only level the base tree may carry. The adult pack (C8/B10/E9) overrides this scene's beats by ID; it is a separate artifact and no explicit content exists here."
+    ]
+  }
+}

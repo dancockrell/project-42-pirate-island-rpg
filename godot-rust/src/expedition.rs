@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::geography::{AnchorDefinition, AnchorKind, Geography, RouteOption};
 use crate::habitat::{Habitats, LootTable};
 use crate::hunter::{self, Hunter, HunterKind};
+use crate::strategy::building::BuildingInstance;
 use crate::strategy::clocks::{
     CONFRONTATION_DAY, CONFRONTATION_DISCOVERY_ID, CTHULHU_FACTION_ID, ConfrontationTrigger,
     HeatEvent, MAX_HEAT, WeatherState, assistance_weight, region_corruption_pressure,
@@ -241,6 +242,19 @@ pub struct ExpeditionState {
     /// existed loads with an empty island.
     #[serde(default)]
     pub forces: BTreeMap<String, ForceRecord>,
+    /// S3: the buildings standing on the island, keyed by their own
+    /// `building_instance.*` ID -- envelopes, tiers, damage, capture and ruin
+    /// (brief sections 8 and 19). Everything that reads or writes this map
+    /// lives in `strategy/building.rs`, including the methods on this struct
+    /// that place, build, upgrade, damage, capture and ruin them, so the whole
+    /// of what a building is has one owner.
+    ///
+    /// A record here carries no envelope, socket or rule of its own: those are
+    /// read from the `BuildingDefinition` its `def_id` names, so content and
+    /// save cannot drift into two answers. `serde(default)` so a save written
+    /// before buildings existed loads with an empty island.
+    #[serde(default)]
+    pub buildings: BTreeMap<String, BuildingInstance>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -480,6 +494,8 @@ impl ExpeditionState {
             directives: BTreeMap::new(),
             // S7: nobody has raised anything yet.
             forces: BTreeMap::new(),
+            // S3: bare ground.
+            buildings: BTreeMap::new(),
         };
         state.validate()?;
         Ok(state)

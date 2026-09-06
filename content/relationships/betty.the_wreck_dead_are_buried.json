@@ -1,0 +1,50 @@
+{
+  "id": "scene.betty.the_wreck_dead_are_buried",
+  "womanId": "character.heroine.betty",
+  "displayName": "The Wreck Dead Are Buried",
+  "grantsMilestoneId": "milestone.betty.the_wreck_dead_are_buried",
+  "presentationLevel": "fade_to_black",
+  "proseStatus": "placeholder",
+  "rule": {
+    "advancesTo": "Contact",
+    "requiresStageAtLeast": "Interested",
+    "requiresAtLeast": {
+      "TrustInMichael": 40
+    },
+    "requiresAtMost": {},
+    "blockedByConditions": [],
+    "clearsConditions": [
+      "condition.betty.wreck_dead_unburied"
+    ]
+  },
+  "beats": [
+    {
+      "id": "beat.betty.the_wreck_dead_are_buried.the_count",
+      "kind": "conversation",
+      "text": "PLACEHOLDER PROSE. Betty has the count. She has had it since the beach, she has kept it in her head rather than on paper, and she says it out loud once."
+    },
+    {
+      "id": "beat.betty.the_wreck_dead_are_buried.the_work",
+      "kind": "action",
+      "text": "PLACEHOLDER PROSE. They dig. Michael does not delegate it, does not make a ceremony of it, and does not stop when it stops being useful to be seen doing it."
+    },
+    {
+      "id": "beat.betty.the_wreck_dead_are_buried.after",
+      "kind": "conversation",
+      "text": "PLACEHOLDER PROSE. Afterward she tells him what she will do for him and what she will not, in that order, and means both. This is the first thing she has promised anyone since the ship went down."
+    }
+  ],
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "source": "continuation-brief-5.6",
+    "maturity": "prototype",
+    "releaseLegal": false,
+    "notes": [
+      "Placeholder prose. Every beat text is a stand-in; final lines are unwritten and are not approved dialogue.",
+      "The beat that answers her outstanding condition and moves her in the same breath: clearsConditions settles condition.betty.wreck_dead_unburied before the rest of the rule is judged, which is what unblocks scene.betty.the_lamp_left_burning.",
+      "Trust, not attraction, is the floor here. Brief section 5.6: attraction creates openings, it does not resolve allegiance.",
+      "presentationLevel is fade_to_black; the adult pack overrides beats by ID and is a separate artifact (C8/B10/E9)."
+    ]
+  }
+}

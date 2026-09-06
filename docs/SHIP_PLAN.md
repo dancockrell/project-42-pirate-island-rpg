@@ -355,8 +355,8 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
-- **M3** shipped 10/16 — **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
-- Last updated 2026-09-06 against trunk `777a943`. If this line is older than
+- **M3** shipped 11/16 — **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
+- Last updated 2026-09-06 against trunk `ab81aee`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -382,7 +382,7 @@ top of the document is never stale:
 |---|---|---|---|
 | S1 | `FactionDefinition` and faction resources | — | shipped 3614c34 2026-09-06 |
 | S2 | Ownership and influence on `Geography` nodes | A2 | shipped 27d777b 2026-09-06 — contested road = authored base + 2 |
-| S3 | Buildings: envelopes, sockets, tiers, capture and ruin | S1, S2 | open |
+| S3 | Buildings: envelopes, sockets, tiers, capture and ruin | S1, S2 | shipped a1018dd 2026-09-06 — the three Open numbers are Open in the data too |
 | S4 | Strategic tick, pause semantics, determinism | S1 | shipped fefed40 2026-09-06 — the draw sequence is under the save hash |
 | S5 | Utility AI and strategic states | S4 | shipped 9b4765e 2026-09-06 — neutral weights until the bridge loads records |
 | S6 | `StrategicDirective` vocabulary and plain-language explanation | S5 | shipped 7a63396 2026-09-06 |
@@ -404,7 +404,7 @@ top of the document is never stale:
 | B2 | `native_expedition_port.gd` sends cells and portal costs | B1, C2 | shipped 3c85451 2026-09-05 — landed inside C13, which found the port dropping every cost and gate |
 | B3 | Expose midnight, anchors, inspect and full legal commands | B1, A3 | shipped 9090284 2026-09-06 — S2's control/risk surface is the next B item |
 | B4 | Route board shows anchor and estate commands | B3 | shipped 9090284 2026-09-06 |
-| B5 | Battle screen: Michael's card unfolds; bands and Composure drawn | A5, A6 | open — the mock/bridge actor-dict divergence A5 opened is closed (`band_name`, `composure`); B5 draws them |
+| B5 | Battle screen: Michael's card unfolds; bands and Composure drawn | A5, A6 | shipped ab81aee 2026-09-06 |
 | B6 | World cells for the tomb interior | A2 | open |
 | B7 | Battle-entry sockets bound to habitat holders | B3 | open |
 | B8 | New game, save slots, continue | E6 | open |
@@ -425,7 +425,7 @@ top of the document is never stale:
 | C3 | `ayla.json` and seven Ayla skill records | A7 | open |
 | C4 | Captain Michael's skill records and a `self` target rule | — | shipped ab17bfa 2026-09-05 |
 | C5 | The tomb as a faction-specific dungeon: twelve spaces | B6, S9 | open |
-| C6 | Relationship scene records and schema | — | open |
+| C6 | Relationship scene records and schema | — | shipped 3857ffa 2026-09-06 — five scenes, fade-to-black by rule, the pack's seam left open |
 | C7 | Placeholder deprecation migration | D4 | open |
 | C8 | Scene `presentationLevel` and the pack manifest schema | C6 | open |
 | C9 | Faction records (no proper names) | S1 | shipped 3598628 2026-09-06 — the validator refuses a real name until one is approved |
@@ -909,7 +909,7 @@ the authored base as a second number, and a `ControlChanged` case in the
 event projection.
 
 ### S3 · Buildings: envelopes, sockets, tiers, capture and ruin
-Status: open · Depends on: S1, S2
+Status: shipped `a1018dd` 2026-09-06 · Depends on: S1, S2
 `BuildingDefinition` with brief §19's fields verbatim (`footprint_cells`,
 `clearance_cells`, `height_class`, `entrance_sockets`, `road_sockets`,
 `actor_sockets`, `delivery_sockets`, `allowed_terrain`, `maximum_slope`,
@@ -924,6 +924,24 @@ capacity and services, never people** — enforce with a test that a
 `concept_key == "michael"` building whose `production` names a human role is
 rejected at load.
 Done when: overlap rejection test; production-rule test; tier upgrade test.
+
+**Shipped.** §19's fields in order; instances under their own
+`building_instance.*` namespace; every method in `building.rs`. Placement
+rejects overlap before mutation (proven to bite on exactly one test);
+Michael's buildings never produce people, and no building produces a person
+on a timer. **Three §20 items stay Open in the data:** `TIER_CAP = 3`,
+`CELL_CAPACITY_CELLS = 12`, `CAPTURE_HP_RESTORED = 1` are named constants
+marked `needs decision`, and `CaptureRules::NeedsDecision` /
+`RuinState::NeedsDecision` are the *defaults*, refused at load by a message
+naming the section — so the decision lands on each authored record, not on
+this lane for every building at once. Dimensions are abstract shares of a
+cell's capacity; B11/O3 own geometry. Damage at zero leaves a capturable
+shell; ruin is the deliberate path and rubble still occupies ground.
+`actor_sockets_at(cell, &definitions)` takes the registry, never the save —
+the seam for B11 and S7's arrival. **C10 must author** `content/buildings/`
+to the contract in S3's claim notes (concept keys only; `capture_rules` and
+`ruin_state` explicitly chosen; sockets in their §19 field; a human-role
+output only as recruitment support), plus the fixture-versus-records test.
 
 ### S4 · Strategic tick, pause semantics, determinism
 Status: shipped `fefed40` 2026-09-06 · Depends on: S1
@@ -1202,7 +1220,7 @@ never a button, the invariant the route list already kept. The prototype
 suite gained nine assertions and kept every existing one.
 
 ### B5 · Battle screen: Michael's card unfolds; bands and Composure drawn
-Status: open · Depends on: A5, A6
+Status: shipped `ab81aee` 2026-09-06 · Depends on: A5, A6
 Touches: `game/scripts/battle/battle_prototype.gd`, `game/scripts/battle/paper_card.gd`,
 `game/tests/prototype_turn_cycle_test.gd`, `game/tests/native_simulation_port_test.gd`,
 `godot-rust/src/battle.rs` (one addition: Michael in `prototype_vertical_slice`)
@@ -1228,6 +1246,21 @@ Traps: names come from content (`Michael Corrigan` is authored); nothing
 numeric from utility on the screen; the anti-mock gate; `quit(1 if failures > 0 else 0)`.
 Done when: the suite passes on CI's Godot job; `cargo test` green with the
 five-actor fixture.
+
+**Shipped.** Michael is in `prototype_vertical_slice`, and A6's Captain
+fixture now reads him out of it rather than restating him — one definition,
+so removing him fails thirteen tests. The rail is grouped by the bridge's
+`band_name` (never re-derived from the integer; an unnamed band is an error);
+ten Composure pips and a Shaken mark per card; the Razorbeak gets a hostile
+portrait; the invented rank/role strings are gone. Michael's grid unfolds on
+his turn through the same port path as Betty's; the automatic cycle stops at
+any player-commanded actor and the return-to-Betty check is kept verbatim.
+Green through the hardened gate on the lane's own push. **Two gaps reported,
+not filled:** Composure/Shaken redraw only on a fresh snapshot — harmless
+until something spends Composure (A9), then a bridge event or a port
+`snapshot()` is needed; and `skill.system.hold_position` has no content
+record, so "GUARD" is a screen string — a C-lane item (a `skill.system.*`
+record, with `every_authored_skill_has_its_authored_rank` extended to it).
 
 ### B6 · World cells for the tomb interior
 Status: open · Depends on: A2
@@ -1432,7 +1465,7 @@ carry `site_rule_ids` and a `dungeonContext` block; S9 selects rules by
 owning faction (elves by default; corrupted variant when Cthulhu holds it).
 
 ### C6 · Relationship scene records and schema
-Status: open · Depends on: —
+Status: shipped `3857ffa` 2026-09-06 · Depends on: —
 Touches: `content/relationships/*.json` (new), `tools/src/validate.mjs` (one
 block), `godot-rust/src/strategy/recruitment.rs` (`MilestoneRule::from_authored`
 and one equality test), `game/generated/content_bundle.json` (regenerated)
@@ -1466,6 +1499,21 @@ timers. Two or three scenes per woman is enough to prove the shape.
 Done when: the validator passes with the records; the equality test passes;
 a scene with `presentationLevel: "explicit"` in the base tree fails the
 validator (bite).
+
+**Shipped.** Five scenes — three for Betty, two for Ayla — each granting one
+milestone whose rule is S12's `MilestoneRule` itself (serde aliases for the
+authored spelling; one type, not a copy). `adopt_authored_scenes` is the one
+door into a woman's rule table; `every_authored_scene_rule_loads` holds the
+table equal to the directory. Three rules rest on a `TrustInMichael` floor
+and the validator refuses the directory if none does. `fade_to_black`
+everywhere, refused otherwise — the adult pack (C8/B10/E9) overrides this
+seam. Proven to bite three ways in both the validator and Rust. Prose is
+marked placeholder and written as real moments that stop at the fade.
+**Left, on purpose:** Ayla has no character record (C3 ← A7/H5), so the
+validator carries a one-line named exception for her alone, deleted when C3
+lands; the never-joins rung is still undecided, and a woman who never joins
+stays at `Contact`; conditions are opaque `condition.*` IDs with no registry
+yet. Stable IDs 200 → 210.
 
 ### C7 · Placeholder deprecation migration
 Status: open · Depends on: D4
