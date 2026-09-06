@@ -637,7 +637,6 @@ for (const { file, value } of authoredEnemies) {
 }
 const { records: resolvedEnemies, problems: enemyDerivationProblems } = resolveDerivedRecords(authoredEnemies);
 for (const problem of enemyDerivationProblems) fail(problem.file, problem.message);
-const enemyIds = new Set(resolvedEnemies.map(({ value }) => value.id));
 let enemyCount = 0;
 for (const { file, value } of resolvedEnemies) {
   enemyCount += 1;
@@ -661,13 +660,13 @@ for (const { file, value } of resolvedEnemies) {
       if (!openEnemyFields.includes(field)) fail(file, `open.${field} is not one of the fields a creature record may leave undecided: ${openEnemyFields.join(", ")}`);
       else if (typeof note !== "string" || !note.includes("needs decision")) fail(file, `open.${field} must be a placeholder containing "needs decision" that says what is undecided and why no source answers it`);
       else if (field === "skillIds") {
-        if (!Array.isArray(value.skillIds) || value.skillIds.length !== 0) fail(file, "open.skillIds says this creature\'s skills are undecided, so skillIds must be the empty list rather than a guess");
+        if (!Array.isArray(value.skillIds) || value.skillIds.length !== 0) fail(file, "open.skillIds says this creature's skills are undecided, so skillIds must be the empty list rather than a guess");
       } else if (enemyFieldValue(value, field) !== 0) fail(file, `open.${field} says this number is undecided, so ${field} must stay 0 rather than read as a decided value`);
     }
   }
   for (const field of openEnemyFields) {
     const empty = field === "skillIds" ? Array.isArray(value.skillIds) && value.skillIds.length === 0 : enemyFieldValue(value, field) === 0;
-    if (empty && typeof value.open?.[field] !== "string") fail(file, `${field} is empty, which makes this a placeholder record; open.${field} must name the decision it is waiting on (brief section 20\'s convention, as C14 applies it to machine dimensions)`);
+    if (empty && typeof value.open?.[field] !== "string") fail(file, `${field} is empty, which makes this a placeholder record; open.${field} must name the decision it is waiting on (brief section 20's convention, as C14 applies it to machine dimensions)`);
   }
   if (value.worldPresence?.penAllowed !== false) fail(file, "island monsters may not be designed as pen exhibits");
   if (value.worldPresence?.packSize !== 1) fail(file, "prototype enemies must be tuned as individual threats");
