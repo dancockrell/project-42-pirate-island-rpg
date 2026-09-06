@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "task_id": "p14-battle-at-every-text-scale",
+  "agent": "claude-code lane P14",
+  "summary": "Every width on the battle screen is measured from the Theme's type scale rather than typed once at 1.0x: the roster card's copy column, the command plate, the dock and the rail all grow with the text scale, a name that still does not fit wraps or ellipsises by one rule, and a suite instances the battle at 1.0x and 1.3x and refuses a clipped line or a trimmed command name.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "game/scripts/battle/battle_metrics.gd",
+    "game/scripts/battle/battle_prototype.gd",
+    "game/scripts/battle/paper_card.gd",
+    "game/scripts/battle/paper_skill_diamond.gd",
+    "game/tests/battle_layout_test.gd",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "BattleMetrics",
+    "BattleMetrics.bottom_hud",
+    "BattleMetrics.width_for_lines",
+    "BattleMetrics.card_copy_width",
+    "BattleMetrics.card_copy_floor",
+    "BattleMetrics.diamond_size",
+    "BattleMetrics.mark_beside_name",
+    "BattlePrototype.measure_layout",
+    "BattlePrototype.place_bottom_hud",
+    "BattlePrototype.relay_cards",
+    "BattlePrototype.roster_names",
+    "PaperSkillDiamond.plate_rect",
+    "PaperSkillDiamond.label_fits"
+  ],
+  "coordination": {
+    "depends_on": [
+      "p6-battle-presentation",
+      "p11-one-palette-owner",
+      "p5-bronze-vellum-grammar"
+    ],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at dc22d75. Scope is game/scripts/battle/ layout only: battle_palette.gd's game colours and vfx_factory.gd are untouched, and nothing outside game/scripts/battle/ and game/tests/ changes. Ayla's colours stay Open. The sizes P6 typed at 1.0x now live in one owner, game/scripts/battle/battle_metrics.gd, which measures the Theme's own face at the Theme's own size; paper_card.gd, paper_skill_diamond.gd and battle_prototype.gd all read it, so a card and the column it stands in cannot disagree. Blockout dimensions that are art rather than type -- the portrait gutter, the drawn figure's height, the diamond's drawn height -- stay stated constants and are marked **needs decision** per rule 16."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
