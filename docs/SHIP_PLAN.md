@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 (S16 and S17 are additions outside the bracket; S17 shipped with the M3 100-day elimination `failed` until a tick writes ownership, B11/O3) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `9a3bcb6`. If this line is older than
+- Last updated 2026-09-06 against trunk `101b838`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -474,7 +474,7 @@ top of the document is never stale:
 | E9 | Pack build script and pack artifact | C8, E5 | shipped ab23ab9 2026-09-06 |
 | E10 | macOS nightly on a macOS runner; the dylib built where it can be | E5 | shipped 252b3fb 2026-09-06 — the job refuses by name until E11 lands |
 | E11 | The macOS export actually exports: arm64 rows in the `.gdextension`, a universal preset, the build script names the host architecture | E10 | shipped `10ee623` 2026-09-06 |
-| E12 | Third-party attribution as content: the engine, the bindings and every bundled component in a ledger the credits read and a test holds equal | P8 | open |
+| E12 | Third-party attribution as content: the engine, the bindings and every bundled component in a ledger the credits read and a test holds equal | P8 | shipped `101b838` 2026-09-06 |
 
 ### Lane F — Audio · Lane G — QA
 
@@ -2524,7 +2524,7 @@ Done when: a nightly run uploads a macOS artifact whose zip contains the
 dylib, or the claim names the exact reason it cannot.
 
 ### E12 · Third-party attribution as content
-Status: open · Depends on: P8
+Status: shipped `101b838` 2026-09-06 · Depends on: P8
 Touches: `content/art/third_party_ledger.json` (new), `tools/src/validate.mjs`
 (one block), `game/scripts/shell/credits.gd` (reads it), `game/tests/shell_flow_test.gd`
 (the equality check widened), `docs/ASSET_PROVENANCE.md` or the doc that
@@ -2546,6 +2546,23 @@ equal to the ledger as it already does for the art ledgers.
 Done when: the validator and the suite bite (remove a crate's record →
 both fail by name); the credits capture shows the engine and bindings
 credited with their notices.
+**Shipped:** `content/art/third_party_ledger.json` holds 22 records: the
+nineteen crates in the normal-dependency closure of the extension, the
+engine, its export templates and Mesa, each with the version this repo pins
+and the file that pins it, SPDX id and canonical URL from the component's
+own metadata, its role in the build, the licence files read (SPDX + SHA-256
+of the bytes) and `noticeText` verbatim. Eight are `noticeText: null,
+needsReview: true` with a reason: the five godot-rust crates publish no
+licence file inside the crate and the pinned engine zip holds only the
+executable; the page prints NOTICE PENDING for them and nothing was
+written from memory. The validator holds the ledger equal to `Cargo.lock`
+both ways and requires the six build-only packages to be declared with a
+reason; the credits suite holds the page equal to the ledger and pins the
+pending count. Bite: memchr's record removed fails the validator and the
+suite by name. Captures `E12-69d95be-{credits,notices}.png`, read. The card
+was wrong about where the engine is pinned (verify.yml's `GODOT_VERSION`,
+not the gate script); the records name the true files. Follow-up: the eight
+pending notices need their texts read from upstream files.
 
 ### Lane H — cards for this pass
 
