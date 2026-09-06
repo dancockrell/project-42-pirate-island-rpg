@@ -57,6 +57,50 @@
       {"portalId": "world.portal.reception_terrace_to_processional_ramp", "kind": "walk", "anchorMetres": [11.1, 0.0, -17.0]}
     ]
   },
+  "contract": {
+    "function": {
+      "text": "The forecourt of the elven gate and the party's first fight. Two roads arrive from the landing, one clear lane crosses the broken paving, and the ramp leaves for the tomb.",
+      "evidence": "The terrace was built to receive a procession",
+      "source": "observation prose"
+    },
+    "dimensions": {
+      "footprintSizeId": "presentation.board.footprint.court"
+    },
+    "circulation": {
+      "text": "Four authored ways in -- the safe road, the jungle edge, the tidal cut and the ramp -- and two of them leave the room as walk tethers; the road and the trail from the landing arrive here as that room's tethers, not this one's.",
+      "entryAnchorIds": ["entry.reception_terrace.river_road", "entry.reception_terrace.jungle_edge", "entry.reception_terrace.processional_ramp", "entry.reception_terrace.tidal_cut"],
+      "tetherPortalIds": ["world.portal.reception_terrace_to_river_landing", "world.portal.reception_terrace_to_processional_ramp"]
+    },
+    "slots": {
+      "buildingIds": null,
+      "machineIds": ["machine.mechanical_dog", "machine.steam_wagon"]
+    },
+    "landmarks": [
+      {"name": "The processional terrace", "evidence": "processional_terrace", "source": "setpiece script game/scripts/world/reception_terrace_component.gd"},
+      {"name": "The elven gate", "evidence": "elven_gate", "source": "setpiece script game/scripts/world/reception_terrace_component.gd"},
+      {"name": "The fractured lintel and its fallen half", "evidence": "FracturedLintel", "source": "setpiece script game/scripts/world/reception_terrace_component.gd"},
+      {"name": "The reception dais", "evidence": "ReceptionDais", "source": "setpiece script game/scripts/world/reception_terrace_component.gd"},
+      {"name": "The jungle mass on both flanks", "evidence": "jungle_mass", "source": "setpiece script game/scripts/world/reception_terrace_component.gd"},
+      {"name": "The clawed lane between the fallen slabs", "evidence": "The broken paving opens into a clear lane between two fallen slabs", "source": "observation prose"}
+    ],
+    "encounterSpace": {
+      "battleEntryIds": ["battle_entry.reception_terrace.razorbeak"],
+      "habitatIds": ["habitat.black_beach.terrace_precinct"],
+      "siteRuleIds": []
+    },
+    "materialLanguage": [
+      {"library": "wet_stone", "reads": "The terrace ground, the slabs, the broken steps and the gate stone.", "evidence": "WET_STONE", "source": "setpiece script game/scripts/world/reception_terrace_component.gd"},
+      {"library": "bronze", "reads": "The gate fittings and the boiler and pipe in the flotsam.", "evidence": "BRONZE", "source": "setpiece script game/scripts/world/reception_terrace_component.gd"},
+      {"library": "foliage", "reads": "The palm crowns, the understory and the vine curtains.", "evidence": "FOLIAGE", "source": "setpiece script game/scripts/world/reception_terrace_component.gd"},
+      {"library": "sea", "reads": "The downhill sea plane past the flotsam.", "evidence": "SEA", "source": "setpiece script game/scripts/world/reception_terrace_component.gd"}
+    ],
+    "avoid": {
+      "ownedBy": "visualShell.prohibitedFeatures"
+    },
+    "needsDecision": {
+      "slots.buildingIds": "brief section 3 (building or interaction slots): no faction owns this cell in the repository -- only the tomb cells declare an ownerConceptKey -- so which authored building records may stand here is undecided."
+    }
+  },
   "admission": {
     "collisionSeparatedFromVisualShell": true,
     "navigationSeparatedFromVisualShell": true,

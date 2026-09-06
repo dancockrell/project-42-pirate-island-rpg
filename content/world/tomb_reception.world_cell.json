@@ -59,5 +59,42 @@
       {"portalId": "world.portal.tomb_reception_to_tomb_service_passage", "kind": "walk", "anchorMetres": [-3.4, 0.0, -15.0]}
     ]
   },
+  "contract": {
+    "function": {
+      "text": "The tomb's petition gallery. The speaking stone gives one name in full, which is what the archive door was cut to hear; the low service opening is the room's only other way on.",
+      "evidence": "Reading it aloud is what the archive door was cut to hear, and the low service opening is the only other way on",
+      "source": "observation prose"
+    },
+    "dimensions": {
+      "footprintSizeId": "presentation.board.footprint.hall"
+    },
+    "circulation": {
+      "text": "Three authored ways out of the round space: back to the threshold, in through the archive door, and down through the service opening. All three leave the room as walk tethers.",
+      "entryAnchorIds": ["entry.tomb_reception.threshold", "entry.tomb_reception.archive_core", "entry.tomb_reception.service_passage"],
+      "tetherPortalIds": ["world.portal.tomb_reception_to_tomb_threshold", "world.portal.tomb_reception_to_tomb_archive_core", "world.portal.tomb_reception_to_tomb_service_passage"]
+    },
+    "slots": {
+      "buildingIds": ["building.ritual_anchor"],
+      "machineIds": ["machine.mechanical_dog"]
+    },
+    "landmarks": [
+      {"name": "The standing bronze speaking stone", "evidence": "standing bronze speaking stone", "source": "visual shell"},
+      {"name": "The sealed archive door", "evidence": "sealed archive door with no visible mechanism", "source": "visual shell"},
+      {"name": "The low service opening at floor level", "evidence": "the low service opening is the only other way on", "source": "observation prose"}
+    ],
+    "encounterSpace": {
+      "battleEntryIds": ["battle_entry.tomb_reception.truth_space"],
+      "habitatIds": [],
+      "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.petition_heard"]
+    },
+    "materialLanguage": [
+      {"library": "bronze", "reads": "The speaking stone itself, which the room is built around.", "evidence": "standing bronze speaking stone", "source": "visual shell"},
+      {"library": "wet_stone", "reads": "The worked floor of the truth space, cut so the drainage still runs.", "evidence": "The speaking stone gives back one name in full", "source": "observation prose"}
+    ],
+    "avoid": {
+      "ownedBy": "visualShell.prohibitedFeatures"
+    },
+    "needsDecision": {}
+  },
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 1, "browserPerformanceGate": "pending", "releaseLegal": false}
 }

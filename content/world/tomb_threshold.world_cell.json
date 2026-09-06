@@ -56,5 +56,41 @@
       {"portalId": "world.portal.tomb_threshold_to_tomb_reception", "kind": "walk", "anchorMetres": [17.0, 0.0, -11.6]}
     ]
   },
+  "contract": {
+    "function": {
+      "text": "The tomb's registry court, immediately inside the opened bronze door: the room where the account the elves keep is read off the jamb before anyone goes further in.",
+      "evidence": "the elves built the place to keep an account, and the account is still open",
+      "source": "observation prose"
+    },
+    "dimensions": {
+      "footprintSizeId": "presentation.board.footprint.hall"
+    },
+    "circulation": {
+      "text": "Three authored ways: back down the ramp, on into the reception, and the service passage arriving from below. Two of them leave the room as walk tethers.",
+      "entryAnchorIds": ["entry.tomb_threshold.processional_ramp", "entry.tomb_threshold.reception", "entry.tomb_threshold.service_passage"],
+      "tetherPortalIds": ["world.portal.tomb_threshold_to_processional_ramp", "world.portal.tomb_threshold_to_tomb_reception"]
+    },
+    "slots": {
+      "buildingIds": ["building.ritual_anchor"],
+      "machineIds": ["machine.mechanical_dog"]
+    },
+    "landmarks": [
+      {"name": "The opened bronze inner door", "evidence": "opened bronze inner door", "source": "visual shell"},
+      {"name": "The sealed name registers on the jamb", "evidence": "the jamb carries register after register of sealed names", "source": "observation prose"},
+      {"name": "The rainwater running in from the ramp", "evidence": "rainwater running in from the ramp", "source": "visual shell"}
+    ],
+    "encounterSpace": {
+      "battleEntryIds": ["battle_entry.tomb_threshold.inner_door"],
+      "habitatIds": [],
+      "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.registry_order"]
+    },
+    "materialLanguage": [
+      {"library": "bronze", "reads": "The inner door and the register plates cut beside it.", "evidence": "Past the bronze door the jamb carries register after register", "source": "observation prose"}
+    ],
+    "avoid": {
+      "ownedBy": "visualShell.prohibitedFeatures"
+    },
+    "needsDecision": {}
+  },
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 1, "browserPerformanceGate": "pending", "releaseLegal": false}
 }

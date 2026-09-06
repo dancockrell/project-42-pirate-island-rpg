@@ -168,6 +168,44 @@
       {"portalId": "world.portal.black_beach_to_reception_terrace_tidal_cut", "kind": "walk", "anchorMetres": [28.0, 0.0, -7.6]}
     ]
   },
+  "contract": {
+    "function": {
+      "text": "Landfall and salvage. The party comes ashore beside the wreck that put them here, works it for parts, and leaves by the one climb inland; the shoreline lane beside it is where a single monster is fought.",
+      "evidence": "leaving copper pipe, wet timber and a climb toward shelter",
+      "source": "observation prose"
+    },
+    "dimensions": {
+      "footprintSizeId": "presentation.board.footprint.expanse"
+    },
+    "circulation": {
+      "text": "Three authored ways stand on the sand -- the campaign start at the wreck, the climb to the estate, and the tidal cut toward the terrace -- and two of them leave the room as walk tethers.",
+      "entryAnchorIds": ["entry.black_beach.handsome_jack_wreck", "entry.black_beach.estate_climb", "entry.black_beach.tidal_cut"],
+      "tetherPortalIds": ["world.portal.black_beach_to_damaged_estate", "world.portal.black_beach_to_reception_terrace_tidal_cut"]
+    },
+    "slots": {
+      "buildingIds": null,
+      "machineIds": ["machine.mechanical_dog"]
+    },
+    "landmarks": [
+      {"name": "The Handsome Jack", "evidence": "The Handsome Jack lies split along the black sand below the tide line", "source": "observation prose"},
+      {"name": "The boiler housing", "evidence": "The boiler housing is still warm enough to steam in the rain", "source": "observation prose"},
+      {"name": "The climb to the estate", "evidence": "one climb toward the damaged estate", "source": "visual shell"}
+    ],
+    "encounterSpace": {
+      "battleEntryIds": ["battle_entry.black_beach.shoreline"],
+      "habitatIds": ["habitat.black_beach.tideline"],
+      "siteRuleIds": []
+    },
+    "materialLanguage": [
+      {"library": "sea", "reads": "The water the wreck lies in, and the tide line the room is measured from.", "evidence": "below the tide line", "source": "observation prose"}
+    ],
+    "avoid": {
+      "ownedBy": "visualShell.prohibitedFeatures"
+    },
+    "needsDecision": {
+      "slots.buildingIds": "brief section 3 (building or interaction slots): no faction owns this cell in the repository -- only the tomb cells declare an ownerConceptKey -- so which authored building records may stand here is undecided."
+    }
+  },
   "admission": {
     "collisionSeparatedFromVisualShell": true,
     "navigationSeparatedFromVisualShell": true,

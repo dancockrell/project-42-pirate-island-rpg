@@ -53,5 +53,41 @@
       {"portalId": "world.portal.tomb_archive_core_to_tomb_reception", "kind": "walk", "anchorMetres": [-15.0, 0.0, 7.5]}
     ]
   },
+  "contract": {
+    "function": {
+      "text": "The archive floor the tomb is named for. The ledger here is dry, intact and still being written, and the room has one way back and no way further in.",
+      "evidence": "Names struck from the registers outside are entered again here in a later hand",
+      "source": "observation prose"
+    },
+    "dimensions": {
+      "footprintSizeId": "presentation.board.footprint.chamber"
+    },
+    "circulation": {
+      "text": "One authored way out, back to the reception, and one standing station at the ledger itself; the single portal leaves the room as a walk tether.",
+      "entryAnchorIds": ["entry.tomb_archive_core.reception", "entry.tomb_archive_core.ledger_stand"],
+      "tetherPortalIds": ["world.portal.tomb_archive_core_to_tomb_reception"]
+    },
+    "slots": {
+      "buildingIds": ["building.ritual_anchor"],
+      "machineIds": ["machine.mechanical_dog"]
+    },
+    "landmarks": [
+      {"name": "The standing bronze name ledger", "evidence": "standing bronze name ledger", "source": "visual shell"},
+      {"name": "The racked register plates", "evidence": "racked register plates in working order", "source": "visual shell"},
+      {"name": "The later hand still entering names", "evidence": "entered again here in a later hand", "source": "observation prose"}
+    ],
+    "encounterSpace": {
+      "battleEntryIds": ["battle_entry.tomb_archive_core.ledger_floor"],
+      "habitatIds": [],
+      "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.archive_silence"]
+    },
+    "materialLanguage": [
+      {"library": "bronze", "reads": "The ledger and the register plates racked around it; the room is a bronze room, kept dry.", "evidence": "standing bronze name ledger", "source": "visual shell"}
+    ],
+    "avoid": {
+      "ownedBy": "visualShell.prohibitedFeatures"
+    },
+    "needsDecision": {}
+  },
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 1, "browserPerformanceGate": "pending", "releaseLegal": false}
 }

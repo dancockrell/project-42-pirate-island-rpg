@@ -233,6 +233,11 @@ for (const key of factionConceptKeys) {
 // lists honest: it puts every file in this directory through the real Rust
 // `validate`, so a spelling that drifts fails there.
 const TIER_CAP = 3; // mirrors building.rs's TIER_CAP -- brief section 20, still needs decision
+// Which concept keys each authored building record accepts, and which route
+// types each authored machine record can use. C11's `contract.slots` block far
+// below is the only reader: a room may slot exactly the records the record
+// itself says are compatible with it, so the compatibility is read off the
+// building and the machine rather than restated by the room.
 // Which of brief section 19's four socket fields each of section 8's socket
 // kinds is authored in. This is `SocketKind::field()`, mirrored.
 const socketFieldForKind = {
@@ -246,6 +251,8 @@ const socketFieldForKind = {
   storage: "delivery_sockets"
 };
 const socketFields = ["entrance_sockets", "road_sockets", "actor_sockets", "delivery_sockets"];
+const buildingFactionCompatibility = new Map();
+const machineRouteTypes = new Map();
 // Mirrors `ProductionOutput` in godot-rust/src/strategy/building.rs. S13 made
 // `machine` a struct variant carrying a `family`, so the bare string is refused
 // here exactly as serde refuses it; the eight families are `MachineFamily::ALL`
@@ -264,6 +271,7 @@ for (const { file, value } of await readJsonDirectory("buildings")) {
 
   // Concept keys, never proper names -- the same closed list C9 authors
   // against, because `ConceptKey` is closed in Rust for the same reason.
+  buildingFactionCompatibility.set(value.id, Array.isArray(value.faction_compatibility) ? value.faction_compatibility : []);
   if (!Array.isArray(value.faction_compatibility) || value.faction_compatibility.length === 0) fail(file, "faction_compatibility must name at least one faction concept key");
   else for (const key of value.faction_compatibility) {
     if (!factionConceptKeys.includes(key)) fail(file, `faction_compatibility ${key} is not one of the six concept keys the brief accepts: ${factionConceptKeys.join(", ")}`);
@@ -483,6 +491,7 @@ for (const { file, value } of await readJsonDirectory("machines")) {
   }
 
   // Brief section 18's "valid route types", against content's own vocabulary.
+  machineRouteTypes.set(value.id, Array.isArray(value.valid_route_types) ? value.valid_route_types : []);
   if (!Array.isArray(value.valid_route_types) || value.valid_route_types.length === 0) fail(file, `valid_route_types must name at least one authored travel mode: ${[...travelModes].join(", ")}`);
   else {
     const seen = new Set();
@@ -1319,6 +1328,220 @@ for (const [index, left] of boardPlacements.entries()) {
     const apart = Math.abs(left.island[0] - right.island[0]) >= (left.size.widthMetres + right.size.widthMetres) / 2
       || Math.abs(left.island[1] - right.island[1]) >= (left.size.depthMetres + right.size.depthMetres) / 2;
     if (!apart) fail(left.file, `board footprint overlaps ${right.id}; standard footprints exist so two rooms cannot occupy the same island ground`);
+  }
+}
+
+// C11: brief section 3's room contract, as a required `contract` block on every
+// world cell. Section 3 says a room needs a gameplay function, dimensions,
+// walkable circulation, building or interaction slots, landmarks, an encounter
+// space, a material language and explicit elements to avoid -- and that this
+// contract must not be replaced with district-scale prose. The block below is
+// what makes that a checked contract rather than a promise.
+//
+// The one rule the whole block enforces: **nothing new is invented about a
+// room.** Every field is either
+//   * derived and held equal to a record this repository already carries (the
+//     dimensions are the `board` block's footprint ID and never metres of their
+//     own; the circulation is the cell's own entry anchors and P4 tethers; the
+//     slots are exactly the building and machine records whose OWN
+//     compatibility fields admit this room; the encounter space is the cell's
+//     battle entries, the habitat that holds this cell as territory and the
+//     site rules the cell declares, referenced and not restated; the avoid-list
+//     points at `visualShell.prohibitedFeatures`, which stays its one owner), or
+//   * quoted: a field written in words carries `source` and an `evidence`
+//     string that must appear **verbatim** in that source -- the cell's
+//     observation prose, the cell's visual shell, or the setpiece script that
+//     already builds the room.
+// A field with no source is `null`, and `needsDecision` names it and the brief
+// section that has to decide it. Nothing is optional: a missing field fails.
+const CONTRACT_FIELDS = ["function", "dimensions", "circulation", "slots", "landmarks", "encounterSpace", "materialLanguage", "avoid", "needsDecision"];
+// The P2 render library, keyed as `SetpieceMeshFactory.LIBRARY` keys it in
+// game/scripts/world/setpiece_mesh_factory.gd, with the words that count as
+// evidence for each. A room may not claim a surface its own sources never
+// mention: the quoted evidence has to carry one of these words.
+const MATERIAL_LIBRARY = new Map([
+  ["clay", ["clay", "blockout"]],
+  ["wet_stone", ["wet_stone", "stone", "slab", "paving"]],
+  ["bronze", ["bronze"]],
+  ["vellum", ["vellum"]],
+  ["foliage", ["foliage", "jungle", "vine", "moss", "leaf"]],
+  ["sea", ["sea", "tide", "surf"]],
+  ["river", ["river"]],
+  ["placeholder", ["placeholder"]]
+]);
+const setpieceScriptText = new Map();
+const contractSourceText = async (value, source) => {
+  if (source === "observation prose") return (value.readableDescriptions ?? []).map(entry => entry?.text ?? "").join("\n");
+  if (source === "visual shell") return [...(value.visualShell?.requiredFeatures ?? []), ...(value.visualShell?.prohibitedFeatures ?? [])].join("\n");
+  const script = /^setpiece script (game\/scripts\/world\/[a-z0-9_]+\.gd)$/.exec(source)?.[1];
+  if (!script) return null;
+  if (!setpieceScriptText.has(script)) {
+    const scriptFile = resolve(repo, script);
+    setpieceScriptText.set(script, existsSync(scriptFile) ? await readFile(scriptFile, "utf8") : null);
+  }
+  return setpieceScriptText.get(script);
+};
+// Which travel modes reach a room: the modes of the portals it declares plus
+// the modes of the portals other rooms declare into it. A machine record whose
+// `valid_route_types` cannot use any of them cannot be slotted here.
+const cellTravelModes = new Map([...worldCellsById.keys()].map(id => [id, new Set()]));
+for (const { value } of worldCellsById.values()) {
+  for (const portal of value.portals ?? []) {
+    cellTravelModes.get(value.id)?.add(portal.travelMode);
+    cellTravelModes.get(portal.targetCellId)?.add(portal.travelMode);
+  }
+}
+const sameList = (left, right) => Array.isArray(left) && left.length === right.length && left.every((entry, index) => entry === right[index]);
+for (const { file, value } of worldCellsById.values()) {
+  const contract = value.contract;
+  if (!contract || typeof contract !== "object" || Array.isArray(contract)) {
+    fail(file, "world cell requires a contract block: brief section 3's function, dimensions, circulation, slots, landmarks, encounter space, material language and avoid-list");
+    continue;
+  }
+  for (const field of CONTRACT_FIELDS) {
+    if (!(field in contract)) fail(file, `contract.${field} is missing; brief section 3 requires every room contract field, null with a needsDecision entry when nothing has decided it`);
+  }
+  for (const field of Object.keys(contract)) {
+    if (!CONTRACT_FIELDS.includes(field)) fail(file, `contract.${field} is not one of brief section 3's room contract fields: ${CONTRACT_FIELDS.join(", ")}`);
+  }
+  // A missing field has already failed above; these checks are about the fields
+  // that are there and are not the explicit `null` of an undecided one.
+  const authored = field => contract[field] !== null && contract[field] !== undefined;
+  const exactKeys = (field, record, keys) => {
+    if (!record || typeof record !== "object" || Array.isArray(record)) return fail(file, `contract.${field} must be an object with exactly ${keys.join(", ")}`), false;
+    const present = Object.keys(record).sort().join(",");
+    if (present !== [...keys].sort().join(",")) return fail(file, `contract.${field} must carry exactly ${keys.join(", ")}, not ${present}`), false;
+    return true;
+  };
+  // A quoted field says where it comes from and proves it: the evidence has to
+  // be in that source, character for character.
+  const quoted = async (field, record) => {
+    if (typeof record.source !== "string" || typeof record.evidence !== "string" || record.evidence.trim() === "") {
+      fail(file, `contract.${field} must name a source and quote the evidence it is drawn from`);
+      return null;
+    }
+    const text = await contractSourceText(value, record.source);
+    if (text === null) {
+      fail(file, `contract.${field} names source ${JSON.stringify(record.source)}, which is not this room's observation prose, its visual shell, or a setpiece script under game/scripts/world/`);
+      return null;
+    }
+    if (!text.includes(record.evidence)) fail(file, `contract.${field} quotes ${JSON.stringify(record.evidence)}, which does not appear in ${record.source}; a room contract may only say what this repository already says about the room`);
+    return record;
+  };
+
+  // Function: what the room is for, in words, quoted from a source.
+  if (authored("function") && exactKeys("function", contract.function, ["text", "evidence", "source"])) {
+    if (typeof contract.function.text !== "string" || contract.function.text.trim().length < 40) fail(file, "contract.function.text must say what the room is for in words");
+    await quoted("function", contract.function);
+  }
+
+  // Dimensions: the footprint ID the board block already names. Brief section
+  // 18's standard sizes and Open item O3 are why a room may not write metres.
+  if (authored("dimensions") && exactKeys("dimensions", contract.dimensions, ["footprintSizeId"])) {
+    if (contract.dimensions.footprintSizeId !== value.board?.footprint?.sizeId) {
+      fail(file, `contract.dimensions.footprintSizeId ${contract.dimensions.footprintSizeId} must be the board block's footprint ${value.board?.footprint?.sizeId}; the room has one dimension record and O3 owns the metres in it`);
+    }
+  }
+
+  // Circulation: which of this room's authored ways connect, in words, and the
+  // socket and tether IDs they are, held equal to the record they come from.
+  if (authored("circulation") && exactKeys("circulation", contract.circulation, ["text", "entryAnchorIds", "tetherPortalIds"])) {
+    if (typeof contract.circulation.text !== "string" || contract.circulation.text.trim().length < 40) fail(file, "contract.circulation.text must describe the walkable circulation in words");
+    const anchors = (value.entryAnchors ?? []).map(anchor => anchor?.id);
+    const tethers = (value.board?.tethers ?? []).map(tether => tether?.portalId);
+    if (!sameList(contract.circulation.entryAnchorIds, anchors)) fail(file, `contract.circulation.entryAnchorIds must be this cell's entry anchors in order: ${anchors.join(", ")}`);
+    if (!sameList(contract.circulation.tetherPortalIds, tethers)) fail(file, `contract.circulation.tetherPortalIds must be this cell's board tethers in order: ${tethers.join(", ")}`);
+  }
+
+  // Slots: what the room can hold, by ID. A building is slotted where the
+  // room's owning faction concept key is one the building's own
+  // `faction_compatibility` accepts; a machine where one of the travel modes
+  // that reach the room is one of its own `valid_route_types`. Both directions
+  // are held, so a slot cannot be added or dropped by hand.
+  if (authored("slots") && exactKeys("slots", contract.slots, ["buildingIds", "machineIds"])) {
+    const owner = value.dungeonContext?.ownerConceptKey;
+    const compatibleBuildings = [...buildingFactionCompatibility.entries()].filter(([, keys]) => keys.includes(owner)).map(([id]) => id).sort();
+    if (typeof owner !== "string") {
+      if (contract.slots.buildingIds !== null) fail(file, "contract.slots.buildingIds must be null: no faction owns this cell in the repository, so nothing decides which buildings may stand here");
+    } else if (!sameList(contract.slots.buildingIds, compatibleBuildings)) {
+      fail(file, `contract.slots.buildingIds must be exactly the building records whose faction_compatibility accepts ${owner}: ${compatibleBuildings.join(", ") || "(none)"}`);
+    }
+    const modes = cellTravelModes.get(value.id) ?? new Set();
+    const compatibleMachines = [...machineRouteTypes.entries()].filter(([, routes]) => routes.some(route => modes.has(route))).map(([id]) => id).sort();
+    if (!sameList(contract.slots.machineIds, compatibleMachines)) {
+      fail(file, `contract.slots.machineIds must be exactly the machine records whose valid_route_types reach this room (${[...modes].sort().join(", ")}): ${compatibleMachines.join(", ") || "(none)"}`);
+    }
+    for (const id of [...(contract.slots.buildingIds ?? []), ...(contract.slots.machineIds ?? [])]) reference(id, file, "contract.slots");
+  }
+
+  // Landmarks: the named set pieces this room's own setpiece script or its own
+  // authored prose already describes, each one quoted.
+  if (authored("landmarks")) {
+    if (!Array.isArray(contract.landmarks) || contract.landmarks.length < 2) fail(file, "contract.landmarks must name at least two landmarks the room's own sources already describe");
+    for (const [index, landmark] of (Array.isArray(contract.landmarks) ? contract.landmarks : []).entries()) {
+      if (!exactKeys(`landmarks[${index}]`, landmark, ["name", "evidence", "source"])) continue;
+      requireString(landmark, "name", file);
+      await quoted(`landmarks[${index}]`, landmark);
+    }
+  }
+
+  // Encounter space: the board block's ring, referenced and not restated. The
+  // battle entries are the rings; the habitat is who fights in them; the site
+  // rules are what the site does to that fight. All three are held equal to the
+  // record they are read from, and none of them carries a number here.
+  if (authored("encounterSpace") && exactKeys("encounterSpace", contract.encounterSpace, ["battleEntryIds", "habitatIds", "siteRuleIds"])) {
+    const entries = (value.battleEntries ?? []).map(entry => entry?.id);
+    const habitat = habitatTerritory.get(value.id);
+    const habitats = habitat ? [habitat] : [];
+    const siteRules = value.dungeonContext?.siteRuleIds ?? [];
+    if (!sameList(contract.encounterSpace.battleEntryIds, entries)) fail(file, `contract.encounterSpace.battleEntryIds must be this cell's battle entries in order: ${entries.join(", ")}; the ring's radius belongs to the board, not to the room record`);
+    if (!sameList(contract.encounterSpace.habitatIds, habitats)) fail(file, `contract.encounterSpace.habitatIds must be the habitat that holds this cell as territory: ${habitats.join(", ") || "(none)"}`);
+    if (!sameList(contract.encounterSpace.siteRuleIds, siteRules)) fail(file, `contract.encounterSpace.siteRuleIds must be the site rules this cell declares: ${siteRules.join(", ") || "(none)"}`);
+    for (const entry of value.battleEntries ?? []) {
+      if (entry?.habitatId && !(contract.encounterSpace.habitatIds ?? []).includes(entry.habitatId)) fail(file, `contract.encounterSpace.habitatIds omits ${entry.habitatId}, which battle entry ${entry.id} binds to`);
+    }
+    for (const id of [...(contract.encounterSpace.habitatIds ?? []), ...(contract.encounterSpace.siteRuleIds ?? [])]) reference(id, file, "contract.encounterSpace");
+  }
+
+  // Material language: which of P2's library materials the room's surfaces are
+  // in, quoted. The library key is not a free label and the quotation has to
+  // carry a word that means it.
+  if (authored("materialLanguage")) {
+    if (!Array.isArray(contract.materialLanguage) || contract.materialLanguage.length === 0) fail(file, "contract.materialLanguage must name at least one P2 library material, or be null with a needsDecision entry");
+    for (const [index, material] of (Array.isArray(contract.materialLanguage) ? contract.materialLanguage : []).entries()) {
+      if (!exactKeys(`materialLanguage[${index}]`, material, ["library", "reads", "evidence", "source"])) continue;
+      requireString(material, "reads", file);
+      if (!MATERIAL_LIBRARY.has(material.library)) {
+        fail(file, `contract.materialLanguage[${index}].library ${JSON.stringify(material.library)} is not a P2 render library material: ${[...MATERIAL_LIBRARY.keys()].join(", ")}`);
+        continue;
+      }
+      if (!await quoted(`materialLanguage[${index}]`, material)) continue;
+      const words = MATERIAL_LIBRARY.get(material.library);
+      if (!words.some(word => material.evidence.toLowerCase().includes(word))) {
+        fail(file, `contract.materialLanguage[${index}] claims ${material.library} on evidence that never mentions it; the quotation must carry one of ${words.join(", ")}`);
+      }
+    }
+  }
+
+  // The avoid-list has one owner already: `visualShell.prohibitedFeatures`, on
+  // this same record. The contract points at it. Two lists of what must not be
+  // placed in a room would drift, and then both would be wrong.
+  if (authored("avoid") && exactKeys("avoid", contract.avoid, ["ownedBy"])) {
+    if (contract.avoid.ownedBy !== "visualShell.prohibitedFeatures") fail(file, "contract.avoid.ownedBy must be visualShell.prohibitedFeatures; the avoid-list is not copied into the contract, it is named there");
+    else if (!Array.isArray(value.visualShell?.prohibitedFeatures) || value.visualShell.prohibitedFeatures.length === 0) fail(file, "contract.avoid points at visualShell.prohibitedFeatures, which is empty");
+  }
+
+  // Every null field, and only a null field, is a decision somebody owes.
+  const undecided = CONTRACT_FIELDS.filter(field => field !== "needsDecision" && contract[field] === null);
+  if (contract.slots?.buildingIds === null) undecided.push("slots.buildingIds");
+  if (contract.needsDecision === null || typeof contract.needsDecision !== "object" || Array.isArray(contract.needsDecision)) {
+    fail(file, "contract.needsDecision must be an object, empty when every field is decided");
+  } else {
+    const named = Object.keys(contract.needsDecision).sort();
+    if (named.join(",") !== undecided.sort().join(",")) fail(file, `contract.needsDecision must name exactly the fields this room leaves null: ${undecided.join(", ") || "(none)"}`);
+    for (const [field, reason] of Object.entries(contract.needsDecision)) {
+      if (typeof reason !== "string" || !reason.includes("brief section")) fail(file, `contract.needsDecision.${field} must name the brief section that has to decide it`);
+    }
   }
 }
 

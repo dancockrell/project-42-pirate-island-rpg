@@ -65,5 +65,41 @@
       {"portalId": "world.portal.tomb_service_passage_to_tomb_threshold", "kind": "walk", "anchorMetres": [-5.5, 0.0, 12.0]}
     ]
   },
+  "contract": {
+    "function": {
+      "text": "The masons' crawl. It is the wrong turn inside the tomb: two ways on, neither of them the archive, and grave goods somebody else already went through on the way past.",
+      "evidence": "This is the passage the masons used, never finished and never sealed",
+      "source": "observation prose"
+    },
+    "dimensions": {
+      "footprintSizeId": "presentation.board.footprint.intimate"
+    },
+    "circulation": {
+      "text": "Two authored ways, one at each end of the crawl: back up into the reception and up to the threshold. Both leave the room as walk tethers.",
+      "entryAnchorIds": ["entry.tomb_service_passage.reception", "entry.tomb_service_passage.threshold"],
+      "tetherPortalIds": ["world.portal.tomb_service_passage_to_tomb_reception", "world.portal.tomb_service_passage_to_tomb_threshold"]
+    },
+    "slots": {
+      "buildingIds": ["building.ritual_anchor"],
+      "machineIds": ["machine.mechanical_dog"]
+    },
+    "landmarks": [
+      {"name": "The disturbed grave goods", "evidence": "Someone has already been through the grave goods stacked along it", "source": "observation prose"},
+      {"name": "The standing water and poor footing", "evidence": "standing water and poor footing", "source": "visual shell"},
+      {"name": "The two ways on, neither of them the archive", "evidence": "two ways on, neither of them the archive", "source": "visual shell"}
+    ],
+    "encounterSpace": {
+      "battleEntryIds": ["battle_entry.tomb_service_passage.working_lane"],
+      "habitatIds": ["habitat.black_beach.terrace_precinct"],
+      "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.service_right_of_passage"]
+    },
+    "materialLanguage": null,
+    "avoid": {
+      "ownedBy": "visualShell.prohibitedFeatures"
+    },
+    "needsDecision": {
+      "materialLanguage": "brief section 3 (material language): nothing this room's record says -- its observation prose, its visual shell, its site rules or its habitat -- names a surface, and no setpiece script exists for it, so which of the P2 library's materials it wears is undecided."
+    }
+  },
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 1, "browserPerformanceGate": "pending", "releaseLegal": false}
 }
