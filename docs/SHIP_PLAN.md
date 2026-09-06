@@ -346,7 +346,7 @@ top of the document is never stale:
 
 - **M0** shipped 7/13 · A1 A2 A11 B1 H6 H7 H9 · H2 and H10 superseded by
   `main`'s own rewrite · **remaining: C2, B2, H5, H8**
-- **M1** shipped 7/12 — **C1, C2, C4** (loot, portal costs, Michael's
+- **M1** shipped 8/12 — **A10** (a woman's higher-ranked commands open as her arc advances), **C1, C2, C4** (loot, portal costs, Michael's
   commands), **A3** (the supply loop closes: anchors produce, rations bite,
   victory pays), **A4** (the estate's rooms are anchor actions; one way to act
   at a place), **A5** (five named bands, Composure, the Shaken gate) and
@@ -356,7 +356,7 @@ top of the document is never stale:
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
 - **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it)
-- Last updated 2026-09-06 against trunk `245aa5c`. If this line is older than
+- Last updated 2026-09-06 against trunk `f75cc64`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -372,7 +372,7 @@ top of the document is never stale:
 | A7 | Ayla's Deny Activation and Override Tomb Rule via site rules | A2, H5 | open |
 | A8 | Reconcile `hold_position` with the Guard decision | A6 | shipped 4572361 2026-09-06 |
 | A9 | Faction-agent observation record (was "Champion") | A6, S5 | open |
-| A10 | Bond rank D→C with a specified combat effect | A6, C6 | open |
+| A10 | Bond rank D→C with a specified combat effect | A6, C6 | shipped f75cc64 2026-09-06 |
 | A11 | Party of five | — | shipped 6b9d275 2026-09-04 |
 | A12 | Test fixtures that name unconfirmed women | O2 | blocked: needs decision O2 |
 
@@ -809,7 +809,7 @@ by `legal_next_commands_with_geography` as `<faction>_briefing` before a
 rematch. Done when: a test's second encounter briefing names the first's observation.
 
 ### A10 · Bond rank D→C with a specified combat effect
-Status: open · Depends on: A6, C6
+Status: shipped `f75cc64` 2026-09-06 · Depends on: A6, C6
 Touches: `godot-rust/src/battle.rs` (the rank gate), `godot-rust/src/expedition.rs`
 (one appended `#[serde(default)] pub bond_ranks: BTreeMap<String, String>` and
 its initialiser), `godot-rust/src/strategy/recruitment.rs` (one hook: a
@@ -833,6 +833,22 @@ is the authored letters, no numbers; `every_authored_skill_has_its_authored_rank
 stays; the exhaustive error match in the bridge gains its arm.
 Done when: both tests; the harness and migration suites green; the validator
 accepts `raisesBondRankTo` only as one of the seven letters.
+**Shipped:** `battle::rank_index` is the one table of the seven letters
+(the Shaken gate now reads it too); `Actor.bond_rank`; the gate in
+`submit_uncached` beside the Shaken gate, before any mutation, refusing with
+`BattleError::BondRankTooLow { skill_id, required, current }` (bridge code
+`bond_rank_too_low`, `bond_rank` in the actor dictionary and in the mock
+port). `ExpeditionState.bond_ranks` is the sole owner — the unread copy
+inside `HouseholdProgress` was deleted rather than left beside it — and it
+moves only in `record_recruitment_milestone`, only upward, when the scene's
+rule carries `raisesBondRankTo`; Betty's burial scene carries her D→C.
+Proven to bite (the refused-at-D test and the malformed-letter test fail
+without the gate). **The seam, stated plainly:** no `Battle` is built from
+`ExpeditionState` yet — both bridge constructors build the static slice —
+so the fixture sets Betty at `SSS` (the slice shows her whole kit) and
+everyone else at `D`; when a campaign first builds a battle, `Actor.bond_rank`
+becomes a copy of `bond_ranks[woman]` at those two constructors, one line.
+Godot suites not run locally; CI's Godot job is the proof.
 
 ### A11 · Party of five
 Status: shipped 6b9d275 2026-09-04 · **(brief)** "The player controls five heroes."
