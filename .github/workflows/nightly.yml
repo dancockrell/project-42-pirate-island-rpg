@@ -152,7 +152,9 @@ jobs:
       # does not find one to carry.
       - name: Build the native bridge
         shell: bash
-        run: bash tools/build-native-bridge.sh release
+        # TEMPORARY BITE PROOF -- restored in the next commit. With no library
+        # built, the assertion below must fail this job by name.
+        run: echo "BITE PROOF: the native bridge build is deliberately skipped."
 
       # E5's hard requirement, from E4's finding. game/bin/ holds only the
       # Windows libraries; Linux and macOS are built, never committed, and

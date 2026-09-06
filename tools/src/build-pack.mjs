@@ -40,9 +40,10 @@ const PRESET_NAME = "Pack";
 
 // The engine prints these when a resource, a script or an export step fails,
 // and it can still exit zero afterwards — the lesson E2 paid for in
-// tools/verify-godot.sh. A step whose output carries one of them is a failure
-// here for the same reason.
-const ENGINE_ERROR_MARKERS = ["SCRIPT ERROR:", "ERROR:"];
+// tools/verify-godot.sh. This is that gate's `error_pattern`, character for
+// character, because "what counts as an engine error" is one question and must
+// not get two answers.
+const ENGINE_ERROR_PATTERN = /^(ERROR|SCRIPT ERROR): |GDScript backtrace/m;
 
 function fail(message) {
   console.error(`build-pack: ${message}`);
@@ -60,9 +61,8 @@ function runGodot(what, args) {
     fail(`${what}: ${godot} exited ${result.status}\n${output}`);
     return null;
   }
-  const marker = ENGINE_ERROR_MARKERS.find(value => output.includes(value));
-  if (marker !== undefined) {
-    fail(`${what}: the engine exited zero but printed "${marker}"\n${output}`);
+  if (ENGINE_ERROR_PATTERN.test(output)) {
+    fail(`${what}: the engine exited zero but printed an ERROR line; an exit code is not the only verdict\n${output}`);
     return null;
   }
   return output;
@@ -216,7 +216,12 @@ for (const directoryName of packDirectoryNames) {
     continue;
   }
 
-  if (runGodot(`${directoryName}: verify`, ["--headless", "--path", probeProject, "--script", "res://verify_pack.gd", "--", output, directoryName]) === null) continue;
+  const verified = runGodot(`${directoryName}: verify`, ["--headless", "--path", probeProject, "--script", "res://verify_pack.gd", "--", output, directoryName]);
+  if (verified === null) continue;
+  // The probe's own words, not this script's summary of them. A green run is a
+  // claim and the log is the evidence, so the line that says the manifest was
+  // read back out of the built pack has to be in the log.
+  process.stdout.write(verified);
 
   console.log(`build-pack: ${relative(repo, output)}`);
   built += 1;
