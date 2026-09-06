@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "task_id": "s7-offscreen-forces",
+  "agent": "claude-code (lane S7)",
+  "summary": "Offscreen forces: aggregate bodies that are raised, dispatched along real Geography routes one hop at a time, and arrive carrying exactly the composition they left with.",
+  "status": "completed",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/force.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/strategy/tick.rs",
+    "godot-rust/tests/save_migration.rs"
+  ],
+  "symbols": [
+    "ForceRecord",
+    "ForceId",
+    "ForceEvidence",
+    "ForceError",
+    "ExpeditionState.forces",
+    "ExpeditionState.raise_force",
+    "ExpeditionState.dispatch_force",
+    "ExpeditionState.advance_forces",
+    "ExpeditionState.forces_at",
+    "StrategicEvent::ForceDeparted",
+    "StrategicEvent::ForceMoved",
+    "StrategicEvent::ForceArrived",
+    "StrategicEvent::ForceHalted"
+  ],
+  "coordination": {
+    "depends_on": [
+      "s4-strategic-tick",
+      "s2-ownership-and-influence"
+    ],
+    "conflicts_with": [],
+    "notes": "expedition.rs is touched in exactly three hunks (a `forces` field appended at the end of the struct, its initialiser at the end of the literal in new(), and one line in strategic_tick between run_hour and the journal push) plus the use; every ExpeditionState method this lane needs lives in an impl block inside strategy/force.rs, because two other lanes are appending to the same tail and one is changing resolve_midnight_in's signature. tick.rs gains four StrategicEvent variants appended at the end of the enum and nothing else -- run_hour, PURPOSES, the draws and the digest are untouched. Materialisation through spawn sockets is B11's: this lane stops at the ForceArrived event and the forces_at reader. Materialisation through spawn sockets is blocked: needs B11 -- this lane stops at ForceArrived (composition copied whole) and forces_at(cell_id), which are the seam B11 attaches to."
+  },
+  "completion": {
+    "commit": "736b838",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml: passed (242 unit incl. 10 new strategy::force, 4 authored_world, 5 save_migration, 7 strategic_determinism, 1 vertical_slice)",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed (the bridge matches no StrategicEvent today, so the four new variants needed no arms)",
+      "node tools/src/validate.mjs: passed (200 stable IDs)",
+      "Done-when: a force dispatched three cells arrives with the composition it left with, and the record still carries it: passed",
+      "Done-when: a save/reload between every hop is byte-identical to the uninterrupted march: passed",
+      "Bite proof: making a hop skip one cell failed a_force_marched_three_cells_arrives_carrying_exactly_what_it_left_with (hop list) and progress_accrues_in_minutes_and_the_remainder_carries_forward (hop count); restored and both pass",
+      "blocked: needs B11 -- materialisation through spawn sockets is not built here"
+    ]
+  }
+}

@@ -22,6 +22,7 @@ use crate::strategy::clocks::{
 };
 use crate::strategy::directive::StrategicDirective;
 use crate::strategy::faction::FactionDefinitions;
+use crate::strategy::force::ForceRecord;
 use crate::strategy::journal::{JournalEntry, StrategicJournal};
 use crate::strategy::recruitment::{RecruitmentStage, RecruitmentState};
 use crate::strategy::tick::{self, HOURS_PER_DAY, StrategicClock, StrategicEvent};
@@ -227,6 +228,19 @@ pub struct ExpeditionState {
     /// none.
     #[serde(default)]
     pub directives: BTreeMap<String, StrategicDirective>,
+    /// S7: the island's offscreen forces, keyed by their own `force.*` ID --
+    /// aggregate bodies of actors marching along real `Geography` routes while
+    /// nobody is looking at them (brief section 10). Everything that reads or
+    /// writes this map lives in `strategy/force.rs`, including the methods on
+    /// this struct that raise, dispatch and advance them, so the whole of what
+    /// a force is has one owner.
+    ///
+    /// A force never teleports: its position moves only by a hop along a road
+    /// the graph carries, and only once it has accrued that road's own
+    /// `time_cost_minutes`. `serde(default)` so a save written before forces
+    /// existed loads with an empty island.
+    #[serde(default)]
+    pub forces: BTreeMap<String, ForceRecord>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -464,6 +478,8 @@ impl ExpeditionState {
             corruption: BTreeMap::new(),
             // S6: nobody has asked the island for anything yet.
             directives: BTreeMap::new(),
+            // S7: nobody has raised anything yet.
+            forces: BTreeMap::new(),
         };
         state.validate()?;
         Ok(state)
@@ -1492,7 +1508,10 @@ impl ExpeditionState {
         // no change in this method to be journalled correctly.
         let day = self.campaign_day;
         let hour = self.strategic_clock.hour_of_day;
-        let events = tick::run_hour(self, geography, factions);
+        let mut events = tick::run_hour(self, geography, factions);
+        // S7: the hour's marching, after the hour's draws are made and before
+        // the hour is journalled, so a hop is recorded in the hour it happened.
+        events.extend(self.advance_forces(geography));
         for event in &events {
             self.strategic_journal
                 .push(JournalEntry::new(day, hour, event.clone()));
