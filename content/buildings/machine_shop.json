@@ -92,7 +92,7 @@
     {
       "id": "production.machine_shop.automaton_frames",
       "output": { "machine": { "family": "mechanical_dog" } },
-      "output_key": "resource.open.needs_decision",
+      "output_key": "machine.mechanical_dog",
       "amount": 1,
       "interval_hours": 24,
       "minimum_tier": 2
@@ -132,7 +132,7 @@
     "releaseLegal": true,
     "notes": [
       "Brief section 5.6 and section 20: this record lists concept key michael, so a human_role production rule is refused outright -- by BuildingDefinition::validate and by the buildings block in tools/src/validate.mjs. The three rules here make a machine, capacity and a service. recruitment_support is deliberately empty: Michael's faction grows by recruitment, migration, relationships, rescue and factional change, never because a building said so.",
-      "Open (brief section 20, exact resource list): construction_cost and every production output_key carry the single placeholder resource.open.needs_decision at amount-bearing but meaningless weight 0 for cost. No resource category is invented here, exactly as C9 did for resource_priorities.",
+      "Open (brief section 20, exact resource list): construction_cost and the capacity and service rules' output_key carry the single placeholder resource.open.needs_decision at amount-bearing but meaningless weight 0 for cost. No resource category is invented here, exactly as C9 did for resource_priorities. The machine rule is the exception and not a resource at all: since C14 authored content/machines/, production.machine_shop.automaton_frames names the record it builds, machine.mechanical_dog, because that is what ExpeditionState::produce_machine looks up -- and its family must agree with that record's or nothing is produced.",
       "Open (brief section 20, exact standard building dimensions): height_class is a needs-decision placeholder, maximum_slope is 0 because the world graph carries no slope, and footprint_cells / clearance_cells are shares of CELL_CAPACITY_CELLS rather than metres. B11 and O3 own real geometry.",
       "Open (brief section 20, capture versus destruction rules by building type): capture_rules and ruin_state are chosen here, per record, as S3 required -- a shop is worth taking, and a burnt shop still occupies its floor. The choice is this record's, not the engine's.",
       "Open: construction_requirements flags are requirement.open.needs_decision.* placeholders. S13 decides what a faction must hold to unlock a tier; nothing reads these strings today.",

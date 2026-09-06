@@ -1,0 +1,53 @@
+{
+  "id": "machine.steam_wagon",
+  "family": "steam_wagon",
+  "function": "The first hauler: a steam-driven freight wagon that moves salvage, stores and wounded along a made road. Brief section 5.4 -- 'more likely than recognizable cars': freight, transport, medical evacuation, mobile workshops.",
+  "operational_footprint_cells": 0,
+  "navigation_width_cells": 0,
+  "turning_clearance_cells": 0,
+  "maximum_slope": 0,
+  "wreck_footprint_cells": 0,
+  "open_dimensions": {
+    "operational_footprint_cells": "needs decision: operational footprint for machine.steam_wagon -- brief section 20, exact standard dimensions",
+    "navigation_width_cells": "needs decision: navigation width for machine.steam_wagon -- brief section 20, exact standard dimensions",
+    "turning_clearance_cells": "needs decision: turning clearance for machine.steam_wagon -- brief section 20, and a wagon needs more of it than it needs footprint",
+    "maximum_slope": "needs decision: maximum slope for machine.steam_wagon -- brief section 20, and the world graph carries no slope to compare one against",
+    "wreck_footprint_cells": "needs decision: wreck footprint for machine.steam_wagon -- brief section 20, and a dead wagon blocks a road differently from a live one",
+    "salvage_value": "needs decision: salvage value for machine.steam_wagon -- brief section 20 leaves the resource list Open, so the wreck is worth resource.open.needs_decision and nothing named"
+  },
+  "valid_route_types": [
+    "safe_road"
+  ],
+  "bridge_requirements": [
+    "requirement.open.needs_decision.reinforced_bridge"
+  ],
+  "crew_or_handler_requirement": 2,
+  "fuel_requirement": 12,
+  "water_requirement": 8,
+  "fuel_resource_key": "resource.open.fuel",
+  "water_resource_key": "resource.open.water",
+  "repair_sockets": [
+    "socket.machine.steam_wagon.boiler",
+    "socket.machine.steam_wagon.drive_train",
+    "socket.machine.steam_wagon.bed_frame",
+    "socket.machine.steam_wagon.water_tank"
+  ],
+  "local_and_offscreen_representations": "needs decision: local and offscreen representations for machine.steam_wagon. Locally it is one wheeled blockout with a bed a crew loads from the side; offscreen it counts as carrying capacity inside an aggregate force rather than as a fighting element. Both readings stay prose until there is a materialiser and an aggregate-force weight to consume them.",
+  "salvage_value": {
+    "resource.open.needs_decision": 0
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "maturity": "prototype",
+    "releaseLegal": true,
+    "notes": [
+      "Brief section 18, 'Animal automata and vehicles need': this record carries that list field for field, in the brief's order, exactly as MachineDefinition in godot-rust/src/strategy/production.rs declares it.",
+      "Open (brief section 20, exact standard dimensions): every dimension is 0 or the resource.open.needs_decision placeholder and open_dimensions names each decision. The validator refuses a decided-looking number rather than requiring one.",
+      "Open: bridge_requirements carries one requirement.open.needs_decision flag. Brief section 5.11 puts reinforced bridges in the faction's terrain signature; what reinforces one, and what a crossing must satisfy before a loaded wagon uses it, is nobody's decision yet. A dog's list is empty for the honest reason that a dog asks nothing of a bridge.",
+      "Open (brief section 20, exact resource list): fuel and water are counted in resource.open.fuel and resource.open.water. A wagon burns and boils more than a dog, which is the only claim the larger numbers make.",
+      "valid_route_types is the single authored travelMode safe_road: this is the machine that needs a made way, and the contrast with machine.mechanical_dog's three modes is the reason two records exist rather than one.",
+      "Provisional: crew_or_handler_requirement 2. Brief section 5.10 -- a hauler that ties up two people is not interchangeable with an automaton that ties up one, however similar their footprints turn out to be.",
+      "No production rule names this record yet. content/buildings/machine_shop.json makes mechanical_dog frames; the building that makes wagons is a later card's, and inventing one here would be authoring a building nobody has designed."
+    ]
+  }
+}

@@ -15,13 +15,17 @@ const repo = resolve(import.meta.dirname, "../..");
 // strategic tick reads, and the bridge builds it from this bundle exactly as it
 // builds the faction registry, so a building record that never reached Godot
 // would make the engine's island differ from the harness's.
+// `machines` joined with C14, for the half of that same seam S13 named: a
+// building's machine rule resolves its `output_key` in `MachineDefinitions`, so
+// a machine record that never reached Godot would leave the engine refusing a
+// production the harness completes.
 //
 // `packs/` is deliberately absent and is not a domain. A presentation-override
 // pack is a separate artifact: E9 builds each one into its own `.pck` and B10's
 // registry discovers it at runtime under `user://packs/` or `res://packs/`.
 // Folding a pack into the base bundle would ship the override with the base
 // game, which is the one thing the pack seam exists to prevent.
-const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships", "buildings"];
+const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships", "buildings", "machines"];
 const records = [];
 
 for (const domain of domains) {

@@ -328,7 +328,6 @@ for (const { file, value } of await readJsonDirectory("buildings")) {
       }
       if (Number.isInteger(rule?.minimum_tier) && topTier > 0 && rule.minimum_tier > topTier) fail(file, `${where}.minimum_tier ${rule.minimum_tier} is above this record's top tier ${topTier}`);
       if (typeof rule?.output_key !== "string") fail(file, `${where}.output_key must be a string`);
-      else if (rule.output_key !== "" && !rule.output_key.startsWith("resource.open.")) fail(file, `${where}.output_key ${rule.output_key} invents a resource category; brief section 20 leaves the resource list Open, so keys stay under resource.open.`);
 
       if (rule?.cost !== undefined) {
         if (rule.cost === null || typeof rule.cost !== "object" || Array.isArray(rule.cost)) fail(file, `${where}.cost must be an object of resource key to count`);
@@ -342,6 +341,22 @@ for (const { file, value } of await readJsonDirectory("buildings")) {
       const isSingleKeyObject = output !== null && typeof output === "object" && !Array.isArray(output) && Object.keys(output).length === 1;
       const isHumanRole = isSingleKeyObject && Object.keys(output)[0] === "human_role";
       const isMachine = isSingleKeyObject && Object.keys(output)[0] === "machine";
+      // C14: what `output_key` may name depends on what the rule makes. A
+      // machine rule names the `machine.<...>` record it builds -- S13's
+      // `produce_machine` looks the rule's `output_key` up in
+      // `MachineDefinitions` and refuses a rule whose record it cannot find or
+      // whose family disagrees -- so for that one output the key is a stable ID
+      // reference, resolved at the bottom of this file against the records
+      // content/machines/ registers. Every other output_key is still an open
+      // resource string, and inventing a resource category is still refused.
+      if (typeof rule?.output_key === "string") {
+        if (isMachine) {
+          if (!rule.output_key.startsWith("machine.")) fail(file, `${where}.output_key ${rule.output_key} must name the machine.<...> record this rule builds; ExpeditionState::produce_machine resolves it in MachineDefinitions (C14, S13)`);
+          else reference(rule.output_key, file, `${where}.output_key`);
+        } else if (rule.output_key !== "" && !rule.output_key.startsWith("resource.open.")) {
+          fail(file, `${where}.output_key ${rule.output_key} invents a resource category; brief section 20 leaves the resource list Open, so keys stay under resource.open.`);
+        }
+      }
       if (typeof output === "string") {
         if (output === "machine") fail(file, `${where}.output "machine" names no family; since S13 a machine rule is { "machine": { "family": "<one of ${[...machineFamilies].join(", ")}>" } }`);
         else if (!simpleProductionOutputs.has(output)) fail(file, `${where}.output ${output} is not a ProductionOutput: ${[...simpleProductionOutputs].join(", ")}, { "machine": { "family": "..." } }, or { "human_role": { "role": "..." } }`);
@@ -390,6 +405,119 @@ for (const { file, value } of await readJsonDirectory("buildings")) {
   requireString(value.metadata ?? {}, "maturity", file);
   if (typeof value.metadata?.releaseLegal !== "boolean") fail(file, "building metadata.releaseLegal must be boolean");
   if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "building metadata.notes must list what stays Provisional or Open");
+}
+
+// C14: machine records. S13 shipped `MachineDefinition` with brief section 18's
+// "Animal automata and vehicles need" list field for field and said a C card
+// must fill `content/machines/`; this block is the content half of that
+// contract, and `every_authored_machine_record_loads` in
+// `godot-rust/src/strategy/production.rs` is what holds the directory equal to
+// `MachineDefinitions`. C10's building block above is the shape this copies.
+//
+// Two records, not eight: one machine per family would be a catalogue invented
+// here, and the brief's section 5.4 families are candidates, not a roster. The
+// two that exist are the two the rest of the tree already needs -- the dog a
+// tier-two machine shop makes, and the hauler that shows what a road-bound
+// machine's record looks like.
+//
+// The families below are `MachineFamily::ALL`'s serde spellings, the same eight
+// the buildings block already mirrors for a machine rule's family. The route
+// vocabulary is the authored `travelMode` set from
+// `content/world/*.world_cell.json`, which the portals block below checks
+// against this same const, so the two readers of that vocabulary cannot drift.
+const travelModes = new Set(["on_foot", "safe_road", "jungle_edge"]);
+// Brief section 20 leaves the island's geometry and the resource list Open, so
+// every one of these is checked the inverted way C9 checks `displayName` and
+// C10 checks `height_class`: the validator requires that the decision has NOT
+// been made. A footprint written as 3 here would read as a number somebody
+// chose, and nobody has.
+const openMachineDimensions = ["operational_footprint_cells", "navigation_width_cells", "turning_clearance_cells", "maximum_slope", "wreck_footprint_cells", "salvage_value"];
+const openResourcePlaceholder = "resource.open.needs_decision";
+let machineCount = 0;
+for (const { file, value } of await readJsonDirectory("machines")) {
+  machineCount += 1;
+  const stem = file.split("/").pop().replace(/\.json$/, "");
+  if (typeof value.id !== "string" || !value.id.startsWith("machine.")) fail(file, `id ${value.id} must be machine.<slug>`);
+  else if (value.id !== `machine.${stem}`) fail(file, `id ${value.id} must be named after its file, machine.${stem}; the Rust equality test reads the directory by filename`);
+  requireString(value, "function", file);
+
+  // The tie between the authored asset and the closed family list. A ninth
+  // family is refused here and by `MachineFamily`'s serde in Rust, and a rule
+  // whose family disagrees with the record it names does not produce at all --
+  // ProductionError::FamilyMismatch.
+  if (!machineFamilies.has(value.family)) fail(file, `family ${JSON.stringify(value.family)} is not one of brief section 5.4's eight families: ${[...machineFamilies].join(", ")}`);
+
+  // Every dimension stays Open, and `open_dimensions` says so decision by
+  // decision rather than in one blanket note.
+  for (const field of ["operational_footprint_cells", "navigation_width_cells", "turning_clearance_cells", "wreck_footprint_cells"]) {
+    if (!Number.isInteger(value[field])) fail(file, `${field} must be an integer count of cells`);
+    else if (value[field] !== 0) fail(file, `${field} is ${value[field]}, which reads as a decided dimension; brief section 20 leaves exact dimensions Open, so it stays 0 and open_dimensions.${field} names the decision`);
+  }
+  if (!Number.isInteger(value.maximum_slope) || value.maximum_slope < 0 || value.maximum_slope > 255) fail(file, "maximum_slope must be an integer from 0 through 255 (a u8 downstream)");
+  else if (value.maximum_slope !== 0) fail(file, `maximum_slope is ${value.maximum_slope}, which reads as a decided limit; the world graph carries no slope to compare one against, so it stays 0 and open_dimensions.maximum_slope names the decision`);
+  if (!value.salvage_value || typeof value.salvage_value !== "object" || Array.isArray(value.salvage_value)) fail(file, "salvage_value must be an object keyed by authored resource strings");
+  else if (JSON.stringify(value.salvage_value) !== JSON.stringify({ [openResourcePlaceholder]: 0 })) fail(file, `salvage_value must stay the single placeholder { "${openResourcePlaceholder}": 0 }; brief section 20 leaves the resource list Open, so a wreck is worth nothing this file may name`);
+  if (!value.open_dimensions || typeof value.open_dimensions !== "object" || Array.isArray(value.open_dimensions)) fail(file, `open_dimensions must be an object naming the decision behind each of ${openMachineDimensions.join(", ")}`);
+  else {
+    for (const field of openMachineDimensions) {
+      const note = value.open_dimensions[field];
+      if (typeof note !== "string" || !note.includes("needs decision")) fail(file, `open_dimensions.${field} must be a placeholder containing "needs decision"; brief section 20 leaves exact dimensions Open and every one of them says so by name`);
+    }
+    for (const field of Object.keys(value.open_dimensions)) {
+      if (!openMachineDimensions.includes(field)) fail(file, `open_dimensions.${field} is not one of the Open dimensions: ${openMachineDimensions.join(", ")}`);
+    }
+  }
+
+  // Brief section 18's "valid route types", against content's own vocabulary.
+  if (!Array.isArray(value.valid_route_types) || value.valid_route_types.length === 0) fail(file, `valid_route_types must name at least one authored travel mode: ${[...travelModes].join(", ")}`);
+  else {
+    const seen = new Set();
+    for (const [index, mode] of value.valid_route_types.entries()) {
+      if (!travelModes.has(mode)) fail(file, `valid_route_types[${index}] ${JSON.stringify(mode)} is not an authored travelMode; the vocabulary is content/world/*.world_cell.json's portals: ${[...travelModes].join(", ")}`);
+      else if (seen.has(mode)) fail(file, `valid_route_types[${index}] ${mode} is listed twice`);
+      else seen.add(mode);
+    }
+  }
+
+  // "Bridge requirements": what reinforces a crossing is nobody's decision yet
+  // (brief section 5.11 puts reinforced bridges in the terrain signature and
+  // stops there), so a flag stays an obvious placeholder. An empty list is a
+  // real answer: a small automaton asks nothing of a bridge.
+  if (!Array.isArray(value.bridge_requirements)) fail(file, "bridge_requirements must be an array, empty when the machine asks nothing of a crossing");
+  else for (const [index, flag] of value.bridge_requirements.entries()) {
+    if (typeof flag !== "string" || !flag.startsWith("requirement.open.")) fail(file, `bridge_requirements[${index}] ${JSON.stringify(flag)} must be a requirement.open.<...> placeholder; what a crossing must satisfy is not decided`);
+  }
+
+  // Crew, fuel and water. The counts are real -- section 5.10 is about the crew
+  // number being non-zero at all -- but the keys fuel and water are counted in
+  // stay under resource.open., because section 20 leaves the resource list Open.
+  for (const field of ["crew_or_handler_requirement", "fuel_requirement", "water_requirement"]) {
+    if (!Number.isInteger(value[field]) || value[field] < 0) fail(file, `${field} must be a non-negative integer`);
+  }
+  for (const field of ["fuel_resource_key", "water_resource_key"]) {
+    if (typeof value[field] !== "string" || !value[field].startsWith("resource.open.")) fail(file, `${field} ${JSON.stringify(value[field])} invents a resource category; brief section 20 leaves the resource list Open, so keys stay under resource.open.`);
+  }
+
+  // "Repair sockets" and "local and offscreen representations": section 18's
+  // accepted list requires machines to retain future-ready sockets and
+  // metadata, so the sockets are authored now; the representations are prose
+  // until there is a materialiser to consume them, and they say so.
+  if (!Array.isArray(value.repair_sockets) || value.repair_sockets.length === 0) fail(file, "repair_sockets must name at least one socket a repair attaches to (brief section 18)");
+  else {
+    const socketIds = new Set();
+    for (const [index, socket] of value.repair_sockets.entries()) {
+      if (typeof socket !== "string" || !socket.startsWith("socket.")) fail(file, `repair_sockets[${index}] ${JSON.stringify(socket)} must be a socket.<...> string`);
+      else if (socketIds.has(socket)) fail(file, `repair_sockets[${index}] ${socket} is listed twice`);
+      else socketIds.add(socket);
+    }
+  }
+  requireString(value, "local_and_offscreen_representations", file);
+  if (typeof value.local_and_offscreen_representations === "string" && !value.local_and_offscreen_representations.includes("needs decision")) fail(file, "local_and_offscreen_representations must stay placeholder prose containing \"needs decision\" until a materialiser and an aggregate-force weight consume it");
+
+  requireString(value.metadata ?? {}, "implementationOwner", file);
+  requireString(value.metadata ?? {}, "maturity", file);
+  if (typeof value.metadata?.releaseLegal !== "boolean") fail(file, "machine metadata.releaseLegal must be boolean");
+  if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "machine metadata.notes must list what stays Provisional or Open");
 }
 
 // C6: relationship scene records. S12 left `RecruitmentState.milestone_rules` a
@@ -602,7 +730,7 @@ for (const { file, value } of worldRecords) {
       for (const field of ["id", "fromAnchorId", "targetAnchorId", "travelMode", "returnRule"]) requireString(portal, field, file);
       reference(portal.targetCellId, file, `portals[${index}].targetCellId`);
       if (!entryAnchorIds.has(portal.fromAnchorId)) fail(file, `portals[${index}].fromAnchorId must name an entry anchor in this cell`);
-      if (!new Set(["on_foot", "safe_road", "jungle_edge"]).has(portal.travelMode)) fail(file, `portals[${index}].travelMode is unsupported`);
+      if (!travelModes.has(portal.travelMode)) fail(file, `portals[${index}].travelMode is unsupported; the authored vocabulary is ${[...travelModes].join(", ")}`);
       if (!new Set(["always", "allowed_while_no_pending_encounter"]).has(portal.returnRule)) fail(file, `portals[${index}].returnRule is unsupported`);
       // C2: travel costs live with the portal that charges them. They are
       // optional so a connection can be authored before it is priced, but a
@@ -995,4 +1123,4 @@ if (failures.length) {
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
-console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${buildingCount} building records, ${relationshipSceneCount} relationship scenes, ${packCount} presentation packs carrying ${packOverrideCount} scene overrides, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
+console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${buildingCount} building records, ${machineCount} machine records, ${relationshipSceneCount} relationship scenes, ${packCount} presentation packs carrying ${packOverrideCount} scene overrides, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
