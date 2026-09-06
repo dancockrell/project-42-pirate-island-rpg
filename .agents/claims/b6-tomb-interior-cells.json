@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "task_id": "b6-tomb-interior-cells",
+  "agent": "claude-code (lane B6)",
+  "summary": "The four tomb rooms D3 put in the Rust fixture become authored world cells under content/world/, and fixture_matches_the_authored_world_cells drops its three B6 tolerances so the equality holds over the whole graph rather than the beach alone.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "content/world/tomb_threshold.world_cell.json",
+    "content/world/tomb_reception.world_cell.json",
+    "content/world/tomb_archive_core.world_cell.json",
+    "content/world/tomb_service_passage.world_cell.json",
+    "content/world/processional_ramp.world_cell.json",
+    "content/world/black_beach.region.json",
+    "game/generated/content_bundle.json",
+    "godot-rust/src/geography.rs",
+    "game/tests/black_beach_route_contract_test.gd"
+  ],
+  "symbols": [
+    "geography::tests::fixture_matches_the_authored_world_cells"
+  ],
+  "coordination": {
+    "depends_on": [
+      "a2-canonical-world-cell-ids",
+      "backend-d3-tomb-architecture",
+      "c13-authored-discoveries-and-anchor-wire"
+    ],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at 2f51e77. geography.rs is touched in the equality test only; the fixture itself is not edited, so content is written to the fixture's values rather than the other way round. Two files outside the card's literal list are required and are edited rather than duplicated: content/world/processional_ramp.world_cell.json gains world.portal.processional_ramp_to_tomb_threshold (the fixture already carries it, and removing the routes_from tolerance makes its absence a failure), and content/world/black_beach.region.json gains the four cell IDs (native_expedition_port.gd walks region.worldCellIds, so a cell missing from the region never reaches the game). game/tests/black_beach_route_contract_test.gd asserts region.worldCellIds equals a literal five-cell list and is extended to nine honestly."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
