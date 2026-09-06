@@ -351,12 +351,12 @@ top of the document is never stale:
   victory pays), **A4** (the estate's rooms are anchor actions; one way to act
   at a place), **A5** (five named bands, Composure, the Shaken gate) and
   **A6** (Michael is a playable actor: Weapon Attack, Guard, Reposition)
-- **M2** shipped 7/9 — **E7** (a crash log on the player's disk; nothing leaves the machine, proven), **E8** (both ledgers a CI gate), **E1** (CI live and green on GitHub), **E2** (Godot
+- **M2** shipped 8/9 — **B9** (pause is one Godot fact; settings persist), **E7** (a crash log on the player's disk; nothing leaves the machine, proven), **E8** (both ledgers a CI gate), **E1** (CI live and green on GitHub), **E2** (Godot
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures; E5 open with a hard
-  build-before-export requirement; B8 and B9 in flight
+  build-before-export requirement; B8 in flight
 - **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `049bd45`. If this line is older than
+- Last updated 2026-09-06 against trunk `649852a`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -408,7 +408,7 @@ top of the document is never stale:
 | B6 | World cells for the tomb interior | A2 | shipped 95ada6f 2026-09-06 |
 | B7 | Battle-entry sockets bound to habitat holders | B3 | open |
 | B8 | New game, save slots, continue | E6 | open |
-| B9 | Settings, accessibility, and **pause** | — | open |
+| B9 | Settings, accessibility, and **pause** | — | shipped 649852a 2026-09-06 |
 | B10 | `ContentPackRegistry` and the presentation override pack | C8 | open |
 | B11 | Room cells carry board metadata (footprint, spawn sockets, tethers) | A2, O3 | open |
 | B12 | The isometric board: world / route / room distances | B11, S2, O1 | open |
@@ -1404,11 +1404,25 @@ Done when: the suite saves, quits the session, continues, and gets the same
 legal actions; a corrupted slot is refused with a reason; the Godot job green.
 
 ### B9 · Settings, accessibility, and pause **(brief)**
+Status: shipped `649852a` 2026-09-06 · Depends on: —
 Adds to the first edition: a global pause that stops the character scene,
 the strategic tick (S4), construction, convoys, weather and pressure; every
 full-screen management, reading and accessibility surface pauses by default;
 the game does not progress while closed. Test: open settings → tick count
 unchanged after N seconds.
+**Shipped:** `GamePause` autoload — reasons are a set, the surface that
+gives a reason owns it, `get_tree().paused` follows, a second reason does not
+re-announce a pause that stands; `campaign_session.resolve_midnight` refuses
+through a single guard while paused, in the session's existing rejection
+shape. A settings panel (text scale, high contrast, reduced motion) persists
+to `user://settings.cfg` and pauses while open. `game_pause_test.gd` opens
+the panel, attempts advances, and reads the live bridge's clock unchanged;
+two reasons keep the pause after one clears. Proven to bite in CI itself:
+the guard was removed in one commit, the Godot gate failed by name, and the
+restore is byte-identical to the green tree. **Recorded, not wired:** the
+three settings are read by no scene yet. The brief's other pausable systems
+need no separate guard because none advances outside the midnight call —
+the simulation side has no clock (S4).
 
 ### B10 · `ContentPackRegistry` and the presentation override pack
 Status: open · Depends on: C8
