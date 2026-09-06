@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "task_id": "a7-c3-ayla-lands",
+  "agent": "claude-code (lane A7+C3+H5)",
+  "summary": "Site rules become authored records with a closed effect vocabulary that Battle applies at the round boundary, PR #2's five Ayla skills are re-landed on the current engine, Deny Activation and Override Tomb Rule land on the site-rule seam, and content/characters/ayla.json plus her seven skill records ship.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/battle.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/geography.rs",
+    "godot-rust/src/godot_bridge.rs",
+    "godot-rust/src/strategy/site_rule.rs",
+    "godot-rust/src/strategy/mod.rs",
+    "godot-rust/tests/save_migration.rs",
+    "content/characters/ayla.json",
+    "content/skills/",
+    "content/site_rules/",
+    "tools/src/validate.mjs",
+    "tools/src/build-content-bundle.mjs",
+    "game/generated/content_bundle.json",
+    "game/scripts/simulation/native_expedition_port.gd",
+    "game/scripts/battle/targeting_session.gd",
+    "game/tests/targeting_session_test.gd",
+    "docs/HEROINE_AYLA_DESIGN.md",
+    "docs/ARCHITECTURE.md"
+  ],
+  "symbols": [
+    "strategy::site_rule::SiteRuleEffect",
+    "strategy::site_rule::AuthoredSiteRule",
+    "strategy::site_rule::SiteRules",
+    "strategy::site_rule::ActiveSiteRule",
+    "battle::CampaignBattleSetup",
+    "battle::Battle::prototype_vertical_slice_from_campaign",
+    "battle::Battle::apply_status",
+    "battle::StatusKind::Staggered",
+    "battle::BattleEvent::SiteRuleOverridden",
+    "battle::BattleEvent::ActivationDenied",
+    "expedition::ExpeditionState.suppressed_site_rules",
+    "expedition::ExpeditionState.site_denial_charges",
+    "geography::CellDefinition.site_rule_ids",
+    "geography::LocationRecord.site_rule_ids"
+  ],
+  "coordination": {
+    "depends_on": [
+      "a5-bands-and-composure",
+      "a6-captain-michael-actor",
+      "a10-bond-rank-gate",
+      "b6-tomb-interior-cells",
+      "b17-battle-from-the-campaign",
+      "c5-tomb-dungeon"
+    ],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at cb4f57e. PR #2 (feature/ayla-bridge-art) cannot merge -- A5, A6 and A10 rewrote battle.rs under it -- so its diff is the specification and its eight tests are re-landed on the current engine with the current fixture. Lane S16 owns strategy/production.rs, tick.rs and building.rs and none of the three is touched here. expedition.rs takes two appended fields plus their initialisers at the end of new() and nothing else at that tail."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
