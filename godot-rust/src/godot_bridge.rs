@@ -637,6 +637,21 @@ fn world_event_dictionary(event: &WorldEvent) -> VarDictionary {
             result.set("monster", &materialized);
             result
         }
+        // S2 landed this variant while B3 was in flight; the match is
+        // exhaustive, so the merge could not compile without it. Shape as S2
+        // specified: the effective controller either side, "" for unheld.
+        WorldEvent::ControlChanged {
+            cell_id,
+            from,
+            to,
+            day,
+        } => vdict! {
+            "kind" => "control_changed",
+            "cell_id" => cell_id.as_str(),
+            "from" => from.as_deref().unwrap_or(""),
+            "to" => to.as_deref().unwrap_or(""),
+            "day" => i64::from(*day),
+        },
         WorldEvent::MidnightFlashEnded { day, monster_count } => vdict! {
             "kind" => "midnight_flash_ended",
             "day" => i64::from(*day),
