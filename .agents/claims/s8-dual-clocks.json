@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "task_id": "s8-dual-clocks",
+  "agent": "claude-code (lane S8)",
+  "summary": "Weather, corruption and the dual clocks: cthulhu_heat as its own dimension with its own inputs, a deterministic per-region daily weather step, accumulation-only cell corruption, the three confrontation triggers, and the state gate on Cthulhu assistance.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/clocks.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/tests/save_migration.rs"
+  ],
+  "symbols": [
+    "HeatEvent",
+    "ConfrontationTrigger",
+    "WeatherState",
+    "MAX_HEAT",
+    "ExpeditionState.cthulhu_heat",
+    "ExpeditionState.weather",
+    "ExpeditionState.corruption",
+    "ExpeditionState.record_heat_event",
+    "ExpeditionState.corrupt_cell",
+    "ExpeditionState.confrontation_is_triggered",
+    "ExpeditionState.cthulhu_assistance_weight",
+    "ExpeditionState.resolve_midnight_in"
+  ],
+  "coordination": {
+    "depends_on": [
+      "s1-faction-definition",
+      "s4-strategic-tick"
+    ],
+    "conflicts_with": [],
+    "notes": "expedition.rs: three serde(default) fields appended at the END of ExpeditionState's field list with their initialisers at the end of new()'s literal, plus one weather step inside resolve_midnight_in after S4's 24 strategic hours and before the character-scale Midnight Return. Other lanes appending fields to the same struct tail merge with this. save_migration.rs: EXPECTED_CURRENT_KEYS gains cthulhu_heat, weather and corruption in struct order. blocked: needs decision -- corruption reversibility/decay, Cthulhu early-elimination rules and summoning-interruption rules are Open (brief section 20); accumulation only is implemented and no decay path exists. needs authored id -- CONFRONTATION_DISCOVERY_ID is a placeholder constant, not an authored observation, until a C card authors the deliberate-discovery record. needs decision -- every heat amount and MAX_HEAT are provisional tuning (GAME_BUILD_PLAN.md forbids implementation inventing clock tuning); the shape is the deliverable, the numbers are not approved. The assistance event itself is S7/S10 territory; S8 ships only the gate."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
