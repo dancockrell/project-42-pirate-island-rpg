@@ -8,6 +8,7 @@ run/main_scene="res://scenes/world/expedition_prototype.tscn"
 [autoload]
 
 CampaignSession="*res://scripts/campaign/campaign_session.gd"
+ContentPackRegistry="*res://scripts/content/pack_registry.gd"
 
 [display]
 window/size/viewport_width=1920
