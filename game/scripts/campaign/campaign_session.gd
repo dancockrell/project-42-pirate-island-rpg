@@ -70,8 +70,26 @@ func inspect(observation_id: String) -> Dictionary:
 func resolve_midnight() -> Dictionary:
 	if expedition == null:
 		return unavailable_state()
+	var refusal := advance_refused_while_paused()
+	if not refusal.is_empty():
+		return refusal
 	latest_snapshot = expedition.resolve_midnight()
 	return latest_snapshot.duplicate(true)
+
+
+## The single guard on advancing campaign time. Rust owns no pause: there is no
+## `paused` field in `ExpeditionState` and no host clock, so a paused game is
+## exactly a game whose bridge is not called, and this is the one call that
+## advances the strategic clock. Returns an empty dictionary while time may
+## advance, and the session's own refusal dictionary -- the same shape every
+## other refusal here uses -- while it may not.
+func advance_refused_while_paused() -> Dictionary:
+	var game_pause := get_node_or_null("/root/GamePause")
+	if game_pause == null or not game_pause.is_paused():
+		return {}
+	var refusal := unavailable_state()
+	refusal["error"] = "game_paused"
+	return refusal
 
 
 func snapshot() -> Dictionary:

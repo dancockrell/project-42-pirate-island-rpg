@@ -8,6 +8,7 @@ run/main_scene="res://scenes/world/expedition_prototype.tscn"
 [autoload]
 
 CampaignSession="*res://scripts/campaign/campaign_session.gd"
+GamePause="*res://scripts/campaign/game_pause.gd"
 
 [display]
 window/size/viewport_width=1920
