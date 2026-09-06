@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "task_id": "p5-grammar-and-surface",
+  "agent": "claude-code (lane P5)",
+  "summary": "P5: one owner for the bronze-and-vellum palette and type scale (game/themes/bronze_vellum.tres), the reusable UI components D11's rail and command grid become, and the calm information surface B13 asks for -- Ambient, Notable, Urgent by explicit rule, S6's explanation before a directive is confirmed, S11's journal readable while paused, and B9's three accessibility settings applied live through the Theme.",
+  "status": "active",
+  "claimed_at": "2026-09-06T12:00:00Z",
+  "updated_at": "2026-09-06T12:00:00Z",
+  "paths": [
+    "game/themes/",
+    "game/scripts/ui/",
+    "game/scripts/surface/",
+    "game/scripts/review/grammar_review.gd",
+    "game/scenes/review/grammar_review.tscn",
+    "game/scenes/ui/",
+    "game/tests/information_surface_test.gd",
+    "godot-rust/src/godot_bridge.rs",
+    "game/project.godot",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "ThemeTokens",
+    "VellumPanel",
+    "VellumCard",
+    "VellumCardRail",
+    "VellumCommandDiamond",
+    "VellumCommandGrid",
+    "VellumNotice",
+    "VellumTooltip",
+    "VellumJournalEntry",
+    "InformationSurface",
+    "Project42ExpeditionBridge.strategic_surface"
+  ],
+  "coordination": {
+    "depends_on": [
+      "s6-directives",
+      "s11-event-journal",
+      "b9-pause-and-settings"
+    ],
+    "conflicts_with": [],
+    "notes": "game/project.godot takes one appended autoload at the END of [autoload]. godot_bridge.rs takes one read-only #[func] appended at the END of the Project42ExpeditionBridge impl block plus its projection helpers after the existing free functions; nothing existing is edited. settings_panel.gd keeps its whole public API (PAUSE_REASON, SETTINGS_PATH, text_scale, high_contrast, reduced_motion, set_*, load_settings, save_settings, close, close_button) and stops declaring its own hex values -- the Theme owns them after this card. The two prototypes (world/expedition_prototype.gd, battle/battle_prototype.gd, paper_card.gd, paper_skill_diamond.gd) are NOT edited: they adopt the Theme in P6 and P7."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
