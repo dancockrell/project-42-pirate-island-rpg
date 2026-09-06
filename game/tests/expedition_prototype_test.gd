@@ -10,6 +10,15 @@ extends SceneTree
 ## change to the rule that did not reach the screen fails here.
 const CONTESTED_RISK_MODIFIER := 2
 
+## The one legal departure from Black Beach on day one, and where it lands. The
+## RTS block below orders that same move three different ways and holds all
+## three to this destination.
+const BEACH_DEPARTURE := "world.portal.black_beach_to_damaged_estate"
+const BEACH_DESTINATION := "world.cell.damaged_estate"
+## No road leaves the beach for the terrace: it is two cells away. Ordering a
+## move there is the refusal case.
+const UNREACHABLE_TILE := "world.cell.reception_terrace"
+
 var failures := 0
 
 
@@ -132,7 +141,95 @@ func _init() -> void:
 	check("HOUSEHOLD RESULT" in reloaded_expedition.make_description(estate, estate_copy), "The Estate must project its authored response to the native household upgrade")
 	check("RIVER GATE ALARM" in reloaded_expedition.initial_status_message(estate_copy), "The Estate status must name the unlocked household change")
 	reloaded_expedition.queue_free()
+	await process_frame
+	# B18: RTS controls. The same order -- move to the Damaged Estate -- given
+	# three ways, from three fresh campaigns, must land on the same cell. Each
+	# run resets the session so the party is back on the beach with the same one
+	# legal departure, which is what makes "the same order" a fair comparison.
+	var by_words: ExpeditionPrototype = await fresh_expedition(scene)
+	check(by_words.get_authoritative_snapshot().get("active_location_id") == "world.cell.black_beach", "a reset session must put the party back on the beach")
+	var words_button := by_words.get_route_button(BEACH_DEPARTURE)
+	check(words_button != null, "the beach departure must be drawn as a route entry")
+	check(words_button != null and words_button.text.begins_with("[1]"), "a route entry must show the digit that issues it")
+	if words_button != null:
+		words_button.pressed.emit()
+	check(by_words.get_authoritative_snapshot().get("active_location_id") == BEACH_DESTINATION, "the words must issue the move order")
+	by_words.queue_free()
+	await process_frame
+
+	var by_hotkey: ExpeditionPrototype = await fresh_expedition(scene)
+	var hotkey_portals: Array[String] = by_hotkey.route_hotkey_portal_ids()
+	check(hotkey_portals.size() == 1 and hotkey_portals[0] == BEACH_DEPARTURE, "the hotkey order must be the route list's own order")
+	var hotkey_result: Dictionary = by_hotkey.press_route_hotkey(1)
+	check(bool(hotkey_result.get("configured", false)), "hotkey 1 must be accepted by the native bridge")
+	check(by_hotkey.get_authoritative_snapshot().get("active_location_id") == BEACH_DESTINATION, "the hotkey must land where the words land")
+	var no_such_key: Dictionary = by_hotkey.press_route_hotkey(9)
+	check(not bool(no_such_key.get("configured", true)), "a digit with no route on it must be refused, not guessed at")
+	check(by_hotkey.get_authoritative_snapshot().get("active_location_id") == BEACH_DESTINATION, "a refused hotkey must not move the party")
+	by_hotkey.queue_free()
+	await process_frame
+
+	var by_tile: ExpeditionPrototype = await fresh_expedition(scene)
+	var board: ExpeditionRouteBoard = by_tile.route_board
+	check(board.tile_at_point(tile_point(board, BEACH_DESTINATION)) == BEACH_DESTINATION, "a click on a tile must hit that tile")
+	check(board.tile_at_point(tile_point(board, UNREACHABLE_TILE)) == UNREACHABLE_TILE, "two tiles must not answer for one another")
+	check(board.is_reachable(BEACH_DESTINATION), "the tile the one legal departure lands on must tint as reachable")
+	check(not board.is_reachable(UNREACHABLE_TILE), "a tile no legal departure reaches must not tint as reachable")
+	check(board.portal_to_cell(BEACH_DESTINATION) == BEACH_DEPARTURE, "the tile order must resolve to the legal portal, not to a rule of its own")
+	# The whole snapshot as text: Dictionary equality in GDScript is not a
+	# content comparison, and "nothing moved" has to mean every field.
+	var standing := JSON.stringify(by_tile.get_authoritative_snapshot())
+	# Left-click never travels: not on an unreachable tile, not on a reachable
+	# one, and not on the party's own tile.
+	click_tile(board, UNREACHABLE_TILE, MOUSE_BUTTON_LEFT)
+	click_tile(board, BEACH_DESTINATION, MOUSE_BUTTON_LEFT)
+	click_tile(board, "world.cell.black_beach", MOUSE_BUTTON_LEFT)
+	check(by_tile.get_authoritative_snapshot().get("active_location_id") == "world.cell.black_beach", "a left-click must never travel")
+	check(by_tile.selected_cell_id == "world.cell.black_beach", "a left-click must leave the tile it hit selected")
+	# A right-click on a tile no legal road reaches is refused and the snapshot
+	# is untouched -- the bridge is never called at all.
+	click_tile(board, UNREACHABLE_TILE, MOUSE_BUTTON_RIGHT)
+	check(JSON.stringify(by_tile.get_authoritative_snapshot()) == standing, "a right-click on an unreachable tile must leave the snapshot exactly as it was")
+	var refused_order: Dictionary = by_tile.order_move_to_tile(UNREACHABLE_TILE)
+	check(not bool(refused_order.get("configured", true)), "an unreachable tile must be refused by name")
+	click_tile(board, BEACH_DESTINATION, MOUSE_BUTTON_RIGHT)
+	check(by_tile.get_authoritative_snapshot().get("active_location_id") == BEACH_DESTINATION, "a right-click on a reachable tile must land where the words and the hotkey land")
+	check(by_tile.selected_cell_id == BEACH_DESTINATION, "arriving must put the selection back on the party")
+	by_tile.queue_free()
+	await process_frame
+	session_owner().reset_for_test()
 	finish()
+
+
+## A campaign that has just begun, on a screen that has just been built. The
+## session is dropped first so every RTS run starts from the same day one.
+func fresh_expedition(scene: PackedScene) -> ExpeditionPrototype:
+	session_owner().reset_for_test()
+	var expedition := scene.instantiate() as ExpeditionPrototype
+	root.add_child(expedition)
+	await process_frame
+	return expedition
+
+
+func session_owner() -> Node:
+	return root.get_node("CampaignSession")
+
+
+## Where a tile is drawn, in the board's own coordinates. Read from the board's
+## island rectangle rather than recomputed here, so the suite clicks exactly
+## where the player sees the tile whatever size the board was laid out at.
+func tile_point(board: ExpeditionRouteBoard, cell_id: String) -> Vector2:
+	var island: Rect2 = board.island_rect()
+	return island.position + island.size * (ExpeditionRouteBoard.NODE_POSITIONS[cell_id] as Vector2)
+
+
+## A real mouse button on the board, through the board's own input handler.
+func click_tile(board: ExpeditionRouteBoard, cell_id: String, button_index: int) -> void:
+	var event := InputEventMouseButton.new()
+	event.position = tile_point(board, cell_id)
+	event.button_index = button_index
+	event.pressed = true
+	board._gui_input(event)
 
 
 func catalog_record(expedition: ExpeditionPrototype, record_id: String) -> Dictionary:

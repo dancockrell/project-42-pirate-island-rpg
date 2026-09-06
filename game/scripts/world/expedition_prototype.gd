@@ -4,6 +4,14 @@ extends Control
 ## First chapter travel front end. Rust owns campaign state and legal portal
 ## commands. This screen resolves cell descriptions and route labels from the
 ## content catalog, then projects the native snapshot without adding rules.
+##
+## B18, the owner's direction: it is an RTS under the hood, so it takes RTS
+## orders. There are three ways to give the same one and they are all the same
+## code -- left-click a tile to select, right-click a tile to move there, press
+## the digit shown on a route entry, or press the entry itself. Each ends in
+## `request_travel`, the single path to the bridge, and none of them decides
+## whether the road exists: the native `legal_route_commands` list does, and the
+## board's tile-to-portal lookup only re-reads that list by destination.
 
 const RouteBoardScript = preload("res://scripts/world/expedition_route_board.gd")
 
@@ -27,6 +35,11 @@ var route_list: VBoxContainer
 var action_list: VBoxContainer
 var status_label: Label
 var route_board: ExpeditionRouteBoard
+
+## The tile the player has selected. The party's own tile means the party is
+## selected; any other tile is a target being inspected. Selecting never moves
+## anything, and every projected snapshot puts the selection back on the party.
+var selected_cell_id := ""
 
 
 func _ready() -> void:
@@ -67,6 +80,8 @@ func build_screen() -> void:
 	route_board.name = "ExpeditionRouteBoard"
 	route_board.custom_minimum_size = Vector2(1060, 700)
 	route_board.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	route_board.tile_selected.connect(on_board_tile_selected)
+	route_board.move_ordered.connect(on_board_move_ordered)
 	content_row.add_child(route_board)
 	content_row.add_child(build_location_panel())
 	page.add_child(build_footer())
@@ -152,6 +167,8 @@ func project_snapshot(snapshot: Dictionary, message: String) -> void:
 	route_board.configure(catalog, snapshot)
 	populate_routes(cell, snapshot)
 	populate_actions(cell, snapshot)
+	selected_cell_id = str(snapshot.get("active_location_id", ""))
+	route_board.set_selected_cell(selected_cell_id)
 	status_label.text = message
 
 
@@ -261,9 +278,14 @@ func populate_routes(cell: Dictionary, snapshot: Dictionary) -> void:
 		button.name = "Route_" + portal_id.replace(".", "_")
 		button.set_meta("portal_id", portal_id)
 		button.custom_minimum_size.y = 64
-		button.text = "%s\n%s  •  %s  •  ARRIVAL SAVE" % [str(target.get("displayName", "UNKNOWN DESTINATION")).to_upper(), travel_mode, risk_text]
+		# The digit is the same order this loop draws in, so the hotkey a player
+		# reads on the entry is by construction the index `press_route_hotkey`
+		# resolves. Past nine there is no key to show and none is claimed.
+		var hotkey_badge := ("[%d]  •  " % visible_count) if visible_count <= 9 else ""
+		button.text = "%s%s\n%s  •  %s  •  ARRIVAL SAVE" % [hotkey_badge, str(target.get("displayName", "UNKNOWN DESTINATION")).to_upper(), travel_mode, risk_text]
 		var contested_note := "  (contested: the endpoints are held by different parties)" if contested else ""
-		button.tooltip_text = "Authoritative portal: %s\nFrom: %s\nTo: %s\nTravel mode: %s\nRisk now: %d%s" % [portal_id, str(cell.get("id", "")), str(target.get("id", "")), travel_mode, risk_level, contested_note]
+		var hotkey_note := ("\nHotkey: %d   (or right-click the destination tile)" % visible_count) if visible_count <= 9 else "\n(right-click the destination tile)"
+		button.tooltip_text = "Authoritative portal: %s\nFrom: %s\nTo: %s\nTravel mode: %s\nRisk now: %d%s%s" % [portal_id, str(cell.get("id", "")), str(target.get("id", "")), travel_mode, risk_level, contested_note, hotkey_note]
 		button.add_theme_font_size_override("font_size", 14)
 		button.add_theme_stylebox_override("normal", make_route_box(Color("1a322e"), BRONZE))
 		button.add_theme_stylebox_override("hover", make_route_box(Color("22443d"), TEAL))
@@ -331,19 +353,150 @@ func readable_id(stable_id: String) -> String:
 	return stable_id.replace(".", " ").replace("_", " ").strip_edges().to_upper()
 
 
-func request_travel(portal_id: String) -> void:
+## The one path to the bridge for movement. The words, a right-click on a tile
+## and a hotkey all arrive here; there is no second traveller.
+func request_travel(portal_id: String) -> Dictionary:
 	if campaign_session == null:
-		return
+		return refusal("campaign_session_unavailable")
 	var result: Dictionary = campaign_session.travel(portal_id)
 	if not bool(result.get("configured", false)):
 		status_label.text = "TRAVEL REFUSED  •  %s" % str(result.get("error", "unknown_error")).to_upper()
-		return
+		return result
 	var destination := catalog.get_record(str(result.get("active_location_id", "")))
 	var pending_encounter: Dictionary = result.get("pending_encounter", {})
 	var message := "ARRIVED  •  %s" % str(destination.get("displayName", "UNKNOWN LOCATION")).to_upper()
 	if not pending_encounter.is_empty():
 		message = "CONTACT  •  %s" % str(pending_encounter.get("encounter_id", "UNKNOWN ENCOUNTER")).replace("encounter.", "").replace("_", " ").to_upper()
 	project_snapshot(result, message)
+	return result
+
+
+# ---------------------------------------------------------------------------
+# B18: RTS controls.
+#
+# Select, then order. The three ways to order the same move -- right-click a
+# tile, press the digit on a route entry, press the entry itself -- are three
+# doors into `request_travel` and nothing more. The mouse and key handlers below
+# are the doors; `select_tile`, `order_move_to_tile` and `press_route_hotkey`
+# are the rooms, and a test walks into the rooms directly so the suite needs no
+# real mouse. Nothing here judges whether a road exists: `order_move_to_tile`
+# asks the board for the legal portal that lands on that tile, and the board's
+# answer is the native `legal_route_commands` list re-keyed by destination.
+# ---------------------------------------------------------------------------
+
+
+## Whether input should be dropped on the floor right now. Brief section 14:
+## while the game is paused, local movement stops. Godot already stops feeding a
+## paused tree's controls, so this is belt as well as braces -- but it is the
+## explicit statement, and it is read by every RTS door.
+func input_is_ignored() -> bool:
+	if not is_inside_tree():
+		return true
+	var game_pause := get_node_or_null("/root/GamePause")
+	return game_pause != null and game_pause.is_paused()
+
+
+func on_board_tile_selected(cell_id: String) -> void:
+	if input_is_ignored():
+		return
+	select_tile(cell_id)
+
+
+func on_board_move_ordered(cell_id: String) -> void:
+	if input_is_ignored():
+		return
+	order_move_to_tile(cell_id)
+
+
+## Digits 1-9 issue the order the route entry carrying that digit issues. The
+## number row and the keypad both count.
+func _unhandled_key_input(event: InputEvent) -> void:
+	if input_is_ignored():
+		return
+	var key := event as InputEventKey
+	if key == null or not key.pressed or key.echo:
+		return
+	var digit := hotkey_digit(key.keycode)
+	if digit == 0:
+		return
+	get_viewport().set_input_as_handled()
+	press_route_hotkey(digit)
+
+
+## 1 through 9, or 0 for a key that is not one of them.
+static func hotkey_digit(keycode: Key) -> int:
+	if keycode >= KEY_1 and keycode <= KEY_9:
+		return int(keycode) - int(KEY_0)
+	if keycode >= KEY_KP_1 and keycode <= KEY_KP_9:
+		return int(keycode) - int(KEY_KP_0)
+	return 0
+
+
+## Left-click. Selecting a tile is inspection and never movement: the party's
+## own tile means the party is selected, any other tile becomes the target being
+## looked at, and the status line says which and whether a road reaches it.
+func select_tile(cell_id: String) -> void:
+	if route_board == null or not ExpeditionRouteBoard.NODE_POSITIONS.has(cell_id):
+		return
+	selected_cell_id = cell_id
+	route_board.set_selected_cell(cell_id)
+	var display := str(catalog.get_record(cell_id).get("displayName", cell_id)).to_upper()
+	if cell_id == str(latest_snapshot.get("active_location_id", "")):
+		status_label.text = "SELECTED  •  PARTY AT %s" % display
+		return
+	if route_board.is_reachable(cell_id):
+		status_label.text = "TARGET  •  %s  •  RIGHT-CLICK TO ORDER THE MOVE" % display
+		return
+	status_label.text = "TARGET  •  %s  •  NO LEGAL ROAD FROM HERE" % display
+
+
+## Right-click. Orders the party to the named tile along the legal portal that
+## reaches it. An unreachable tile is refused in the status line and the bridge
+## is never called, so the snapshot does not move.
+func order_move_to_tile(cell_id: String) -> Dictionary:
+	if route_board == null:
+		return refusal("route_board_unavailable")
+	var portal_id := route_board.portal_to_cell(cell_id)
+	if portal_id.is_empty():
+		var display := str(catalog.get_record(cell_id).get("displayName", cell_id)).to_upper()
+		status_label.text = "ORDER REFUSED  •  NO LEGAL ROAD TO %s" % display
+		return refusal("no_legal_route_to_cell")
+	return request_travel(portal_id)
+
+
+## The portals the route list is currently offering, in the order it drew them.
+## The digit on an entry is its position in this array, which is why the badge
+## and the hotkey cannot disagree.
+func route_hotkey_portal_ids() -> Array[String]:
+	var portal_ids: Array[String] = []
+	if route_list == null:
+		return portal_ids
+	for child in route_list.get_children():
+		if child.is_queued_for_deletion():
+			continue
+		var portal_id := str(child.get_meta("portal_id", ""))
+		if not portal_id.is_empty():
+			portal_ids.append(portal_id)
+	return portal_ids
+
+
+## A hotkey press, 1-based, in the route list's own order.
+func press_route_hotkey(index: int) -> Dictionary:
+	var portal_ids := route_hotkey_portal_ids()
+	if index < 1 or index > portal_ids.size():
+		status_label.text = "NO ROUTE ON KEY %d" % index
+		return refusal("no_route_on_that_key")
+	return request_travel(portal_ids[index - 1])
+
+
+## A refusal raised by this screen rather than by the bridge, in the one shape
+## the whole expedition boundary uses.
+func refusal(reason: String) -> Dictionary:
+	return {
+		"configured": false,
+		"error": reason,
+		"metadata": {"source": "expedition_prototype", "authoritative": false}
+	}
 
 
 ## The one "do something here" verb, driven through the authoritative
