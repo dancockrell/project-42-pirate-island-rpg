@@ -26,15 +26,15 @@
       "c-content-and-validator"
     ],
     "conflicts_with": [],
-    "notes": "content/skills/captain.weapon_attack.json and captain.reposition.json (C4) own the numbers; Rust mirrors them and tests hold the two equal. Does not touch expedition.rs or geography.rs (lane A4), docs/SHIP_PLAN.md, game/ or content/. Reported, not fixed: captain.reposition.json authors requiresUnoccupiedBand: true, which the five-band model does not support (A5's fixture stands two party members in PartyFront), so occupancy does not gate the move; and content/characters/captain.json's displayName is \"Michael Corrigan\" while the brief and the A6 card name the actor \"Captain Michael\". Both belong to the content lane."
+    "notes": "content/skills/captain.weapon_attack.json and captain.reposition.json (C4) own the numbers; Rust mirrors them and tests hold the two equal. Does not touch expedition.rs or geography.rs (lane A4), docs/SHIP_PLAN.md, game/ or content/. Reported, not fixed: captain.reposition.json authors requiresUnoccupiedBand: true, which the five-band model does not support (A5's fixture stands two party members in PartyFront), so occupancy does not gate the move; and content/characters/captain.json's displayName is \"Michael Corrigan\" while the brief and the A6 card name the actor \"Captain Michael\". Both belong to the content lane. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "completion": {
     "commit": "5b1565c",
     "checks": [
       "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
-      "cargo test --manifest-path godot-rust/Cargo.toml: passed (142 lib, 4 save_migration, 1 vertical_slice)",
+      "cargo test --manifest-path godot-rust/Cargo.toml (142 lib, 4 save_migration, 1 vertical_slice): passed",
       "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
-      "node tools/src/validate.mjs: passed (178 stable IDs, 9 skills)",
+      "node tools/src/validate.mjs (178 stable IDs, 9 skills): passed",
       "deliberate break: reposition_destination let Contested step to EnemyFront -- captain_reposition_from_a_forbidden_band_is_rejected_without_mutation failed on the missing RepositionNotLegal, then passed once restored: passed",
       "deliberate break: the weapon-attack damage arm set to 9+level instead of the authored 10 -- captain_weapon_attack_deals_its_authored_damage failed, then passed once restored: passed"
     ]

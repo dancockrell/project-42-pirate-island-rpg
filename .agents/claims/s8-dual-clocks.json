@@ -31,21 +31,21 @@
       "s4-strategic-tick"
     ],
     "conflicts_with": [],
-    "notes": "expedition.rs: three serde(default) fields appended at the END of ExpeditionState's field list with their initialisers at the end of new()'s literal, plus one weather step inside resolve_midnight_in after S4's 24 strategic hours and before the character-scale Midnight Return. Other lanes appending fields to the same struct tail merge with this. save_migration.rs: EXPECTED_CURRENT_KEYS gains cthulhu_heat, weather and corruption in struct order. blocked: needs decision -- corruption reversibility/decay, Cthulhu early-elimination rules and summoning-interruption rules are Open (brief section 20); accumulation only is implemented and no decay path exists. needs authored id -- CONFRONTATION_DISCOVERY_ID is a placeholder constant, not an authored observation, until a C card authors the deliberate-discovery record. needs decision -- every heat amount and MAX_HEAT are provisional tuning (GAME_BUILD_PLAN.md forbids implementation inventing clock tuning); the shape is the deliverable, the numbers are not approved. The assistance event itself is S7/S10 territory; S8 ships only the gate."
+    "notes": "expedition.rs: three serde(default) fields appended at the END of ExpeditionState's field list with their initialisers at the end of new()'s literal, plus one weather step inside resolve_midnight_in after S4's 24 strategic hours and before the character-scale Midnight Return. Other lanes appending fields to the same struct tail merge with this. save_migration.rs: EXPECTED_CURRENT_KEYS gains cthulhu_heat, weather and corruption in struct order. blocked: needs decision -- corruption reversibility/decay, Cthulhu early-elimination rules and summoning-interruption rules are Open (brief section 20); accumulation only is implemented and no decay path exists. needs authored id -- CONFRONTATION_DISCOVERY_ID is a placeholder constant, not an authored observation, until a C card authors the deliberate-discovery record. needs decision -- every heat amount and MAX_HEAT are provisional tuning (GAME_BUILD_PLAN.md forbids implementation inventing clock tuning); the shape is the deliverable, the numbers are not approved. The assistance event itself is S7/S10 territory; S8 ships only the gate. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "completion": {
     "commit": "5f986ff",
     "checks": [
       "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
-      "cargo test --manifest-path godot-rust/Cargo.toml: passed (208 unit + 3 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice)",
+      "cargo test --manifest-path godot-rust/Cargo.toml (208 unit + 3 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice): passed",
       "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
-      "node tools/src/validate.mjs: passed (200 stable IDs)",
+      "node tools/src/validate.mjs (200 stable IDs): passed",
       "Required test (contract wording) thirty_midnights_do_not_move_hidden_pressure: passed",
       "Done-when: pressure and day advance independently: passed",
       "Done-when: an assistance event never fires for a Desperate Cthulhu (assistance_is_weighted_only_for_a_winning_cthulhu): passed",
       "Determinism: two midnights from the same save draw the same weather, and the whole save is byte-identical: passed",
-      "S4 unaffected: strategic_determinism.rs 7/7 still pass with the weather step inside midnight",
-      "Bite proof: `self.cthulhu_heat += 1` added to resolve_midnight_in failed thirty_midnights_do_not_move_hidden_pressure (left 30, right 0) and nothing else; restored and re-verified green"
+      "S4 unaffected -- strategic_determinism.rs 7/7 still pass with the weather step inside midnight: passed",
+      "Bite proof: `self.cthulhu_heat += 1` added to resolve_midnight_in failed thirty_midnights_do_not_move_hidden_pressure (left 30, right 0) and nothing else; restored and re-verified green: passed"
     ]
   }
 }

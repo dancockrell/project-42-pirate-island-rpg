@@ -30,18 +30,18 @@
       "b3-b4-legal-commands-and-controls"
     ],
     "conflicts_with": [],
-    "notes": "Bridge-side only. geography.rs, expedition.rs, strategy/, content/, tools/ and docs/SHIP_PLAN.md are untouched; the derived risk is never stored in GDScript."
+    "notes": "Bridge-side only. geography.rs, expedition.rs, strategy/, content/, tools/ and docs/SHIP_PLAN.md are untouched; the derived risk is never stored in GDScript. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "completion": {
     "commit": "4bdbfb0cca32e0b376b060a37fbcaa772cdee2cd",
     "checks": [
       "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
-      "cargo test --manifest-path godot-rust/Cargo.toml: passed (183 unit, 4 authored_world, 5 save_migration, 1 vertical_slice)",
+      "cargo test --manifest-path godot-rust/Cargo.toml (183 unit, 4 authored_world, 5 save_migration, 1 vertical_slice): passed",
       "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
-      "node tools/src/validate.mjs: passed (194 stable IDs)",
+      "node tools/src/validate.mjs (194 stable IDs): passed",
       "bite proof: forcing CONTESTED_RISK_MODIFIER to 0 fails holding_the_river_landing_contests_the_safe_road_and_releasing_it_does_not; the constant was restored: passed",
       "CI Verify run 34009522411 on 4bdbfb0, both jobs success: \"Rust and content\" passed and \"Godot headless suites\" passed with \"Expedition prototype tests passed.\", no ERROR line, and \"Real Rust bridge confirmed: all three native suites reported a pass.\": passed",
-      "godot headless suites locally: not_run (no Godot in this environment; CI run 34009522411 is the verification)"
+      "godot headless suites locally (no Godot in this environment; CI run 34009522411 is the verification): not_run"
     ]
   }
 }

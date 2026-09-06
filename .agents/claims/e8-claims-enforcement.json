@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "task_id": "e8-claims-enforcement",
+  "agent": "claude-code-agent-E8",
+  "summary": "E8: tools/src/check-claims.mjs makes the claims ledger and the ship-plan ledger a CI gate",
+  "status": "completed",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "tools/src/check-claims.mjs",
+    ".github/workflows/verify.yml",
+    ".agents/README.md",
+    ".agents/claims/",
+    "docs/SHIP_PLAN.md"
+  ],
+  "symbols": [],
+  "coordination": {
+    "depends_on": [
+      "e1-ci-rust-and-content"
+    ],
+    "conflicts_with": [],
+    "notes": "Touches docs/SHIP_PLAN.md only to correct a status/sha mismatch the new script proves wrong, and .agents/claims/*.json only to correct records the script proves wrong. No scope or prose changes. Touches nothing under godot-rust/, content/ or game/. Corrections this lane made, all of them records the script proved wrong and none of them a relaxed check: 94 completion.checks entries across 25 claims did not end in a verdict (67 carried one mid-string, 27 carried none) and were rewritten to end in passed/failed/not_run with wording and numbers preserved; documentation-consolidation.json used +00:00 offsets instead of Z; A2 card said open while its row said shipped c1804ea; C1, C2, C4 and E4 had no Status: line; 22 rows (B1, B2, B6, B7, B8, C3, C7, D1-D8, D11, E1, E3, E7, H5, H6, H8) had no card and were given one that restates the row and nothing more; H7 recorded shipped e387d29, a dr-companion commit that exists nowhere here, and the row now says so. Trunk merged into the lane after the first push; b5-michael-card-bands-composure, c6-relationship-scenes and s3-buildings had landed meanwhile with the same verdict-placement defect and were corrected the same way."
+  },
+  "completion": {
+    "commit": "e7a7b75fc685891d181d39c0c56003c3765ff0c6",
+    "checks": [
+      "node tools/src/check-claims.mjs on the committed tree (32 claims checked, 86 ship-plan rows checked, 80 cards read): passed",
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check (no output): passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (260 lib, 5 authored_world, 5 save_migration, 7 strategic_determinism, 1 vertical_slice, 0 doc-tests): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext (40.4s from a cold target dir): passed",
+      "node tools/src/validate.mjs (200 stable IDs, 12 placeholders tracked): passed",
+      "bite -- a fixture claim zz-bite-fixture.json with completion.commit deadbeef: the gate exits 1 with \"completion.commit deadbeef is not a commit in this repository\"; fixture removed: passed",
+      "bite -- the A2 row s sha changed from c1804ea to another valid sha 6b9d275: the gate exits 1 with \"row A2 is shipped 6b9d275 but its card s Status: line (line 508) names c1804ea\"; restored: passed",
+      "bite -- the \"### B6\" card heading deleted: the gate exits 1 with \"row B6 has status open and no card\"; restored: passed",
+      "python3 yaml.safe_load of .github/workflows/verify.yml (11 steps in rust-and-content, the new one after Validate content, checkout with fetch-depth 0): passed",
+      "the dangle sweep from SHIP_PLAN section 8 (no output): passed",
+      "the CI job itself -- GitHub Actions cannot run in this container; the first run on the pushed branch is the proof: not_run",
+      "CI Verify run 34015756263 on da32d95 -- step \"Enforce the claims and ship-plan ledgers\" ran after \"Validate content\" and both jobs are green: passed",
+      "after merging trunk (S3, C6, B5) into this lane and correcting their three claims: node tools/src/check-claims.mjs (35 claims, 86 rows, 80 cards), cargo fmt --check, cargo test (271 lib + 5 + 5 + 7 + 1), cargo check --features godot-ext, node tools/src/validate.mjs (210 stable IDs), node tools/src/build-content-bundle.mjs with git diff --exit-code game/generated/ clean, and the section-8 dangle sweep silent: passed"
+    ]
+  }
+}

@@ -25,18 +25,18 @@
       "A6"
     ],
     "conflicts_with": [],
-    "notes": "Only one addition in godot-rust/src/battle.rs (Michael in the slice) plus the tests that read the fixture: A6's captain() fixture now reads him out of the slice rather than restating his stats, two turn-cycle tests play his turn, and a new test holds the fixture at five actors. mock_simulation_port.gd gained the statuses key so the mock and the bridge agree on the actor dictionary shape; it gained no behaviour. No other file under game/ is touched."
+    "notes": "Only one addition in godot-rust/src/battle.rs (Michael in the slice) plus the tests that read the fixture: A6's captain() fixture now reads him out of the slice rather than restating his stats, two turn-cycle tests play his turn, and a new test holds the fixture at five actors. mock_simulation_port.gd gained the statuses key so the mock and the bridge agree on the actor dictionary shape; it gained no behaviour. No other file under game/ is touched. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "completion": {
     "commit": "9320bd203edd0c3646b7efbcafeedb1b86f67fe5",
     "checks": [
       "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
-      "cargo test --manifest-path godot-rust/Cargo.toml: passed (261 lib tests, 5+5+7+1 integration)",
+      "cargo test --manifest-path godot-rust/Cargo.toml (261 lib tests, 5+5+7+1 integration): passed",
       "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
-      "node tools/src/validate.mjs: passed (200 stable IDs)",
-      "node tools/src/build-content-bundle.mjs: passed, committed bundle unchanged",
-      "CI Verify run 34016010858 on 9320bd2: Rust and content passed; Godot headless suites passed -- 17 suites, \"BattlePrototype turn-cycle test passed.\", \"NativeSimulationPort tests passed.\", no ERROR line, no fallback marker",
-      "bite: Michael removed from prototype_vertical_slice() fails the_prototype_fixture_stands_five_actors_including_the_captain (left 4, right 5) and twelve further tests including every A6 Captain test; restored and re-run green"
+      "node tools/src/validate.mjs (200 stable IDs): passed",
+      "node tools/src/build-content-bundle.mjs (committed bundle unchanged): passed",
+      "CI Verify run 34016010858 on 9320bd2 -- Rust and content green; Godot headless suites green: 17 suites, \"BattlePrototype turn-cycle test passed.\", \"NativeSimulationPort tests passed.\", no ERROR line, no fallback marker: passed",
+      "bite: Michael removed from prototype_vertical_slice() fails the_prototype_fixture_stands_five_actors_including_the_captain (left 4, right 5) and twelve further tests including every A6 Captain test; restored and re-run green: passed"
     ]
   }
 }

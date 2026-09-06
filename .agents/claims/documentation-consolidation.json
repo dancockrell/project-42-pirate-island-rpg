@@ -4,8 +4,8 @@
   "agent": "Codex GitHub documentation audit",
   "summary": "Consolidate current autonomous RTS direction and label earlier side-view prototype contracts",
   "status": "completed",
-  "claimed_at": "2026-09-05T06:30:05.179875+00:00",
-  "updated_at": "2026-09-05T06:33:48.969984+00:00",
+  "claimed_at": "2026-09-05T06:30:05Z",
+  "updated_at": "2026-09-05T06:33:48Z",
   "paths": [
     "README.md",
     "docs/GAME_BUILD_PLAN.md",
@@ -23,7 +23,7 @@
   "coordination": {
     "depends_on": [],
     "conflicts_with": [],
-    "notes": "Reviewed PRs 2, 3 and 4. PR 3 contains the newer continuation brief and expedition work. Preserve those branches and runtime work; this changes main documentation only and identifies integration requirements."
+    "notes": "Reviewed PRs 2, 3 and 4. PR 3 contains the newer continuation brief and expedition work. Preserve those branches and runtime work; this changes main documentation only and identifies integration requirements. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged. 2026-09-06 (E8): claimed_at/updated_at rewritten from a +00:00 offset to the Z form the schema requires; the instants are unchanged."
   },
   "completion": {
     "commit": "e77c9e6e00aa3f66232ffa5fd96164b1db684492",
@@ -32,7 +32,7 @@
       "New relative Markdown links against tracked Git tree: passed",
       "Commit secret-scanning hook: passed",
       "Manual review against user direction and open PR scope: passed",
-      "Application/runtime suites: not_run (documentation-only change)"
+      "Application/runtime suites (documentation-only change): not_run"
     ]
   }
 }

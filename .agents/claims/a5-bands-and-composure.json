@@ -28,13 +28,13 @@
       "A1"
     ],
     "conflicts_with": [],
-    "notes": "Reads content/skills/betty.*.json for bondRank but edits nothing outside the two owned Rust files. Does not edit docs/SHIP_PLAN.md (SS 8 rule). No Composure costs attached to existing skills -- A6/A9 own those numbers. Repaired one caller outside the two owned files: godot-rust/tests/vertical_slice.rs constructs Actor literally and had the same wrong fixture bands (Betty 0, Razorbeak 1)."
+    "notes": "Reads content/skills/betty.*.json for bondRank but edits nothing outside the two owned Rust files. Does not edit docs/SHIP_PLAN.md (SS 8 rule). No Composure costs attached to existing skills -- A6/A9 own those numbers. Repaired one caller outside the two owned files: godot-rust/tests/vertical_slice.rs constructs Actor literally and had the same wrong fixture bands (Betty 0, Razorbeak 1). 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "completion": {
     "commit": "56d63d1a0c3c238c35af4885c9e1a8791f8bf1aa",
     "checks": [
-      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed (no output)",
-      "cargo test --manifest-path godot-rust/Cargo.toml: passed (121 unit + 1 integration)",
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check (no output): passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (121 unit + 1 integration): passed",
       "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed"
     ]
   }

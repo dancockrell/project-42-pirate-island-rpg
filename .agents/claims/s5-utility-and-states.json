@@ -27,19 +27,19 @@
       "S4"
     ],
     "conflicts_with": [],
-    "notes": "faction.rs is S1's file; S5 touches it for exactly one appended #[serde(default)] field, current_goals, as the lane brief allows. tick.rs is edited only inside run_hour: the PURPOSES list, its order and the digest fold are untouched. expedition.rs, journal.rs, clocks.rs, godot_bridge.rs, game/, content/, tools/ and docs/SHIP_PLAN.md are left alone -- other lanes are in expedition.rs right now. run_hour deliberately does not read FactionDefinitions this round so strategic_determinism.rs::the_registry_cannot_change_a_tick_yet keeps passing; GoalWeights::from_definition is the seam left for it. Shipped: run_hour consumes strategic.goal and deliberately does not read strategic.board_position -- the card requires the board position to be recomputed from the board, so no draw enters recompute_strategic_state; the purpose keeps its slot and the digest fold is unchanged. All thresholds, weights and the affinity table are provisional first numbers, each documented beside itself."
+    "notes": "faction.rs is S1's file; S5 touches it for exactly one appended #[serde(default)] field, current_goals, as the lane brief allows. tick.rs is edited only inside run_hour: the PURPOSES list, its order and the digest fold are untouched. expedition.rs, journal.rs, clocks.rs, godot_bridge.rs, game/, content/, tools/ and docs/SHIP_PLAN.md are left alone -- other lanes are in expedition.rs right now. run_hour deliberately does not read FactionDefinitions this round so strategic_determinism.rs::the_registry_cannot_change_a_tick_yet keeps passing; GoalWeights::from_definition is the seam left for it. Shipped: run_hour consumes strategic.goal and deliberately does not read strategic.board_position -- the card requires the board position to be recomputed from the board, so no draw enters recompute_strategic_state; the purpose keeps its slot and the digest fold is unchanged. All thresholds, weights and the affinity table are provisional first numbers, each documented beside itself. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "completion": {
     "commit": "4983a94",
     "checks": [
-      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed (no diff)",
-      "cargo test --manifest-path godot-rust/Cargo.toml: passed (206 lib + 3 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice = 222)",
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check (no diff): passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (206 lib + 3 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice = 222): passed",
       "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
-      "node tools/src/validate.mjs: passed (200 stable IDs, 12 placeholders tracked)",
-      "cargo clippy --all-targets: no warning in strategy/utility.rs, strategy/tick.rs or the appended faction.rs field",
-      "bite -- recompute_strategic_state returning Contesting unconditionally: 5 tests failed including the Done-when a_desperate_faction_recovers_and_an_advantaged_one_expands: restored",
-      "bite -- board_position term zeroed in score(): the Done-when and one_strategic_hour_recomputes_every_factions_position_and_goals failed: restored",
-      "tests/save_migration.rs and tests/strategic_determinism.rs unchanged and green, the_registry_cannot_change_a_tick_yet included"
+      "node tools/src/validate.mjs (200 stable IDs, 12 placeholders tracked): passed",
+      "cargo clippy --all-targets (no warning in strategy/utility.rs, strategy/tick.rs or the appended faction.rs field): passed",
+      "bite -- recompute_strategic_state returning Contesting unconditionally: 5 tests failed including the Done-when a_desperate_faction_recovers_and_an_advantaged_one_expands; restored and green: passed",
+      "bite -- board_position term zeroed in score(): the Done-when and one_strategic_hour_recomputes_every_factions_position_and_goals failed; restored and green: passed",
+      "tests/save_migration.rs and tests/strategic_determinism.rs unchanged and green, the_registry_cannot_change_a_tick_yet included: passed"
     ]
   }
 }

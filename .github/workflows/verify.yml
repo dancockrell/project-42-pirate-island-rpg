@@ -21,8 +21,16 @@ jobs:
     timeout-minutes: 20
 
     steps:
+      # fetch-depth: 0, not the default shallow clone. check-claims.mjs resolves
+      # every completion.commit and every shipped SHA with git cat-file, and
+      # asks git merge-base --is-ancestor whether a completed claim's commit is
+      # reachable from HEAD. On a depth-1 checkout every one of those lookups
+      # fails for a commit older than the tip, so the gate would report the
+      # whole ledger as broken. The history is what it reads.
       - name: Check out the repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # godot 0.5.5 is pulled in with the api-4-2 feature, which uses the
       # prebuilt gdextension-api bindings. No clang, LLVM or Godot binary is
@@ -53,6 +61,11 @@ jobs:
 
       - name: Validate content
         run: node tools/src/validate.mjs
+
+      # The two ledgers -- .agents/claims/*.json and docs/SHIP_PLAN.md's lane
+      # tables and cards -- closed by discipline alone until now.
+      - name: Enforce the claims and ship-plan ledgers
+        run: node tools/src/check-claims.mjs
 
       - name: Rebuild the content bundle
         run: node tools/src/build-content-bundle.mjs

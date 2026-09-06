@@ -15,7 +15,7 @@
   "coordination": {
     "depends_on": [],
     "conflicts_with": [],
-    "notes": "E1 owns .github/** in the same round; this task adds no workflow. The Windows gates tools/build-native-bridge.ps1 and tools/verify-godot.ps1 are left untouched and remain the Windows path. game/bin/project42_sim.gdextension declares only windows.* libraries, so the Linux .so this build script produces is not yet registered by Godot; game/ is inside the active claim backend-p0-unify-expedition-spines, so that entry is left for its owner and for E2. The suites were never executed here: no Godot binary exists in this environment. The scripts were proved against a logging stub engine that records every invocation, so the command sequence, ordering, enumeration and exit-code propagation are verified while the GDScript assertions remain unverified until a runner with Godot 4 exists (E2)."
+    "notes": "E1 owns .github/** in the same round; this task adds no workflow. The Windows gates tools/build-native-bridge.ps1 and tools/verify-godot.ps1 are left untouched and remain the Windows path. game/bin/project42_sim.gdextension declares only windows.* libraries, so the Linux .so this build script produces is not yet registered by Godot; game/ is inside the active claim backend-p0-unify-expedition-spines, so that entry is left for its owner and for E2. The suites were never executed here: no Godot binary exists in this environment. The scripts were proved against a logging stub engine that records every invocation, so the command sequence, ordering, enumeration and exit-code propagation are verified while the GDScript assertions remain unverified until a runner with Godot 4 exists (E2). 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "completion": {
     "commit": "5344b7b",
@@ -35,7 +35,7 @@
       "node tools/src/validate.mjs -- 173 stable IDs: passed",
       "node tools/src/build-content-bundle.mjs -- 28 records, sha256:62caf06493afeb11e154c5c54a99c78c2a531098c986fc17e32d388a9e6bad9d, no diff: passed",
       "SHIP_PLAN section 8 docs dangle sweep -- no matches: passed",
-      "the seventeen GDScript suites themselves: not_run -- no Godot engine is installed in this environment, so only the driver was exercised (against a stub) and never the suites"
+      "the seventeen GDScript suites themselves -- no Godot engine is installed in this environment, so only the driver was exercised (against a stub) and never the suites: not_run"
     ]
   }
 }

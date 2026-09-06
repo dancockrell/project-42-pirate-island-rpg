@@ -23,21 +23,21 @@
       "s4-strategic-tick"
     ],
     "conflicts_with": [],
-    "notes": "expedition.rs: appends one field at the END of ExpeditionState plus its initialiser at the end of the struct literal in new(), and one hunk inside the thin strategic_tick that journals the events run_hour returns before returning them. Other lanes appending at the same struct tail merge with this. tick.rs is untouched: JournalEntry wraps StrategicEvent, which already derives Clone/Serialize/Deserialize. save_migration.rs: EXPECTED_CURRENT_KEYS gains strategic_journal in struct order; v1_current.json is NOT regenerated, because the card's Done-when is that a fixture predating the field still loads with an empty journal.",
+    "notes": "expedition.rs: appends one field at the END of ExpeditionState plus its initialiser at the end of the struct literal in new(), and one hunk inside the thin strategic_tick that journals the events run_hour returns before returning them. Other lanes appending at the same struct tail merge with this. tick.rs is untouched: JournalEntry wraps StrategicEvent, which already derives Clone/Serialize/Deserialize. save_migration.rs: EXPECTED_CURRENT_KEYS gains strategic_journal in struct order; v1_current.json is NOT regenerated, because the card's Done-when is that a fixture predating the field still loads with an empty journal. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged.",
     "notes_scores": "Entries carry only what StrategicEvent carries plus day and hour: no utility scores (S5), no dispositions (S12). The journal is not a side channel."
   },
   "completion": {
     "commit": "8cafa4a",
     "checks": [
       "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
-      "cargo test --manifest-path godot-rust/Cargo.toml: passed (202 unit + 3 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice)",
+      "cargo test --manifest-path godot-rust/Cargo.toml (202 unit + 3 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice): passed",
       "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
-      "node tools/src/validate.mjs: passed (200 stable IDs)",
+      "node tools/src/validate.mjs (200 stable IDs): passed",
       "Done-when: v1_current.json predates strategic_journal and still loads with an empty journal: passed",
       "Done-when: a strategic save with a full window and a non-zero digest round-trips byte-identically, at the type and through ExpeditionState: passed",
       "Determinism: the 2,400-hour harness still hashes identically twice with the journal under the save hash: passed",
-      "CURRENT_SAVE_VERSION stays 1: unchanged",
-      "Bite proof: eviction that drops the oldest entry without folding it into the digest failed four tests (the_digest_is_exactly_the_evicted_prefix, two_histories_that_differ_only_before_the_window_are_different_saves, and both full-window round trips); restored"
+      "CURRENT_SAVE_VERSION stays 1 (unchanged): passed",
+      "Bite proof: eviction that drops the oldest entry without folding it into the digest failed four tests (the_digest_is_exactly_the_evicted_prefix, two_histories_that_differ_only_before_the_window_are_different_saves, and both full-window round trips); restored and green: passed"
     ]
   }
 }

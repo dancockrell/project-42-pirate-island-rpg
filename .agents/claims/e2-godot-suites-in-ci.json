@@ -16,7 +16,7 @@
       "e3-portable-godot-gates"
     ],
     "conflicts_with": [],
-    "notes": "Adds a job beside the existing rust-and-content job; that job is left byte-identical. game/**, godot-rust/**, content/**, tools/** and docs/** are read-only here: game/** is inside backend-p0-unify-expedition-spines and the port-town work, tools/** belongs to E3, and docs/SHIP_PLAN.md is not a worktree editing surface (SHIP_PLAN section 9). The mock-versus-real-bridge proof is therefore made entirely from the workflow, out of markers the existing .gd files already print, with no edit to any test helper."
+    "notes": "Adds a job beside the existing rust-and-content job; that job is left byte-identical. game/**, godot-rust/**, content/**, tools/** and docs/** are read-only here: game/** is inside backend-p0-unify-expedition-spines and the port-town work, tools/** belongs to E3, and docs/SHIP_PLAN.md is not a worktree editing surface (SHIP_PLAN section 9). The mock-versus-real-bridge proof is therefore made entirely from the workflow, out of markers the existing .gd files already print, with no edit to any test helper. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "completion": {
     "commit": "7b8f698",
@@ -32,8 +32,8 @@
       "the pinned digest read from the raw bytes of SHA512-SUMS.txt in the same release: line 18 is 9aa00f7a...54c65  Godot_v4.7.2-stable_linux.x86_64.zip: passed",
       "the anti-mock proof step run against three synthetic gate logs -- exit 0 for a real-bridge log, exit 1 for a log containing the skip markers, exit 1 for a green log missing the three pass lines: passed",
       "the gdextension assertion string matched against game/bin/project42_sim.gdextension: passed",
-      "the job itself: not_run -- GitHub Actions cannot be executed from this container and no Godot engine exists here, so neither the download, the SHA-512 check, the GDExtension build nor any of the seventeen suites has ever run in this job; its first CI run is the proof",
-      "a SHA-256 of the engine archive: not_run -- egress to github.com release assets and to godotengine.org is blocked in this container, so the zip could not be downloaded and digested locally; the pin uses the officially published SHA-512 instead"
+      "the job itself -- GitHub Actions cannot be executed from this container and no Godot engine exists here, so neither the download, the SHA-512 check, the GDExtension build nor any of the seventeen suites has ever run in this job; its first CI run is the proof: not_run",
+      "a SHA-256 of the engine archive -- egress to github.com release assets and to godotengine.org is blocked in this container, so the zip could not be downloaded and digested locally; the pin uses the officially published SHA-512 instead: not_run"
     ]
   }
 }

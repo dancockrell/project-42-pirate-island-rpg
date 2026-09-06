@@ -15,7 +15,7 @@
   "coordination": {
     "depends_on": [],
     "conflicts_with": [],
-    "notes": "Read-only against godot-rust/src/**; A3 is appending anchor_uses to ExpeditionState on its own branch. The minimal v1 fixture must keep loading after that lands in either merge order. This claim adds no src edits: git diff godot-rust/src/ is empty at check-out. Forward-checked: temporarily appending anchor_uses: BTreeMap<String, u32> with #[serde(default)] kept all four save_migration tests green, then reverted; the minimal v1 fixture survives A3 in either merge order."
+    "notes": "Read-only against godot-rust/src/**; A3 is appending anchor_uses to ExpeditionState on its own branch. The minimal v1 fixture must keep loading after that lands in either merge order. This claim adds no src edits: git diff godot-rust/src/ is empty at check-out. Forward-checked: temporarily appending anchor_uses: BTreeMap<String, u32> with #[serde(default)] kept all four save_migration tests green, then reverted; the minimal v1 fixture survives A3 in either merge order. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "completion": {
     "commit": "85413f0",
@@ -26,8 +26,8 @@
       "bite proof: #[serde(default)] removed from ExpeditionState.resolved_encounter_ids -- all 4 save_migration tests FAILED with MalformedJson(\"missing field `resolved_encounter_ids` at line 63 column 1\") against v1_minimal.json; attribute restored and expedition.rs byte-identical to origin: passed",
       "forward proof: anchor_uses: BTreeMap<String, u32> with #[serde(default)] appended (A3's incoming field) -- all 4 save_migration tests passed; reverted: passed",
       "fixtures generated from real state (ExpeditionState::new, resolve_midnight_in, inspect, travel x3, begin_encounter, resolve_encounter, to_json), not hand-written; the throwaway generator was deleted rather than committed: passed",
-      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: not_run -- outside this task's scope, no src change to affect it",
-      "node tools/src/validate.mjs / build-content-bundle.mjs: not_run -- this task touches no content/**"
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext -- outside this task's scope, no src change to affect it: not_run",
+      "node tools/src/validate.mjs / build-content-bundle.mjs -- this task touches no content/**: not_run"
     ]
   }
 }
