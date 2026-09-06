@@ -356,7 +356,7 @@ top of the document is never stale:
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
 - **M3** shipped 11/16 — **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
-- Last updated 2026-09-06 against trunk `3857ffa`. If this line is older than
+- Last updated 2026-09-06 against trunk `ab81aee`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -404,7 +404,7 @@ top of the document is never stale:
 | B2 | `native_expedition_port.gd` sends cells and portal costs | B1, C2 | shipped 3c85451 2026-09-05 — landed inside C13, which found the port dropping every cost and gate |
 | B3 | Expose midnight, anchors, inspect and full legal commands | B1, A3 | shipped 9090284 2026-09-06 — S2's control/risk surface is the next B item |
 | B4 | Route board shows anchor and estate commands | B3 | shipped 9090284 2026-09-06 |
-| B5 | Battle screen: Michael's card unfolds; bands and Composure drawn | A5, A6 | open — the mock/bridge actor-dict divergence A5 opened is closed (`band_name`, `composure`); B5 draws them |
+| B5 | Battle screen: Michael's card unfolds; bands and Composure drawn | A5, A6 | shipped ab81aee 2026-09-06 |
 | B6 | World cells for the tomb interior | A2 | open |
 | B7 | Battle-entry sockets bound to habitat holders | B3 | open |
 | B8 | New game, save slots, continue | E6 | open |
@@ -1214,7 +1214,7 @@ never a button, the invariant the route list already kept. The prototype
 suite gained nine assertions and kept every existing one.
 
 ### B5 · Battle screen: Michael's card unfolds; bands and Composure drawn
-Status: open · Depends on: A5, A6
+Status: shipped `ab81aee` 2026-09-06 · Depends on: A5, A6
 Touches: `game/scripts/battle/battle_prototype.gd`, `game/scripts/battle/paper_card.gd`,
 `game/tests/prototype_turn_cycle_test.gd`, `game/tests/native_simulation_port_test.gd`,
 `godot-rust/src/battle.rs` (one addition: Michael in `prototype_vertical_slice`)
@@ -1240,6 +1240,21 @@ Traps: names come from content (`Michael Corrigan` is authored); nothing
 numeric from utility on the screen; the anti-mock gate; `quit(1 if failures > 0 else 0)`.
 Done when: the suite passes on CI's Godot job; `cargo test` green with the
 five-actor fixture.
+
+**Shipped.** Michael is in `prototype_vertical_slice`, and A6's Captain
+fixture now reads him out of it rather than restating him — one definition,
+so removing him fails thirteen tests. The rail is grouped by the bridge's
+`band_name` (never re-derived from the integer; an unnamed band is an error);
+ten Composure pips and a Shaken mark per card; the Razorbeak gets a hostile
+portrait; the invented rank/role strings are gone. Michael's grid unfolds on
+his turn through the same port path as Betty's; the automatic cycle stops at
+any player-commanded actor and the return-to-Betty check is kept verbatim.
+Green through the hardened gate on the lane's own push. **Two gaps reported,
+not filled:** Composure/Shaken redraw only on a fresh snapshot — harmless
+until something spends Composure (A9), then a bridge event or a port
+`snapshot()` is needed; and `skill.system.hold_position` has no content
+record, so "GUARD" is a screen string — a C-lane item (a `skill.system.*`
+record, with `every_authored_skill_has_its_authored_rank` extended to it).
 
 ### B9 · Settings, accessibility, and pause **(brief)**
 Adds to the first edition: a global pause that stops the character scene,
