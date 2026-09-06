@@ -3,7 +3,7 @@
   "task_id": "s18-arrival-resolves-control",
   "agent": "claude-code (lane S18)",
   "summary": "A force's arrival resolves into control of the cell it reached -- unheld or undefended ground changes hands through set_control, a defended cell does not and says so -- and the player raises and dispatches Michael's forces through two bridge verbs.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -38,7 +38,25 @@
     "notes": "tick.rs takes three appended StrategicEvent variants at the END of the enum and no new PURPOSES entry -- the hash contract's draw sequence is untouched. expedition.rs takes one statement in strategic_tick between advance_forces and eliminate_exhausted_factions (the card names tick.rs; the call to advance_forces lives in expedition.rs, so the one call goes where its neighbour is). godot_bridge.rs takes two #[func]s at the END of the impl and one arm per new variant in journal_entry_dictionary and journal_prose. information_surface.gd takes kind-list entries only. board_verification_campaign.gd's save round trip is replaced by the verbs as its own note demands; isometric_board_test.gd (P10's file otherwise) is repaired only where it reads that helper's result."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "a8f9542",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (369 unit incl. 5 new strategy::force arrival tests, 11 strategic_determinism, 7 authored_world, 5 save_migration, 1 vertical_slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (518 stable IDs; no content changed): passed",
+      "node tools/src/check-claims.mjs (68 claims, 110 ship-plan rows, 104 cards): passed",
+      "bash tools/build-native-bridge.sh debug then bash tools/verify-godot.sh on the committed tree: 'Godot headless verification passed. 4 review scenes, 28 suites.', GATE_EXIT=0, no ERROR or SCRIPT ERROR line: passed",
+      "M3 done-when, closed: the_m3_opening_eliminates_a_faction_with_its_recovery_chain_exhausted -- from the scripted opening (one cell to the weak faction, three to the rival, every stockpile and relationship cleared) a rival column takes the undefended cell, one ControlTaken names the loser, RecoveryLinkLost reports ControlledSettlement and ValidConstructionSite, FactionEliminated fires exactly once, recovery_chain is empty afterwards, and a hundred days hash byte-identically twice: passed",
+      "Bite proof: adding `if holder.is_some() { continue; }` to resolve_arrivals (dropping the arm that takes an undefended rival's ground) failed that test by name -- 'a hundred days of the M3 opening eliminated nobody: [ControlledSettlement, ValidConstructionSite]' at tests/strategic_determinism.rs:1251. Restored and green: passed",
+      "The card's three rules, one unit test each in strategy::force: an_arrival_on_unheld_ground_takes_it, an_arrival_on_an_undefended_rival_cell_takes_it_and_leaves_the_buildings_standing (the standing BuildingInstance is asserted byte-equal after the handover), an_arrival_on_a_defended_cell_changes_nothing_and_says_so, plus michaels_cells_and_forces_obey_the_same_three_rules and an_arrival_on_ground_the_faction_already_holds_reports_nothing: passed",
+      "P4's `blocked: needs a bridge verb`, closed: board_verification_campaign.gd's save round trip is deleted as its own note demanded and the column is raised and dispatched through the two new #[func]s; isometric_board_test.gd passes with progress 0.0 (a dispatch plans the whole road and marches none of it, and no verb here turns an hour): passed",
+      "The 2,400-hour hash contract holds unchanged: no PURPOSES entry added, no draw made or dropped, no new ExpeditionState field (so EXPECTED_CURRENT_KEYS in save_migration.rs is untouched). two_thousand_four_hundred_hours_from_seed_seven_hash_identically_twice and a_save_at_hour_twelve_hundred_reloads_into_the_same_hour_twenty_four_hundred both green: passed",
+      "needs decision: CONTESTED_ARRIVAL_RESOLVES_CONTROL = false in strategy/force.rs -- how two forces on one cell resolve is not in the brief, so a contested arrival is journalled and the board does not move: not_run",
+      "Open and untouched: capture versus destruction by building type (brief section 20). A cell that changes hands leaves every building on it exactly as it was -- not captured, not ruined, not reassigned -- and ControlTaken carries their instance IDs so the lane that closes that decision has its inputs: not_run",
+      "STILL FAILING, named not hidden -- an autonomous faction is still not eliminable from the same opening, and the one link that never falls is now RecoveryLink::ResourceReserve: nothing in the crate lowers a stockpile (every authored construction_cost is zero, no production rule is affordable, and a taken cell deliberately does not hand its stockpile over), so S17's Goal::Recover trickle keeps the faction above RESOURCE_RESERVE_FLOOR forever. Claim 2 of the M3 test asserts exactly that. No constant was tuned to hide it: failed",
+      "One statement added to expedition.rs::strategic_tick between advance_forces and eliminate_exhausted_factions. The card names tick.rs for the call; advance_forces is called from expedition.rs, so the call went where its neighbour is rather than moving anyone else's line: not_run",
+      "Repairs to files this lane does not own, kept minimal: isometric_board_test.gd (P10) -- only the three lines that read add_marching_force's result and its comment; strategic_determinism.rs's S17 claim 1 -- the assertion that a building still stands on its raiser's ground is now that somebody holds the cell, because an arrival can take the ground out from under a standing building and that is this card's own rule: passed",
+      "game/scripts/campaign/campaign_session.gd gained the two session verbs, because 'both refuse while paused' has exactly one owner and it is advance_refused_while_paused there -- Rust has no paused state by S4's design, so the bridge verbs carry no pause branch and say so: passed"
+    ]
   }
 }
