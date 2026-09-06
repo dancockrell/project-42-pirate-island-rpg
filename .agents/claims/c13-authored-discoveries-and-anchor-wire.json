@@ -37,21 +37,21 @@
       "a4-estate-anchor-actions"
     ],
     "conflicts_with": [],
-    "notes": "Root cause chain, in order. (1) native_expedition_port.gd forwarded only id, endpoints and travelMode per portal, so C2's authored costs and any gate never reached the bridge: through the engine every road was free. (2) content could not declare a discovery ID, so A4 authored the tidal cut without its gate and validate.mjs could not have accepted one. (3) ExpeditionState::legal_routes was routes_from with no gate filter, so a locked door was listed as a legal command. (4) readableDescriptions[].id -- the observation IDs the Rust world records -- were never registered as stable IDs, so no content record could reference an observation at all. Fixing (1) alone strands a fresh party on the beach with zero rations and no way to salvage, because no anchor existed in Godot; so the minimal core of B3 ships here too: cells with anchors forwarded, use_anchor on the bridge, session and scene wrappers, and the prototype test salvaging the wreck before it travels, as the Rust slice does. B3 still owes the drawn control. Content owns anchors and discoveries; Rust carries them; fixture_matches_the_authored_world_cells holds them equal and GATES_CONTENT_CANNOT_YET_DECLARE is deleted. The Godot half is verified by CI's Godot job, not locally: there is no Godot binary in this environment."
+    "notes": "Root cause chain, in order. (1) native_expedition_port.gd forwarded only id, endpoints and travelMode per portal, so C2's authored costs and any gate never reached the bridge: through the engine every road was free. (2) content could not declare a discovery ID, so A4 authored the tidal cut without its gate and validate.mjs could not have accepted one. (3) ExpeditionState::legal_routes was routes_from with no gate filter, so a locked door was listed as a legal command. (4) readableDescriptions[].id -- the observation IDs the Rust world records -- were never registered as stable IDs, so no content record could reference an observation at all. Fixing (1) alone strands a fresh party on the beach with zero rations and no way to salvage, because no anchor existed in Godot; so the minimal core of B3 ships here too: cells with anchors forwarded, use_anchor on the bridge, session and scene wrappers, and the prototype test salvaging the wreck before it travels, as the Rust slice does. B3 still owes the drawn control. Content owns anchors and discoveries; Rust carries them; fixture_matches_the_authored_world_cells holds them equal and GATES_CONTENT_CANNOT_YET_DECLARE is deleted. The Godot half is verified by CI's Godot job, not locally: there is no Godot binary in this environment. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "completion": {
     "commit": "3c85451",
     "checks": [
-      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: clean",
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check (clean): passed",
       "cargo test --manifest-path godot-rust/Cargo.toml: 153 unit + 2 authored_world + 4 save_migration + 1 vertical_slice passed",
-      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: clean, no warnings",
-      "node tools/src/validate.mjs: 194 stable IDs",
-      "node tools/src/build-content-bundle.mjs: regenerated and committed",
-      "bite: authored gate removed -> fixture_matches_the_authored_world_cells fails naming the portal",
-      "bite: map table grant removed -> validator fails on portals[1].requiredDiscoveryId",
-      "bite: legal_routes gate filter removed -> a_gated_route_is_not_a_legal_command_until_its_discovery_is_held fails",
-      "grep -rn GATES_CONTENT_CANNOT_YET_DECLARE godot-rust/src: nothing",
-      "Godot half: verified by CI godot-suites on push, not locally (no Godot binary here)"
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext (clean, no warnings): passed",
+      "node tools/src/validate.mjs (194 stable IDs): passed",
+      "node tools/src/build-content-bundle.mjs (regenerated and committed): passed",
+      "bite: authored gate removed -> fixture_matches_the_authored_world_cells fails naming the portal: passed",
+      "bite: map table grant removed -> validator fails on portals[1].requiredDiscoveryId: passed",
+      "bite: legal_routes gate filter removed -> a_gated_route_is_not_a_legal_command_until_its_discovery_is_held fails: passed",
+      "grep -rn GATES_CONTENT_CANNOT_YET_DECLARE godot-rust/src (no output): passed",
+      "Godot half locally -- no Godot binary here; verified by CI godot-suites on push: not_run"
     ]
   }
 }

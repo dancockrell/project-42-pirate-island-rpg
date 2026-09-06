@@ -22,15 +22,15 @@
   "coordination": {
     "depends_on": [],
     "conflicts_with": [],
-    "notes": "Continues on backend/b0-expedition-state (PR #3) directly after B0-B4, D1, and the undead/hunter escalation (U1-U3), all already shipped on this branch. Scope is backend-only (Rust graph + rules + tests), matching how B1/D1 shipped ahead of the frontend content/world/*.world_cell.json authoring track. PR #2 (feature/ayla-bridge-art) is unrelated heroine/bridge/art work; no other active claim touches geography.rs, expedition.rs or habitat.rs."
+    "notes": "Continues on backend/b0-expedition-state (PR #3) directly after B0-B4, D1, and the undead/hunter escalation (U1-U3), all already shipped on this branch. Scope is backend-only (Rust graph + rules + tests), matching how B1/D1 shipped ahead of the frontend content/world/*.world_cell.json authoring track. PR #2 (feature/ayla-bridge-art) is unrelated heroine/bridge/art work; no other active claim touches geography.rs, expedition.rs or habitat.rs. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "completion": {
     "commit": "6f7ce87",
     "checks": [
-      "cargo test --manifest-path godot-rust/Cargo.toml: 110 unit + 1 vertical-slice, all pass",
-      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: clean",
-      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: clean",
-      "node tools/src/validate.mjs: unaffected, still passes"
+      "cargo test --manifest-path godot-rust/Cargo.toml (110 unit + 1 vertical-slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext (clean): passed",
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check (clean): passed",
+      "node tools/src/validate.mjs (unaffected by this lane): passed"
     ]
   }
 }

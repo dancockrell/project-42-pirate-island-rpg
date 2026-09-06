@@ -24,19 +24,19 @@
       "s1-faction-definition"
     ],
     "conflicts_with": [],
-    "notes": "expedition.rs: appends one field at the end of ExpeditionState and adds a thin strategic_tick that calls godot-rust/src/strategy/tick.rs, plus the 24 hourly ticks inside resolve_midnight_in. save_migration.rs: EXPECTED_CURRENT_KEYS gains strategic_clock in struct order. S11 owns the full strategic journal; S4 adds no journal field. S5 owns what the fixed per-hour draws decide. Registry unread by S4: resolve_midnight_in passes an empty FactionDefinitions and strategic_determinism.rs::the_registry_cannot_change_a_tick_yet holds that harmless until S5 scores an authored record; that failing test is the instruction for the bridge B card to start loading content/factions/*.json."
+    "notes": "expedition.rs: appends one field at the end of ExpeditionState and adds a thin strategic_tick that calls godot-rust/src/strategy/tick.rs, plus the 24 hourly ticks inside resolve_midnight_in. save_migration.rs: EXPECTED_CURRENT_KEYS gains strategic_clock in struct order. S11 owns the full strategic journal; S4 adds no journal field. S5 owns what the fixed per-hour draws decide. Registry unread by S4: resolve_midnight_in passes an empty FactionDefinitions and strategic_determinism.rs::the_registry_cannot_change_a_tick_yet holds that harmless until S5 scores an authored record; that failing test is the instruction for the bridge B card to start loading content/factions/*.json. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "completion": {
     "commit": "8f7aa9a",
     "checks": [
       "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
-      "cargo test --manifest-path godot-rust/Cargo.toml: passed (191 unit + 3 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice)",
+      "cargo test --manifest-path godot-rust/Cargo.toml (191 unit + 3 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice): passed",
       "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
-      "node tools/src/validate.mjs: passed (194 stable IDs)",
+      "node tools/src/validate.mjs (194 stable IDs): passed",
       "Done-when: 2,400 hours from seed 7 hash identically twice: passed",
       "Done-when: save at hour 1,200 reloads into the same hour 2,400: passed",
       "Pause: 200 hours with round trips at eleven irregular offsets are byte-identical: passed",
-      "Harness bite proof: a draw seeded from SystemTime::now() failed the 2,400-hour test; acting factions iterated through a HashMap failed it again; both restored"
+      "Harness bite proof: a draw seeded from SystemTime::now() failed the 2,400-hour test; acting factions iterated through a HashMap failed it again; both restored and green: passed"
     ]
   }
 }

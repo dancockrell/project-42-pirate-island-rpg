@@ -21,7 +21,7 @@
   "coordination": {
     "depends_on": [],
     "conflicts_with": [],
-    "notes": "expedition.rs carries exactly one appended field (factions, end of the field list, serde(default)) plus the constructor line that field requires, so parallel A/S lanes merge cleanly (SHIP_PLAN section 9). strategy/mod.rs and lib.rs were NOT edited: every test is in-crate, so no re-export was needed. Resource categories stay brief section 20 Open: BTreeMap<String,u32>, no enum. Provisional doctrines (brief 6.1-6.4) are held as authored text only; no code branches on them before S15. content/factions/*.json is C9's card and was not authored here. FactionDefinitions lives in this file rather than S4 so loading C9's records has one owner."
+    "notes": "expedition.rs carries exactly one appended field (factions, end of the field list, serde(default)) plus the constructor line that field requires, so parallel A/S lanes merge cleanly (SHIP_PLAN section 9). strategy/mod.rs and lib.rs were NOT edited: every test is in-crate, so no re-export was needed. Resource categories stay brief section 20 Open: BTreeMap<String,u32>, no enum. Provisional doctrines (brief 6.1-6.4) are held as authored text only; no code branches on them before S15. content/factions/*.json is C9's card and was not authored here. FactionDefinitions lives in this file rather than S4 so loading C9's records has one owner. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "blocked_on_decisions": [
     "brief section 20 Open: exact resource list -- resources stay BTreeMap<String,u32> with content-supplied string keys; no category is chosen here",
@@ -33,11 +33,11 @@
     "commit": "4d5e572",
     "checks": [
       "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
-      "cargo test --manifest-path godot-rust/Cargo.toml: passed (159 lib, 2 authored_world, 4 save_migration, 1 vertical_slice)",
+      "cargo test --manifest-path godot-rust/Cargo.toml (159 lib, 2 authored_world, 4 save_migration, 1 vertical_slice): passed",
       "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
-      "node tools/src/validate.mjs: passed (194 stable IDs)",
+      "node tools/src/validate.mjs (194 stable IDs): passed",
       "mutation proof: serde(skip_serializing) added to ExpeditionState.factions; a_two_faction_expedition_state_round_trips_unchanged and a_save_without_any_factions_still_loads both failed; attribute restored and both passed: passed",
-      "content mirror test: not_run -- no authored faction content exists yet (C9's card). the_six_concept_keys_are_the_briefs_and_every_id_is_faction_dot_key stands in against the brief until C9 lands."
+      "content mirror test -- no authored faction content exists yet (C9's card). the_six_concept_keys_are_the_briefs_and_every_id_is_faction_dot_key stands in against the brief until C9 lands: not_run"
     ]
   }
 }

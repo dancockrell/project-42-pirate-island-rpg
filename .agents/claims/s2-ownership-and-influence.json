@@ -27,15 +27,15 @@
       "a2-canonical-world-cell-ids"
     ],
     "conflicts_with": [],
-    "notes": "Appends ExpeditionState.ownership at the END of the field list so parallel lanes appending their own fields merge cleanly. WorldEvent lives in world.rs, not expedition.rs; the ControlChanged variant goes on that one enum rather than a second. godot_bridge.rs is lane B3's file and is touched by exactly one line: expedition_error_code's match is exhaustive, so a new ExpeditionError variant cannot compile under --features godot-ext without its arm (the same reason A3 and A4 recorded in that match's own comments). No other bridge surface added here."
+    "notes": "Appends ExpeditionState.ownership at the END of the field list so parallel lanes appending their own fields merge cleanly. WorldEvent lives in world.rs, not expedition.rs; the ControlChanged variant goes on that one enum rather than a second. godot_bridge.rs is lane B3's file and is touched by exactly one line: expedition_error_code's match is exhaustive, so a new ExpeditionError variant cannot compile under --features godot-ext without its arm (the same reason A3 and A4 recorded in that match's own comments). No other bridge surface added here. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "completion": {
     "commit": "15e2959e9f5aca4712094cf53de51583f2f12cae",
     "checks": [
       "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
-      "cargo test --manifest-path godot-rust/Cargo.toml: passed (160 unit, 2 authored_world, 4 save_migration, 1 vertical_slice)",
+      "cargo test --manifest-path godot-rust/Cargo.toml (160 unit, 2 authored_world, 4 save_migration, 1 vertical_slice): passed",
       "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
-      "node tools/src/validate.mjs: passed (194 stable IDs; content unchanged by this lane)",
+      "node tools/src/validate.mjs (194 stable IDs; content unchanged by this lane): passed",
       "mutation proof: effective_risk made to ignore ownership, then exactly geography::tests::taking_the_river_landing_contests_the_safe_road_without_editing_it, geography::tests::two_different_holders_contest_the_road_between_them and expedition::tests::flipping_the_river_landing_changes_what_the_safe_road_costs_to_walk failed (1 != 3); restored and re-ran green: passed"
     ]
   }

@@ -480,7 +480,7 @@ G1 is the acceptance script; G2/G3 two external rounds.
 | H4 | 3D production docs: rigging is a switch; clips wait for the tool | — | done (this pass) |
 | H5 | Site-rule spec into `HEROINE_AYLA_DESIGN.md` | — | open |
 | H6 | Retarget PR #3 to `main`; note PR #4; flag the stale status branch | — | shipped 34142a8 2026-09-05 — PR #3 now targets `main`, conflict resolved by merging it |
-| H7 | dr-companion `.gitmodules` branch pointer | — | shipped e387d29 2026-09-05 — merged to dr-companion `main` in its PR #276 |
+| H7 | dr-companion `.gitmodules` branch pointer | — | shipped (dr-companion e387d29) 2026-09-05 — the work landed in dr-companion, not here: merged to its `main` in its PR #276; no commit of that SHA exists in this repository |
 | H8 | Regenerate the design bible `.docx` | H3, H9 | open (needs `python-docx`) |
 | H9 | Bible: superseded entries marked; brief named as authority | — | done (this pass) |
 | H10 | `GAME_BUILD_PLAN.md` C2 roster and E2 exit test reconciled to the brief | — | superseded — same rewrite; `main` states the roster contract directly |
@@ -506,7 +506,7 @@ pending fight); `DuplicatePortal` / `DuplicateEncounterTrigger`;
 Done when: `cargo test` prints `110 passed` and `1 passed`; the merge commit exists.
 
 ### A2 · `world.cell.*` becomes canonical; fixture ≡ authored cells
-Status: open · Depends on: A1
+Status: shipped c1804ea 2026-09-05 · Depends on: A1
 Touches: `godot-rust/src/geography.rs`, `expedition.rs`, `habitat.rs`,
 `hunter.rs`, `godot-rust/tests/vertical_slice.rs`, `content/world/*.world_cell.json`,
 `content/encounters/returning_names.prototype.json`, `tools/src/validate.mjs`,
@@ -1163,6 +1163,12 @@ needs), get explicit approval, then encode their `FactionDefinition`s (C9).
 
 ### Lane B — new cards
 
+### B1 · Rewire the campaign bridge from `RouteGraph` to `Geography`
+Status: shipped 6b9d275 2026-09-04 · Depends on: A1
+
+### B2 · `native_expedition_port.gd` sends cells and portal costs
+Status: shipped 3c85451 2026-09-05 · Depends on: B1, C2 — landed inside C13, which found the port dropping every cost and gate
+
 ### B3 · Expose midnight, anchors, inspect and full legal commands
 Status: shipped `9090284` 2026-09-06 · Depends on: B1, A3
 The bridge projects what `legal_next_commands_with_geography` already
@@ -1222,6 +1228,15 @@ Traps: names come from content (`Michael Corrigan` is authored); nothing
 numeric from utility on the screen; the anti-mock gate; `quit(1 if failures > 0 else 0)`.
 Done when: the suite passes on CI's Godot job; `cargo test` green with the
 five-actor fixture.
+
+### B6 · World cells for the tomb interior
+Status: open · Depends on: A2
+
+### B7 · Battle-entry sockets bound to habitat holders
+Status: open · Depends on: B3
+
+### B8 · New game, save slots, continue
+Status: open · Depends on: E6
 
 ### B9 · Settings, accessibility, and pause **(brief)**
 Adds to the first edition: a global pause that stops the character scene,
@@ -1356,6 +1371,7 @@ real weight, the negative flips on its own.
 ### Lane C — new cards
 
 ### C1 · Loot records and a reference check that bites · shipped ab17bfa
+Status: shipped ab17bfa 2026-09-05 · Depends on: —
 `content/loot/` did not exist, and `content/encounters/returning_names.prototype.json`
 pointed `victory.lootTableId` at `loot.razorbeak.prototype` — a record that
 was not there, which the validator never checked, so the dangle passed
@@ -1376,6 +1392,7 @@ must **overwrite these**, never add a second table — two tables of loot values
 is the fork.
 
 ### C2 · Portal costs in the authored world cells · shipped ab17bfa
+Status: shipped ab17bfa 2026-09-05 · Depends on: —
 The authored portals carried only identity and `travelMode`; the costs lived
 solely in the Rust fixture, so content could not describe what a road actually
 costs. All nine now carry `timeCostMinutes`, `supplyCost` and `riskLevel`,
@@ -1391,7 +1408,11 @@ fixture-only until B6 authors them. The field is accepted and checked so B6
 can use it. (The encounter's location IDs, listed here in an earlier draft,
 were fixed by A2.)
 
+### C3 · `ayla.json` and seven Ayla skill records
+Status: open · Depends on: A7
+
 ### C4 · Captain Michael's two commands · shipped ab17bfa
+Status: shipped ab17bfa 2026-09-05 · Depends on: —
 `captain.json` had `skillIds: []` and `supportedTargetRules` had no
 self-targeting rule, so the protagonist could not be given a command at all.
 Added `"self"` to the rule set and authored `skill.captain.weapon_attack` and
@@ -1445,6 +1466,9 @@ timers. Two or three scenes per woman is enough to prove the shape.
 Done when: the validator passes with the records; the equality test passes;
 a scene with `presentationLevel: "explicit"` in the base tree fails the
 validator (bite).
+
+### C7 · Placeholder deprecation migration
+Status: open · Depends on: D4
 
 ### C8 · Scene `presentationLevel` and the pack manifest schema
 Status: open · Depends on: C6
@@ -1527,16 +1551,50 @@ opening on it — the nearest local proof; the Godot job is the real one.
 
 ### Lane D — new cards
 
+### D1 · Generate Betty's identity plate from `still_image_plan.json`
+Status: open (human runs the generator) · Depends on: —
+
+### D2 · Generate the razorbeak's identity plate
+Status: open (human) · Depends on: —
+
+### D3 · Review both plates; flip `generationGate`
+Status: open (human sign-off) · Depends on: D1, D2
+
+### D4 · Betty rigged GLB via the rig switch; Godot admission check
+Status: open · Depends on: D3
+
+### D5 · Betty's five Guarded Strike clips
+Status: blocked: waiting on the animation tool · Depends on: D4, animation tool
+
+### D6 · Razorbeak rigged GLB (open) and clips (blocked)
+Status: open / blocked · Depends on: D3, animation tool
+
+### D7 · Reception Terrace dressed; first admitted shared assets
+Status: open · Depends on: —
+
+### D8 · Record the measured per-actor asset bill
+Status: open · Depends on: D4, D6
+
 ### D9 · Building blockout kit — cube/multi-cube blockouts per C10's
 envelopes; nothing outside the box (brief §8). Reviewed at gameplay distance.
 ### D10 · First machine family blockouts — one `mechanical_dog` and one
 `steam_wagon`, riveted-iron material language (brief §5.3), future-ready
 pivots/sockets, no animation.
+### D11 · Card rail and command grid in the bronze-and-vellum grammar
+Status: open · Depends on: —
+
 ### D12 · Room blockouts for the Demo region — from C11's contracts.
 
 ### Lane E — new card
 
+### E1 · GitHub Actions: Rust and content checks
+Status: shipped e0b4051 2026-09-05 · Depends on: —
+
+### E3 · Shell equivalents of the two PowerShell gates
+Status: shipped 5344b7b 2026-09-05 · Depends on: —
+
 ### E4 · Desktop export presets · shipped 838824e
+Status: shipped 838824e 2026-09-05 · Depends on: —
 `game/export_presets.cfg` held exactly one preset — `Web Preview`, with
 `variant/extensions_support=false`. The whole simulation is a GDExtension, so
 that preset **cannot load the game's own rules**, and no desktop preset
@@ -1633,6 +1691,9 @@ the list and regenerating `v1_current.json`, on purpose.
 Rule: a save fixture is generated by the code, never hand-written.
 
 
+### E7 · Crash log with state snapshot; no silent telemetry
+Status: open · Depends on: —
+
 ### E8 · Claims enforcement in CI
 Status: open · Depends on: E1
 Touches: `tools/src/check-claims.mjs` (new), `.github/workflows/verify.yml`
@@ -1667,6 +1728,15 @@ runs `godot --headless --export-pack` on `packs/<id>/`; CI uploads the `.pck`
 beside the nightly; the adult-store build is base + pack, never a second build.
 
 ### Lane H — cards for this pass
+
+### H5 · Site-rule spec into `HEROINE_AYLA_DESIGN.md`
+Status: open · Depends on: —
+
+### H6 · Retarget PR #3 to `main`; note PR #4; flag the stale status branch
+Status: shipped 34142a8 2026-09-05 · Depends on: — · PR #3 now targets `main`, conflict resolved by merging it
+
+### H8 · Regenerate the design bible `.docx`
+Status: open (needs `python-docx`) · Depends on: H3, H9
 
 ### H9 · Bible: superseded entries marked · done — `req.scope.cast.core` and
 `req.scope.campaign.duration` rewritten to the brief; protagonist hypothesis

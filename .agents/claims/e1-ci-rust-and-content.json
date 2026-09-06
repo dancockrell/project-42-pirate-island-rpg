@@ -6,22 +6,24 @@
   "status": "completed",
   "claimed_at": "2026-09-05T00:00:00Z",
   "updated_at": "2026-09-05T00:00:00Z",
-  "paths": [".github/workflows/verify.yml"],
+  "paths": [
+    ".github/workflows/verify.yml"
+  ],
   "symbols": [],
   "coordination": {
     "depends_on": [],
     "conflicts_with": [],
-    "notes": "Does not attempt the Godot headless suites; that is E2 and waits on E3's shell gates, which agent-E3 is writing in parallel. Touches no file under tools/, godot-rust/src/ or content/. docs/SHIP_PLAN.md is left to the integrator."
+    "notes": "Does not attempt the Godot headless suites; that is E2 and waits on E3's shell gates, which agent-E3 is writing in parallel. Touches no file under tools/, godot-rust/src/ or content/. docs/SHIP_PLAN.md is left to the integrator. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "completion": {
     "commit": "e0b405138ea8d200da2b7c6eaee29973466eef96",
     "checks": [
-      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed (no output, 0.1s)",
-      "cargo test --manifest-path godot-rust/Cargo.toml: passed (111 unit tests, 1 integration test, 0 doc-tests, 8.5s)",
-      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed (38.3s from a cold target dir, no system package needed)",
-      "node tools/src/validate.mjs: passed (173 stable IDs checked, 12 placeholders tracked)",
-      "node tools/src/build-content-bundle.mjs: passed (28 records, sha256:62caf06493afeb11e154c5c54a99c78c2a531098c986fc17e32d388a9e6bad9d)",
-      "git diff --exit-code game/generated/: passed (rebuilt bundle identical to the committed one)",
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check (no output, 0.1s): passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (111 unit tests, 1 integration test, 0 doc-tests, 8.5s): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext (38.3s from a cold target dir, no system package needed): passed",
+      "node tools/src/validate.mjs (173 stable IDs checked, 12 placeholders tracked): passed",
+      "node tools/src/build-content-bundle.mjs (28 records, sha256:62caf06493afeb11e154c5c54a99c78c2a531098c986fc17e32d388a9e6bad9d): passed",
+      "git diff --exit-code game/generated/ (rebuilt bundle identical to the committed one): passed",
       "python3 -c \"import yaml; yaml.safe_load(open('.github/workflows/verify.yml'))\": passed"
     ]
   }

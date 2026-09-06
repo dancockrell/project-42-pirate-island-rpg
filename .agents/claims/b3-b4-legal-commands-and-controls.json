@@ -32,7 +32,7 @@
       "c13-authored-discoveries-and-anchor-wire"
     ],
     "conflicts_with": [],
-    "notes": "Extends C13's wire. Does not touch expedition.rs, geography.rs, strategy/**, content/**, tools/**, docs/SHIP_PLAN.md, or another contributor's game/scripts/world/elizabethan_*, game/scripts/review/, game/tests/elizabethan_*. There is no Godot in this environment, so the GDScript half is verified by CI's Godot job, not locally; the Rust half is proven locally in godot-rust/tests/authored_world.rs."
+    "notes": "Extends C13's wire. Does not touch expedition.rs, geography.rs, strategy/**, content/**, tools/**, docs/SHIP_PLAN.md, or another contributor's game/scripts/world/elizabethan_*, game/scripts/review/, game/tests/elizabethan_*. There is no Godot in this environment, so the GDScript half is verified by CI's Godot job, not locally; the Rust half is proven locally in godot-rust/tests/authored_world.rs. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "completion": {
     "commit": "1476d6c",
@@ -40,10 +40,11 @@
       "cargo test (godot-rust): passed -- 153 unit + 3 authored_world + 4 + 1, 0 failed",
       "cargo fmt --check (godot-rust): passed",
       "cargo check --features godot-ext (godot-rust): passed",
-      "node tools/src/validate.mjs: passed -- 194 stable IDs checked",
+      "node tools/src/validate.mjs -- 194 stable IDs checked: passed",
       "bite proof: deleting the spent-anchor filter in legal_next_commands_with_geography fails the_salvage_anchor_leaves_the_legal_commands_when_spent_and_returns_at_midnight; reverted: passed",
       "bite proof: removing one arm of world_event_dictionary fails to compile (E0004 non-exhaustive patterns); reverted: passed",
-      "tools/verify-godot.sh: not_run locally -- there is no Godot in this environment. The GDScript half is CI-verified: Verify run 34008830857 on ebb8a43, job 'Godot headless suites', passed -- the headless gate (3 review scenes, 17 suites, no ERROR line) and the anti-mock step, which printed 'Real Rust bridge confirmed: all three native suites reported a pass.' and so found 'Expedition prototype tests passed.' in the log. Job 'Rust and content' passed on the same commit."
+      "tools/verify-godot.sh locally -- there is no Godot in this environment, so the driver was never exercised here: not_run",
+      "the GDScript half in CI -- Verify run 34008830857 on ebb8a43, job Godot headless suites: the headless gate (3 review scenes, 17 suites, no ERROR line) and the anti-mock step, which printed Real Rust bridge confirmed: all three native suites reported a pass. and so found Expedition prototype tests passed. in the log; job Rust and content green on the same commit: passed"
     ]
   }
 }

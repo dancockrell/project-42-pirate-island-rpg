@@ -33,19 +33,19 @@
       "s2-ownership-and-influence"
     ],
     "conflicts_with": [],
-    "notes": "expedition.rs is touched in exactly three hunks (a `forces` field appended at the end of the struct, its initialiser at the end of the literal in new(), and one line in strategic_tick between run_hour and the journal push) plus the use; every ExpeditionState method this lane needs lives in an impl block inside strategy/force.rs, because two other lanes are appending to the same tail and one is changing resolve_midnight_in's signature. tick.rs gains four StrategicEvent variants appended at the end of the enum and nothing else -- run_hour, PURPOSES, the draws and the digest are untouched. Materialisation through spawn sockets is B11's: this lane stops at the ForceArrived event and the forces_at reader. Materialisation through spawn sockets is blocked: needs B11 -- this lane stops at ForceArrived (composition copied whole) and forces_at(cell_id), which are the seam B11 attaches to."
+    "notes": "expedition.rs is touched in exactly three hunks (a `forces` field appended at the end of the struct, its initialiser at the end of the literal in new(), and one line in strategic_tick between run_hour and the journal push) plus the use; every ExpeditionState method this lane needs lives in an impl block inside strategy/force.rs, because two other lanes are appending to the same tail and one is changing resolve_midnight_in's signature. tick.rs gains four StrategicEvent variants appended at the end of the enum and nothing else -- run_hour, PURPOSES, the draws and the digest are untouched. Materialisation through spawn sockets is B11's: this lane stops at the ForceArrived event and the forces_at reader. Materialisation through spawn sockets is blocked: needs B11 -- this lane stops at ForceArrived (composition copied whole) and forces_at(cell_id), which are the seam B11 attaches to. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "completion": {
     "commit": "736b838",
     "checks": [
       "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
-      "cargo test --manifest-path godot-rust/Cargo.toml: passed (242 unit incl. 10 new strategy::force, 4 authored_world, 5 save_migration, 7 strategic_determinism, 1 vertical_slice)",
-      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed (the bridge matches no StrategicEvent today, so the four new variants needed no arms)",
-      "node tools/src/validate.mjs: passed (200 stable IDs)",
+      "cargo test --manifest-path godot-rust/Cargo.toml (242 unit incl. 10 new strategy::force, 4 authored_world, 5 save_migration, 7 strategic_determinism, 1 vertical_slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext (the bridge matches no StrategicEvent today, so the four new variants needed no arms): passed",
+      "node tools/src/validate.mjs (200 stable IDs): passed",
       "Done-when: a force dispatched three cells arrives with the composition it left with, and the record still carries it: passed",
       "Done-when: a save/reload between every hop is byte-identical to the uninterrupted march: passed",
-      "Bite proof: making a hop skip one cell failed a_force_marched_three_cells_arrives_carrying_exactly_what_it_left_with (hop list) and progress_accrues_in_minutes_and_the_remainder_carries_forward (hop count); restored and both pass",
-      "blocked: needs B11 -- materialisation through spawn sockets is not built here"
+      "Bite proof: making a hop skip one cell failed a_force_marched_three_cells_arrives_carrying_exactly_what_it_left_with (hop list) and progress_accrues_in_minutes_and_the_remainder_carries_forward (hop count); restored and both green: passed",
+      "materialisation through spawn sockets -- blocked: needs B11, not built here: not_run"
     ]
   }
 }

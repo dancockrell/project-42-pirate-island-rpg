@@ -6,18 +6,23 @@
   "status": "completed",
   "claimed_at": "2026-09-03T13:36:27Z",
   "updated_at": "2026-09-03T13:59:00Z",
-  "paths": ["AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md", ".agents/"],
+  "paths": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    ".github/copilot-instructions.md",
+    ".agents/"
+  ],
   "symbols": [],
   "coordination": {
     "depends_on": [],
     "conflicts_with": [],
-    "notes": "Reconciled with the stronger universal policy found in concurrent shared-environment and QuickGrade work."
+    "notes": "Reconciled with the stronger universal policy found in concurrent shared-environment and QuickGrade work. 2026-09-06 (E8): tools/src/check-claims.mjs made this ledger a CI gate. This record was corrected to the schema the gate enforces -- each completion.checks entry now ends with its verdict (passed/failed/not_run); wording and every measured detail are unchanged."
   },
   "completion": {
     "commit": "c8c52f0",
     "checks": [
       "npm run validate from tools: passed",
-      "cargo test --manifest-path godot-rust/Cargo.toml: passed (31 tests)",
+      "cargo test --manifest-path godot-rust/Cargo.toml (31 tests): passed",
       "git diff --check: passed"
     ]
   }
