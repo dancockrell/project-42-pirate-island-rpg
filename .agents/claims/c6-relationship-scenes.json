@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "task_id": "c6-relationship-scenes",
+  "agent": "claude-opus-5-lane-c6",
+  "summary": "C6: authored relationship scene records fill S12's milestone-rule seam, fade-to-black in the base tree, with one Rust translation and a test holding content and Rust equal",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "content/relationships/",
+    "tools/src/validate.mjs",
+    "tools/src/build-content-bundle.mjs",
+    "godot-rust/src/strategy/recruitment.rs",
+    "game/generated/content_bundle.json"
+  ],
+  "symbols": [
+    "MilestoneRule::from_authored",
+    "AuthoredSceneRule",
+    "every_authored_scene_rule_loads"
+  ],
+  "coordination": {
+    "depends_on": [
+      "S12"
+    ],
+    "conflicts_with": [
+      "C8",
+      "C12",
+      "C3"
+    ],
+    "notes": "C8 layers the pack manifest on the presentationLevel field this lane authors; C12 authors a full arc on the same schema. C3 owns content/characters/ayla.json, which does not exist yet, so this lane's womanId resolution names her ID as the one pending exception and refuses every other unregistered woman."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
