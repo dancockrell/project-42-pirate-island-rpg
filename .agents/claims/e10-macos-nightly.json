@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "task_id": "e10-macos-nightly",
+  "agent": "claude-code (lane E10)",
+  "summary": "A macos job in .github/workflows/nightly.yml, on a macOS runner, that downloads and SHA-512-verifies the pinned macOS Godot app zip and the same pinned export templates, builds the Rust GDExtension with tools/build-native-bridge.sh release, asserts the dylib exists at the path game/bin/project42_sim.gdextension declares, exports E4's macOS preset and uploads project42-macos-<sha> with a README saying the build is unsigned and unnotarised.",
+  "status": "active",
+  "claimed_at": "2026-09-06T09:35:00Z",
+  "updated_at": "2026-09-06T09:35:00Z",
+  "paths": [
+    ".github/workflows/nightly.yml"
+  ],
+  "symbols": [],
+  "coordination": {
+    "depends_on": ["e5-e9-nightly-and-pack"],
+    "conflicts_with": [],
+    "notes": "E5 owns nightly.yml and is completed; this lane adds one job to it and removes the \"macOS is deliberately absent\" comment E5 left in the desktop matrix, which is that comment's stated exit condition. No second workflow and no second engine-download path: the macOS job is E5's step sequence with the macOS asset, the macOS binary path inside Godot.app and the macOS export_templates directory. game/export_presets.cfg is E4's and is read, not written. tools/build-native-bridge.sh is read, not written. Nothing under godot-rust/, game/scripts/, content/ or docs/SHIP_PLAN.md is touched."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
