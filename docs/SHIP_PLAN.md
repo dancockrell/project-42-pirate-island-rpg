@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 (S16 and S17 are additions outside the bracket) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `174f029`. If this line is older than
+- Last updated 2026-09-06 against trunk `7abf1cf`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -492,7 +492,7 @@ captured by P1's gate, and no card claims a look it has not captured.
 |---|---|---|---|
 | P1 | Screenshot gate: every review scene and screen rendered offscreen in CI and locally; the visual loop | E2 | shipped 1b0c9f4 2026-09-06 |
 | P2 | Render foundation: Forward+ with a compatibility fallback, the world environment, the material and shader library, the camera director | P1 | open |
-| P3 | Atmosphere from the simulation: time of day, weather, corruption and pressure read from the snapshot, never a clock | P2, S8 | open |
+| P3 | Atmosphere from the simulation: time of day, weather, corruption and pressure read from the snapshot, never a clock | P2, S8 | shipped 7abf1cf 2026-09-06 |
 | P4 | The isometric board (B11 + B12): room cells with board metadata, three distances, party miniatures, ownership tint, forces in motion | P2, S2, S7, O3 (provisional) | open |
 | P5 | The bronze-and-vellum grammar (D11) and the calm information surface (B13): one Theme, the card rail, the command grid, journal and directive surfaces, accessibility wired | S6, S11, B9 | open |
 | P6 | Battle presentation: skill VFX and camera beats from the registries, hit-stop, band motion, site-rule ambience, the paper rigs until models | A5, A7, C3 | open |
@@ -2546,7 +2546,7 @@ one intended image on each; a suite asserts the environment resource's
 values are the ones the card names; the captures are committed.
 
 ### P3 · Atmosphere from the simulation
-Status: open · Depends on: P2, S8
+Status: shipped `7abf1cf` 2026-09-06 · Depends on: P2, S8
 Touches: `game/scripts/atmosphere/` (new autoload `Atmosphere`), one suite.
 The snapshot carries `campaign_day`, `time_segment`, per-region weather
 (S8), corruption per cell and the Cthulhu heat band (S9's bands through the
@@ -2562,6 +2562,23 @@ the particles.
 Done when: four captures — dawn, dusk, night, storm — from four authored
 snapshots, committed; a suite asserts a snapshot maps to the named
 environment values.
+**Shipped:** one read-only bridge hunk exposes `weather`, `corruption` (S9's
+band names, never the number), `heat_band`, `hour_of_day`, `active_region_id`
+and `is_night`; the band ladders gained `as_str`/`ALL` beside their owners.
+Five authored tables under `content/atmosphere/` with a validator that
+checks monotonic axes and refuses a pressure number; the `Atmosphere`
+autoload resolves a snapshot to sun, fog, wind, grade and shift and tweens
+between snapshots (no wall clock, no unseeded random; reduced motion stills
+the particles), writing through an `AtmosphereTarget` interface that P2's
+environment script implements when present and Godot's own classes
+otherwise. Four captures — dawn, dusk, night, storm — each read and
+iterated four times until it reads as its time and weather at a glance.
+Two bites proven (GDScript and Rust). **At the merge** the integrator folded
+this lane's snapshot capture into P1's single capture tool
+(`scene.tscn@night`, `--snapshot`) rather than keeping two tools. **Left, on
+purpose:** night lamps are resolved but placed only on a review board until
+P4's board provides anchors; wind is carried but no foliage shader consumes
+it until P2; Forward+ captures are CI's.
 
 ### P4 · The isometric board (B11 + B12)
 Status: open · Depends on: P2, S2, S7, O3 (provisional)
