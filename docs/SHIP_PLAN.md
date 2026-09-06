@@ -355,8 +355,8 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
-- **M3** shipped 0/16 · **M4** not started
-- Last updated 2026-09-06 against trunk `d06f604`. If this line is older than
+- **M3** shipped 3/16 — **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
+- Last updated 2026-09-06 against trunk `27d777b`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -380,8 +380,8 @@ top of the document is never stale:
 
 | ID | Task | Depends on | Status |
 |---|---|---|---|
-| S1 | `FactionDefinition` and faction resources | — | open |
-| S2 | Ownership and influence on `Geography` nodes | A2 | open |
+| S1 | `FactionDefinition` and faction resources | — | shipped 3614c34 2026-09-06 |
+| S2 | Ownership and influence on `Geography` nodes | A2 | shipped 27d777b 2026-09-06 — contested road = authored base + 2 |
 | S3 | Buildings: envelopes, sockets, tiers, capture and ruin | S1, S2 | open |
 | S4 | Strategic tick, pause semantics, determinism | S1 | open |
 | S5 | Utility AI and strategic states | S4 | open |
@@ -391,7 +391,7 @@ top of the document is never stale:
 | S9 | `DungeonContext` and generation signature | S3, S8 | open |
 | S10 | Elimination and the recovery chain | S3, S7 | open |
 | S11 | Event journal and the strategic save fields | S4 | open |
-| S12 | `RecruitmentState` for women (not a numeric romance UI) | S1 | open |
+| S12 | `RecruitmentState` for women (not a numeric romance UI) | S1 | shipped 83658e5 2026-09-06 |
 | S13 | Michael's faction production: machines, not people | S3 | open |
 | S14 | Founding sequence: shipwreck to first strategic core | S13, O5 | open |
 | S15 | Two Provisional doctrines approved and encoded | S1, human | blocked: needs approval of brief §6.x doctrines |
@@ -458,7 +458,7 @@ top of the document is never stale:
 | E3 | Shell equivalents of the two PowerShell gates | — | shipped 5344b7b 2026-09-05 |
 | E4 | Desktop export presets for Windows, Linux, macOS | — | shipped 838824e 2026-09-05 |
 | E5 | Nightly build artifacts per platform | E2, E4 | open — **must build the native library before exporting**, see its card |
-| E6 | Save-version migration fixtures and the four save boundaries | — | shipped 85413f0 2026-09-05 — fixtures and the migration test; the four save *boundaries* remain open under B8 |
+| E6 | Save-version migration fixtures | — | shipped 85413f0 2026-09-05 — **blind spot closed SHAMARK 2026-09-06**: the expected key set is a literal now |
 | E7 | Crash log with state snapshot; no silent telemetry | — | open |
 | E8 | Claims enforcement in CI | E1 | open |
 | E9 | Pack build script and pack artifact | C8, E5 | open |
@@ -834,7 +834,7 @@ type below mirrors brief §19's "Derived" shapes by field name so the brief and
 the code stay one vocabulary.
 
 ### S1 · `FactionDefinition` and faction resources
-Status: open · Depends on: —
+Status: shipped `3614c34` 2026-09-06 · Depends on: —
 Touches: `godot-rust/src/strategy/faction.rs` (new), `lib.rs`, `content/factions/*.json` (C9)
 Steps:
 1. `pub struct FactionDefinition` with exactly brief §19's fields: `id`,
@@ -862,8 +862,21 @@ Traps: no faction proper names anywhere — IDs are `faction.<concept_key>`.
 Do not encode a Provisional doctrine (§6.1–6.4) as behaviour before S15.
 Done when: round-trip test for a two-faction state; `cargo test` green.
 
+**Shipped.** Brief §19's fields verbatim and in order; `ConceptKey` is a
+closed six-variant enum and no type has a field a proper name could live in;
+`validate` holds an ID to exactly `faction.<concept_key>` through the crate's
+single stable-ID rule. `FactionDefinitions`, the registry S4's signature
+names, lives here because loading C9's records is S1's half of that contract.
+Resource categories stay Open by construction. `StrategicState::default()` is
+`Contesting` only so pre-strategic saves load; S5 recomputes on first tick —
+flagged for review, not decided. **C9 must author** one
+`content/factions/<concept_key>.json` per faction whose `id` is exactly
+`faction.<concept_key>`, with a `displayName` placeholder marked needs
+decision that no Rust field reads; the validator block mirrors `validate`.
+The lane's most useful finding is on E6's card.
+
 ### S2 · Ownership and influence on `Geography` nodes
-Status: open · Depends on: A2
+Status: shipped `27d777b` 2026-09-06 · Depends on: A2
 `LocationRecord` gains `owner_faction_id: Option<String>` and
 `influence: BTreeMap<String, u16>`; `Geography` gains
 `fn controller(&self, cell_id) -> Option<&str>`. `ExpeditionState.ownership:
@@ -873,6 +886,25 @@ contested" (brief §1) is `RouteOption.risk_level` derived at query time from
 the two endpoints' controllers, not stored twice.
 Done when: a test flips control of the river landing and the safe road's risk
 changes without any route record being edited.
+
+**Shipped, with the integrator's correction applied.** The authored
+`risk_level` is the base; `Geography::effective_risk` is the single owner of
+a road's live danger — base plus `CONTESTED_RISK_MODIFIER = 2` when the two
+endpoints' effective controllers differ, unheld counting as a party of its
+own (one comparison, no special case; a fresh campaign is uncontested). Two
+is not arbitrary: the slice's safe road is risk 1 and its jungle edge 3, so a
+contested safe road costs exactly what the jungle costs — "a safe road
+becomes contested", mechanical. A test holds that equality.
+`ControlChanged` went on the one `WorldEvent` enum in `world.rs`.
+`set_control(cell, None)` releases the override rather than forcing unheld,
+so the event never reports a cell as unowned while the graph still gives it
+an owner. `influence` has no consumer yet and `effective_risk` deliberately
+reads control only, so influence cannot become a second answer to who holds
+a road; S4/S7 own it. **Bridge surface for B3, next round:** `set_control`,
+`controller_of` (effective, never raw `ownership`), `effective_risk(portal)`,
+route projections carrying effective risk plus `contested: bool` and never
+the authored base as a second number, and a `ControlChanged` case in the
+event projection.
 
 ### S3 · Buildings: envelopes, sockets, tiers, capture and ruin
 Status: open · Depends on: S1, S2
@@ -985,7 +1017,7 @@ stays 1 while every new field is `#[serde(default)]`.
 Done when: E6's fixture for v1 still loads; a strategic save round-trips.
 
 ### S12 · `RecruitmentState` for women
-Status: open · Depends on: S1
+Status: shipped `83658e5` 2026-09-06 · Depends on: S1
 Brief §19's `RecruitmentState` verbatim as a struct in
 `ExpeditionState.recruitment: BTreeMap<String, RecruitmentState>`; stages
 advance only through authored milestone flags (C6/C12), never by a timer;
@@ -994,6 +1026,19 @@ attraction with low trust does not advance the stage. **Never surfaced as
 numbers** — the bridge exposes `recruitment_stage` and the current authored
 beat only.
 Done when: the stage test passes; the bridge dictionary has no numeric field.
+
+**Shipped.** §19's fields verbatim plus three the behaviour needs and §19 does
+not name, each marked: the milestone-rule table (the seam C6 replaces with
+records), recorded milestones (replay refusal), and the current beat. One
+predicate is the only place a stage can move; a milestone with no rule is
+recorded and moves nothing. *Attraction creates openings, not allegiance* is
+a test, proven to bite three ways. Never surfaced as numbers, structurally:
+`Disposition` has no accessor outside the file, so a numeric romance
+interface is unrepresentable in the crate; `projection()` yields only
+`recruitment_stage` and `current_beat_id`, and that is all the bridge may
+pass (B3). Only Betty and Ayla exist; there is no terminal never-joins rung
+because naming one would author content — a woman who never joins stays at
+`Contact`. Decide the rung when C6 lands.
 
 ### S13 · Michael's faction production: machines, not people
 Status: open · Depends on: S3
@@ -1285,6 +1330,25 @@ Note the distinction from E2: E2 is genuinely unblocked, because its CI job
 builds the `.so` itself at run time via the same script — confirmed by its
 first green run, which built the library and loaded it. It is *release
 packaging* that the missing committed binaries affect, not the test job.
+
+### E6 · Save-version migration fixtures
+Status: shipped `85413f0` 2026-09-05, blind spot closed `SHAMARK` 2026-09-06
+Two committed v1 fixtures (`v1_minimal.json`, the shape an early save really
+had; `v1_current.json`, a generated full round trip) and a suite that loads
+every fixture in `tests/saves/`, so a dropped `serde(default)` or a renamed
+field fails here rather than in a player's save.
+
+**Gap found by S1, 2026-09-06.** The added-fields test took its reference key
+set from the serializer under test, so a field marked `skip_serializing`
+passed it while vanishing from every save. S1's in-module round trip caught
+it; this suite did not. **Closed:** `EXPECTED_CURRENT_KEYS` is a literal list
+of the struct's fields in struct order, and
+`the_current_save_writes_exactly_the_fields_the_struct_declares` holds the
+serializer to it in both directions. Proven to bite: `skip_serializing` on
+`ownership` fails it naming the field. Adding a field now means adding it to
+the list and regenerating `v1_current.json`, on purpose.
+Rule: a save fixture is generated by the code, never hand-written.
+
 
 ### E9 · Pack build script and pack artifact — `tools/src/build-pack.mjs`
 runs `godot --headless --export-pack` on `packs/<id>/`; CI uploads the `.pck`

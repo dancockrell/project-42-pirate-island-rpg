@@ -111,9 +111,69 @@ fn every_committed_fixture_still_loads() {
     }
 }
 
+/// Every top-level key `ExpeditionState::to_json` writes today, as a literal.
+///
+/// A literal on purpose. S1 found that deriving this set from the serializer
+/// under test made the migration suite blind to a field marked
+/// `skip_serializing`: the field vanished from every save and the suite,
+/// comparing the serializer to itself, agreed with it. Now the struct's
+/// declared fields are written here by hand, in struct order, and the test
+/// below holds the serializer to them. Adding a field means adding it here
+/// -- and regenerating `v1_current.json` -- on purpose, which is the point.
+const EXPECTED_CURRENT_KEYS: &[&str] = &[
+    "save_version",
+    "campaign_day",
+    "time_segment",
+    "party_ids",
+    "active_location_id",
+    "route_history",
+    "supplies",
+    "character_states",
+    "named_person_memory",
+    "habitat_states",
+    "daily_spawn_records",
+    "nightly_spawn_records",
+    "hunters",
+    "discoveries",
+    "household_progress",
+    "pending_encounter",
+    "resolved_encounter_ids",
+    "anchor_uses",
+    "rng_seed",
+    "factions",
+    "recruitment",
+    "ownership",
+];
+
+fn expected_current_keys() -> BTreeSet<String> {
+    EXPECTED_CURRENT_KEYS
+        .iter()
+        .map(|key| (*key).to_owned())
+        .collect()
+}
+
+/// The serializer writes exactly the fields the struct declares: nothing
+/// skipped, nothing renamed, nothing added without this list knowing. This is
+/// the test S1 proved the suite was missing.
+#[test]
+fn the_current_save_writes_exactly_the_fields_the_struct_declares() {
+    let written = keys_of(&a_current_save().to_json());
+    let expected = expected_current_keys();
+    let missing: Vec<&String> = expected.difference(&written).collect();
+    let unexpected: Vec<&String> = written.difference(&expected).collect();
+    assert!(
+        missing.is_empty() && unexpected.is_empty(),
+        "ExpeditionState::to_json and EXPECTED_CURRENT_KEYS disagree.\n\
+         declared but not written (a skip_serializing, or a rename): {missing:?}\n\
+         written but not declared (a new field -- add it to the list and \
+         regenerate v1_current.json): {unexpected:?}"
+    );
+}
+
 #[test]
 fn fields_added_since_a_fixture_was_written_default_instead_of_failing() {
-    let current_keys = keys_of(&a_current_save().to_json());
+    // The literal, not the serializer: see EXPECTED_CURRENT_KEYS.
+    let current_keys = expected_current_keys();
 
     for (name, contents) in fixtures() {
         let fixture_keys = keys_of(&contents);
