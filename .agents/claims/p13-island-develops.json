@@ -3,15 +3,16 @@
   "task_id": "p13-island-develops",
   "agent": "claude-code (lane P13)",
   "summary": "What S17 raises and S16 builds stands on the board: two read-only state-dictionary keys, building_instances and machine_instances, and the placement code that stands P12's kits on the holding cell at the world and route distances and inside the room's footprint at the socket the record names.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
     "godot-rust/src/godot_bridge.rs",
-    "game/scripts/simulation/native_expedition_port.gd",
-    "game/scripts/board/isometric_board.gd",
     "game/scripts/board/board_development.gd",
+    "game/scripts/board/isometric_board.gd",
     "game/tests/board_development_test.gd",
+    "game/tests/board_verification_campaign.gd",
+    "game/tests/capture_board_distances.gd",
     "docs/verification/captures/"
   ],
   "symbols": [
@@ -20,7 +21,13 @@
     "building_state_name",
     "machine_condition_name",
     "BoardDevelopment",
-    "IsometricBoard.apply_development"
+    "BoardDevelopment.build_instance",
+    "BoardDevelopment.row_places",
+    "BoardDevelopment.room_place",
+    "BoardDevelopment.apron_metres",
+    "IsometricBoard.apply_development",
+    "IsometricBoard.place_development",
+    "BoardVerificationCampaign.develop_island"
   ],
   "coordination": {
     "depends_on": [
@@ -30,6 +37,31 @@
       "b19-machine-registry"
     ],
     "conflicts_with": [],
-    "notes": "Lane S19 edits the journal match arms in godot_bridge.rs this round; this lane's hunks are confined to expedition_state_dictionary and two small helper functions placed immediately before world_event_dictionary, so the two merge as keep-both. game/scripts/blockouts/ is called and not edited. No content, tools/ or strategy/ file is touched."
+    "notes": "Lane S19 edits the journal match arms in godot_bridge.rs this round; this lane's hunks are confined to expedition_state_dictionary (two `result.set` blocks, each beside the registry array it belongs with) and two helper functions placed immediately before world_event_dictionary, so the two merge as keep-both. No ExpeditionState field was added, so EXPECTED_CURRENT_KEYS is untouched. game/scripts/blockouts/ is called through `build` and not edited; no content, tools/, strategy/, battle/, shell/ or ui/ file is touched. native_expedition_port.gd needed NO change: `snapshot()` forwards the bridge dictionary verbatim, so the two new keys cross on the line that was already there, and mock_simulation_port.gd carries no expedition snapshot at all (it is the battle-side fixture), so there is no mock shape to keep in agreement. game/tests/board_verification_campaign.gd is P4's and P10's shared owner of the campaign both board proofs run; it gained the developed island rather than this lane declaring a second one, which is the no-fork rule applied to a fixture. capture_board_distances.gd gained two states at the END of its sequence and P10's five are untouched in order or content."
+  },
+  "completion": {
+    "commit": "28db626",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (369 unit, 7 strategic_determinism, 5 save_migration, 11 authored_world, 1 vertical_slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (541 stable IDs): passed",
+      "node tools/src/check-claims.mjs (73 claims, 114 ship-plan rows): passed",
+      "No content and no builder changed, so build-content-bundle.mjs was not re-run and game/generated/ is untouched: not_run",
+      "bash tools/verify-godot.sh with GODOT=Godot_v4.7.2 (5 review scenes, 31 suites, board_development_test.gd among them): passed",
+      "Done-when 1, the suite: game/tests/board_development_test.gd drives a live-bridge campaign, reads building_instances and machine_instances off a real snapshot, asserts the seven fields a building crosses on and the five a machine crosses on plus the four withheld on each, and asserts one node per instance BY NAME (Building_michael_yard, Building_pirate_post, Machine_yard_dog) standing on the cell the snapshot names: passed",
+      "Done-when 1, the freeing half: a snapshot with the post and the dog gone frees both nodes and clears them from the board's own record, while the yard the snapshot still carries goes on standing: passed",
+      "Bite 1 (the main one): `apply_development` returning at once fails three checks by name -- 'the yard must stand on the board as its own node', 'the half-built post must stand on the board as its own node', 'the machine must stand on the board as its own node'; restored and green: passed",
+      "Bite 2: freeing replaced by hiding fails 'a building the snapshot no longer carries stops standing on the island', 'a machine the snapshot no longer carries stops standing on the island' and 'the freed node must leave the board's own record of what is standing'; restored and green: passed",
+      "Bite 3 (the Rust half): dropping construction_hours_remaining from the projection fails 'a building instance crosses on seven fields and no more' and 'a building instance must carry construction_hours_remaining', twice, once per instance; restored, rebuilt and green: passed",
+      "Under construction versus standing: the post's whole massing wears the project's placeholder shader and stands at its first tier alone, the yard wears none of it and stands at every authored tier, both heights held equal to BuildingBlockoutKit.envelope_metres for the holding cell's own footprint: passed",
+      "The faction wash: the apron under the yard and the apron under the dog are both BoardPalette.controller_tint('faction.michael'), and no surface of the yard wears the pirates' wash: passed",
+      "Room distance: at the terrace the same nodes stand on the authored spawn socket their role names, the machine on the first socket of its role the yard is not already standing on, the whole ground each takes up inside the room's footprint; returning to the world distance puts the same node back on its row place: passed",
+      "Done-when 2, captures: docs/verification/captures/P13-28db626-{world,route,development,development-room}.png, looked at and iterated five rounds (the apron under every instance rather than only under machines, because C10 makes the machine shop iron and a wash on its walls said nothing; a machine row in front of the building row, because a 2.3 m dog in line with a 23 m shed is a dog behind a shed; the room socket drawn back inside the footprint; a socket skipped when something already stands on it; the apron minimum raised so a machine leaves a readable mark): passed",
+      "The card's live-bridge campaign is NOT reachable and the suite says so at length instead of faking it. Measured, not assumed: a campaign begun through CampaignSession, four cells handed out through set_control, 60 in-world days (1,440 strategic hours) driven through resolve_midnight -- current_goals is empty for all six factions at every step, because S5 scores a goal out of stockpiles and relationships and a bridge campaign seeds neither (the determinism harness's a_campaign() seeds both, which is why the harness reaches S17's Develop branch). And nothing finishes a building: S17's own shipped paragraph records that advance_construction has no caller on a clock, and produce_machine refuses a building that is not Operational, so a machine is unreachable through the tick at any budget. The island is therefore developed through the bridge's own save round trip, the way P4 drove its force before S18 landed, and BoardVerificationCampaign.develop_island carries the note that a verb replaces it: failed",
+      "needs decision (O3), asserted by the suite to still say so in BoardDevelopment.OPEN_DIMENSIONS: ROW_DEPTH_SHARE (where inside a cell a faction stands what it has built -- sheds at the back, machines parked in front), ROW_GAP_METRES, ORDER_KINDS (buildings before machines, each group in the snapshot's BTreeMap order), ROOM_ROLE (a building occupies an authored `occupant` socket and a machine an `item` socket, because B11's four roles include no word for a shed), APRON_MARGIN_METRES, APRON_MINIMUM_METRES, APRON_THICKNESS_METRES: not_run",
+      "needs decision, left for production.rs: MachineInstance carries no state enum, so `machine_instances[].state` is a two-word band over `damage` ('whole' / 'damaged') in the shape `corruption` bands S9's accumulation. When a real MachineState is named, machine_condition_name becomes an exhaustive match over it the way building_state_name already is: not_run",
+      "A ruined building is not drawn: BuildingState::Ruined is terminal and drawing a ruin as a whole building would be the board saying something the simulation did not. No authored campaign reaches Ruined through the bridge, so this is asserted only as the board's rule (BoardDevelopment.is_standing) and not through a live ruin: not_run"
+    ]
   }
 }
