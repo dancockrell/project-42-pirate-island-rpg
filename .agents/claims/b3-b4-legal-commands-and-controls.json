@@ -3,7 +3,7 @@
   "task_id": "b3-b4-legal-commands-and-controls",
   "agent": "claude-code/lane-B3-B4",
   "summary": "The bridge projects the full legal-command list and exposes inspect and midnight; the expedition screen draws anchor, inspect and midnight controls from that list alone",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -28,12 +28,22 @@
     "ExpeditionPrototype.request_midnight"
   ],
   "coordination": {
-    "depends_on": ["c13-authored-discoveries-and-anchor-wire"],
+    "depends_on": [
+      "c13-authored-discoveries-and-anchor-wire"
+    ],
     "conflicts_with": [],
     "notes": "Extends C13's wire. Does not touch expedition.rs, geography.rs, strategy/**, content/**, tools/**, docs/SHIP_PLAN.md, or another contributor's game/scripts/world/elizabethan_*, game/scripts/review/, game/tests/elizabethan_*. There is no Godot in this environment, so the GDScript half is verified by CI's Godot job, not locally; the Rust half is proven locally in godot-rust/tests/authored_world.rs."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "1476d6c",
+    "checks": [
+      "cargo test (godot-rust): passed -- 153 unit + 3 authored_world + 4 + 1, 0 failed",
+      "cargo fmt --check (godot-rust): passed",
+      "cargo check --features godot-ext (godot-rust): passed",
+      "node tools/src/validate.mjs: passed -- 194 stable IDs checked",
+      "bite proof: deleting the spent-anchor filter in legal_next_commands_with_geography fails the_salvage_anchor_leaves_the_legal_commands_when_spent_and_returns_at_midnight; reverted: passed",
+      "bite proof: removing one arm of world_event_dictionary fails to compile (E0004 non-exhaustive patterns); reverted: passed",
+      "tools/verify-godot.sh: not_run -- there is no Godot in this environment; the GDScript half (port, session, screen and expedition_prototype_test.gd) is verified by the Godot job in CI on push"
+    ]
   }
 }
