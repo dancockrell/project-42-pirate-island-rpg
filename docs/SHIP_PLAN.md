@@ -346,7 +346,7 @@ top of the document is never stale:
 
 - **M0** shipped 7/13 · A1 A2 A11 B1 H6 H7 H9 · H2 and H10 superseded by
   `main`'s own rewrite · **remaining: C2, B2, H5, H8**
-- **M1** shipped 8/12 — **A10** (a woman's higher-ranked commands open as her arc advances), **C1, C2, C4** (loot, portal costs, Michael's
+- **M1** shipped 10/12 — **A7** and **C3** (Ayla lands: seven of seven, site rules as data), **A10** (a woman's higher-ranked commands open as her arc advances), **C1, C2, C4** (loot, portal costs, Michael's
   commands), **A3** (the supply loop closes: anchors produce, rations bite,
   victory pays), **A4** (the estate's rooms are anchor actions; one way to act
   at a place), **A5** (five named bands, Composure, the Shaken gate) and
@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `eba030a`. If this line is older than
+- Last updated 2026-09-06 against trunk `abe9a5a`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -368,7 +368,7 @@ top of the document is never stale:
 | A4 | Estate actions as anchor actions; delete `rest_at_estate` | A3 | shipped 047e0f4 2026-09-05 — pursuit made gate-aware in cae9337 on merge |
 | A5 | Five named bands and Composure | A1 | shipped 906411c 2026-09-05 — skill_rank reconciled to authored bondRank on merge |
 | A6 | Captain Michael as a battle actor: Weapon Attack, Guard, Reposition | A5, C4 | shipped f33f364 2026-09-05 — name and reposition record reconciled on merge |
-| A7 | Ayla's Deny Activation and Override Tomb Rule via site rules; PR #2's five skills re-landed on the current engine | A2, H5 | open |
+| A7 | Ayla's Deny Activation and Override Tomb Rule via site rules; PR #2's five skills re-landed on the current engine | A2, H5 | shipped abe9a5a 2026-09-06 |
 | A8 | Reconcile `hold_position` with the Guard decision | A6 | shipped 4572361 2026-09-06 |
 | A9 | Faction-agent observation record (was "Champion") | A6, S5 | open |
 | A10 | Bond rank D→C with a specified combat effect | A6, C6 | shipped f75cc64 2026-09-06 |
@@ -427,7 +427,7 @@ top of the document is never stale:
 |---|---|---|---|
 | C1 | Loot records and the `lootTableId` reference check | — | shipped ab17bfa 2026-09-05 |
 | C2 | Portal cost fields (the location IDs were fixed by A2) | — | shipped ab17bfa 2026-09-05 — its costs first reached the engine under C13; the port had dropped them |
-| C3 | `ayla.json` and seven Ayla skill records | A7 | open |
+| C3 | `ayla.json` and seven Ayla skill records | A7 | shipped abe9a5a 2026-09-06 |
 | C4 | Captain Michael's skill records and a `self` target rule | — | shipped ab17bfa 2026-09-05 |
 | C5 | The tomb as a faction-specific dungeon: twelve spaces | B6, S9 | shipped 419f64c 2026-09-06 |
 | C6 | Relationship scene records and schema | — | shipped 3857ffa 2026-09-06 — five scenes, fade-to-black by rule, the pack's seam left open |
@@ -486,7 +486,7 @@ G1 is the acceptance script; G2/G3 two external rounds.
 | H2 | `GAME_BUILD_PLAN.md` §7 rewritten | — | superseded — `main` replaced the whole document (e77c9e6); its version is canonical and this plan defers to it |
 | H3 | Bible wording: 3D; romance and the pack | — | done (this pass) |
 | H4 | 3D production docs: rigging is a switch; clips wait for the tool | — | done (this pass) |
-| H5 | Site-rule spec into `HEROINE_AYLA_DESIGN.md` | — | open — done inside A7 (the spec is written beside the code, not ahead of it) |
+| H5 | Site-rule spec into `HEROINE_AYLA_DESIGN.md` | — | shipped abe9a5a 2026-09-06 — written inside A7, beside the code |
 | H6 | Retarget PR #3 to `main`; note PR #4; flag the stale status branch | — | shipped 34142a8 2026-09-05 — PR #3 now targets `main`, conflict resolved by merging it |
 | H7 | dr-companion `.gitmodules` branch pointer | — | shipped (dr-companion e387d29) 2026-09-05 — the work landed in dr-companion, not here: merged to its `main` in its PR #276; no commit of that SHA exists in this repository |
 | H8 | Regenerate the design bible `.docx` | H3, H9 | open (needs `python-docx`) |
@@ -782,7 +782,7 @@ resolved by the integrator:**
   wrong, not the lane.
 
 ### A7 · Ayla's Deny Activation and Override Tomb Rule via site rules
-Status: open · Depends on: A2, H5
+Status: shipped `abe9a5a` 2026-09-06 · Depends on: A2, H5
 `CellDefinition`/`LocationRecord` gain `site_rule_ids`; the tomb cells declare
 `site_rule.tomb.grave_watch` (hostiles regain 2 guard each round).
 `ExpeditionState.suppressed_site_rules: BTreeSet<String>` `#[serde(default)]`.
@@ -804,6 +804,23 @@ beside the code. C3 (her character record and seven skill records) follows
 in the same lane once the two site-rule skills exist. Ayla's physical
 identity stays unestablished; no palette or build is invented.
 Done when: two tests per skill; a suppressed rule survives save/reload.
+**Shipped:** `content/site_rules/*.json` owns all twenty-six IDs; `effect` is
+a closed two-shape vocabulary (`guard_regen_per_round` for grave watch,
+`needs_decision` for the rest) with a single Rust owner in
+`strategy/site_rule.rs`, refused identically by serde and the validator when
+neither shape is named; held equal to the directory and to the dungeon
+record in both directions. Cells carry `site_rule_ids` and `dungeon_id`
+from `dungeonContext`; `LocationRecord::site_id()` defines a site once.
+`suppressed_site_rules` and `site_denial_charges` appended to the save.
+`Battle` applies grave watch in `begin_round`. PR #2's five skills re-landed
+with their tests; Deny Activation is once per site and survives save;
+Override Tomb Rule is once per expedition and its suppression *is* the
+counter. B17's constructor was replaced, not duplicated, by
+`prototype_vertical_slice_from_campaign(&CampaignBattleSetup)`. The port
+forwards site-rule records and each cell's `dungeonContext`. C15's leftover
+literal renamed in the same commit. Four bites proven. **Needs decision:**
+which rule Override Tomb Rule replaces (first in authored order is a
+deterministic stand-in); twenty-five rule mechanics.
 
 ### A8 · Reconcile `hold_position` with the Guard decision
 Status: shipped `4572361` 2026-09-06 · Depends on: A6 — rewrite
@@ -1802,7 +1819,16 @@ can use it. (The encounter's location IDs, listed here in an earlier draft,
 were fixed by A2.)
 
 ### C3 · `ayla.json` and seven Ayla skill records
-Status: open · Depends on: A7
+Status: shipped `abe9a5a` 2026-09-06 · Depends on: A7
+**Shipped inside A7's lane:** `content/characters/ayla.json` and seven
+`ayla.*` skill records in rank order D…SSS, each bound only to events Rust
+emits and to a registered target rule (Reach Counter got its own rule and
+targeting behaviour rather than borrowing Fatal Intercept's); ten camera and
+ten VFX presentation entries of her own; two placeholder art assets. C6's
+one-line exception for a woman without a record is deleted — the validator
+now finds her. Her build, colouring and palette are **not** established and
+her record says so; her art waits on an identity lock. Stable IDs 270 → 300;
+bundle 59 → 93.
 
 ### C4 · Captain Michael's two commands · shipped ab17bfa
 Status: shipped ab17bfa 2026-09-05 · Depends on: —
@@ -2348,7 +2374,14 @@ dylib, or the claim names the exact reason it cannot.
 ### Lane H — cards for this pass
 
 ### H5 · Site-rule spec into `HEROINE_AYLA_DESIGN.md`
-Status: open — written inside A7, beside the code; closes with it · Depends on: —
+Status: shipped `abe9a5a` 2026-09-06 · Depends on: —
+Brought onto trunk from PR #2 and rewritten as the site-rule specification:
+seven of seven, how the two site-scoped skills were scoped, the closed
+effect vocabulary, and the twenty-five rules whose mechanics are still
+`needs decision`. `ARCHITECTURE.md` updated. PR #2 closed with a comment
+recording the re-land and naming the two art-planning files on that branch
+that are not superseded (`still_image_plan.json`, the razorbeak reference
+ledger) as open work worth a card.
 
 ### H6 · Retarget PR #3 to `main`; note PR #4; flag the stale status branch
 Status: shipped 34142a8 2026-09-05 · Depends on: — · PR #3 now targets `main`, conflict resolved by merging it
