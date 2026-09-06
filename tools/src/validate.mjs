@@ -1,6 +1,7 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import { resolve, relative } from "node:path";
 import process from "node:process";
+import { resolveDerivedRecords } from "./derived-records.mjs";
 
 const repo = resolve(import.meta.dirname, "../..");
 const failures = [];
@@ -617,8 +618,57 @@ for (const { file, value } of await readJsonDirectory("relationships")) {
 // TrustInMichael, or nothing in the content tree is holding that line.
 if (relationshipSceneCount > 0 && sceneRulesRestingOnTrust === 0) failures.push("content/relationships/: no authored scene puts a floor under TrustInMichael, so nothing in the content tree holds the line that attraction creates openings rather than allegiance (brief section 5.6)");
 
-for (const { file, value } of await readJsonDirectory("enemies")) {
+// C15: the creature registry's ID is the one that survives. `Habitats`,
+// `WorldClock`'s spawn rules and every habitat roster spell these creatures
+// `enemy.raptor.razorbeak`; the seven authored records used to spell the same
+// creatures `enemy.raptor.razorbeak.prototype`, so a roster entry could never
+// resolve against content. Content owns the ID and it is the registry's
+// spelling, which is why the suffix is refused here rather than tolerated.
+//
+// `derivesFrom` is resolved before any of the checks below run, so a variant
+// record is validated as the complete creature Godot will receive from
+// `game/generated/content_bundle.json` -- the same resolution, from the same
+// module, that the bundle builder applies.
+const openEnemyFields = ["level", "stats.vitality", "stats.guard", "stats.initiative", "skillIds"];
+const enemyFieldValue = (record, path) => path.split(".").reduce((value, key) => (value === undefined || value === null ? undefined : value[key]), record);
+const authoredEnemies = await readJsonDirectory("enemies");
+for (const { file, value } of authoredEnemies) {
+  if (typeof value.id !== "string" || !value.id.startsWith("enemy.")) fail(file, `id ${JSON.stringify(value.id)} must use the enemy. prefix`);
+  else if (value.id.endsWith(".prototype")) fail(file, `id ${value.id} carries a .prototype suffix the creature registry does not use; Habitats and WorldClock spell this creature ${value.id.slice(0, -".prototype".length)}, and a roster entry cannot resolve against a suffix content invented`);
+}
+const { records: resolvedEnemies, problems: enemyDerivationProblems } = resolveDerivedRecords(authoredEnemies);
+for (const problem of enemyDerivationProblems) fail(problem.file, problem.message);
+let enemyCount = 0;
+for (const { file, value } of resolvedEnemies) {
+  enemyCount += 1;
   requireString(value, "displayName", file);
+
+  // The placeholder convention, inverted the way C14 checks a machine's Open
+  // dimensions: a number nobody has decided stays 0 and `open` names the
+  // decision by field, and -- the half that bites -- a field left at 0 or a
+  // skill list left empty MUST be named there, so a hollow creature record
+  // cannot pass as a finished one. `enemy.boar.thunderback` is the record this
+  // exists for: the habitat fixture puts it on the river jungle's roster and
+  // carries no stat, level or skill for it anywhere.
+  for (const path of ["level", "stats.vitality", "stats.guard", "stats.initiative"]) {
+    const stat = enemyFieldValue(value, path);
+    if (!Number.isInteger(stat) || stat < 0) fail(file, `${path} must be a non-negative integer`);
+  }
+  if (!Array.isArray(value.skillIds)) fail(file, "skillIds must be an array");
+  if (value.open !== undefined) {
+    if (typeof value.open !== "object" || value.open === null || Array.isArray(value.open)) fail(file, `open must be an object naming the decision behind each undecided field: ${openEnemyFields.join(", ")}`);
+    else for (const [field, note] of Object.entries(value.open)) {
+      if (!openEnemyFields.includes(field)) fail(file, `open.${field} is not one of the fields a creature record may leave undecided: ${openEnemyFields.join(", ")}`);
+      else if (typeof note !== "string" || !note.includes("needs decision")) fail(file, `open.${field} must be a placeholder containing "needs decision" that says what is undecided and why no source answers it`);
+      else if (field === "skillIds") {
+        if (!Array.isArray(value.skillIds) || value.skillIds.length !== 0) fail(file, "open.skillIds says this creature's skills are undecided, so skillIds must be the empty list rather than a guess");
+      } else if (enemyFieldValue(value, field) !== 0) fail(file, `open.${field} says this number is undecided, so ${field} must stay 0 rather than read as a decided value`);
+    }
+  }
+  for (const field of openEnemyFields) {
+    const empty = field === "skillIds" ? Array.isArray(value.skillIds) && value.skillIds.length === 0 : enemyFieldValue(value, field) === 0;
+    if (empty && typeof value.open?.[field] !== "string") fail(file, `${field} is empty, which makes this a placeholder record; open.${field} must name the decision it is waiting on (brief section 20's convention, as C14 applies it to machine dimensions)`);
+  }
   if (value.worldPresence?.penAllowed !== false) fail(file, "island monsters may not be designed as pen exhibits");
   if (value.worldPresence?.packSize !== 1) fail(file, "prototype enemies must be tuned as individual threats");
   for (const [index, id] of (value.skillIds ?? []).entries()) {
@@ -653,6 +703,99 @@ for (const { file, value } of await readJsonDirectory("enemies")) {
       previousAt = beat?.atMs ?? previousAt;
     }
   }
+}
+
+// C15: `content/habitats/`. B7 recorded why this directory did not exist -- a
+// habitat is mostly its roster, and two rostered creatures had no content
+// record while the seven that did carried a suffix the registry never used --
+// and left `habitat.` in `intentionallyExternalPrefixes` as the honest
+// stopgap. Both halves are closed above, so the twin is authored and
+// `habitat.` is an ordinary registered ID like any other.
+//
+// The arrangement is `content/loot/`'s exactly: content owns the numbers,
+// `Habitats::black_beach_vertical_slice` in `godot-rust/src/habitat.rs`
+// carries them so the simulation never reads the disk mid-day, and
+// `habitat::tests::fixture_matches_the_authored_habitats` holds the two equal
+// field for field. The field names and the `rank` and `family` spellings below
+// are `HabitatRecord`'s, `EncounterRank`'s and `CreatureFamily`'s verbatim --
+// the Rust enums carry no serde rename, so C6's treatment of `RecruitmentStage`
+// applies: the variant names are what a record writes, and the Rust test is
+// what keeps these lists honest.
+const encounterRanks = new Set(["Ordinary", "Elevated", "Apex"]);
+const creatureFamilies = new Set(["Beast", "Undead", "Spectral", "Eldritch"]);
+const habitatRegionIds = new Map();
+const habitatTerritory = new Map();
+let habitatCount = 0;
+for (const { file, value } of await readJsonDirectory("habitats")) {
+  habitatCount += 1;
+  if (typeof value.id !== "string" || !value.id.startsWith("habitat.")) fail(file, `id ${JSON.stringify(value.id)} must use the habitat. prefix`);
+  requireString(value, "display_name", file);
+
+  // Every habitat owns a distinct region, because `WorldClock::resolve_midnight`
+  // builds each spawn's instance ID from region and slot: two habitats sharing
+  // a region would collide into one `HabitatState`.
+  if (typeof value.region_id !== "string" || !value.region_id.startsWith("world.region.")) fail(file, `region_id ${JSON.stringify(value.region_id)} must be a world.region.<...> ID`);
+  else if (habitatRegionIds.has(value.region_id)) fail(file, `region_id ${value.region_id} is already held by ${habitatRegionIds.get(value.region_id)}; Midnight Return derives instance IDs from region and slot, so two habitats sharing one region would collide into a single spawn record`);
+  else habitatRegionIds.set(value.region_id, value.id);
+
+  // The roster is the habitat. Every entry names a creature content declares,
+  // so a habitat can no longer roster something nobody authored.
+  if (!Array.isArray(value.roster) || value.roster.length === 0) fail(file, "roster must list every creature that can hold this habitat, baseline first");
+  else {
+    const rostered = new Set();
+    for (const [index, entry] of value.roster.entries()) {
+      if (typeof entry?.definition_id !== "string" || !entry.definition_id.startsWith("enemy.")) fail(file, `roster[${index}].definition_id ${JSON.stringify(entry?.definition_id)} must be an enemy.<...> creature ID`);
+      else {
+        reference(entry.definition_id, file, `roster[${index}].definition_id`);
+        if (rostered.has(entry.definition_id)) fail(file, `roster[${index}] rosters ${entry.definition_id} twice`);
+        else rostered.add(entry.definition_id);
+      }
+      if (!creatureFamilies.has(entry?.family)) fail(file, `roster[${index}].family ${JSON.stringify(entry?.family)} is not one of ${[...creatureFamilies].join(", ")}`);
+      if (!Number.isInteger(entry?.available_from_day) || entry.available_from_day < 1) fail(file, `roster[${index}].available_from_day must be an integer campaign day of 1 or more`);
+      if (typeof entry?.night_only !== "boolean") fail(file, `roster[${index}].night_only must be boolean`);
+    }
+    // A habitat whose whole roster is night-only has no daylight holder, and
+    // `leader_definition_id` would advertise a creature that cannot be there.
+    if (value.roster.every(entry => entry?.night_only === true)) fail(file, "roster leaves this habitat with no daylight holder at all; the first entry is the baseline answer to what normally lives here");
+  }
+
+  if (!encounterRanks.has(value.rank)) fail(file, `rank ${JSON.stringify(value.rank)} is not one of ${[...encounterRanks].join(", ")}`);
+  for (const field of ["behavior_tags", "intent_suite", "territory_location_ids"]) {
+    if (!Array.isArray(value[field]) || value[field].length === 0) fail(file, `${field} must be a non-empty array`);
+  }
+  for (const [index, tag] of (Array.isArray(value.behavior_tags) ? value.behavior_tags : []).entries()) {
+    if (typeof tag !== "string" || tag.trim() === "") fail(file, `behavior_tags[${index}] must be a non-empty string`);
+  }
+  // The intent suite is what this habitat advertises its holder will open with.
+  // Its IDs are enemy skills, which stay external for the reason the prefix
+  // list below gives.
+  for (const [index, id] of (Array.isArray(value.intent_suite) ? value.intent_suite : []).entries()) {
+    if (typeof id !== "string" || !id.startsWith("skill.enemy.")) fail(file, `intent_suite[${index}] ${JSON.stringify(id)} must be a skill.enemy.<...> ID`);
+    else reference(id, file, `intent_suite[${index}]`);
+  }
+  // Territory is authored world cells, and no two habitats may claim the same
+  // one: `Habitats::habitat_for_location` returns the first match, so an
+  // overlap would silently pick a winner.
+  for (const [index, id] of (Array.isArray(value.territory_location_ids) ? value.territory_location_ids : []).entries()) {
+    if (typeof id !== "string" || !id.startsWith("world.cell.")) fail(file, `territory_location_ids[${index}] ${JSON.stringify(id)} must be a world.cell.<...> ID`);
+    else {
+      reference(id, file, `territory_location_ids[${index}]`);
+      if (habitatTerritory.has(id)) fail(file, `territory_location_ids[${index}] ${id} is already territory of ${habitatTerritory.get(id)}; a location has one holder, because habitat_for_location answers with the first habitat that claims it`);
+      else habitatTerritory.set(id, value.id);
+    }
+  }
+
+  if (typeof value.drop_table_id !== "string" || !value.drop_table_id.startsWith("loot.")) fail(file, `drop_table_id ${JSON.stringify(value.drop_table_id)} must be a loot.<...> table ID`);
+  else reference(value.drop_table_id, file, "drop_table_id");
+  if (typeof value.return_eligible !== "boolean") fail(file, "return_eligible must be boolean");
+  // base_level is a u8 and daily_pressure an i8 downstream.
+  if (!Number.isInteger(value.base_level) || value.base_level < 1 || value.base_level > 255) fail(file, "base_level must be an integer from 1 through 255");
+  if (!Number.isInteger(value.daily_pressure) || value.daily_pressure < -128 || value.daily_pressure > 127) fail(file, "daily_pressure must be an integer from -128 through 127");
+
+  requireString(value.metadata ?? {}, "implementationOwner", file);
+  requireString(value.metadata ?? {}, "maturity", file);
+  if (typeof value.metadata?.releaseLegal !== "boolean") fail(file, "habitat metadata.releaseLegal must be boolean");
+  if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "habitat metadata.notes must say what this habitat's schedule means and where its field names come from");
 }
 
 for (const { file, value } of await readJsonDirectory("encounters")) {
@@ -1239,22 +1382,19 @@ for (const directoryName of packDirectoryNames) {
   if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "pack metadata.notes must record what the pack is and what it deliberately does not carry");
 }
 
-// A habitat is a Rust registry (`Habitats::black_beach_vertical_slice` in
-// godot-rust/src/habitat.rs), not authored content, so a `habitat.*` reference
-// resolves outside this ID map exactly as an enemy skill does. A content twin
-// under `content/habitats/` -- the way `content/loot/` owns the drop tables the
-// same registry names -- is the right end state and is deliberately NOT faked
-// here: a habitat record is mostly its roster, and the roster names creature
-// definition IDs content does not declare (`enemy.boar.thunderback` and
-// `enemy.raptor.razorbeak.crested` exist nowhere in content/enemies/, and the
-// records that do exist carry a `.prototype` suffix the registry does not).
-// Authoring a twin today would mean inventing those creatures or writing a
-// half-record that answers "what is a habitat" differently from the registry,
-// and two answers drift. What holds the two sides together instead is
-// `geography::tests::fixture_matches_the_authored_world_cells`, which fails
-// unless every authored `habitatId` names a habitat the registry actually has
-// and that habitat's territory covers the cell binding it.
-const intentionallyExternalPrefixes = ["skill.enemy.", "habitat."];
+// An enemy *skill* is the one reference that still resolves outside this ID
+// map. `content/skills/` authors the party's skills; an enemy's skill is
+// declared inline by the creature record that uses it and by the habitat that
+// advertises it, and battle.rs owns what it does, so `skill.enemy.` has no
+// registered record to point at.
+//
+// `habitat.` used to sit beside it. B7 put it there because a habitat record
+// could not be authored honestly yet -- the roster named creatures content did
+// not declare, and the records that existed carried a `.prototype` suffix the
+// registry never used. C15 closed both, so `content/habitats/` now registers
+// every `habitat.*` ID and a world cell's `battleEntries[].habitatId` resolves
+// against a record like any other reference.
+const intentionallyExternalPrefixes = ["skill.enemy."];
 for (const item of references) {
   if (!ids.has(item.id) && !intentionallyExternalPrefixes.some(prefix => item.id.startsWith(prefix))) {
     fail(item.file, `${item.field} references missing stable ID ${item.id}`);
@@ -1266,4 +1406,4 @@ if (failures.length) {
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
-console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${buildingCount} building records, ${machineCount} machine records, ${dungeonSpaceCount} authored dungeon spaces, ${siteRuleCount} site rules, ${relationshipSceneCount} relationship scenes, ${packCount} presentation packs carrying ${packOverrideCount} scene overrides, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
+console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${enemyCount} creature records, ${habitatCount} habitats, ${buildingCount} building records, ${machineCount} machine records, ${dungeonSpaceCount} authored dungeon spaces, ${siteRuleCount} site rules, ${relationshipSceneCount} relationship scenes, ${packCount} presentation packs carrying ${packOverrideCount} scene overrides, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);

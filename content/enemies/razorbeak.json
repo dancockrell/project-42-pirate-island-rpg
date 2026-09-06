@@ -1,5 +1,5 @@
 {
-  "id": "enemy.raptor.razorbeak.prototype",
+  "id": "enemy.raptor.razorbeak",
   "displayName": "Razorbeak",
   "species": "island_raptor",
   "combatRole": "mobile_individual_threat",

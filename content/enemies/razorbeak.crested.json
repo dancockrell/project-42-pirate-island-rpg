@@ -1,0 +1,18 @@
+{
+  "id": "enemy.raptor.razorbeak.crested",
+  "derivesFrom": "enemy.raptor.razorbeak",
+  "displayName": "Crested Razorbeak",
+  "text": {
+    "firstObservation": "The crested razorbeak is the same animal that works the tideline, grown into the terrace precinct's apex holder: heavier through the shoulders, its bright crest raised, and entirely unwilling to give ground on the processional stone."
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "releaseLegal": false,
+    "notes": [
+      "Habitats::black_beach_vertical_slice defines this creature only as a Beast on habitat.black_beach.terrace_precinct's roster from day 1, not night-only. It is a razorbeak variant -- world.rs already draws \"bright-crested\" as one of the razorbeak's physical variants -- so this record derives from enemy.raptor.razorbeak and overrides exactly what the fixture and content/loot/razorbeak.crested.prototype.json name: the ID and the display name. Nothing else is overridden because the fixture overrides nothing else.",
+      "derivesFrom is resolved once, by tools/src/validate.mjs and tools/src/build-content-bundle.mjs, so the razorbeak's stats, skills, actions, recovery-opening rules, world presence, intent tells and art placeholder have one owner and cannot drift between the two records.",
+      "level is deliberately NOT 9. A habitat's base_level is a region level, not a creature level: the tideline is base_level 5 and its razorbeak is level 7. Reading base_level as this creature's level would have invented a number."
+    ]
+  }
+}
