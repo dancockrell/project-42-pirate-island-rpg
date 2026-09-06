@@ -356,7 +356,7 @@ top of the document is never stale:
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement
 - **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `9f09b9c`. If this line is older than
+- Last updated 2026-09-06 against trunk `6d2aa16`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -418,7 +418,7 @@ top of the document is never stale:
 | B15 | The bridge loads the faction records and hands the registry down; S5's seam closed | C9, S5 | shipped 777a943 2026-09-06 — the seam is closed as an honest negative until a record carries a real weight |
 | B16 | The bridge loads the building records and hands the registry to the tick; S10's sweep reads real buildings | C10, S10 | shipped 049bd45 2026-09-06 |
 | B17 | A battle is built from the campaign: bond ranks reach the fight | A10 | shipped b9c6ad5 2026-09-06 |
-| B18 | RTS controls: select, then order a move by tile, words or hotkey; route markers go | B14 | open |
+| B18 | RTS controls: select, then order a move by tile, words or hotkey; route markers go | B14 | held: the front end is the owner's other tool's from 2026-09-06; this branch builds everything but the screens |
 
 ### Lane C — Content and validator (`content/`, `tools/src/validate.mjs`)
 
@@ -437,7 +437,7 @@ top of the document is never stale:
 | C11 | Room contract fields on world cells | B11 | open |
 | C12 | One recruitable woman's arc (records only; identity per O2) | C6, S12, O2 | blocked: needs decision O2 |
 | C13 | Content can declare a discovery ID; the tidal cut's gate authored | A4 | shipped 3c85451 2026-09-05 — plus the bridge wire it turned out to need |
-| C14 | Machine records: the eight families with brief §18's fields | S13 | open |
+| C14 | Machine records: the eight families with brief §18's fields | S13 | shipped 6d2aa16 2026-09-06 |
 
 ### Lane D — Art (`content/art/`, `work/art/`, `game/assets/`)
 
@@ -1690,7 +1690,7 @@ beat remains the only thing that moves a bond. Two live-bridge assertions in
 the Godot suites; CI's Godot job is their proof.
 
 ### B18 · RTS controls: select, then order a move by tile, by the words, or by hotkey; the drawn route markers go
-Status: open · Depends on: B14
+Status: held — the owner assigned the front end to another tool on 2026-09-06; the lane was stopped with nothing integrated · Depends on: B14
 Touches: `game/scripts/world/expedition_route_board.gd`,
 `game/scripts/world/expedition_prototype.gd`, `game/tests/expedition_prototype_test.gd`.
 The owner's direction (2026-09-06): "remove the route markers … it's
@@ -1960,7 +1960,7 @@ performs the GDScript's translation field for field and drives the prototype's
 opening on it — the nearest local proof; the Godot job is the real one.
 
 ### C14 · Machine records: the eight families with brief §18's fields
-Status: open · Depends on: S13
+Status: shipped `6d2aa16` 2026-09-06 · Depends on: S13
 Touches: `content/machines/*.json` (new), `tools/src/validate.mjs` (one
 block), `tools/src/build-content-bundle.mjs` (`machines` in the domain list),
 `game/generated/content_bundle.json` (regenerated), one equality test in
@@ -1981,6 +1981,20 @@ Traps: no proper names; no invented footprint numbers presented as decided;
 refuses — and the test must show that refusal.
 Done when: validator and equality test green; a record with a ninth family
 fails both (bite); the machine shop's rule names a machine that exists.
+**Shipped:** `machine.mechanical_dog` and `machine.steam_wagon`, every §18
+field in `MachineDefinition`'s own names, route types from the authored
+`travelMode` vocabulary (now one const the portal block shares), fuel and
+water under `resource.open.`, and every Open dimension held at zero with an
+`open_dimensions` map naming the decision — the validator requires the
+placeholder rather than a number. The machine shop's rule names
+`machine.mechanical_dog`; a machine rule's `output_key` must be a `machine.*`
+stable ID while every other output key stays under `resource.open.`.
+`every_authored_machine_record_loads` holds `MachineDefinitions` equal to
+the directory; the yard builds the authored dog and refuses a family that
+disagrees. Four bites proven. Stable IDs 223 → 225; bundle 51 → 53.
+**Left, on purpose:** six families unauthored (§5.4 lists candidates, not a
+roster); no yard makes the wagon yet; every dimension `blocked: needs
+decision` (§20).
 
 ### Lane D — new cards
 
