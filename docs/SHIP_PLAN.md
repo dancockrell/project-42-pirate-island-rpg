@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 (S16 and S17 are additions outside the bracket) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `5375229`. If this line is older than
+- Last updated 2026-09-06 against trunk `c7f0e74`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -494,7 +494,7 @@ captured by P1's gate, and no card claims a look it has not captured.
 | P2 | Render foundation: Forward+ with a compatibility fallback, the world environment, the material and shader library, the camera director | P1 | open |
 | P3 | Atmosphere from the simulation: time of day, weather, corruption and pressure read from the snapshot, never a clock | P2, S8 | shipped 7abf1cf 2026-09-06 |
 | P4 | The isometric board (B11 + B12): room cells with board metadata, three distances, party miniatures, ownership tint, forces in motion | P2, S2, S7, O3 (provisional) | open |
-| P5 | The bronze-and-vellum grammar (D11) and the calm information surface (B13): one Theme, the card rail, the command grid, journal and directive surfaces, accessibility wired | S6, S11, B9 | open |
+| P5 | The bronze-and-vellum grammar (D11) and the calm information surface (B13): one Theme, the card rail, the command grid, journal and directive surfaces, accessibility wired | S6, S11, B9 | shipped `c7f0e74` 2026-09-06 |
 | P6 | Battle presentation: skill VFX and camera beats from the registries, hit-stop, band motion, site-rule ambience, the paper rigs until models | A5, A7, C3 | open |
 | P7 | RTS controls on the board (B18 resumed): select, then order a move by tile, words or hotkey; the drawn markers go | B14 | shipped 1a03dd7 2026-09-06 |
 | P8 | The shell: title, new game, continue, settings, pause, save slots, loading; one scene flow shell → expedition → battle and back | B8, B9 | shipped `5375229` 2026-09-06 |
@@ -2601,7 +2601,7 @@ Done when: a suite drives travel across three cells and asserts the
 miniature's node each time; three captures, one per distance, committed.
 
 ### P5 · The bronze-and-vellum grammar and the calm information surface
-Status: open · Depends on: S6, S11, B9
+Status: shipped `c7f0e74` 2026-09-06 · Depends on: S6, S11, B9
 Touches: `game/themes/bronze_vellum.tres` (new, the one owner of the
 palette and type scale), `game/scripts/ui/` (components: card, rail,
 command diamond, panel, notice, tooltip, journal entry), `game/scripts/surface/`
@@ -2616,6 +2616,31 @@ paused. No flashing alerts, no red countdowns. B9's text scale, high
 contrast and reduced motion are read here and applied through the Theme.
 Done when: a suite feeds 100 strategic events and asserts ≤1 Urgent; the
 settings change the Theme live; captures of the surface at each level.
+**Shipped:** `game/themes/bronze_vellum.tres` is the one owner (18 tokens,
+a high-contrast twin, a five-step type scale, 15 StyleBoxes, 7 Label
+variations); `ThemeTokens.build(text_scale, high_contrast, reduced_motion)`
+is the only door and the high-contrast swap is colour-for-colour over every
+entry, so a box added tomorrow recolours with no code change. Components
+under `game/scripts/ui/` (vellum_panel, card, card_rail, command_diamond,
+command_grid, pip_row, notice, tooltip, journal_entry, information_level):
+data in, nothing out. `InformationSurface` autoload: Urgent has exactly the
+brief's four permissions and returns the reason; an ordinary day of 100
+events (24 hours, 40 marches, 10 departures, 10 arrivals, 4 halts, 8
+machines, 3 lost links, 1 elimination) classifies 80 Ambient, 19 Notable,
+1 Urgent; an unexplained directive cannot be confirmed; the journal takes a
+`GamePause` reason. B9 is now wired: the panel hands each change to
+`apply_settings` and wears it live. Bridge: read-only `strategic_surface`
+whose `journal_prose` is exhaustive over `StrategicEvent`. Bites: widening
+Urgent rule 3 fails the 100-event count; an unnamed hex in a StyleBox fails
+by name. Captures `P5-5e01cd6-{grammar-and-surface,settings-and-accessibility}.png`,
+iterated seven times. Not done here: no `StrategicEvent` names a character
+yet (`character_ids` projected empty); "final-stage threat" is read as the
+recovery chain running out for the player's own faction; the two
+prototypes still declare their own hexes (P6/P7 adopt the Theme). Integration
+`c7f0e74`: S16's two production events given prose and a level; the
+autoload's Theme build moved out of `_ready` and its class references
+preloaded; the three timed suites now await their tween instead of a
+wall-clock timer (the first frame's delta carries engine start-up).
 
 ### P6 · Battle presentation
 Status: open · Depends on: A5, A7, C3
