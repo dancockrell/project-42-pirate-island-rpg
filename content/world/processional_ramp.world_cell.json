@@ -55,5 +55,45 @@
       {"portalId": "world.portal.processional_ramp_to_tomb_threshold", "kind": "walk", "anchorMetres": [15.0, 0.0, -11.8]}
     ]
   },
+  "contract": {
+    "function": {
+      "text": "The climb from the terrace to the tomb. It is one run of broken ceremonial stair read on the way up, with the plaques that name the returning dead along it and the opened inner door at the top.",
+      "evidence": "The ramp was cut for a procession of honored dead",
+      "source": "observation prose"
+    },
+    "dimensions": {
+      "footprintSizeId": "presentation.board.footprint.chamber"
+    },
+    "circulation": {
+      "text": "Two authored ways, one at each end of the run: down to the terrace and up to the tomb threshold. Both leave the room as walk tethers.",
+      "entryAnchorIds": ["entry.processional_ramp.reception_terrace", "entry.processional_ramp.tomb_threshold"],
+      "tetherPortalIds": ["world.portal.processional_ramp_to_reception_terrace", "world.portal.processional_ramp_to_tomb_threshold"]
+    },
+    "slots": {
+      "buildingIds": null,
+      "machineIds": ["machine.mechanical_dog"]
+    },
+    "landmarks": [
+      {"name": "The bronze name plaques", "evidence": "Bronze name plaques line the wet stone", "source": "observation prose"},
+      {"name": "The fractured bronze arch over the inner door", "evidence": "the inner door stands under a fractured bronze arch", "source": "observation prose"},
+      {"name": "The broken stair segments", "evidence": "broken stair segments", "source": "visual shell"}
+    ],
+    "encounterSpace": {
+      "battleEntryIds": ["battle_entry.processional_ramp.stair_break"],
+      "habitatIds": ["habitat.black_beach.terrace_precinct"],
+      "siteRuleIds": []
+    },
+    "materialLanguage": [
+      {"library": "wet_stone", "reads": "The ramp itself: worked stone under standing rain, which is what the plaques are set into.", "evidence": "Bronze name plaques line the wet stone", "source": "observation prose"},
+      {"library": "bronze", "reads": "The plaques and the arch over the inner door.", "evidence": "the inner door stands under a fractured bronze arch", "source": "observation prose"},
+      {"library": "foliage", "reads": "The wet jungle closing both walls of the run.", "evidence": "wet jungle walls", "source": "visual shell"}
+    ],
+    "avoid": {
+      "ownedBy": "visualShell.prohibitedFeatures"
+    },
+    "needsDecision": {
+      "slots.buildingIds": "brief section 3 (building or interaction slots): no faction owns this cell in the repository -- only the tomb cells declare an ownerConceptKey -- so which authored building records may stand here is undecided."
+    }
+  },
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 2, "browserPerformanceGate": "pending", "releaseLegal": false}
 }

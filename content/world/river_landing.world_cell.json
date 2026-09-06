@@ -57,5 +57,45 @@
       {"portalId": "world.portal.river_landing_to_reception_terrace_jungle_edge", "kind": "trail", "anchorMetres": [20.0, 0.0, 11.2]}
     ]
   },
+  "contract": {
+    "function": {
+      "text": "The junction where the two approaches to the terrace part. The room's work is the choice between them, and the estate path is the way back.",
+      "evidence": "the stone route is slower and exposed, while the jungle edge closes distance under heavy cover",
+      "source": "observation prose"
+    },
+    "dimensions": {
+      "footprintSizeId": "presentation.board.footprint.court"
+    },
+    "circulation": {
+      "text": "Two authored ways in, three tethers out: the walk back to the estate, the road to the terrace and the jungle-edge trail to the same room by the other approach.",
+      "entryAnchorIds": ["entry.river_landing.estate_path", "entry.river_landing.reception_road"],
+      "tetherPortalIds": ["world.portal.river_landing_to_damaged_estate", "world.portal.river_landing_to_reception_terrace_safe_road", "world.portal.river_landing_to_reception_terrace_jungle_edge"]
+    },
+    "slots": {
+      "buildingIds": null,
+      "machineIds": ["machine.mechanical_dog", "machine.steam_wagon"]
+    },
+    "landmarks": [
+      {"name": "The bronze-green road marker", "evidence": "A bronze-green marker points inland beside the broken jetty", "source": "observation prose"},
+      {"name": "The broken jetty", "evidence": "beside the broken jetty", "source": "observation prose"},
+      {"name": "The smashed cargo skiff", "evidence": "A cargo skiff has been smashed against the landing", "source": "observation prose"}
+    ],
+    "encounterSpace": {
+      "battleEntryIds": ["battle_entry.river_landing.reed_bank"],
+      "habitatIds": ["habitat.black_beach.river_jungle"],
+      "siteRuleIds": []
+    },
+    "materialLanguage": [
+      {"library": "river", "reads": "The slow dark water the landing is built on, too deep to cross.", "evidence": "The river is too deep and slow for a casual crossing", "source": "observation prose"},
+      {"library": "bronze", "reads": "The marker and the old elven roadwork it stands in.", "evidence": "A bronze-green marker points inland", "source": "observation prose"},
+      {"library": "wet_stone", "reads": "The exposed stone route inland.", "evidence": "the stone route is slower and exposed", "source": "observation prose"}
+    ],
+    "avoid": {
+      "ownedBy": "visualShell.prohibitedFeatures"
+    },
+    "needsDecision": {
+      "slots.buildingIds": "brief section 3 (building or interaction slots): no faction owns this cell in the repository -- only the tomb cells declare an ownerConceptKey -- so which authored building records may stand here is undecided."
+    }
+  },
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 2, "browserPerformanceGate": "pending", "releaseLegal": false}
 }

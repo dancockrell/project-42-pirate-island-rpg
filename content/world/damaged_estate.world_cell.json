@@ -175,6 +175,44 @@
       {"portalId": "world.portal.damaged_estate_to_river_landing", "kind": "walk", "anchorMetres": [23.0, 0.0, -10.6]}
     ]
   },
+  "contract": {
+    "function": {
+      "text": "The party's home base. Recovery, the workshop and the map table are here, and the garden gate is the room's controlled way out toward the river.",
+      "evidence": "the infirmary table, armory alcove and kitchen still make it a usable home base",
+      "source": "observation prose"
+    },
+    "dimensions": {
+      "footprintSizeId": "presentation.board.footprint.compound"
+    },
+    "circulation": {
+      "text": "Two authored ways: the coast path back down to the beach and the river gate through the garden wall. Both leave the room as walk tethers.",
+      "entryAnchorIds": ["entry.damaged_estate.black_beach_path", "entry.damaged_estate.river_gate"],
+      "tetherPortalIds": ["world.portal.damaged_estate_to_black_beach", "world.portal.damaged_estate_to_river_landing"]
+    },
+    "slots": {
+      "buildingIds": null,
+      "machineIds": ["machine.mechanical_dog"]
+    },
+    "landmarks": [
+      {"name": "The loose veranda rail", "evidence": "One veranda rail hangs loose after the storm", "source": "observation prose"},
+      {"name": "The infirmary table", "evidence": "the infirmary table, armory alcove and kitchen", "source": "observation prose"},
+      {"name": "The barred river gate", "evidence": "The gate can be barred against wandering monsters", "source": "observation prose"}
+    ],
+    "encounterSpace": {
+      "battleEntryIds": ["battle_entry.damaged_estate.garden"],
+      "habitatIds": [],
+      "siteRuleIds": []
+    },
+    "materialLanguage": [
+      {"library": "wet_stone", "reads": "The worked track that drops out of the garden wall toward the landing.", "evidence": "a narrow stone track drops toward a river landing", "source": "observation prose"}
+    ],
+    "avoid": {
+      "ownedBy": "visualShell.prohibitedFeatures"
+    },
+    "needsDecision": {
+      "slots.buildingIds": "brief section 3 (building or interaction slots): no faction owns this cell in the repository -- only the tomb cells declare an ownerConceptKey -- so which authored building records may stand here is undecided, the estate's own anchors notwithstanding."
+    }
+  },
   "admission": {
     "collisionSeparatedFromVisualShell": true,
     "navigationSeparatedFromVisualShell": true,
