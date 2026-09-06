@@ -38,6 +38,21 @@ func _init() -> void:
 	check(expedition.get_action_commands().has("anchor_action:anchor.black_beach.salvage_point"), "the beach must draw its authored salvage anchor as an action")
 	check(expedition.get_action_commands().has("inspect:observation.black_beach.wreck"), "the beach must draw its authored observations as actions")
 	check(expedition.get_action_commands().has("resolve_midnight"), "a midnight control must be offered while no encounter is pending")
+	# B15: C9's six faction records reached the bundle, the port forwarded them
+	# and the bridge accepted them, so the strategic hours the engine runs score
+	# the same registry the Rust harness scores. The snapshot says who is on the
+	# island and what each is doing -- and says nothing numeric: brief section 9
+	# forbids exposing raw utility arithmetic, so a score or a weight appearing
+	# on this array is the failure, not a bonus.
+	var projected_factions: Array = expedition.get_authoritative_snapshot().get("factions", [])
+	check(projected_factions.size() == 6, "the bridge must project the six authored faction records it loaded")
+	for projected in projected_factions:
+		var entry := projected as Dictionary
+		check(str(entry.get("id", "")).begins_with("faction."), "every projected faction must carry its stable ID")
+		check(entry.has("strategic_state") and entry.has("current_goals"), "every projected faction must carry its board position and its goals")
+		for key in entry.keys():
+			var name := str(key)
+			check(not ("score" in name or "weight" in name), "no utility score or weight may cross the bridge: %s" % name)
 	var salvage: Dictionary = expedition.request_anchor("anchor.black_beach.salvage_point")
 	check(bool(salvage.get("configured", false)), "the wreck must be salvageable through the native bridge")
 	check(int((salvage.get("anchor_outcome", {}) as Dictionary).get("rations_gained", 0)) >= 4, "salvaging the wreck must yield its authored floor of four rations")

@@ -36,7 +36,11 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     // Midnight puts today's individual in every habitat, so the terrace has a
     // real holder to meet rather than a hand-placed encounter.
     state
-        .resolve_midnight_in(&geography, &habitats)
+        .resolve_midnight_in(
+            &geography,
+            &habitats,
+            &project42_sim::strategy::faction::FactionDefinitions::new(),
+        )
         .expect("resolves");
     assert_boundary_round_trips(&state);
 
@@ -415,7 +419,11 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
         .instance_id
         .clone();
     let midnight_events = state
-        .resolve_midnight_in(&geography, &habitats)
+        .resolve_midnight_in(
+            &geography,
+            &habitats,
+            &project42_sim::strategy::faction::FactionDefinitions::new(),
+        )
         .expect("resolves");
     assert_eq!(state.campaign_day, day_before_midnight + 1);
     assert!(

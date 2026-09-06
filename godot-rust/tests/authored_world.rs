@@ -15,6 +15,7 @@ use std::collections::BTreeMap;
 use project42_sim::geography::{
     AuthoredCell, CONTESTED_RISK_MODIFIER, EncounterTriggerDefinition, PortalDefinition,
 };
+use project42_sim::strategy::faction::{ConceptKey, FactionDefinition, FactionDefinitions};
 use project42_sim::*;
 
 fn content(path: &str) -> String {
@@ -32,6 +33,89 @@ fn json_files(directory: &str) -> Vec<serde_json::Value> {
         records.push(serde_json::from_str(&text).expect("record is JSON"));
     }
     records
+}
+
+/// The generated Godot bundle, as `ContentCatalog` loads it. Reading the
+/// bundle rather than `content/factions/` is the point of this file: the
+/// records only reach Godot if `build-content-bundle.mjs` carries their domain,
+/// and CI holds the committed bundle fresh against the sources.
+fn bundle_records(domain: &str) -> Vec<serde_json::Value> {
+    let path = format!(
+        "{}/../game/generated/content_bundle.json",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let text = std::fs::read_to_string(path).expect("the generated content bundle is readable");
+    let bundle: serde_json::Value =
+        serde_json::from_str(&text).expect("the generated content bundle is JSON");
+    bundle["records"]
+        .as_array()
+        .expect("the bundle carries records")
+        .iter()
+        .filter(|record| record["domain"] == domain)
+        .map(|record| record["value"].clone())
+        .collect()
+}
+
+/// Mirrors `NativeExpeditionPort.configure_from_catalog`'s faction forwarding:
+/// every `faction.*` record out of the catalog, verbatim, into the
+/// `factions` array `ExpeditionConfiguration` reads. Verbatim is the whole
+/// trick -- C9 authored the records in `FactionDefinition`'s own field names,
+/// so the port renames nothing and the fields cannot drift apart in
+/// translation the way the cell and portal fields above can.
+fn faction_registry_as_godot_forwards_it() -> FactionDefinitions {
+    let forwarded = serde_json::Value::Array(bundle_records("factions"));
+    let definitions: Vec<FactionDefinition> =
+        serde_json::from_value(forwarded).expect("every forwarded record is a FactionDefinition");
+    let mut registry = FactionDefinitions::new();
+    for definition in definitions {
+        registry
+            .insert(definition)
+            .expect("the bridge admits every authored record");
+    }
+    registry
+}
+
+/// The six records reach Godot, survive the forwarding verbatim, and give the
+/// bridge six distinct `faction.<concept_key>` IDs.
+///
+/// `strategy/faction.rs` already holds `content/factions/` equal to `ConceptKey`
+/// on disk; this is the other half of the same claim and the half that was
+/// missing -- that the bundle Godot actually reads carries them, that the
+/// records survive the JSON round trip through it (their `displayName` and
+/// `metadata` keys have no Rust field and must be ignored, not refused), and
+/// that `FactionDefinitions::insert` validates every one on the way in. Before
+/// B15 the builder's domain list omitted `factions` and this found nothing.
+#[test]
+fn the_six_authored_factions_reach_the_bridge_as_six_distinct_ids() {
+    let registry = faction_registry_as_godot_forwards_it();
+    assert_eq!(
+        registry.len(),
+        6,
+        "the Godot bundle must carry all six authored faction records"
+    );
+
+    let ids: Vec<&str> = registry.ids().collect();
+    // The registry iterates ascending by ID, like every other iteration in the
+    // crate, so the expectation is sorted rather than in the brief's order.
+    let mut expected: Vec<String> = ConceptKey::ALL
+        .into_iter()
+        .map(ConceptKey::faction_id)
+        .collect();
+    expected.sort();
+    assert_eq!(
+        ids,
+        expected.iter().map(String::as_str).collect::<Vec<_>>(),
+        "six distinct faction.<concept_key> IDs, one per concept, ascending"
+    );
+    for concept in ConceptKey::ALL {
+        assert!(
+            registry
+                .by_concept(concept)
+                .is_some_and(|record| record.id == concept.faction_id()),
+            "{} did not reach the bridge",
+            concept.faction_id()
+        );
+    }
 }
 
 /// Mirrors `NativeExpeditionPort.configure_from_catalog` field for field. If
@@ -300,7 +384,11 @@ fn the_salvage_anchor_leaves_the_legal_commands_when_spent_and_returns_at_midnig
     );
 
     state
-        .resolve_midnight_in(&geography, &habitats)
+        .resolve_midnight_in(
+            &geography,
+            &habitats,
+            &faction_registry_as_godot_forwards_it(),
+        )
         .expect("no encounter is pending on the sand");
     assert!(
         state

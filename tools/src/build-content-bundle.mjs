@@ -3,7 +3,11 @@ import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const repo = resolve(import.meta.dirname, "../..");
-const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation"];
+// Every authored domain Godot may read. `factions` joined the list with B15:
+// the expedition bridge loads `faction.*` records out of the bundle and hands
+// the registry to the strategic tick, so a faction record that never reached
+// Godot would make the engine's island differ from the harness's.
+const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions"];
 const records = [];
 
 for (const domain of domains) {

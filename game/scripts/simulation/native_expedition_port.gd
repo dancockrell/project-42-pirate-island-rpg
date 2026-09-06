@@ -106,15 +106,65 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 			if not estate_upgrade_id.is_empty():
 				trigger["estate_upgrade_id"] = estate_upgrade_id
 			encounter_triggers.append(trigger)
+	# B15: C9's six faction records, forwarded verbatim. They are authored in
+	# the Rust field names already -- `concept_key`, `resource_priorities`,
+	# `relationship_tendencies` -- so unlike cells and portals there is no
+	# renaming here and no chance of the two halves drifting apart; the extra
+	# authoring keys (`displayName`, `metadata`) have no Rust field and are
+	# ignored on the way in. Without this the bridge ran the strategic hours on
+	# an empty registry while the Rust harness ran them on the loaded one, and
+	# Godot's island and the harness's island were two different islands.
+	var factions: Array[Dictionary] = []
+	for faction_id in catalog.ids_with_prefix("faction."):
+		factions.append(as_rust_integers(catalog.get_record(faction_id)) as Dictionary)
 	var configuration := {
 		"seed": seed,
 		"party_ids": INITIAL_PARTY,
 		"active_location_id": INITIAL_LOCATION_ID,
 		"cells": cells,
 		"portals": portals,
-		"encounter_triggers": encounter_triggers
+		"encounter_triggers": encounter_triggers,
+		"factions": factions
 	}
-	return bridge.configure(JSON.stringify(configuration))
+	var configured: Dictionary = bridge.configure(JSON.stringify(configuration))
+	# A refused configuration used to be silent here: every later call answered
+	# `expedition_not_configured` and the suite that noticed was several steps
+	# downstream of the record that caused it. The bridge already names the
+	# reason; say it once, where the payload was built.
+	if not bool(configured.get("configured", false)):
+		push_error("Native expedition bridge refused the catalog configuration: %s (%d cells, %d portals, %d factions)" % [
+			str(configured.get("error", "")), cells.size(), portals.size(), factions.size()
+		])
+	return configured
+
+
+## Every number in a faction record, back to an integer.
+##
+## `FactionDefinition` has no floating-point field: every number in it is an
+## `i16` weight, and the authored records write them as integers. Godot's JSON
+## round trip is what loses that -- a weight comes back out of `JSON.stringify`
+## with a decimal point, and serde refuses the whole record rather than
+## silently truncating it, which refused the whole configuration and left the
+## bridge unconfigured. The forwarding above stays verbatim in every other
+## sense: no field is renamed, dropped or defaulted, and a fractional weight
+## would still be wrong -- it would simply be wrong in Rust, where the schema
+## lives, instead of here.
+static func as_rust_integers(value: Variant) -> Variant:
+	match typeof(value):
+		TYPE_FLOAT:
+			return int(value)
+		TYPE_DICTIONARY:
+			var mapped := {}
+			var source: Dictionary = value
+			for key in source:
+				mapped[key] = as_rust_integers(source[key])
+			return mapped
+		TYPE_ARRAY:
+			var list := []
+			for item in (value as Array):
+				list.append(as_rust_integers(item))
+			return list
+	return value
 
 
 func snapshot() -> Dictionary:

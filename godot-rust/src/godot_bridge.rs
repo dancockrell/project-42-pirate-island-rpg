@@ -11,6 +11,10 @@ use crate::geography::{
 };
 use crate::habitat::Habitats;
 use crate::protocol::{CommandEnvelope, CommandKind, PROTOCOL_VERSION};
+use crate::strategy::faction::{
+    FactionDefinition, FactionDefinitions, FactionError, StrategicState,
+};
+use crate::strategy::utility::Goal;
 use crate::world::WorldEvent;
 use serde::Deserialize;
 
@@ -39,6 +43,13 @@ struct Project42ExpeditionBridge {
     /// built it that way on purpose. It rides along until content owns it.
     #[init(val = Habitats::black_beach_vertical_slice())]
     habitats: Habitats,
+    /// B15: C9's `content/factions/*.json`, as Godot forwards them. Loaded by
+    /// `configure` and handed to every midnight, so the strategic hours the
+    /// engine runs score the same authored records the Rust harness scores.
+    /// Empty until a configuration supplies records -- a payload authored
+    /// before factions reached the bundle still loads.
+    #[init(val = FactionDefinitions::new())]
+    factions: FactionDefinitions,
     #[init(val = None)]
     battle: Option<Battle>,
     #[init(val = 0)]
@@ -61,6 +72,14 @@ struct ExpeditionConfiguration {
     cells: Vec<AuthoredCell>,
     portals: Vec<PortalDefinition>,
     encounter_triggers: Vec<EncounterTriggerDefinition>,
+    /// The authored faction records, in the field names
+    /// [`FactionDefinition`] already reads, forwarded verbatim by
+    /// `native_expedition_port.gd`. `serde(default)` because a payload from
+    /// before B15 -- or a test that only cares about roads -- names no
+    /// factions and must still configure; the island then runs on neutral
+    /// weights exactly as it did before.
+    #[serde(default)]
+    factions: Vec<FactionDefinition>,
 }
 
 #[godot_api]
@@ -148,7 +167,15 @@ impl Project42ExpeditionBridge {
             &configuration_json.to_string(),
         ) {
             Ok(value) => value,
-            Err(_) => return expedition_error_dictionary("expedition_configuration_invalid"),
+            // The parser's own words after the code. A refused payload used to
+            // say only that it was refused, which left the caller comparing a
+            // thousand-line JSON string against a struct by eye; serde already
+            // names the field and the type it wanted.
+            Err(error) => {
+                return expedition_error_dictionary(&format!(
+                    "expedition_configuration_invalid:{error}"
+                ));
+            }
         };
         // Cells arrive in their authored shape; the one translation into the
         // simulation's cell lives in geography.rs, so a kind content misspells
@@ -170,6 +197,22 @@ impl Project42ExpeditionBridge {
             Ok(geography) => geography,
             Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
         };
+        // B15: the authored faction registry, built before the state exists so
+        // a bad record refuses the whole configuration rather than leaving the
+        // bridge configured with half an island. `FactionDefinitions::insert`
+        // validates each record and refuses a second one for a concept, so the
+        // ID-drift and duplicate-concept traps S1 named are caught here, at the
+        // boundary, and never reach the tick.
+        let mut factions = FactionDefinitions::new();
+        for definition in configuration.factions {
+            if let Err(error) = factions.insert(definition) {
+                return expedition_error_dictionary(&format!(
+                    "expedition_configuration_invalid:{}",
+                    faction_error_code(&error)
+                ));
+            }
+        }
+        self.factions = factions;
         self.state = match ExpeditionState::new(
             configuration.seed,
             configuration.party_ids,
@@ -181,6 +224,7 @@ impl Project42ExpeditionBridge {
         expedition_state_dictionary(
             self.state.as_ref().expect("state assigned"),
             &self.geography,
+            &self.factions,
         )
     }
 
@@ -188,7 +232,7 @@ impl Project42ExpeditionBridge {
     fn snapshot(&self) -> VarDictionary {
         self.state
             .as_ref()
-            .map(|state| expedition_state_dictionary(state, &self.geography))
+            .map(|state| expedition_state_dictionary(state, &self.geography, &self.factions))
             .unwrap_or_else(|| expedition_error_dictionary("expedition_not_configured"))
     }
 
@@ -203,7 +247,7 @@ impl Project42ExpeditionBridge {
         // Arrival presents whatever the world actually holds here: an authored
         // trigger, a hunter that caught up, or today's habitat holder.
         state.begin_encounter(&self.geography, &self.habitats);
-        expedition_state_dictionary(state, &self.geography)
+        expedition_state_dictionary(state, &self.geography, &self.factions)
     }
 
     /// The one "do something here" verb, projected. Salvage the wreck, open a
@@ -242,7 +286,7 @@ impl Project42ExpeditionBridge {
             "discoveries_recorded" => &discoveries,
             "upgrades_recorded" => &upgrades,
         };
-        let mut result = expedition_state_dictionary(state, &self.geography);
+        let mut result = expedition_state_dictionary(state, &self.geography, &self.factions);
         result.set("anchor_outcome", &anchor_outcome);
         result
     }
@@ -268,7 +312,7 @@ impl Project42ExpeditionBridge {
         {
             return expedition_error_dictionary(expedition_error_code(&error));
         }
-        expedition_state_dictionary(state, &self.geography)
+        expedition_state_dictionary(state, &self.geography, &self.factions)
     }
 
     /// Midnight, as the one atomic transaction `ExpeditionState` already owns:
@@ -281,15 +325,16 @@ impl Project42ExpeditionBridge {
         let Some(state) = self.state.as_mut() else {
             return expedition_error_dictionary("expedition_not_configured");
         };
-        let events = match state.resolve_midnight_in(&self.geography, &self.habitats) {
-            Ok(events) => events,
-            Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
-        };
+        let events =
+            match state.resolve_midnight_in(&self.geography, &self.habitats, &self.factions) {
+                Ok(events) => events,
+                Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
+            };
         let mut projected = Array::<VarDictionary>::new();
         for event in &events {
             projected.push(&world_event_dictionary(event));
         }
-        let mut result = expedition_state_dictionary(state, &self.geography);
+        let mut result = expedition_state_dictionary(state, &self.geography, &self.factions);
         result.set("events", &projected);
         result
     }
@@ -325,7 +370,7 @@ impl Project42ExpeditionBridge {
         for event in &events {
             projected.push(&world_event_dictionary(event));
         }
-        let mut result = expedition_state_dictionary(state, &self.geography);
+        let mut result = expedition_state_dictionary(state, &self.geography, &self.factions);
         result.set("events", &projected);
         result
     }
@@ -583,7 +628,11 @@ fn field_string(value: &VarDictionary, key: &str) -> Option<String> {
         .map(|v| v.to_string())
 }
 
-fn expedition_state_dictionary(state: &ExpeditionState, geography: &Geography) -> VarDictionary {
+fn expedition_state_dictionary(
+    state: &ExpeditionState,
+    geography: &Geography,
+    factions: &FactionDefinitions,
+) -> VarDictionary {
     let mut party_ids = Array::<GString>::new();
     for id in &state.party_ids {
         let value = GString::from(id.as_str());
@@ -670,6 +719,30 @@ fn expedition_state_dictionary(state: &ExpeditionState, geography: &Geography) -
     for estate_upgrade_id in &state.household_progress.estate_upgrades {
         estate_upgrades.push(&GString::from(estate_upgrade_id.as_str()));
     }
+    // B15: what the loaded registry's factions are doing, and nothing else.
+    // The list is the *registry's* -- one entry per authored record, whether or
+    // not the save has met that faction yet -- because the registry is what the
+    // engine and the harness now share, and a faction the campaign has no state
+    // for is simply at its defaults.
+    //
+    // Three fields, all verdicts. Brief section 9 forbids exposing raw utility
+    // arithmetic, so no score, no weight and no number from `strategy/utility.rs`
+    // crosses this boundary: a screen that could read a score would start
+    // drawing one, and the verdict would stop being the interface.
+    let mut factions_projected = Array::<VarDictionary>::new();
+    for faction_id in factions.ids() {
+        let held = state.factions.get(faction_id);
+        let strategic_state = held.map(|f| f.strategic_state).unwrap_or_default();
+        let mut current_goals = Array::<GString>::new();
+        for goal in held.map(|f| f.current_goals.as_slice()).unwrap_or_default() {
+            current_goals.push(&GString::from(goal_name(goal)));
+        }
+        factions_projected.push(&vdict! {
+            "id" => faction_id,
+            "strategic_state" => strategic_state_name(&strategic_state),
+            "current_goals" => &current_goals,
+        });
+    }
     let mut result = vdict! {
         "configured" => true,
         "save_version" => i64::from(state.save_version),
@@ -687,6 +760,7 @@ fn expedition_state_dictionary(state: &ExpeditionState, geography: &Geography) -
         "resolved_encounter_ids" => &resolved_encounter_ids,
         "estate_upgrades" => &estate_upgrades,
     };
+    result.set("factions", &factions_projected);
     result.set("metadata", &metadata);
     result
 }
@@ -761,6 +835,46 @@ fn expedition_error_dictionary(reason: &str) -> VarDictionary {
     let mut result = vdict! { "configured" => false, "error" => reason };
     result.set("metadata", &metadata);
     result
+}
+
+/// What went wrong loading an authored faction record, named. Exhaustive on
+/// purpose, like every other projection in this file: a new `FactionError`
+/// cannot be added without this boundary being told what to call it. Godot
+/// reads the name after the `expedition_configuration_invalid:` prefix, so a
+/// content author sees which of S1's two traps their record fell into.
+fn faction_error_code(value: &FactionError) -> &'static str {
+    match value {
+        FactionError::MalformedId(error) => expedition_error_code(error),
+        FactionError::IdDoesNotMatchConceptKey { .. } => "id_does_not_match_concept_key",
+        FactionError::DuplicateFaction { .. } => "duplicate_faction",
+        FactionError::UnknownFaction { .. } => "unknown_faction",
+    }
+}
+
+/// Where a faction stands on the board, in the same words `strategy/faction.rs`
+/// serializes. Exhaustive, so a sixth board position cannot appear without this
+/// boundary naming it.
+fn strategic_state_name(value: &StrategicState) -> &'static str {
+    match value {
+        StrategicState::Desperate => "desperate",
+        StrategicState::Recovering => "recovering",
+        StrategicState::Contesting => "contesting",
+        StrategicState::Advantaged => "advantaged",
+        StrategicState::Closing => "closing",
+    }
+}
+
+/// One goal, in the same words `strategy/utility.rs` serializes. Exhaustive for
+/// the same reason.
+fn goal_name(value: &Goal) -> &'static str {
+    match value {
+        Goal::Recover => "recover",
+        Goal::Consolidate => "consolidate",
+        Goal::Develop => "develop",
+        Goal::Expand => "expand",
+        Goal::Pressure => "pressure",
+        Goal::Withdraw => "withdraw",
+    }
 }
 
 /// The authored `travelMode` vocabulary, back the way content wrote it, so a
