@@ -67,6 +67,7 @@ use serde::{Deserialize, Serialize};
 use crate::expedition::{ExpeditionError, ExpeditionState, require_stable_id};
 use crate::geography::Geography;
 use crate::strategy::faction::{ConceptKey, FACTION_ID_PREFIX};
+use crate::strategy::production::MachineFamily;
 
 /// The prefix every authored building *definition* ID carries, as `faction.`
 /// is to a faction.
@@ -308,12 +309,18 @@ pub struct BuildingSocket {
 /// a timer. Modelling human roles as a variant rather than leaving them out
 /// entirely is deliberate -- a rule that cannot be *expressed* cannot be
 /// *refused*, and the refusal is the design decision worth keeping.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProductionOutput {
-    /// Automata, vehicles, weapons, equipment (brief section 5.6).
-    #[default]
-    Machine,
+    /// Automata, vehicles, weapons, equipment (brief section 5.6), and
+    /// **which of brief section 5.4's eight families** this rule turns out.
+    ///
+    /// S13 gave the variant its family: a rule that says only "a machine" is a
+    /// rule nothing can build from, and the family is what
+    /// [`ExpeditionState::produce_machine`](crate::expedition::ExpeditionState::produce_machine)
+    /// checks the named `machine.<...>` record against before it spends
+    /// anything.
+    Machine { family: MachineFamily },
     /// Housing, training, medical, command, integration capacity.
     Capacity,
     /// Something the building does for whoever holds it.
@@ -322,6 +329,22 @@ pub enum ProductionOutput {
     /// building compatible with [`ConceptKey::Michael`]. See
     /// [`BuildingDefinition::validate`].
     HumanRole { role: String },
+}
+
+impl Default for ProductionOutput {
+    /// Only so [`ProductionRule`] can derive `Default`. `Machine` stopped being
+    /// a unit variant when S13 gave it its family, so the `#[default]`
+    /// attribute no longer applies and this states the same answer by hand:
+    /// the default output is a machine, of the family
+    /// [`MachineFamily`]'s own `Default` names for the same reason. No rule is
+    /// authored by defaulting -- `output` carries no `serde(default)`, so
+    /// content must state it -- and a rule whose family disagrees with the
+    /// record it names does not produce.
+    fn default() -> Self {
+        ProductionOutput::Machine {
+            family: MachineFamily::default(),
+        }
+    }
 }
 
 /// One thing a building produces, and how often.
@@ -348,6 +371,18 @@ pub struct ProductionRule {
     /// The tier at which this rule starts applying.
     #[serde(default)]
     pub minimum_tier: u32,
+    /// **S13.** What one yield costs the producing faction, as open resource
+    /// keys to counts -- the same shape as `construction_cost` beside it, and
+    /// for the same reason: brief section 20 leaves the resource list Open, so
+    /// fuel is a key a rule names (`resource.open.fuel`, say) rather than a
+    /// variant of an enum this crate does not have.
+    ///
+    /// Charged from `FactionState::resources` by
+    /// [`ExpeditionState::produce_machine`](crate::expedition::ExpeditionState::produce_machine),
+    /// all keys or none. An empty map is a rule that costs nothing, which is
+    /// what every rule authored before S13 landed means.
+    #[serde(default)]
+    pub cost: BTreeMap<String, u32>,
 }
 
 /// One authored tier of a building.
@@ -735,6 +770,15 @@ pub struct BuildingInstance {
     /// `UnderConstruction`.
     #[serde(default)]
     pub construction_hours_remaining: u32,
+    /// **S13.** How many machines this building has turned out, ever. Raised
+    /// only by
+    /// [`ExpeditionState::produce_machine`](crate::expedition::ExpeditionState::produce_machine)
+    /// and by nothing else, and never lowered: it is a record of what this
+    /// yard did, not a stock of what stands in it -- the machines themselves
+    /// are in `ExpeditionState::machines`, one entry each. `serde(default)` so
+    /// a save written before S13 loads with a yard that has made nothing yet.
+    #[serde(default)]
+    pub machines_produced: u32,
 }
 
 impl BuildingInstance {
@@ -849,6 +893,8 @@ impl ExpeditionState {
                     BuildingState::UnderConstruction
                 },
                 construction_hours_remaining: hours,
+                // S13: a new yard has made nothing.
+                machines_produced: 0,
             },
         );
         Ok(())
@@ -1160,6 +1206,11 @@ fn require_prefixed_id(
 mod tests {
     use super::*;
 
+    use crate::strategy::faction::FactionDefinition;
+    use crate::strategy::production::{
+        ActorKit, MachineDefinition, MachineDefinitions, ProductionError,
+    };
+
     const BEACH: &str = "world.cell.black_beach";
     const TERRACE: &str = "world.cell.reception_terrace";
 
@@ -1448,6 +1499,7 @@ mod tests {
             amount: 1,
             interval_hours: 0,
             minimum_tier: FIRST_TIER,
+            cost: BTreeMap::new(),
         };
 
         let mut michaels = a_definition(WORKSHOP, 2, 1);
@@ -1471,13 +1523,53 @@ mod tests {
         let mut machines = michaels.clone();
         machines.production = vec![ProductionRule {
             id: "production.test.automaton".into(),
-            output: ProductionOutput::Machine,
-            output_key: "resource.example".into(),
+            output: ProductionOutput::Machine {
+                family: MachineFamily::MechanicalDog,
+            },
+            output_key: "machine.test.mechanical_dog".into(),
             amount: 1,
             interval_hours: 6,
             minimum_tier: FIRST_TIER,
+            cost: BTreeMap::from([("resource.open.fuel".to_owned(), 3)]),
         }];
         assert_eq!(machines.validate(), Ok(()));
+
+        // **S13, the same refusal one level up.** A building's `production`
+        // list is not the only door a manufactured person could come through:
+        // the faction's `actor_kit` names the unit records it may field. For
+        // Michael's concept every one of them must be a machine, and an entry
+        // the machine registry does not carry is refused by name rather than
+        // admitted as "probably a unit". Same rule, same test, one owner --
+        // `strategy/production.rs` holds the reading, this holds the proof.
+        let mut registry = MachineDefinitions::new();
+        registry
+            .insert(MachineDefinition {
+                id: "machine.test.mechanical_dog".into(),
+                family: MachineFamily::MechanicalDog,
+                ..MachineDefinition::default()
+            })
+            .expect("the machine record loads");
+        let mut michaels_faction = FactionDefinition {
+            id: ConceptKey::Michael.faction_id(),
+            concept_key: ConceptKey::Michael,
+            actor_kit: BTreeSet::from(["machine.test.mechanical_dog".to_owned()]),
+            ..FactionDefinition::default()
+        };
+        assert!(
+            ActorKit::of(&michaels_faction, &registry).is_ok(),
+            "a kit of machines is what his faction fields"
+        );
+        michaels_faction
+            .actor_kit
+            .insert("actor.test.engineer".to_owned());
+        assert_eq!(
+            ActorKit::of(&michaels_faction, &registry),
+            Err(ProductionError::MichaelActorKitNamesANonMachine {
+                faction_id: ConceptKey::Michael.faction_id(),
+                entry_id: "actor.test.engineer".into(),
+            }),
+            "brief section 5.6 again: his lists carry machines, never people"
+        );
 
         // Another faction may *support* recruitment with a human-role rule,
         // but never run one on a timer, and never without saying what the

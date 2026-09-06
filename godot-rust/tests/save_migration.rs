@@ -151,6 +151,7 @@ const EXPECTED_CURRENT_KEYS: &[&str] = &[
     "directives",
     "forces",
     "buildings",
+    "machines",
 ];
 
 fn expected_current_keys() -> BTreeSet<String> {

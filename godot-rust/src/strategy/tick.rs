@@ -49,6 +49,7 @@ use crate::expedition::ExpeditionState;
 use crate::geography::Geography;
 use crate::strategy::faction::FactionDefinitions;
 use crate::strategy::force::{ForceId, HaltReason};
+use crate::strategy::production::MachineFamily;
 use crate::strategy::utility::{BoardView, GoalWeights, choose_goals, recompute_strategic_state};
 use crate::world::mix_seed;
 
@@ -185,6 +186,22 @@ pub enum StrategicEvent {
         faction_id: String,
         cell_id: String,
         reason: HaltReason,
+    },
+    /// S13: one of Captain Michael's buildings turned out a machine. Carries
+    /// the family rather than the machine's instance ID because the journal is
+    /// a record of *what the island did*, and "a mechanical dog came out of
+    /// that yard" survives the machine itself being wrecked, salvaged or
+    /// renamed.
+    ///
+    /// Emitted by
+    /// [`ExpeditionState::produce_machine`](crate::expedition::ExpeditionState::produce_machine)
+    /// and handed to its caller to journal: production ordered from outside the
+    /// hour is not the hour's event, exactly as a force's departure is not.
+    MachineProduced {
+        faction_id: String,
+        family: MachineFamily,
+        building_instance_id: String,
+        day: u32,
     },
 }
 
