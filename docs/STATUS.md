@@ -234,3 +234,43 @@ proven on the trunk after its merge.
 
 **Summary:** every strategic card that did not need a human decision is
 shipped. What remains in M3 is a decision, not code.
+
+## 2026-09-06, small hours — the game can be saved, paused, packed and continued
+
+Trunk `backend/b0-expedition-state` at the commit this entry ships in. Seven
+lanes ran in parallel worktrees off `2f51e77`, each merged serially and
+proven on the trunk; CI green on every integration commit.
+
+- **B17:** a battle armed by the campaign carries the campaign's bond ranks;
+  the debug battle keeps the review fixture because that bridge holds no
+  campaign; no setter was added — an authored beat is the only thing that
+  moves a bond.
+- **B6:** the four tomb cells are content, read from the fixture verbatim;
+  the equality test now holds the whole graph and bites from both sides.
+  Stable IDs 214 → 223.
+- **E7:** a crash log on the player's own disk keyed by in-world day and
+  segment; the no-telemetry rule is a test that scans every script.
+- **B16:** the building registry reaches the tick and the elimination
+  sweep through the bridge, B15's shape repeated; the honest bite is cell
+  capacity, not the core link, and the card says so.
+- **B9:** pause is one Godot fact with a set of reasons; the midnight call
+  refuses while paused; settings persist but are read by no scene yet.
+  Proven to bite in CI itself.
+- **B10:** packs merge by scene ID in load order; the `.pck` branch waits
+  on E9 to build one.
+- **B8:** save slots and continue through two appended bridge functions;
+  newest is the save's own clock; a broken slot is listed as broken.
+- **Two defects found at merges and fixed there:** B8's `load_json` called
+  the state dictionary without B16's registry parameter (caught by
+  `cargo check --features godot-ext` on the trunk); and the M2 roll-up had
+  counted E8, which sits outside the bracket — corrected to 8/9 with E5 open.
+- `cargo test`: **306 unit + 6 + 5 + 8 + 1 pass.** Validator 223 IDs, bundle
+  51 records fresh, `check-claims` 47 claims / 88 rows / 82 cards.
+  Milestones **M1 8/12, M2 8/9, M3 15/16.**
+- **Honest gaps:** E5 (nightly artifacts) is M2's last row; S14 waits on O5;
+  the service passage's habitat eligibility has no content expression; the
+  three accessibility settings are read by nothing; `content/machines/` does
+  not exist.
+
+**Summary:** a stranger could now start, pause, save, quit, continue and
+get the same legal actions — through the real bridge, proven in CI.
