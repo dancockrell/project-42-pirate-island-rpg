@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "task_id": "c9-faction-records",
+  "agent": "claude-code-lane-C9",
+  "summary": "Six authored content/factions/*.json records plus the validate.mjs block and the Rust test that holds them equal to S1's FactionDefinition",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "content/factions/",
+    "tools/src/validate.mjs",
+    "godot-rust/src/strategy/faction.rs"
+  ],
+  "symbols": [
+    "strategy::faction::tests::every_authored_faction_record_loads_and_validates"
+  ],
+  "coordination": {
+    "depends_on": ["s1-faction-definition"],
+    "conflicts_with": [],
+    "notes": "S1 owns FactionDefinition and its validate; this lane authors the content it loads and mirrors validate in the content validator. Only the one new test is added to faction.rs; no other Rust file is touched. displayName stays a needs-decision placeholder per brief section 4 and the validator enforces that no name has been invented."
+  },
+  "blocked_on_decisions": [
+    "brief section 4: proper faction names are not approved -- displayName is a placeholder on all six records",
+    "brief section 20 Open: exact resource list -- resource_priorities carries the single placeholder key resource.open.needs_decision",
+    "brief section 20 Open: exact ordinary-faction victory conditions -- victory_conditions are authored notes",
+    "brief section 6.1-6.4 Provisional: doctrines are prose notes, no numbers that act"
+  ],
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
