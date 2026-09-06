@@ -3,7 +3,7 @@
   "task_id": "s11-event-journal",
   "agent": "claude-code (lane S11)",
   "summary": "The strategic event journal: a bounded, saved window of StrategicEvents whose evicted prefix is folded into a history digest, so a save never grows without limit and never loses what happened.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -27,7 +27,17 @@
     "notes_scores": "Entries carry only what StrategicEvent carries plus day and hour: no utility scores (S5), no dispositions (S12). The journal is not a side channel."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "8cafa4a",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml: passed (202 unit + 3 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice)",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs: passed (200 stable IDs)",
+      "Done-when: v1_current.json predates strategic_journal and still loads with an empty journal: passed",
+      "Done-when: a strategic save with a full window and a non-zero digest round-trips byte-identically, at the type and through ExpeditionState: passed",
+      "Determinism: the 2,400-hour harness still hashes identically twice with the journal under the save hash: passed",
+      "CURRENT_SAVE_VERSION stays 1: unchanged",
+      "Bite proof: eviction that drops the oldest entry without folding it into the digest failed four tests (the_digest_is_exactly_the_evicted_prefix, two_histories_that_differ_only_before_the_window_are_different_saves, and both full-window round trips); restored"
+    ]
   }
 }
