@@ -1,5 +1,11 @@
 extends Node
 
+## Preloaded rather than named: an autoload is compiled before the global
+## class cache exists in a `--script` run, so a `class_name` is not reachable
+## from here.
+const SettingsPanelScript := preload("res://scripts/ui/settings_panel.gd")
+const ThemeTokensScript := preload("res://scripts/ui/theme_tokens.gd")
+
 ## The calm information surface (card B13, brief section 14).
 ##
 ## One question, answered in one place: **what does this event deserve?**
@@ -60,7 +66,7 @@ const NOTABLE_KINDS: PackedStringArray = [
 ## Notable only when it is the player's own yard: another faction's production
 ## is not something the player can see, and reporting it would be an alarm for
 ## every faction action -- the second entry on the brief's avoid list.
-const OWN_FACTION_NOTABLE_KINDS: PackedStringArray = ["machine_produced"]
+const OWN_FACTION_NOTABLE_KINDS: PackedStringArray = ["machine_produced", "production_yielded", "production_skipped"]
 
 ## Kinds at which a force reaching a place is the event. Used by the two Urgent
 ## rules that are about a place.
@@ -76,14 +82,22 @@ var major_relationship_character_ids: PackedStringArray = []
 
 var _journal: Array[Dictionary] = []
 var _theme: Theme = null
+var _text_scale: float = SettingsPanelScript.DEFAULT_TEXT_SCALE
+var _high_contrast := false
+var _reduced_motion := false
 var _game_pause: Node = null
 var _null_pause: Node = null
 var _journal_open := false
 
 
+## The Theme is built on first use (`current_theme`), not here: an autoload's
+## `_ready` runs before every suite's first frame, and duplicating and
+## repainting the whole resource there stalled the first frames of every
+## timed suite (P9's synth had the same defect). `_load_persisted_settings`
+## still applies B9's settings at start; it builds the Theme only when a
+## saved setting differs from the defaults.
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	_theme = ThemeTokens.build()
 	_load_persisted_settings()
 
 
@@ -270,7 +284,7 @@ func can_confirm_directive(directive: Dictionary) -> bool:
 ## The Theme every screen should be wearing.
 func current_theme() -> Theme:
 	if _theme == null:
-		_theme = ThemeTokens.build()
+		_theme = ThemeTokensScript.build(_text_scale, _high_contrast, _reduced_motion)
 	return _theme
 
 
@@ -278,7 +292,10 @@ func current_theme() -> Theme:
 ## settings panel calls this as the player moves the slider, which is why the
 ## change is visible without reopening anything.
 func apply_settings(text_scale: float, high_contrast: bool, reduced_motion: bool) -> Theme:
-	_theme = ThemeTokens.build(text_scale, high_contrast, reduced_motion)
+	_text_scale = text_scale
+	_high_contrast = high_contrast
+	_reduced_motion = reduced_motion
+	_theme = ThemeTokensScript.build(text_scale, high_contrast, reduced_motion)
 	theme_rebuilt.emit(_theme)
 	return _theme
 
@@ -289,13 +306,13 @@ func apply_settings(text_scale: float, high_contrast: bool, reduced_motion: bool
 ## the panel's constants: there is one settings file and one set of key names.
 func _load_persisted_settings() -> void:
 	var config := ConfigFile.new()
-	if config.load(SettingsPanel.SETTINGS_PATH) != OK:
+	if config.load(SettingsPanelScript.SETTINGS_PATH) != OK:
 		return
-	var section := SettingsPanel.SECTION
-	apply_settings(
-		float(config.get_value(section, "text_scale", SettingsPanel.DEFAULT_TEXT_SCALE)),
-		bool(config.get_value(section, "high_contrast", false)),
-		bool(config.get_value(section, "reduced_motion", false)))
+	var section := SettingsPanelScript.SECTION
+	_text_scale = float(config.get_value(section, "text_scale", SettingsPanelScript.DEFAULT_TEXT_SCALE))
+	_high_contrast = bool(config.get_value(section, "high_contrast", false))
+	_reduced_motion = bool(config.get_value(section, "reduced_motion", false))
+	_theme = null
 
 
 # ---------------------------------------------------------------------------

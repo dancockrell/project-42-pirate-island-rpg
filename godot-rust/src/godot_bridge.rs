@@ -1887,7 +1887,9 @@ fn journal_entry_dictionary(entry: &JournalEntry) -> VarDictionary {
                 String::new(),
                 String::new(),
             ),
-            MachineProduced { faction_id, .. } => (
+            MachineProduced { faction_id, .. }
+            | ProductionYielded { faction_id, .. }
+            | ProductionSkipped { faction_id, .. } => (
                 faction_id.clone(),
                 String::new(),
                 String::new(),
@@ -1964,6 +1966,29 @@ fn journal_prose(entry: &JournalEntry) -> String {
             "{building_instance_id} turned out a {} for {faction_id}.",
             serde_name(family)
         ),
+        ProductionYielded {
+            faction_id,
+            building_instance_id,
+            output_key,
+            amount,
+            ..
+        } => format!("{building_instance_id} yielded {amount} {output_key} for {faction_id}."),
+        ProductionSkipped {
+            faction_id,
+            building_instance_id,
+            reason,
+            ..
+        } => {
+            use crate::strategy::production::ProductionSkipReason::*;
+            let why = match reason {
+                InsufficientResource { key, held, needed } => {
+                    format!("it holds {held} {key} and needs {needed}")
+                }
+                UnknownMachineRecord { def_id } => format!("no machine record {def_id} exists"),
+                Refused { detail } => format!("the rule refused: {detail}"),
+            };
+            format!("{building_instance_id} of {faction_id} skipped its run: {why}.")
+        }
     }
 }
 

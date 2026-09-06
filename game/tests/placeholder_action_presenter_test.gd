@@ -29,7 +29,14 @@ func run() -> void:
 		"shake": 0.35,
 		"frameSubjects": ["betty", "mace", "target", "impact_arc"]
 	})
-	await create_timer(.12).timeout
+	# Wait on the presenter's own tweens, not a wall-clock timer: the tree steps
+	# timers before tweens, and the first frame's delta carries engine start-up
+	# (0.13 s with the current autoloads), so a 0.12 s timer fired before the
+	# 0.10 s tweens had taken one step and the assertions below halted the
+	# suite without the presenter being wrong.
+	await presenter.actor_tween.finished
+	if presenter.enemy_tween != null and presenter.enemy_tween.is_running():
+		await presenter.enemy_tween.finished
 	assert(label.text == "HORIZONTAL MACE HIT  •  BRONZE TEAL IMPACT ARC")
 	assert("Safe frame: betty, mace, target, impact_arc" in label.tooltip_text)
 	assert("VFX purpose: Shows the mace contact" in label.tooltip_text)

@@ -19,7 +19,11 @@ func run() -> void:
 	check(rig.jaw.get_parent() == rig.head, "Razorbeak jaw must remain attached to the head")
 	var home: Vector2 = rig.home_position
 	rig.animate_reaction("contact_lunge", .35)
-	await create_timer(.12).timeout
+	# Wait on the reaction's own tween, not a wall-clock timer: the tree steps
+	# its timers before its tweens, so on a slow first frame (a loaded machine,
+	# a cold import cache) a 0.12 s timer fired before a 0.10 s tween had taken
+	# one step and this suite failed by name without the rig being wrong.
+	await rig.reaction_tween.finished
 	check(rig.position.x > home.x, "an individual Razorbeak must recoil from Betty's impact")
 	check(rig.jaw.rotation_degrees > 10.0, "the hit reaction must visibly open the Razorbeak jaw")
 	rig.set_pose("ready_idle")

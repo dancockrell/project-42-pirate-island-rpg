@@ -26,15 +26,18 @@ func run() -> void:
 	rig.set_pose("mace_low_guard")
 	check(is_equal_approx(rig.right_arm.rotation_degrees, -42.0), "low guard must bring the mace arm across Betty's body")
 	rig.animate_to_pose("forward_step", "card_to_battle_plane")
-	await create_timer(.20).timeout
+	# Wait on the rig's own tween rather than a wall-clock timer: the tree steps
+	# timers before tweens and the first frame's delta carries engine start-up,
+	# so a timer could fire before the motion had taken one step.
+	await rig.pose_tween.finished
 	check(rig.position.x > home.x, "card-to-plane motion must advance Betty into the shared action field")
 	check(is_equal_approx(rig.weapon.rotation_degrees, -58.0), "forward step must carry the whole weapon chain")
 	rig.animate_to_pose("horizontal_mace_hit", "contact_lunge")
-	await create_timer(.12).timeout
+	await rig.pose_tween.finished
 	check(rig.position.x > home.x + 40.0, "impact lunge must remain a readable forward action")
 	check(is_equal_approx(rig.right_arm.rotation_degrees, -72.0), "impact must use the authored striking shoulder pose")
 	rig.animate_to_pose("card_ready", "battle_plane_to_card")
-	await create_timer(.22).timeout
+	await rig.pose_tween.finished
 	check(rig.position.is_equal_approx(home), "recall must return Betty to her stable ready anchor")
 	rig.queue_free()
 	print("PaperBettyRig tests passed.")
