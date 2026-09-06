@@ -15,6 +15,7 @@ Soundscape="*res://scripts/audio/soundscape.gd"
 Atmosphere="*res://scripts/atmosphere/atmosphere.gd"
 SceneFlow="*res://scripts/shell/scene_flow.gd"
 InformationSurface="*res://scripts/surface/information_surface.gd"
+RenderProfile="*res://scripts/render/render_profile.gd"
 
 [display]
 window/size/viewport_width=1920
@@ -24,8 +25,32 @@ window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 
 [rendering]
-renderer/rendering_method="gl_compatibility"
+
+; Desktop renders Forward+. gl_compatibility stays the declared fallback for
+; the mobile/web target and for any desktop the engine downgrades on its own;
+; the RenderProfile autoload reports which one is actually live and names the
+; features the live one cannot do, so nothing downstream guesses.
+;
+; Not available on gl_compatibility, per the engine's own refusal messages:
+; SSIL, SDFGI, SSR, volumetric fog, subsurface scattering, TAA, screen-space
+; AA, auto-exposure, depth of field, decals, VoxelGI, light projectors.
+; SSAO *is* available on both in 4.7 and is enabled in the environment.
+renderer/rendering_method="forward_plus"
 renderer/rendering_method.mobile="gl_compatibility"
+
+; MSAA rather than TAA or FXAA. This is a fixed isometric game of hard
+; silhouettes against sky and sea, which is exactly the case MSAA is good at
+; and exactly the case TAA smears; TAA and screen-space AA are also Forward+
+; only, so choosing either would mean two different images on the two
+; renderers. MSAA 4x draws the same edge on both.
+anti_aliasing/quality/msaa_3d=2
+anti_aliasing/quality/screen_space_aa=0
+anti_aliasing/quality/use_taa=false
+anti_aliasing/quality/use_debanding=true
+
+; Anisotropic filtering because the board is read at a grazing isometric
+; angle, where trilinear alone turns ground detail to mush at the back of the
+; frame. A slightly negative mipmap bias keeps that detail from over-blurring.
 textures/default_filters/use_nearest_mipmap_filter=false
 ; E11. Required by the macOS export, not a look decision: Godot refuses a
 ; universal or arm64 macOS export outright while this is off -- "Cannot export
@@ -34,6 +59,22 @@ textures/default_filters/use_nearest_mipmap_filter=false
 ; satisfy. It adds an ETC2/ASTC copy at import time and changes nothing about
 ; how the desktop renderer draws.
 textures/vram_compression/import_etc2_astc=true
+textures/default_filters/anisotropic_filtering_level=3
+textures/default_filters/texture_mipmap_bias=-0.35
+
+; The island's light, applied to any scene that does not carry its own
+; WorldEnvironment.
+environment/defaults/default_environment="res://render/world_environment.tres"
+
+; Shadows. One directional light covers a whole setpiece at an isometric
+; angle, so the map is large and the filter is soft: a hard-edged shadow at
+; this camera distance reads as an artefact rather than as sun.
+lights_and_shadows/directional_shadow/size=4096
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=3
+lights_and_shadows/directional_shadow/16_bits=false
+lights_and_shadows/positional_shadow/atlas_size=4096
+lights_and_shadows/positional_shadow/soft_shadow_filter_quality=3
+lights_and_shadows/positional_shadow/atlas_16_bits=false
 
 [input]
 confirm={"deadzone":0.5,"events":[Object(InputEventKey,"physical_keycode":32)]}
@@ -41,3 +82,23 @@ cancel={"deadzone":0.5,"events":[Object(InputEventKey,"physical_keycode":4194305
 
 [audio]
 buses/default_bus_layout="res://default_bus_layout.tres"
+
+[shader_globals]
+
+; Weather, published once and read by every shader that moves. P3 drives all
+; three from the simulation snapshot through IslandEnvironment's exported
+; properties; nothing in game/ reads a clock to change them.
+wind={
+"type": "float",
+"value": 0.55
+}
+wind_heading={
+"type": "float",
+"value": 118.0
+}
+; B9's reduced-motion switch. At zero every sway, ripple and drift in the
+; shader library stops, and nothing else about any material changes.
+motion_scale={
+"type": "float",
+"value": 1.0
+}

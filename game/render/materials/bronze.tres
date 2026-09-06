@@ -1,0 +1,23 @@
+; Gate fittings, boiler casing, steam pipe, and every bronze edge the
+; interface's bronze-and-vellum grammar will later be drawn in.
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://shaders/bronze.gdshader" id="1_bronze"]
+
+[resource]
+resource_name = "Bronze"
+shader = ExtResource("1_bronze")
+shader_parameter/metal_color = Color(0.718, 0.541, 0.294, 1)
+shader_parameter/patina_color = Color(0.259, 0.518, 0.443, 1)
+shader_parameter/tarnish_color = Color(0.204, 0.145, 0.075, 1)
+shader_parameter/patina_amount = 0.45
+shader_parameter/patina_bias = 0.15
+shader_parameter/patina_scale = 1.6
+shader_parameter/polish = 0.72
+shader_parameter/metal_roughness = 0.28
+shader_parameter/patina_roughness = 0.85
+shader_parameter/rim_color = Color(0.918, 0.678, 0.353, 1)
+shader_parameter/rim_strength = 0.85
+shader_parameter/rim_sharpness = 2.4
+shader_parameter/emission_color = Color(0, 0, 0, 1)
+shader_parameter/emission_energy = 0.0

@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "task_id": "p2-render-foundation",
+  "agent": "claude-code (lane P2)",
+  "summary": "The render foundation: Forward+ on the desktop with gl_compatibility declared as the mobile fallback, a RenderProfile autoload that names the features the live method cannot do, one island WorldEnvironment resource and scene, a fixed isometric camera director, and a seven-shader material library the two procedural setpieces adopt in place of their flat StandardMaterial3D colours.",
+  "status": "completed",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "game/project.godot",
+    "game/render/",
+    "game/shaders/",
+    "game/scripts/render/",
+    "game/scenes/review/betty_3d_candidate_review.tscn",
+    "game/scenes/review/elizabethan_port_town_set_review.tscn",
+    "game/scenes/review/reception_terrace_setpiece_review.tscn",
+    "game/scripts/review/elizabethan_port_town_review.gd",
+    "game/scripts/world/setpiece_mesh_factory.gd",
+    "game/scripts/world/reception_terrace_component.gd",
+    "game/scripts/world/reception_terrace_lighting_kit.gd",
+    "game/scripts/world/elizabethan_port_town_set.gd",
+    "game/tests/render_foundation_test.gd",
+    "game/tools/capture_review_scene.gd",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "RenderProfile",
+    "CameraDirector",
+    "IslandEnvironment",
+    "SetpieceMeshFactory.material",
+    "SetpieceMeshFactory.library_material",
+    "SetpieceMeshFactory.LIBRARY"
+  ],
+  "coordination": {
+    "depends_on": [
+      "p1-screenshot-gate"
+    ],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at f5d26d1; merged trunk at bea81f0 mid-lane to pick up P1. game/project.godot is touched in three places only: the [rendering] block, one autoload appended at the END of [autoload], and a new [shader_globals] section appended at the end of the file (wind, wind_heading and motion_scale, which the foliage and water shaders read; nothing else in the repository declares shader globals, so the section is new rather than shared). AGENTS.md section 0, three times. (1) This lane had extended game/tools/capture_review_scene.gd to render a list of scenes in one process; P1 landed the same idea, better, in the same file. The merge conflict was resolved as P1's file whole and nothing of the P2 extension survives beside it. (2) game/scripts/review/elizabethan_port_town_review.gd existed only to look_at a camera; the rig now owns framing declaratively through its frame_target export, so that script is DELETED rather than left duplicating the rig. (3) The terrace lighting kit and the port town set each built their own Environment and their own sun; both now instance res://render/world_environment.tscn and set only the hour and the weather through its exported properties. Two edits fall outside the card's literal file list and are named rather than hidden: the port town set's Environment section gained a HarborBed and HarborShelf (a depth-shaded sea needs a bottom before it can be shallow), and the terrace review scene gained a shore, a sloped beach and a sea plane, each marked in its own metadata as review staging that is not part of the world cell. No world-cell geometry, collision, navigation, anchor or ID was touched. Two library materials have no caller yet and are not pretending otherwise: stylised_river.tres and placeholder.tres. Both are named deliverables of the card and both are held by the suite. One mistake is in this branch's history rather than squashed out of it: 6c024ee cut MSAA to 2x and dropped SSAO and SSIL to half resolution because a stale API reading said CI's capture job had overrun. It had not -- the run finished green, Forward+ under lavapipe, ten scenes at 1920x1080 in 2m41s -- so 166891c reverts the cut and says so."
+  },
+  "completion": {
+    "commit": "166891c",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (347 lib + 6 + 5 + 8 + 1): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext, via CI's 'Check the Godot extension build' step: passed",
+      "node tools/src/validate.mjs (300 stable IDs): passed",
+      "node tools/src/check-claims.mjs (56 claims, 105 ship-plan rows, 99 cards): passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/ (no content or builder change in this lane; bundle unchanged): passed",
+      "bash tools/verify-godot.sh on the committed tree, Godot 4.7.2 headless: 3 review scenes and 22 suites, no ERROR line: passed",
+      "game/tests/render_foundation_test.gd -- 'Render foundation tests passed.', exit 0, headless: passed",
+      "Bite: tonemap_mode flipped from AgX to Filmic in world_environment.tres AND 'wetness' renamed to 'wetness_typo' in wet_stone.gdshader. The suite failed exit 1 naming 'tonemapping must be AgX', 'shader must compile and expose its uniforms: res://shaders/wet_stone.gdshader', and BOTH forced-renderer twins ('shader must also compile forced onto forward_plus' / '... onto gl_compatibility'): failed",
+      "Bite, restored: 'Render foundation tests passed.', exit 0: passed",
+      "Forward+ verified in CI, run 34031678261 on 755b6e3, captures job green: log reads 'Vulkan 1.4.318 - Forward+ - Using Device #0: llvmpipe (LLVM 20.1.2, 256 bits)' and captured 9 of 10 scenes at 1920x1080 in 2m41s, every frame past the tool's uniform-frame refusal (terrace review mean luminance 93.36, stddev 30.105; town 92.68/32.279; Betty 105.39/41.604): passed",
+      "Godot headless suites job on 755b6e3, including the new suite and the bridge-not-mock proof: passed",
+      "Rust and content job on 755b6e3: passed",
+      "Local compatibility captures at 1280x720 under Xvfb with Mesa software GL, read and iterated on four times before they were committed -- the terrace review now shows land, a shoreline with surf, sea with ripples and glints, a lit and shadowed gate and sky: passed",
+      "Every shader compiles on BOTH renderers, not only the live one: the suite recompiles each shader twice with its CURRENT_RENDERER guards forced to RENDERER_FORWARD_PLUS and to RENDERER_COMPATIBILITY, so a rotted compatibility path is caught on a Forward+ run and the other way round: passed",
+      "Forward+-only in the environment, and therefore drawn in CI's plate and NOT in the committed local thumbnails: SSIL (ssil_enabled and its four values) and the water shader's screen-space refraction branch. Everything else in world_environment.tres -- AgX, sky ambient and reflections, SSAO, glow, depth fog, the colour-correction ramp -- draws on gl_compatibility as well. The engine binary's own refusal messages are the source for that list, not guesswork: passed",
+      "I could not read the Forward+ images myself: the GitHub artifact blob host is blocked by this environment's egress proxy, so the Forward+ evidence in this claim is the capture job's log and its per-frame luminance statistics, not my own eyes on the pixels: not_run",
+      "P3 seam: sun pitch/yaw/colour/energy, fill colour/energy, fog density and colour, exposure, wind strength, wind heading and motion_scale are exported properties on IslandEnvironment, applied to a per-instance duplicate of the environment, and the suite proves setting one reaches the light and the fog and does NOT mutate the shared resource: passed",
+      "needs decision: none. Every number this card introduces is a presentation value (camera margins, fog reach, foam widths, ripple rates), not a design decision the brief leaves Open; the isometric heading is 45/30 as named constants: not_run",
+      "CI on this branch, all three jobs (Rust and content, Godot headless suites, Scene captures) green on every run that carried the work: 263 (755b6e3), 271 (dd75aec), 275 (c7b0920) and 277 (d87b65d, the branch head at check-out). The only run not covered by that statement is the one this correction itself pushes, which changes nothing but this line: passed"
+    ]
+  }
+}

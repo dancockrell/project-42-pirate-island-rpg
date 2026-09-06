@@ -1,26 +1,51 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/world/black_beach/reception_terrace.tscn" id="1_cell"]
+[ext_resource type="PackedScene" path="res://render/camera_rig.tscn" id="2_camera_rig"]
+[ext_resource type="Shader" path="res://shaders/wet_stone.gdshader" id="3_wet_stone"]
+[ext_resource type="Material" path="res://render/materials/stylised_sea.tres" id="4_sea"]
 
-[sub_resource type="StandardMaterial3D" id="ReviewGroundMaterial"]
-albedo_color = Color(0.018, 0.027, 0.03, 1)
-roughness = 1.0
+[sub_resource type="ShaderMaterial" id="ReviewShoreMaterial"]
+shader = ExtResource("3_wet_stone")
+shader_parameter/dry_color = Color(0.239, 0.286, 0.216, 1)
+shader_parameter/wet_color = Color(0.106, 0.129, 0.11, 1)
+shader_parameter/wetness = 0.75
+shader_parameter/lichen_amount = 0.28
+shader_parameter/puddle_scale = 0.22
 
-[sub_resource type="PlaneMesh" id="ReviewGroundMesh"]
-size = Vector2(80, 80)
-material = SubResource("ReviewGroundMaterial")
+[sub_resource type="BoxMesh" id="ReviewShoreMesh"]
+size = Vector3(150, 1.4, 100)
+material = SubResource("ReviewShoreMaterial")
+
+[sub_resource type="BoxMesh" id="ReviewBeachMesh"]
+size = Vector3(150, 1.4, 34)
+material = SubResource("ReviewShoreMaterial")
+
+[sub_resource type="PlaneMesh" id="ReviewSeaMesh"]
+size = Vector2(1400, 1400)
+material = ExtResource("4_sea")
 
 [node name="ReceptionTerraceSetpieceReview" type="Node3D"]
-metadata/review_purpose = "Environment-only cinematic camera review. No character proxy may be added to this scene."
+metadata/review_purpose = "Environment-only review at gameplay distance. No character proxy may be added to this scene."
+metadata/render_contract = "Light comes from res://render/world_environment.tscn through the cell's lighting kit; the view is the fixed isometric rig at room distance. Neither is written here."
+metadata/review_staging = "The shore, the sloped beach and the sea below are review staging: procedural boxes and a plane, generated in-repo, so the cell is judged as the island terrace it is described as rather than as a slab on a table. None of them is part of the world cell and none travels with it."
+
+[node name="ReviewShore" type="MeshInstance3D" parent="."]
+mesh = SubResource("ReviewShoreMesh")
+position = Vector3(0, -1.25, -42)
+
+[node name="ReviewBeach" type="MeshInstance3D" parent="."]
+mesh = SubResource("ReviewBeachMesh")
+transform = Transform3D(1, 0, 0, 0, 0.994522, -0.104528, 0, 0.104528, 0.994522, 0, -3.04, 24)
+
+[node name="ReviewSea" type="MeshInstance3D" parent="."]
+mesh = SubResource("ReviewSeaMesh")
+position = Vector3(0, -0.9, 0)
+cast_shadow = 0
 
 [node name="ReceptionTerrace" parent="." instance=ExtResource("1_cell")]
 
-[node name="ReviewGround" type="MeshInstance3D" parent="."]
-mesh = SubResource("ReviewGroundMesh")
-position = Vector3(0, -0.58, 0)
-
-[node name="SetpieceCamera" type="Camera3D" parent="."]
-transform = Transform3D(0.819152, -0.181606, 0.544639, 0, 0.948683, 0.316228, -0.573576, -0.258819, 0.777146, 18.3, 10.2, 23.6)
-current = true
-fov = 48.0
-metadata/camera_description = "Wide three-quarter downhill view: processional terrace and shattered gate left-of-centre, wild jungle framing, sea and Handsome Jack flotsam visible to the right."
+[node name="SetpieceCamera" parent="." instance=ExtResource("2_camera_rig")]
+frame_target = NodePath("../ReceptionTerrace")
+frame_target_distance = 2
+metadata/camera_description = "The game's own isometric view -- 45 degree yaw, 30 degree pitch -- framed on the whole cell at room distance, so the terrace is judged at the distance it will be played at rather than through a camera only this scene has."
