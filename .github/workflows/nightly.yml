@@ -361,19 +361,6 @@ jobs:
         shell: bash
         run: echo "E10 BITE -- the native bridge build is a no-op in this commit"
 
-      # Honest about what one runner can produce. The script builds for the
-      # host, so this dylib carries the runner's architecture only, while the
-      # file name and E4's preset both say x86_64. Nothing here can make a
-      # universal binary out of a single-architecture host build, so the facts
-      # are printed instead of assumed, and the artifact's README repeats them.
-      - name: Report what architecture this runner built
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "Runner architecture: $(uname -m)"
-          lipo -archs game/bin/macos/project42_sim.macos.expedition_v5_release.x86_64.dylib
-          file game/bin/macos/project42_sim.macos.expedition_v5_release.x86_64.dylib
-
       # E5's assertion, applied to the macOS row of the .gdextension. If the
       # dylib is not at the path Godot resolves, the export would package a
       # game with no simulation in it, so the job stops here rather than ship
@@ -394,7 +381,15 @@ jobs:
             exit 1
           fi
           ls -la "$library"
+          # Honest about what one runner can produce: the script builds for its
+          # host, so this dylib carries that architecture alone whatever the
+          # file name says. Reported after the existence check, never before,
+          # or a missing library would be named by lipo instead of by the
+          # refusal above.
           architecture="$(uname -m)"
+          echo "Runner architecture: $architecture"
+          lipo -archs "$library"
+          file "$library"
           if ! grep -qF "macos.release.${architecture} = \"$declared\"" game/bin/project42_sim.gdextension; then
             echo "game/bin/project42_sim.gdextension declares no macos.release.${architecture} row." >&2
             echo "Godot on this runner asks for macos.${architecture} and reports \"No GDExtension library found for current OS and architecture (macos.${architecture})\", so the exported build would carry no simulation. Refusing." >&2
