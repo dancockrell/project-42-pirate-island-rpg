@@ -15,13 +15,6 @@ extends Node
 ## swap because it is an autoload; this node never copies a snapshot, never
 ## reads one, and never decides a game result. It moves screens.
 
-## Emitted when a transition begins, before the veil comes down.
-signal transition_started(target_path: String)
-
-## Emitted once the new scene is the current scene and the veil has lifted. A
-## suite awaits this rather than counting frames.
-signal scene_changed(target_path: String)
-
 const TITLE_SCENE := "res://scenes/shell/title.tscn"
 const EXPEDITION_SCENE := "res://scenes/world/expedition_prototype.tscn"
 const BATTLE_SCENE := "res://scenes/battle/battle_prototype.tscn"
@@ -45,6 +38,14 @@ const FADE_SECONDS := 0.22
 ## transition reads as the island going dark rather than as a black frame.
 const VEIL_COLOR := Color("050d0c")
 const VEIL_TEXT_COLOR := Color("8fa79c")
+
+## What screen the flow last landed on, and the only thing outside this node
+## that needs to know. A transition-started and a scene-changed signal were
+## written here first and then deleted before shipping, because nothing
+## subscribed to either: the shell's own suite watches this path and
+## `is_transitioning()`, so a signal it missed by one frame would hang the gate
+## rather than fail it. The signals come back the day a screen actually needs
+## to hear about a transition.
 
 var current_scene_path := ""
 
@@ -94,7 +95,6 @@ func transition_to(target_path: String) -> bool:
 		return false
 	close_pause_menu()
 	_target_path = target_path
-	transition_started.emit(target_path)
 	if ResourceLoader.load_threaded_request(target_path) != OK:
 		_target_path = ""
 		return false
@@ -148,7 +148,6 @@ func finish_transition(landed: String, packed: PackedScene) -> void:
 	else:
 		var tween := create_tween()
 		tween.tween_method(set_veil_alpha, 1.0, 0.0, FADE_SECONDS)
-	scene_changed.emit(landed)
 
 
 # ---------------------------------------------------------------------------
