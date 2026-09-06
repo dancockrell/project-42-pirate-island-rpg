@@ -730,7 +730,7 @@ for (const { file, value } of worldRecords) {
         const authoredSpaces = dungeonSpacesByDungeon.get(dungeonContext.dungeonId);
         const space = authoredSpaces?.get(dungeonContext.space);
         if (authoredSpaces && !space) fail(file, `dungeonContext.space ${dungeonContext.space} is not a space of ${dungeonContext.dungeonId}`);
-        for (const [field, expected] of [["ownerConceptKey", "defaultOwnerConceptKey"], ["corruptedVariantConceptKey", "corruptedVariantConceptKey"]]) {
+        for (const field of ["ownerConceptKey", "corruptedVariantConceptKey"]) {
           if (!factionConceptKeys.includes(dungeonContext[field])) fail(file, `dungeonContext.${field} ${dungeonContext[field]} is not one of the six concept keys: ${factionConceptKeys.join(", ")}`);
         }
         const dungeonRecord = dungeonRecordsById.get(dungeonContext.dungeonId);
