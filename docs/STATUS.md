@@ -193,3 +193,44 @@ Next: S9 (dungeon context), S10 (elimination), S13 (Michael's machines),
 C10+C8 (building records and the pack manifest), A10 (bond rank as a fact of
 the relationship).
 
+
+## 2026-09-06, night — the strategic layer closes, one row short
+
+Trunk `backend/b0-expedition-state` at the commit this entry ships in. Five
+lanes ran in parallel worktrees off `e96e7cb` and were merged serially, each
+proven on the trunk after its merge.
+
+- **C10 + C8:** three building records (Michael's machine shop, a coast watch
+  post for three ordinary factions, a ritual anchor that can only be
+  destroyed), every Open number Open in the data; a presentation pack fixture
+  whose overrides resolve only inside the pack. Stable IDs 210 → 214, bundle
+  44 → 47 records.
+- **S9:** a dungeon is a signature over its context — owner, tier, banded
+  corruption, heat and epoch — and rewards draw down a building's stored
+  value. Nothing refills that value yet.
+- **S10:** brief §16's nine recovery links in order; a faction is eliminated
+  only once it has held something and lost every link; no respawn; Cthulhu
+  cannot be removed while §20's rules are Open. The 2,400-hour harness is
+  untouched.
+- **S13:** `MachineFamily` closed at the brief's eight; `produce_machine`
+  deducts the cost the rule names and refuses a person on a Michael kit.
+- **A10:** a woman's higher-ranked commands open as her arc advances;
+  `bond_ranks` has one owner and moves only upward, only by an authored scene.
+- **One defect found at a merge and fixed there.** S13 turned the machine
+  output into a struct carrying a family; C10's record and S10's fixture
+  still spoke the bare string. The record now names `mechanical_dog`, the
+  validator refuses the bare string exactly as serde does (two refusals
+  proven to bite), and the fixture carries the default family.
+- `cargo test`: **303 unit + 5 + 5 + 7 + 1 pass.** `--features godot-ext`,
+  `fmt --check`, validator (214 IDs), bundle freshness and `check-claims`
+  (40 claims, 86 rows, 80 cards) all green on the trunk. Milestones
+  **M1 8/12, M2 6/9, M3 15/16.**
+- **Honest gaps:** S14 (the founding sequence) is M3's last row and waits on
+  decision O5; the elimination sweep runs with an empty building registry
+  until the real one is threaded through the tick (it can only delay an
+  elimination); no `Battle` is yet built from `ExpeditionState`, so bond
+  ranks reach a fight through the fixture only; `content/machines/` does not
+  exist; nothing calls `produce_machine` on a timer.
+
+**Summary:** every strategic card that did not need a human decision is
+shipped. What remains in M3 is a decision, not code.
