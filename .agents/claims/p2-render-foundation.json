@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "task_id": "p2-render-foundation",
+  "agent": "claude-code (lane P2)",
+  "summary": "The render foundation: Forward+ on the desktop with gl_compatibility declared as the mobile fallback, a RenderProfile autoload that names the features the live method cannot do, one island WorldEnvironment resource and scene, a fixed isometric camera director, and a seven-shader material library the two procedural setpieces adopt in place of their flat StandardMaterial3D colours.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "game/project.godot",
+    "game/render/",
+    "game/shaders/",
+    "game/scripts/render/",
+    "game/scenes/review/betty_3d_candidate_review.tscn",
+    "game/scenes/review/elizabethan_port_town_set_review.tscn",
+    "game/scenes/review/reception_terrace_setpiece_review.tscn",
+    "game/scripts/world/setpiece_mesh_factory.gd",
+    "game/scripts/world/reception_terrace_component.gd",
+    "game/scripts/world/reception_terrace_lighting_kit.gd",
+    "game/scripts/world/elizabethan_port_town_set.gd",
+    "game/tests/render_foundation_test.gd",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "RenderProfile",
+    "CameraDirector",
+    "IslandEnvironment",
+    "SetpieceMeshFactory.material",
+    "SetpieceMeshFactory.library_material"
+  ],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at f5d26d1. game/project.godot is touched in three places only: the [rendering] block, one autoload appended at the END of [autoload], and a new [shader_globals] section appended at the end of the file (the foliage shader's global wind uniform the card names; nothing else in the repository declares shader globals, so the section is new rather than shared). P1 has not landed, so the capture loop used here is the existing game/tools/capture_review_scene.gd under Xvfb with Mesa software GL on --rendering-driver opengl3. Vulkan cannot run in this container (no lavapipe), so every Forward+-only effect in the environment is declared and unverified until P1's CI captures exist."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
