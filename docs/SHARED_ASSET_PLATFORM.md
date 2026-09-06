@@ -224,17 +224,33 @@ into an exported build, or only renders CI captures; and the notice: the
 licence files it was copied from, one SPDX id and one SHA-256 of the file's
 bytes per file, and `noticeText`, the text itself, verbatim.
 
-**What "no notice" means.** A component whose licence text cannot be read from
-a file in the environment the ledger was written from carries
-`noticeText: null` and `needsReview: true` with a `reviewNote` saying what
-could not be read and where the text lives, and the credits page prints
-"notice pending" for it. Eight components stand there today: the five
-godot-rust crates, which publish no licence file inside the crate (their
-Cargo.toml declares MPL-2.0 and the text lives only in the upstream
-repository), and the Godot engine, its export templates, and Mesa — the pinned
-Godot download is a zip containing the executable and nothing else, no
-LICENSE.txt beside it. Pending is not waived. Writing a notice from memory for
-any of them would be exactly the invention this ledger exists to prevent.
+**Where a notice may come from.** A record names its provenance one of two
+ways. `noticeFiles` is a path in the build environment — a crate's own
+`LICENSE-MIT` in the local registry — with one SPDX id and one SHA-256 of that
+file's bytes per entry. `noticeSources` is the other admissible source: the
+component's own canonical file fetched over the network, each entry naming the
+HTTPS `url`, the `spdx` id the file carries, the `sha256` of the bytes that
+arrived and how many `bytes` those were, so a reader can fetch the same URL and
+compare rather than take the text on trust. A filled record must carry at least
+one of the two; a pending record carries neither. Both are equally a reading of
+the project's own file and neither is a paraphrase.
+
+**What "no notice" means.** A component whose licence text can be read neither
+from a file in the environment the ledger was written from nor from its own
+canonical file upstream carries `noticeText: null` and `needsReview: true` with
+a `reviewNote` saying what could not be read, the exact URL tried, and how the
+attempt failed, and the credits page prints "notice pending" for it. E12 left
+eight components standing there; E13 read seven of them from upstream — the
+five godot-rust crates from gdext's own `License.txt` at the pinned `v0.5.5`
+tag (they publish no licence file inside the crate; their Cargo.toml declares
+MPL-2.0 and the text lives only in the repository), and the Godot engine and
+its export templates from the engine's `LICENSE.txt` at the `4.7.2-stable` tag
+(the pinned Godot download is a zip containing the executable and nothing else,
+no LICENSE.txt beside it). One stands there today: Mesa, whose canonical
+`docs/license.rst` lives on `gitlab.freedesktop.org`, a host this build
+environment's egress proxy refuses — 403 to CONNECT, so the request never
+reaches the server. Pending is not waived. Writing a notice from memory for it
+would be exactly the invention this ledger exists to prevent.
 
 **Which crates count.** The set is the normal-dependency closure of
 `project42_sim` built with the extension's own feature set —
@@ -263,5 +279,5 @@ notice it has not got or hide one it has. The credits page cannot read
 `content/art/` at runtime — it is not a bundle domain — so it carries the text,
 and `shell_flow_test.gd` reads the ledger off disk and holds the page to it
 component for component and licence body for licence body, including the count
-of notices still pending. A notice that arrives in the ledger and not on the
+of notices still pending, which is one. A notice that arrives in the ledger and not on the
 page fails the gate rather than shipping.

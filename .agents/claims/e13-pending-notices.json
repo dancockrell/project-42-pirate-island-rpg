@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "task_id": "e13-pending-notices",
+  "agent": "claude-code lane E13",
+  "summary": "Seven of E12's eight pending third-party notices are filled from their upstream canonical licence files fetched over the network -- the five godot-rust crates from gdext's own License.txt at the pinned v0.5.5 tag, the Godot engine and its export templates from the engine's LICENSE.txt at the 4.7.2-stable tag -- each recording the URL fetched and the SHA-256 of the bytes received in a new noticeSources field; Mesa stays pending because gitlab.freedesktop.org is blocked by this environment's egress proxy, and its record now names the exact URL tried and the refusal.",
+  "status": "completed",
+  "claimed_at": "2026-09-06T14:10:00Z",
+  "updated_at": "2026-09-06T14:40:00Z",
+  "paths": [
+    "content/art/third_party_ledger.json",
+    "tools/src/validate.mjs",
+    "game/scripts/shell/credits.gd",
+    "docs/SHARED_ASSET_PLATFORM.md",
+    "docs/verification/captures/E13-08dbe85-notices.png",
+    "docs/verification/captures/E13-08dbe85-engine-notice.png"
+  ],
+  "symbols": [
+    "CreditsScreen.NOTICES_PENDING",
+    "CreditsScreen.NOTICE_BODIES",
+    "CreditsScreen.THIRD_PARTY",
+    "CreditsScreen.STILL_OWED"
+  ],
+  "coordination": {
+    "depends_on": [
+      "e12-third-party-attribution"
+    ],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at dc22d75. E12's schema had one way to name where a notice came from -- noticeFiles, a path in this build environment, paired one-for-one with noticeSpdx and noticeSha256. A notice read over the network has no such path, so rather than fork the schema with a second parallel array set, this lane adds noticeSources (url + spdx + sha256 per entry) as the other admissible provenance and relaxes exactly one validator rule: a filled record must name at least one source, file or URL, instead of at least one file. Pending records must now carry noticeSources empty too, so the flag still means nothing was read. game/scripts/ is otherwise untouched: only credits.gd's notice-body table, the two THIRD_PARTY notice keys per filled record, the pending-count constant and the STILL_OWED sentence that count is interpolated into (leaving that sentence saying five crates and the engine are pending when they no longer are would be a false statement on the page the ledger exists to keep honest)."
+  },
+  "completion": {
+    "commit": "08dbe85",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check (no Rust changed in this lane): passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (369 lib + 7 + 5 + 11 + 1): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs -- 541 stable IDs; '22 third-party components credited against 26 locked crates with 1 notices pending', down from 8: passed",
+      "node tools/src/check-claims.mjs (73 claims, 114 ship-plan rows, 108 cards): passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/ -- 233 records, sha256:1347ad72...; content/art/ is not a bundle domain so the bundle is unmoved: passed",
+      "bash tools/build-native-bridge.sh then bash tools/verify-godot.sh with GODOT set, nice -n 10, timeout, ulimit -v 4000000 -- 'Godot headless verification passed. 5 review scenes, 30 suites', 'Shell flow tests passed', no ERROR line: passed",
+      "Bite (validator), needsReview flipped back to true on the now-filled godot 0.5.5 record: exit 1 with 'components[0] needsReview means no notice was read: noticeText, noticeTextKey, noticeFiles and noticeSources must be empty', plus 'reviewNote must be a non-empty string' and 'noticePendingCount must be 2'; restored, validator green: failed",
+      "Bite (suite), NOTICES_PENDING put back to 8 on the page: shell_flow_test.gd printed 'ERROR: the credits must say how many notices are still owed: 8 on the page, 1 in the ledger'; restored, 'Shell flow tests passed': failed",
+      "Fetch of https://raw.githubusercontent.com/godot-rust/gdext/v0.5.5/License.txt -- HTTP 200, 16727 bytes, sha256 66a3107d5ad6a058aab753eaac2047ccb2ed0e39465dd0fe5844da3e300d5172, byte-identical to the same file on master: passed",
+      "Fetch of https://raw.githubusercontent.com/godotengine/godot/4.7.2-stable/LICENSE.txt -- HTTP 200, 1149 bytes, sha256 b0435e3b3e4e55238f05f4b306f30524a1b2e20147810d436eaa554fa6855c80: passed",
+      "Fetch of https://gitlab.freedesktop.org/mesa/mesa/-/raw/main/docs/license.rst -- the egress proxy answers 403 to CONNECT for gitlab.freedesktop.org and the web fetch tool reports EGRESS_BLOCKED for the domain; the record stays pending and names the URL and the failure: failed",
+      "Captures E13-08dbe85-notices.png (the mpl_2_0_gdext body, covering the five godot-rust crates) and E13-08dbe85-engine-notice.png (mit_godot_engine, covering the engine and its export templates), rendered through the compatibility path at 1280x720 and read: passed"
+    ]
+  }
+}
