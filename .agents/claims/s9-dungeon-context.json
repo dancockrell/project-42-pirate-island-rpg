@@ -3,7 +3,7 @@
   "task_id": "s9-dungeon-context",
   "agent": "claude-code (lane S9)",
   "summary": "DungeonContext with brief section 19's fields and a signature folded over every one of them, so the same context always yields the same rooms and a different owner or tier never collides; plus the reward budget repeated farming draws down.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -30,10 +30,24 @@
       "s8-dual-clocks"
     ],
     "conflicts_with": [],
-    "notes": "building.rs: exactly one field appended at the END of BuildingInstance's field list (stored_value, serde(default)) plus its initialiser in place_building. Other lanes appending their own fields to the same tail merge with this. Everything else S9 owns lives in strategy/dungeon.rs, including the impl ExpeditionState block. No change to tick.rs, expedition.rs, save_migration.rs (the new field is nested inside ExpeditionState.buildings, so EXPECTED_CURRENT_KEYS is unaffected)."
+    "notes": "building.rs: exactly one field appended at the END of BuildingInstance's field list (stored_value, serde(default)) plus its initialiser in place_building. Other lanes appending their own fields to the same tail merge with this. Everything else S9 owns lives in strategy/dungeon.rs, including the impl ExpeditionState block. No change to tick.rs, expedition.rs, save_migration.rs (the new field is nested inside ExpeditionState.buildings, so EXPECTED_CURRENT_KEYS is unaffected). Open on completion: (1) refilling a reward budget is blocked: needs decision -- stored_value only ever goes down here, and nothing raises it; place_building initialises it to zero, so every dungeon is empty until S13/S3 or a C card gives it a value. (2) Per-instance upgrade history is needs decision -- brief section 12's \"upgrade history\" is folded as the tier ladder read from the definition, because BuildingInstance stores a current tier and nothing about the road to it. (3) Every band threshold (CORRUPTION_BAND_*, HEAT_BAND_*, EPOCH_*) and every budget coefficient (ENCOUNTER_BUDGET_PER_TIER, HAZARD_BUDGET_PER_TIER, HAZARD_BUDGET_PER_CORRUPTION_BAND) is provisional needs decision; EPOCH_ENDGAME_DAY alone is derived, being S8's CONFRONTATION_DAY. (4) NOT_A_DUNGEON = \"none\" is the sentinel C10 authors into dungeon_relationship for a building that deliberately is not one; an empty field reads the same way. (5) Brief sections 12 and 19 list no party-relevant flag, so none was invented; A7's suppressed_site_rules does not exist yet and is not read. (6) Section 19's generated_seed, generated_room_ids and revision are generation outputs: DungeonContext::of returns them zero/empty, and they still fold, so a deliberate regeneration at a bumped revision is a different dungeon."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "cc22440",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (279 unit + 3 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (210 stable IDs): passed",
+      "node tools/src/check-claims.mjs (36 claims, 86 ship-plan rows, 80 cards): passed",
+      "Done-when: same context -> same rooms (the_same_context_always_signs_and_seeds_the_same): passed",
+      "Done-when: owner change -> different site rules (owner_and_tier_never_collide; owner, tier and both together give three distinct signatures): passed",
+      "Card: no infinite loot -- three draws of six on a budget of ten yield 6, 4, 0 and a hundred more yield nothing (repeated_farming_draws_the_budget_down_and_stops): passed",
+      "Card: single-field-mutation fold, written as a loop over all 18 fields with the field count read from the serialization so a new field cannot skip it (every_single_field_changes_the_signature): passed",
+      "Refusal before mutation: an unknown instance and a non-dungeon building both refuse and take nothing (a_draw_refuses_before_mutating): passed",
+      "Determinism: the signature survives a save and reload byte-for-byte (a_context_read_off_the_board_has_not_generated_yet); strategic_determinism.rs 7/7 including the 2,400-hour harness unaffected: passed",
+      "Bite proof: #[serde(skip)] on DungeonContext.building_tier failed every_single_field_changes_the_signature with 'changing building_tier alone must change the signature' and nothing else; restored and re-verified green: passed",
+      "save_migration.rs unchanged and still green -- stored_value is nested inside ExpeditionState.buildings, so EXPECTED_CURRENT_KEYS is untouched: passed"
+    ]
   }
 }
