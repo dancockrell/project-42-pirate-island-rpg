@@ -78,6 +78,7 @@ func snapshot() -> Dictionary:
 	if expedition == null:
 		return unavailable_state()
 	latest_snapshot = expedition.snapshot()
+	if is_inside_tree() and has_node("/root/CrashLog"): get_node("/root/CrashLog").remember_snapshot(latest_snapshot)
 	return latest_snapshot.duplicate(true)
 
 
