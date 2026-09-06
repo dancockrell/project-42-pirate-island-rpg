@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "task_id": "b15-registry-through-the-bridge",
+  "agent": "claude-opus-5-lane-b15",
+  "summary": "B15: the bridge loads content/factions/ and hands the registry to the simulation, so Godot and the Rust harness run the same island; S5's registry seam closes",
+  "status": "active",
+  "claimed_at": "2026-09-06T04:04:12Z",
+  "updated_at": "2026-09-06T04:04:12Z",
+  "paths": [
+    "tools/src/build-content-bundle.mjs",
+    "game/generated/content_bundle.json",
+    "game/scripts/simulation/native_expedition_port.gd",
+    "game/tests/expedition_prototype_test.gd",
+    "godot-rust/src/godot_bridge.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/strategy/tick.rs",
+    "godot-rust/src/habitat.rs",
+    "godot-rust/tests/strategic_determinism.rs",
+    "godot-rust/tests/authored_world.rs",
+    "godot-rust/tests/vertical_slice.rs"
+  ],
+  "symbols": [
+    "ExpeditionConfiguration.factions",
+    "Project42ExpeditionBridge.configure",
+    "Project42ExpeditionBridge.resolve_midnight",
+    "ExpeditionState::resolve_midnight_in",
+    "tick::run_hour",
+    "NativeExpeditionPort.configure_from_catalog"
+  ],
+  "coordination": {
+    "depends_on": [
+      "S1",
+      "S4",
+      "S5",
+      "C9"
+    ],
+    "conflicts_with": [
+      "S6",
+      "S7"
+    ],
+    "notes": "Three lanes share godot-rust/src/expedition.rs and two share strategy/tick.rs. B15 changes exactly one signature in expedition.rs (resolve_midnight_in) plus its callers, and touches only the body of run_hour in tick.rs; the ExpeditionState struct tail, strategic_tick's body and StrategicEvent's variant list are left alone for S6/S7. utility.rs is not touched (S6 owns it)."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
