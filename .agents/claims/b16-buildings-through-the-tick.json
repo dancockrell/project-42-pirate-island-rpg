@@ -3,9 +3,9 @@
   "task_id": "b16-buildings-through-the-tick",
   "agent": "claude-opus-5-lane-b16",
   "summary": "B16: the bridge loads content/buildings/ and hands the validated BuildingDefinitions to the strategic tick, so S10's elimination sweep reads the authored records instead of an empty registry",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T06:20:00Z",
-  "updated_at": "2026-09-06T06:20:00Z",
+  "updated_at": "2026-09-06T07:15:00Z",
   "paths": [
     "game/scripts/simulation/native_expedition_port.gd",
     "game/tests/expedition_prototype_test.gd",
@@ -39,10 +39,20 @@
       "B8",
       "B17"
     ],
-    "notes": "B15's shape repeated for buildings. B8 appends save_json/load_json at the end of the same bridge impl and B17 edits begin_pending_battle/create_debug_battle; this lane touches neither -- it adds a registry field, a configuration field, and one argument at the resolve_midnight call site. strategy/force.rs, strategy/tick.rs, strategy/utility.rs and src/habitat.rs are touched only to pass the new argument at existing strategic_tick / resolve_midnight_in call sites; no behaviour in those files changes."
+    "notes": "B15's shape repeated for buildings. B8 appends save_json/load_json at the end of the same bridge impl and B17 edits begin_pending_battle/create_debug_battle; this lane touches neither -- it adds a registry field, a configuration field, and one argument at the resolve_midnight call site. strategy/force.rs, strategy/tick.rs, strategy/utility.rs and src/habitat.rs are touched only to pass the new argument at existing strategic_tick / resolve_midnight_in call sites; no behaviour in those files changes. Shipped honestly: the probe's registry-sensitive assertion is the cell-capacity reading (two authored machine shops of envelope six exactly fill CELL_CAPACITY_CELLS, so ValidConstructionSite is absent only when the sweep has the real records); the card's literal RecoveryLink::OperationalCoreBuilding loss is asserted too but is registry-independent, because is_working reads the instance and an unlookupable building is read as productive. The test says which is which in its own doc comment. The 2,400-hour determinism hashes are unchanged and reproduce -- this harness's campaign raises no buildings, and the file pins comparisons rather than a literal, so there was no expectation to record."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "b9c0705",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml -- 303 unit + 6 authored_world + 5 save_migration + 8 strategic_determinism + 1 vertical_slice = 323: passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs -- 214 stable IDs, 3 building records: passed",
+      "node tools/src/check-claims.mjs -- 41 claims, 88 ship-plan rows, 82 cards: passed",
+      "node tools/src/build-content-bundle.mjs -- 47 records, sha256:13655d169f8e6dd9f972df1d7accc39799283b55650bd89a168f99ec9726d901, git diff --quiet game/generated/ clean on the committed tree: passed",
+      "bite: strategic_tick reverted to passing BuildingDefinitions::new() to the sweep -- the_authored_building_registry_reaches_the_hourly_sweep failed at tests/strategic_determinism.rs:631, \"the sweep is reading an empty building registry: two authored machine shops fill the cell, so there is nowhere left to build\"; restored and green: passed",
+      "bite: buildings dropped from the build-content-bundle.mjs domain list and the bundle regenerated -- the_authored_buildings_reach_the_bridge_and_validate failed with left: [] against the three expected IDs; restored, bundle regenerated clean, green: passed",
+      "CI Verify run 34018229288 on b9c0705 -- \"Rust and content\" every step success (fmt, tests, godot-ext check, validate, claims gate, bundle freshness) and \"Godot headless suites\" every step success, gate log: \"Expedition prototype tests passed.\", \"Godot headless verification passed. 3 review scenes, 17 suites.\", \"Real Rust bridge confirmed: all three native suites reported a pass.\": passed"
+    ]
   }
 }
