@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "task_id": "s2-ownership-and-influence",
+  "agent": "claude-code/lane-S2",
+  "summary": "Ownership and influence on Geography nodes: who controls a cell, and what a contested road costs.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/geography.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/world.rs",
+    "godot-rust/src/godot_bridge.rs"
+  ],
+  "symbols": [
+    "LocationRecord.owner_faction_id",
+    "LocationRecord.influence",
+    "Geography.controller",
+    "Geography.effective_risk",
+    "ExpeditionState.ownership",
+    "ExpeditionState.set_control",
+    "WorldEvent.ControlChanged",
+    "ExpeditionError.UnknownCell"
+  ],
+  "coordination": {
+    "depends_on": ["a2-canonical-world-cell-ids"],
+    "conflicts_with": [],
+    "notes": "Appends ExpeditionState.ownership at the END of the field list so parallel lanes appending their own fields merge cleanly. WorldEvent lives in world.rs, not expedition.rs; the ControlChanged variant goes on that one enum rather than a second. godot_bridge.rs is lane B3's file and is touched by exactly one line: expedition_error_code's match is exhaustive, so a new ExpeditionError variant cannot compile under --features godot-ext without its arm (the same reason A3 and A4 recorded in that match's own comments). No other bridge surface added here."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
