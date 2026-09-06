@@ -3,9 +3,9 @@
   "task_id": "c9-faction-records",
   "agent": "claude-code-lane-C9",
   "summary": "Six authored content/factions/*.json records plus the validate.mjs block and the Rust test that holds them equal to S1's FactionDefinition",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
-  "updated_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T04:00:00Z",
   "paths": [
     "content/factions/",
     "tools/src/validate.mjs",
@@ -15,9 +15,11 @@
     "strategy::faction::tests::every_authored_faction_record_loads_and_validates"
   ],
   "coordination": {
-    "depends_on": ["s1-faction-definition"],
+    "depends_on": [
+      "s1-faction-definition"
+    ],
     "conflicts_with": [],
-    "notes": "S1 owns FactionDefinition and its validate; this lane authors the content it loads and mirrors validate in the content validator. Only the one new test is added to faction.rs; no other Rust file is touched. displayName stays a needs-decision placeholder per brief section 4 and the validator enforces that no name has been invented."
+    "notes": "S1 owns FactionDefinition and its validate; this lane authors the content it loads and mirrors validate in the content validator. Only the one new test is added to faction.rs; no other Rust file is touched. displayName stays a needs-decision placeholder per brief section 4 and the validator enforces that no name has been invented. Not done: content/factions is absent from build-content-bundle.mjs's domain list, so faction records do not reach the Godot bundle. That file is outside this lane's owned set and the bundle is unchanged by this lane; whoever needs factions in Godot owns adding the domain."
   },
   "blocked_on_decisions": [
     "brief section 4: proper faction names are not approved -- displayName is a placeholder on all six records",
@@ -26,7 +28,15 @@
     "brief section 6.1-6.4 Provisional: doctrines are prose notes, no numbers that act"
   ],
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "1a76102",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml: passed (184 lib, 3 authored_world, 5 save_migration, 1 vertical_slice), including every_authored_faction_record_loads_and_validates",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs: passed (200 stable IDs, up from 194)",
+      "node tools/src/build-content-bundle.mjs && git diff --quiet game/generated/: passed (bundle unchanged; build-content-bundle.mjs's domain list does not include factions and this lane does not own that file)",
+      "bite proof, invented name: displayName on content/factions/pirates.json set to a real-looking name; validate.mjs failed with 'displayName must stay a placeholder containing \"needs decision\"'; restored and passed",
+      "bite proof, drifted id: content/factions/elves.json id set to faction.pirates; validate.mjs failed with 'id faction.pirates must be exactly faction.elves' plus a duplicate-stable-ID failure, and every_authored_faction_record_loads_and_validates failed with IdDoesNotMatchConceptKey { found: \"faction.pirates\", expected: \"faction.elves\" }; restored and both passed"
+    ]
   }
 }
