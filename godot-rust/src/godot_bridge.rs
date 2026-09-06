@@ -15,6 +15,7 @@ use crate::strategy::building::{BuildingDefinition, BuildingDefinitions, Buildin
 use crate::strategy::faction::{
     FactionDefinition, FactionDefinitions, FactionError, StrategicState,
 };
+use crate::strategy::production::MachineDefinitions;
 use crate::strategy::site_rule::{AuthoredSiteRule, AuthoredSiteRuleError, SiteRules};
 use crate::strategy::utility::Goal;
 use crate::world::WorldEvent;
@@ -406,6 +407,14 @@ impl Project42ExpeditionBridge {
             &self.habitats,
             &self.factions,
             &self.buildings,
+            // S16: the tick runs production timers, and a machine rule names
+            // a `machine.<...>` record. C14 authored `content/machines/`, but
+            // the port does not forward those records yet -- that is B19, and
+            // it hands a built registry in exactly here -- so the bridge hands
+            // the hour an empty one today and a machine rule that comes due
+            // journals a skip naming the record it could not find. Nothing
+            // here pretends to carry machine content.
+            &MachineDefinitions::new(),
         ) {
             Ok(events) => events,
             Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),

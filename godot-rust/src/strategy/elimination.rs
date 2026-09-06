@@ -532,7 +532,7 @@ mod tests {
         ProductionRule, RuinState, SocketKind, TierState,
     };
     use crate::strategy::faction::{FactionDefinitions, FactionState, Relationship};
-    use crate::strategy::production::MachineFamily;
+    use crate::strategy::production::{MachineDefinitions, MachineFamily};
 
     const BEACH: &str = "world.cell.black_beach";
 
@@ -1093,6 +1093,7 @@ mod tests {
                 &habitats,
                 &FactionDefinitions::new(),
                 &BuildingDefinitions::new(),
+                &MachineDefinitions::new(),
             )
             .expect("a midnight resolves");
         assert!(

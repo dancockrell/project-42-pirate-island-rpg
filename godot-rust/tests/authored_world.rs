@@ -17,6 +17,7 @@ use project42_sim::geography::{
 };
 use project42_sim::strategy::building::{BuildingDefinition, BuildingDefinitions};
 use project42_sim::strategy::faction::{ConceptKey, FactionDefinition, FactionDefinitions};
+use project42_sim::strategy::production::MachineDefinitions;
 use project42_sim::*;
 
 fn content(path: &str) -> String {
@@ -461,6 +462,7 @@ fn the_salvage_anchor_leaves_the_legal_commands_when_spent_and_returns_at_midnig
             &habitats,
             &faction_registry_as_godot_forwards_it(),
             &building_registry_as_godot_forwards_it(),
+            &MachineDefinitions::new(),
         )
         .expect("no encounter is pending on the sand");
     assert!(

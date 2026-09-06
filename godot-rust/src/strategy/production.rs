@@ -62,7 +62,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::expedition::{ExpeditionError, ExpeditionState, require_stable_id};
 use crate::strategy::building::{
-    BuildingDefinitions, BuildingError, BuildingState, ProductionOutput,
+    BUILDING_INSTANCE_ID_PREFIX, BuildingDefinitions, BuildingError, BuildingState,
+    ProductionOutput,
 };
 use crate::strategy::faction::{ConceptKey, FactionDefinition};
 use crate::strategy::tick::StrategicEvent;
@@ -711,37 +712,12 @@ impl ExpeditionState {
         let faction_id = building.faction_id.clone();
         let cell_id = building.cell_id.clone();
         let cost = rule.cost.clone();
-        let faction =
-            self.factions
-                .get(&faction_id)
-                .ok_or_else(|| ProductionError::UnknownFaction {
-                    faction_id: faction_id.clone(),
-                })?;
-        // Every key is checked before any key is spent.
-        for (key, needed) in &cost {
-            let held = faction.resources.get(key).copied().unwrap_or(0);
-            if held < *needed {
-                return Err(ProductionError::InsufficientResource {
-                    faction_id: faction_id.clone(),
-                    key: key.clone(),
-                    held,
-                    needed: *needed,
-                });
-            }
-        }
-
-        // Nothing below this line can fail.
-        let faction = self
-            .factions
-            .get_mut(&faction_id)
-            .expect("the same key was just read");
-        for (key, needed) in &cost {
-            let held = faction
-                .resources
-                .get_mut(key)
-                .expect("every key was just found to cover its cost");
-            *held -= needed;
-        }
+        // Every key is checked before any key is spent, and nothing below this
+        // line can fail. S16 gave the check-then-spend its own function rather
+        // than a second copy: the hourly step charges a capacity or service
+        // rule the same way this charges a machine rule, and two spellings of
+        // "can this faction afford it" would be two answers.
+        charge_production_cost(self, &faction_id, &cost)?;
 
         let instance = MachineInstance {
             id: machine_instance_id.to_owned(),
@@ -778,6 +754,341 @@ impl ExpeditionState {
             .filter(|machine| machine.faction_id == faction_id)
             .collect()
     }
+}
+
+/// Why a production rule that came due did not yield.
+///
+/// A closed enum rather than a formatted sentence, because these end up in the
+/// save: [`StrategicEvent::ProductionSkipped`] is journalled by S11, and a
+/// reader a year from now should be able to tell "the yard is out of fuel"
+/// from "content names a machine record nobody authored" without parsing
+/// prose. The last variant carries the [`ProductionError`]'s own words for the
+/// failures that are neither, so nothing is silently swallowed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProductionSkipReason {
+    /// The faction does not hold enough of one of the rule's `cost` keys.
+    /// **The stockpile was not touched**: every key is checked before any key
+    /// is spent, so a rule costing two resources of which the faction holds
+    /// one takes neither and no count goes negative.
+    ///
+    /// `key` is an open resource string from content -- brief section 20
+    /// leaves the resource list Open -- and this lane names none of them.
+    InsufficientResource { key: String, held: u32, needed: u32 },
+    /// The rule's `output_key` names a `machine.<...>` record the registry
+    /// handed to the tick does not carry. Expected in a Godot session today
+    /// and said plainly: C10's `building.machine_shop` names C14's
+    /// `machine.mechanical_dog`, but the port does not forward
+    /// `content/machines/` yet -- B19 is that card -- so the bridge hands the
+    /// tick an empty machine registry and a shop that comes due through it
+    /// journals this rather than inventing a machine.
+    UnknownMachineRecord { def_id: String },
+    /// Anything else [`ExpeditionState::produce_machine`] refused, in its own
+    /// vocabulary. A rule whose family disagrees with the record it names, a
+    /// duplicate instance ID, a building the registry lost between the sweep
+    /// and the rule: each is a fault worth reading, and none of them is worth
+    /// a variant here until something acts on it differently.
+    Refused { detail: String },
+}
+
+impl ProductionSkipReason {
+    /// The reason a refusal gives, from the refusal.
+    fn of(error: &ProductionError) -> Self {
+        match error {
+            ProductionError::InsufficientResource {
+                key, held, needed, ..
+            } => ProductionSkipReason::InsufficientResource {
+                key: key.clone(),
+                held: *held,
+                needed: *needed,
+            },
+            ProductionError::UnknownDefinition { id } => {
+                ProductionSkipReason::UnknownMachineRecord { def_id: id.clone() }
+            }
+            other => ProductionSkipReason::Refused {
+                detail: format!("{other:?}"),
+            },
+        }
+    }
+}
+
+/// Charge one production rule's `cost` to one faction's stockpile: **every key
+/// or none**, and never below zero.
+///
+/// The one owner of "can this faction afford this rule, and if so, spend it".
+/// [`ExpeditionState::produce_machine`] charges a machine rule through it and
+/// [`advance_production`] charges a capacity or service rule through the same
+/// function, because a second spelling of the check would be a second answer.
+///
+/// `cost` is a map of *open resource strings* to counts. Brief section 20
+/// leaves the resource list Open, so fuel is a key a rule names and not a
+/// variant of an enum this crate refuses to invent.
+fn charge_production_cost(
+    state: &mut ExpeditionState,
+    faction_id: &str,
+    cost: &BTreeMap<String, u32>,
+) -> Result<(), ProductionError> {
+    let faction =
+        state
+            .factions
+            .get(faction_id)
+            .ok_or_else(|| ProductionError::UnknownFaction {
+                faction_id: faction_id.to_owned(),
+            })?;
+    // Every key is checked before any key is spent.
+    for (key, needed) in cost {
+        let held = faction.resources.get(key).copied().unwrap_or(0);
+        if held < *needed {
+            return Err(ProductionError::InsufficientResource {
+                faction_id: faction_id.to_owned(),
+                key: key.clone(),
+                held,
+                needed: *needed,
+            });
+        }
+    }
+
+    // Nothing below this line can fail.
+    let faction = state
+        .factions
+        .get_mut(faction_id)
+        .expect("the same key was just read");
+    for (key, needed) in cost {
+        let held = faction
+            .resources
+            .get_mut(key)
+            .expect("every key was just found to cover its cost");
+        *held -= needed;
+    }
+    Ok(())
+}
+
+/// The instance ID one yield gets, derived and never invented.
+///
+/// Six parts, and **no wall clock among them**: the yard that made it (whose
+/// own ID names the faction that owns it), the rule of that yard's record that
+/// made it, the campaign day and the hour of that day it was made on, how many
+/// machines that yard had already made, and the hour's `strategic.economy`
+/// draw. Every one of them is a number the save already carries, so the same
+/// campaign replayed from the same seed names the same machine, and no
+/// `SystemTime` is anywhere near it.
+///
+/// The ordinal is what makes it unique rather than merely descriptive:
+/// `machines_produced` rises with every success and never falls, so two rules
+/// of one yard coming due in one hour take consecutive ordinals rather than
+/// colliding.
+///
+/// The draw is in there because it is what this lane was given. [`PURPOSES`]
+/// reserves one draw per faction per hour for production, S4 folds it into the
+/// determinism witness whether or not anything produces, and folding it into
+/// the ID as well means the hour's randomness is *spent by the thing it is
+/// reserved for* rather than being a number nobody reads. It also means a
+/// change to the draw sequence shows up in the save as a differently named
+/// machine, instead of nowhere.
+///
+/// [`PURPOSES`]: crate::strategy::tick::PURPOSES
+fn machine_instance_id(
+    building_instance_id: &str,
+    rule_index: usize,
+    day: u32,
+    hour: u8,
+    ordinal: u32,
+    draw: u64,
+) -> String {
+    let yard = building_instance_id
+        .strip_prefix(BUILDING_INSTANCE_ID_PREFIX)
+        .unwrap_or(building_instance_id);
+    format!("{MACHINE_INSTANCE_ID_PREFIX}{yard}.{rule_index}.d{day}h{hour}.{ordinal}.{draw:016x}")
+}
+
+/// **S16: one hour of one faction's production.** Every timer-driven rule of
+/// every building that faction has standing counts one hour off, and the ones
+/// that reach zero yield.
+///
+/// Called once per faction per hour from
+/// [`run_hour`](crate::strategy::tick::run_hour), inside the loop that makes
+/// that faction's draws, with the `strategic.economy` draw that loop just made.
+/// **The draw is made every hour whether or not anything produces** -- it is
+/// made and folded into `StrategicClock::draw_digest` before this is called, by
+/// the same code that makes the other six -- so a faction that builds nothing,
+/// a faction that builds something, and a faction that cannot afford what it
+/// builds all leave the hash contract exactly where they found it.
+///
+/// What a rule has to be for its timer to run:
+///
+/// * its building is [`BuildingState::Operational`]. Not merely
+///   [`BuildingInstance::is_working`], which also admits `Captured`:
+///   `produce_machine` refuses a captured building because whether a taker
+///   inherits a working production line is brief section 20's still-Open
+///   "capture versus destruction rules by building type", and a timer that ran
+///   on a captured yard would burn its interval down to that refusal over and
+///   over. The timer waits with the decision.
+/// * `interval_hours > 0`. Zero means "not timer-driven": a standing
+///   capability something else draws on, which is what every rule authored
+///   before this card means.
+/// * the building stands at or above the rule's `minimum_tier`. A tier-one
+///   shop does not count down its tier-two line.
+/// * **and it does not make a person.** A [`ProductionOutput::HumanRole`] rule
+///   never counts down and never yields, whatever its interval says. S3's
+///   loader refuses a nonzero interval on one and refuses the output entirely
+///   for a building compatible with [`ConceptKey::Michael`]; this is the same
+///   refusal at the one place that could have made a timer of it, so that a
+///   record which somehow carried one -- an older save's registry, a
+///   hand-built definition in a test -- still cannot manufacture a person.
+///   Brief section 5.6.
+///
+/// A rule that reaches zero **resets to its full authored interval whether or
+/// not it yielded**. A yard that cannot afford its run does not retry every
+/// hour until it can; it waits out another interval, exactly as if it had
+/// produced. Anything else would make a poor faction's yard the busiest thing
+/// on the island.
+///
+/// What a yield does:
+///
+/// * a [`ProductionOutput::Machine`] rule goes through
+///   [`ExpeditionState::produce_machine`] -- **the one owner of making a
+///   machine**, unchanged by this card, still charging the cost, still
+///   refusing before it mutates. There is no second production function here.
+/// * a [`ProductionOutput::Capacity`] or [`ProductionOutput::Service`] rule
+///   pays its cost and is **journalled**, and that is all it does. S13 records
+///   nothing for capacity and services -- there is no capacity field on a
+///   faction, no service registry, and no stockpile key this lane is entitled
+///   to invent while brief section 20 leaves the resource list Open -- so the
+///   honest record of one is [`StrategicEvent::ProductionYielded`] naming the
+///   rule and its authored `output_key` and `amount`, for the lane that gives
+///   capacity somewhere to go to consume.
+///
+/// **Nothing refills a stockpile.** A yield adds nothing to
+/// `FactionState::resources`; production only ever spends. Until a lane owns
+/// income, a campaign's stockpiles fall to zero and its yards skip, and the
+/// journal says so in as many words rather than the island quietly stopping.
+pub(crate) fn advance_production(
+    state: &mut ExpeditionState,
+    faction_id: &str,
+    buildings: &BuildingDefinitions,
+    machines: &MachineDefinitions,
+    draw: u64,
+) -> Vec<StrategicEvent> {
+    let day = state.campaign_day;
+    // The hour that is *running*: `run_hour` calls this before
+    // `StrategicClock::advance_one_hour`, so this is the same hour the hour's
+    // own `HourPassed` reports and the same hour the draw above was made under.
+    let hour = state.strategic_clock.hour_of_day;
+    let mut events = Vec::new();
+    // The buildings are read once, in `BTreeMap` order, before anything is
+    // written: a production must not be able to change which buildings this
+    // hour visits.
+    let standing: Vec<(String, String, u32)> = state
+        .buildings
+        .values()
+        .filter(|building| {
+            building.faction_id == faction_id && building.state == BuildingState::Operational
+        })
+        .map(|building| (building.id.clone(), building.def_id.clone(), building.tier))
+        .collect();
+
+    for (building_instance_id, def_id, tier) in standing {
+        // A building whose record the registry does not carry produces
+        // nothing, because there are no rules to produce from. S10's sweep
+        // reads an unlookupable building conservatively -- standing and
+        // productive -- and that stays its reading; this is only the absence
+        // of a rule to run.
+        let Some(definition) = buildings.get(&def_id) else {
+            continue;
+        };
+        for (rule_index, rule) in definition.production.iter().enumerate() {
+            // Brief section 5.6, at the one place a clock could have made a
+            // person: before the countdown, not after it.
+            if let ProductionOutput::HumanRole { .. } = rule.output {
+                continue;
+            }
+            if rule.interval_hours == 0 || tier < rule.minimum_tier {
+                continue;
+            }
+
+            let building = state
+                .buildings
+                .get_mut(&building_instance_id)
+                .expect("the instance ID was taken from this map and nothing removes from it");
+            let remaining = building
+                .production_countdown
+                .get(&rule_index)
+                .copied()
+                .unwrap_or(rule.interval_hours);
+            // One hour off the clock. `remaining` counts the hours still to
+            // run, so the hour that finds one left is the hour the rule comes
+            // due; a rule with no key yet reads as the full interval and
+            // spends its first hour here. A rule that comes due resets to its
+            // full authored interval below whether or not the yield succeeded,
+            // and a `0` that somehow reached a save is read as due rather than
+            // subtracted from, so nothing here can underflow.
+            let due = remaining <= 1;
+            building.production_countdown.insert(
+                rule_index,
+                if due {
+                    rule.interval_hours
+                } else {
+                    remaining - 1
+                },
+            );
+            if !due {
+                continue;
+            }
+
+            match rule.output {
+                ProductionOutput::Machine { .. } => {
+                    let ordinal = state.buildings[&building_instance_id].machines_produced;
+                    let instance_id = machine_instance_id(
+                        &building_instance_id,
+                        rule_index,
+                        day,
+                        hour,
+                        ordinal,
+                        draw,
+                    );
+                    match state.produce_machine(
+                        &instance_id,
+                        &building_instance_id,
+                        rule_index,
+                        buildings,
+                        machines,
+                    ) {
+                        Ok((_machine, event)) => events.push(event),
+                        Err(error) => events.push(StrategicEvent::ProductionSkipped {
+                            faction_id: faction_id.to_owned(),
+                            building_instance_id: building_instance_id.clone(),
+                            rule_id: rule.id.clone(),
+                            reason: ProductionSkipReason::of(&error),
+                            day,
+                        }),
+                    }
+                }
+                ProductionOutput::Capacity | ProductionOutput::Service => {
+                    match charge_production_cost(state, faction_id, &rule.cost) {
+                        Ok(()) => events.push(StrategicEvent::ProductionYielded {
+                            faction_id: faction_id.to_owned(),
+                            building_instance_id: building_instance_id.clone(),
+                            rule_id: rule.id.clone(),
+                            output_key: rule.output_key.clone(),
+                            amount: rule.amount,
+                            day,
+                        }),
+                        Err(error) => events.push(StrategicEvent::ProductionSkipped {
+                            faction_id: faction_id.to_owned(),
+                            building_instance_id: building_instance_id.clone(),
+                            rule_id: rule.id.clone(),
+                            reason: ProductionSkipReason::of(&error),
+                            day,
+                        }),
+                    }
+                }
+                ProductionOutput::HumanRole { .. } => unreachable!(
+                    "brief section 5.6: a human-role rule is skipped above and never counts down"
+                ),
+            }
+        }
+    }
+    events
 }
 
 #[cfg(test)]
@@ -904,6 +1215,319 @@ mod tests {
             "a zero-hour tier is finished the moment it is placed"
         );
         (state, definitions)
+    }
+
+    // ---- S16: the hour's production step ----
+    //
+    // These sit here rather than at the end of the module so that C14's
+    // appended machine-record tests and this lane's timer tests do not have to
+    // meet in the same lines. They reuse the fixtures above rather than
+    // restating them: the yard, the dog and the fuel key are the same ones.
+
+    /// A `strategic.economy` draw, stated once. Any number does: the draw picks
+    /// nothing, it only names what came out.
+    const DRAW: u64 = 0x0123_4567_89ab_cdef;
+
+    /// The yard above, with its rule put on a timer and pointed at `output`.
+    fn a_yard_record_on_a_timer(
+        interval_hours: u32,
+        output: ProductionOutput,
+    ) -> BuildingDefinition {
+        let mut record = a_yard_record();
+        let rule = &mut record.production[0];
+        rule.interval_hours = interval_hours;
+        rule.output = output;
+        record
+    }
+
+    /// One hour of Michael's production, as `run_hour` runs it.
+    fn an_hour(
+        state: &mut ExpeditionState,
+        definitions: &BuildingDefinitions,
+        machines: &MachineDefinitions,
+    ) -> Vec<StrategicEvent> {
+        advance_production(state, &michael(), definitions, machines, DRAW)
+    }
+
+    /// **The card, whole, at the unit scale**: a rule with `interval_hours: 3`
+    /// counts down, produces on the third hour through `produce_machine`, pays
+    /// for it, starts over, and -- with the stockpile empty -- skips the next
+    /// one with a reason instead of going negative.
+    ///
+    /// The save round trip in the middle is the countdown's `serde(default)`
+    /// doing its job: a yard that has waited two of its three hours owes one
+    /// hour after a reload, not three.
+    #[test]
+    fn a_timer_rule_produces_on_its_interval_pays_for_it_and_then_starts_over() {
+        let (mut state, definitions) = a_campaign(
+            3,
+            a_yard_record_on_a_timer(
+                3,
+                ProductionOutput::Machine {
+                    family: MachineFamily::MechanicalDog,
+                },
+            ),
+        );
+        let machines = a_machine_registry();
+
+        assert!(
+            an_hour(&mut state, &definitions, &machines).is_empty(),
+            "the first hour of a three-hour interval makes nothing"
+        );
+        assert_eq!(state.buildings[YARD_INSTANCE].production_countdown[&0], 2);
+        assert!(an_hour(&mut state, &definitions, &machines).is_empty());
+        assert_eq!(state.buildings[YARD_INSTANCE].production_countdown[&0], 1);
+
+        state = ExpeditionState::from_json(&state.to_json()).expect("the save reloads");
+        assert_eq!(
+            state.buildings[YARD_INSTANCE].production_countdown[&0], 1,
+            "a reloaded yard owes the hour it owed, not a fresh interval"
+        );
+
+        let events = an_hour(&mut state, &definitions, &machines);
+        assert_eq!(
+            events,
+            vec![StrategicEvent::MachineProduced {
+                faction_id: michael(),
+                family: MachineFamily::MechanicalDog,
+                building_instance_id: YARD_INSTANCE.into(),
+                day: state.campaign_day,
+            }],
+            "the third hour is the yield"
+        );
+        assert_eq!(state.machines_of(&michael()).len(), 1);
+        assert_eq!(
+            state.factions[&michael()].resources[FUEL],
+            0,
+            "the rule's cost came out of the stockpile"
+        );
+        assert_eq!(
+            state.buildings[YARD_INSTANCE].production_countdown[&0], 3,
+            "and the interval starts over at its authored length"
+        );
+
+        // The next interval comes due against an empty stockpile.
+        assert!(an_hour(&mut state, &definitions, &machines).is_empty());
+        assert!(an_hour(&mut state, &definitions, &machines).is_empty());
+        let events = an_hour(&mut state, &definitions, &machines);
+        assert_eq!(
+            events,
+            vec![StrategicEvent::ProductionSkipped {
+                faction_id: michael(),
+                building_instance_id: YARD_INSTANCE.into(),
+                rule_id: "production.test.dog".into(),
+                reason: ProductionSkipReason::InsufficientResource {
+                    key: FUEL.into(),
+                    held: 0,
+                    needed: 3,
+                },
+                day: state.campaign_day,
+            }],
+            "a yard that cannot pay skips, by name"
+        );
+        assert_eq!(
+            state.machines_of(&michael()).len(),
+            1,
+            "and makes nothing while it skips"
+        );
+        assert_eq!(
+            state.factions[&michael()].resources[FUEL],
+            0,
+            "a refused run spends nothing: the stockpile is zero, never below it"
+        );
+        assert_eq!(
+            state.buildings[YARD_INSTANCE].production_countdown[&0], 3,
+            "a skipped interval starts over too -- a poor yard does not retry hourly"
+        );
+    }
+
+    /// A capacity rule is paid for and **journalled**, and that is all it does.
+    ///
+    /// S13 records nothing for capacity or a service: there is no capacity
+    /// field on a faction and no service registry, and a stockpile key to hold
+    /// one would be this lane answering brief section 20's Open resource list.
+    /// So the record of a yield is the event, and the assertion worth making is
+    /// the negative one -- **production never adds to a stockpile**. Nothing in
+    /// this round refills one.
+    #[test]
+    fn a_capacity_rule_is_journalled_and_puts_nothing_into_the_stockpile() {
+        let (mut state, definitions) =
+            a_campaign(3, a_yard_record_on_a_timer(2, ProductionOutput::Capacity));
+        let machines = MachineDefinitions::new();
+
+        assert!(an_hour(&mut state, &definitions, &machines).is_empty());
+        let events = an_hour(&mut state, &definitions, &machines);
+        assert_eq!(
+            events,
+            vec![StrategicEvent::ProductionYielded {
+                faction_id: michael(),
+                building_instance_id: YARD_INSTANCE.into(),
+                rule_id: "production.test.dog".into(),
+                output_key: DOG.into(),
+                amount: 1,
+                day: state.campaign_day,
+            }],
+            "a capacity yield is reported with the rule's authored key and amount"
+        );
+        assert_eq!(
+            state.factions[&michael()].resources[FUEL],
+            0,
+            "capacity is paid for out of the same stockpile a machine is"
+        );
+        assert_eq!(
+            state.factions[&michael()].resources.len(),
+            1,
+            "and the yield itself went nowhere: no key was invented to hold it"
+        );
+        assert!(
+            state.machines.is_empty(),
+            "a capacity rule does not make a machine"
+        );
+    }
+
+    /// A timer runs only on a building that is *working for its owner*.
+    ///
+    /// `Operational` and not [`BuildingInstance::is_working`], which also
+    /// admits `Captured`: `produce_machine` refuses a captured building because
+    /// brief section 20's "capture versus destruction rules by building type"
+    /// is Open, and a countdown that ran on one would spend its interval
+    /// reaching that refusal over and over. The timer waits for the decision
+    /// instead.
+    #[test]
+    fn only_an_operational_building_counts_down() {
+        for state_after_placing in [
+            BuildingState::UnderConstruction,
+            BuildingState::Damaged,
+            BuildingState::Ruined,
+            BuildingState::Captured,
+        ] {
+            let (mut state, definitions) = a_campaign(
+                9,
+                a_yard_record_on_a_timer(
+                    1,
+                    ProductionOutput::Machine {
+                        family: MachineFamily::MechanicalDog,
+                    },
+                ),
+            );
+            let machines = a_machine_registry();
+            state
+                .buildings
+                .get_mut(YARD_INSTANCE)
+                .expect("the yard was placed")
+                .state = state_after_placing;
+
+            assert!(
+                an_hour(&mut state, &definitions, &machines).is_empty(),
+                "a {state_after_placing:?} yard produced something"
+            );
+            assert!(
+                state.buildings[YARD_INSTANCE]
+                    .production_countdown
+                    .is_empty(),
+                "a {state_after_placing:?} yard should not even have started its timer"
+            );
+            assert_eq!(state.factions[&michael()].resources[FUEL], 9);
+        }
+    }
+
+    /// **S3's refusal stands, and the hour is not the hole in it.** Brief
+    /// section 5.6: buildings do not manufacture people.
+    ///
+    /// Three locks, and this test turns all three:
+    ///
+    /// 1. a building compatible with [`ConceptKey::Michael`] carrying *any*
+    ///    human-role rule does not load at all;
+    /// 2. any other building carrying one with `interval_hours > 0` does not
+    ///    load either -- the mechanism is refused, not the faction;
+    /// 3. so the only human-role rule that can reach a registry the hour reads
+    ///    is one at `interval_hours: 0`, and [`advance_production`] skips it
+    ///    *before* the countdown rather than by the interval gate. The witness
+    ///    is `production_countdown`: the machine rule beside it gets a key and
+    ///    the human-role rule never does.
+    #[test]
+    fn a_rule_that_makes_a_person_never_runs_on_a_timer() {
+        let a_role = || ProductionOutput::HumanRole {
+            role: "role.test.mechanic".into(),
+        };
+
+        let mut michaels = a_yard_record_on_a_timer(0, a_role());
+        michaels.recruitment_support = BTreeSet::from(["recruitment.test.support".to_owned()]);
+        assert!(
+            matches!(
+                michaels.validate(),
+                Err(BuildingError::MichaelBuildingProducesPeople { .. })
+            ),
+            "lock one: Michael's buildings make machines, capacity and services"
+        );
+
+        let mut pirates = a_yard_record_on_a_timer(4, a_role());
+        pirates.faction_compatibility = BTreeSet::from([ConceptKey::Pirates]);
+        pirates.recruitment_support = BTreeSet::from(["recruitment.test.support".to_owned()]);
+        assert!(
+            matches!(
+                pirates.validate(),
+                Err(BuildingError::TimerDrivenHumanRole { .. })
+            ),
+            "lock two: a manufacturing timer is refused whoever owns it"
+        );
+
+        // Lock three, on the one shape that does load: a legal human-role rule
+        // beside a machine rule on a timer.
+        pirates.production[0].interval_hours = 0;
+        pirates.production.push(ProductionRule {
+            id: "production.test.dog".into(),
+            output: ProductionOutput::Machine {
+                family: MachineFamily::MechanicalDog,
+            },
+            output_key: DOG.into(),
+            amount: 1,
+            interval_hours: 1,
+            minimum_tier: FIRST_TIER,
+            cost: BTreeMap::new(),
+        });
+        let definitions = registry(pirates);
+        let geography = Geography::black_beach_vertical_slice();
+        let pirate_id = ConceptKey::Pirates.faction_id();
+        let mut state =
+            ExpeditionState::new(7, vec!["character.protagonist.captain".into()], BEACH)
+                .expect("a fresh campaign constructs");
+        state
+            .factions
+            .insert(pirate_id.clone(), FactionState::new());
+        state
+            .set_control(BEACH, Some(pirate_id.clone()), &geography)
+            .expect("the beach is a real cell");
+        state
+            .place_building(
+                YARD_INSTANCE,
+                YARD,
+                BEACH,
+                &pirate_id,
+                &geography,
+                &definitions,
+            )
+            .expect("the yard is placed");
+
+        let machines = a_machine_registry();
+        for _ in 0..5 {
+            advance_production(&mut state, &pirate_id, &definitions, &machines, DRAW);
+        }
+        let countdown = &state.buildings[YARD_INSTANCE].production_countdown;
+        assert!(
+            !countdown.contains_key(&0),
+            "the human-role rule was given a timer: {countdown:?}"
+        );
+        assert!(
+            countdown.contains_key(&1),
+            "the machine rule beside it does count down, so the absence above is the guard \
+             and not an idle step: {countdown:?}"
+        );
+        assert_eq!(
+            state.machines_of(&pirate_id).len(),
+            5,
+            "five hours of a one-hour machine rule are five machines, each with its own ID"
+        );
     }
 
     /// **The card's second Done-when**, whole: a `mechanical_dog` produced from

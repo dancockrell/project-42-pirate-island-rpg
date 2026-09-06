@@ -47,10 +47,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::expedition::ExpeditionState;
 use crate::geography::Geography;
+use crate::strategy::building::BuildingDefinitions;
 use crate::strategy::elimination::RecoveryLink;
 use crate::strategy::faction::FactionDefinitions;
 use crate::strategy::force::{ForceId, HaltReason};
-use crate::strategy::production::MachineFamily;
+use crate::strategy::production::{
+    MachineDefinitions, MachineFamily, ProductionSkipReason, advance_production,
+};
 use crate::strategy::utility::{BoardView, GoalWeights, choose_goals, recompute_strategic_state};
 use crate::world::mix_seed;
 
@@ -216,6 +219,39 @@ pub enum StrategicEvent {
         building_instance_id: String,
         day: u32,
     },
+    /// S16: a timer-driven capacity or service rule came due, was paid for and
+    /// yielded. Journalled rather than stored, because S13 records nothing for
+    /// capacity or a service -- there is no capacity field on a faction and no
+    /// service registry -- and inventing a stockpile key to hold one would be
+    /// this lane answering brief section 20's Open resource list. The rule's
+    /// authored `output_key` and `amount` are carried verbatim, so the lane
+    /// that gives capacity somewhere to go has the yield to consume.
+    ///
+    /// A machine yield is not one of these: it is
+    /// [`StrategicEvent::MachineProduced`], emitted by the one owner of making
+    /// a machine.
+    ProductionYielded {
+        faction_id: String,
+        building_instance_id: String,
+        rule_id: String,
+        output_key: String,
+        amount: u32,
+        day: u32,
+    },
+    /// S16: a timer-driven rule came due and did not yield, and why. The
+    /// commonest reason is a stockpile that does not cover the rule's `cost`
+    /// -- and **nothing in this round refills a stockpile** -- so a long
+    /// enough campaign fills its journal with these rather than stopping
+    /// quietly. The rule's countdown resets to its full authored interval
+    /// either way: a yard that cannot afford its run waits out another
+    /// interval rather than retrying every hour.
+    ProductionSkipped {
+        faction_id: String,
+        building_instance_id: String,
+        rule_id: String,
+        reason: ProductionSkipReason,
+        day: u32,
+    },
 }
 
 /// The draws one faction is entitled to make in one hour, in the order it
@@ -341,7 +377,10 @@ pub(crate) fn run_hour(
     state: &mut ExpeditionState,
     geography: &Geography,
     factions: &FactionDefinitions,
+    buildings: &BuildingDefinitions,
+    machines: &MachineDefinitions,
 ) -> Vec<StrategicEvent> {
+    let mut produced: Vec<StrategicEvent> = Vec::new();
     let day = state.campaign_day;
     let hour = state.strategic_clock.hour_of_day;
     let rng_seed = state.rng_seed;
@@ -382,10 +421,43 @@ pub(crate) fn run_hour(
             .expect("faction_ids was taken from this map and nothing removes from it");
         faction.strategic_state = strategic_state;
         faction.current_goals = goals;
+
+        // S16: and the hour's production, inside this faction's own iteration
+        // and after this faction's draws are made. **Here rather than beside
+        // S10's sweep in `strategic_tick`, and the reason is the draw order.**
+        // The `strategic.economy` draw is per faction per hour, made by the
+        // loop above in `PURPOSES` order and folded into the witness before
+        // anything reads it; spending it where it is made keeps one faction's
+        // seven draws one contiguous, ordered group. A production step outside
+        // this loop would have to re-derive the draw from the clock -- after
+        // `advance_one_hour` has moved it -- which is a second answer to
+        // "which number was this faction's economy draw this hour", and two
+        // answers drift.
+        //
+        // The draw is made whether or not anything produces, exactly as it was
+        // before this card: `hour_draws` makes all seven and `absorb` folds
+        // all seven, above, unconditionally. So the hash contract is where S4
+        // left it and no save written since has changed meaning.
+        let economy_draw = draws
+            .get("strategic.economy")
+            .copied()
+            .expect("PURPOSES reserves strategic.economy and hour_draws makes every purpose");
+        produced.extend(advance_production(
+            state,
+            faction_id,
+            buildings,
+            machines,
+            economy_draw,
+        ));
     }
 
     state.strategic_clock.advance_one_hour();
-    vec![StrategicEvent::HourPassed { day, hour }]
+    // The hour first, then what it produced: `HourPassed` is the hour's own
+    // report and a reader walking the journal meets the hour before its
+    // consequences, as it meets it before S7's marching and S10's sweep.
+    let mut events = vec![StrategicEvent::HourPassed { day, hour }];
+    events.append(&mut produced);
+    events
 }
 
 #[cfg(test)]
@@ -425,12 +497,22 @@ mod tests {
         let definitions = FactionDefinitions::new();
         let mut state = a_campaign_with_two_factions();
 
-        let events = state.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
+        let events = state.strategic_tick(
+            &geography,
+            &definitions,
+            &BuildingDefinitions::new(),
+            &MachineDefinitions::new(),
+        );
         assert_eq!(events, vec![StrategicEvent::HourPassed { day: 1, hour: 0 }]);
         assert_eq!(state.strategic_clock.hour_of_day, 1);
         assert_eq!(state.strategic_clock.total_hours, 1);
 
-        let events = state.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
+        let events = state.strategic_tick(
+            &geography,
+            &definitions,
+            &BuildingDefinitions::new(),
+            &MachineDefinitions::new(),
+        );
         assert_eq!(events, vec![StrategicEvent::HourPassed { day: 1, hour: 1 }]);
         assert_eq!(state.strategic_clock.hour_of_day, 2);
     }
@@ -445,7 +527,12 @@ mod tests {
         let mut state = a_campaign_with_two_factions();
 
         for _ in 0..HOURS_PER_DAY {
-            state.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
+            state.strategic_tick(
+                &geography,
+                &definitions,
+                &BuildingDefinitions::new(),
+                &MachineDefinitions::new(),
+            );
         }
         assert_eq!(state.strategic_clock.hour_of_day, 0);
         assert_eq!(state.strategic_clock.total_hours, 24);
@@ -466,7 +553,12 @@ mod tests {
         .expect("a fresh campaign constructs");
         assert!(state.factions.is_empty());
 
-        let events = state.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
+        let events = state.strategic_tick(
+            &geography,
+            &definitions,
+            &BuildingDefinitions::new(),
+            &MachineDefinitions::new(),
+        );
         assert_eq!(events, vec![StrategicEvent::HourPassed { day: 1, hour: 0 }]);
         assert_eq!(state.strategic_clock.total_hours, 1);
         assert_eq!(state.strategic_clock.draw_digest, 0);
@@ -563,8 +655,18 @@ mod tests {
             .expect("the fixture carries this faction")
             .eliminated = true;
 
-        alive.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
-        with_one_eliminated.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
+        alive.strategic_tick(
+            &geography,
+            &definitions,
+            &BuildingDefinitions::new(),
+            &MachineDefinitions::new(),
+        );
+        with_one_eliminated.strategic_tick(
+            &geography,
+            &definitions,
+            &BuildingDefinitions::new(),
+            &MachineDefinitions::new(),
+        );
         assert_eq!(
             alive.strategic_clock.draw_digest,
             with_one_eliminated.strategic_clock.draw_digest

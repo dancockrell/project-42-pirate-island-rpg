@@ -41,6 +41,7 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
             &habitats,
             &project42_sim::strategy::faction::FactionDefinitions::new(),
             &project42_sim::strategy::building::BuildingDefinitions::new(),
+            &project42_sim::strategy::production::MachineDefinitions::new(),
         )
         .expect("resolves");
     assert_boundary_round_trips(&state);
@@ -440,6 +441,7 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
             &habitats,
             &project42_sim::strategy::faction::FactionDefinitions::new(),
             &project42_sim::strategy::building::BuildingDefinitions::new(),
+            &project42_sim::strategy::production::MachineDefinitions::new(),
         )
         .expect("resolves");
     assert_eq!(state.campaign_day, day_before_midnight + 1);
