@@ -77,6 +77,7 @@ var major_relationship_character_ids: PackedStringArray = []
 var _journal: Array[Dictionary] = []
 var _theme: Theme = null
 var _game_pause: Node = null
+var _null_pause: Node = null
 var _journal_open := false
 
 
@@ -304,8 +305,11 @@ func _pause_service() -> Node:
 		_game_pause = get_node_or_null("/root/GamePause")
 	if _game_pause == null:
 		# Only reachable in a review scene or a suite that runs without the
-		# autoload; the journal still opens, it simply holds nothing.
-		return _NullPause.new()
+		# autoload; the journal still opens, it simply holds nothing. Made once
+		# and kept, so asking twice does not leave a node behind.
+		if _null_pause == null:
+			_null_pause = _NullPause.new()
+		return _null_pause
 	return _game_pause
 
 
