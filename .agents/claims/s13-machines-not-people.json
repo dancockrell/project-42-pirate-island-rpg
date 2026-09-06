@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "task_id": "s13-machines-not-people",
+  "agent": "claude-code (lane S13)",
+  "summary": "Captain Michael's faction produces machines, capacity and services and never people: the eight machine families, brief section 18's per-machine asset fields, an actor kit that admits only machines for his concept key, and produce_machine charging the rule's named resource cost.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/production.rs",
+    "godot-rust/src/strategy/building.rs",
+    "godot-rust/src/strategy/tick.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/tests/save_migration.rs"
+  ],
+  "symbols": [
+    "MachineFamily",
+    "MachineDefinition",
+    "MachineDefinitions",
+    "MachineInstance",
+    "ActorKit",
+    "ActorKitEntry",
+    "ExposurePolicy",
+    "ProductionError",
+    "ProductionOutput::Machine",
+    "ProductionRule.cost",
+    "BuildingInstance.machines_produced",
+    "StrategicEvent::MachineProduced",
+    "ExpeditionState.machines",
+    "ExpeditionState.produce_machine"
+  ],
+  "coordination": {
+    "depends_on": [
+      "s1-faction-definition",
+      "s3-buildings",
+      "s5-utility-ai"
+    ],
+    "conflicts_with": [],
+    "notes": "Four other lanes run beside this one. building.rs takes end-of-struct field appends and end-of-module test appends only, plus the one unavoidable mid-file change this card requires: ProductionOutput::Machine gains the family it produces, which turns it from a unit variant into Machine { family } and moves ProductionOutput's Default out of the derive. expedition.rs is touched in exactly two hunks (the machines field appended at the end of the struct, its initialiser at the end of new()) plus the use. tick.rs takes one appended StrategicEvent variant at the end of the enum. faction.rs is not edited: the actor kit is resolved from the FactionDefinition.actor_kit S1 already owns rather than given a second list, and the section 5.10 exposure policy is derived from concept_key rather than stored as a second copy of it. content/machines/ is a C card and is not authored here."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
