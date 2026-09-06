@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "task_id": "p3-atmosphere",
+  "agent": "claude-code (lane P3)",
+  "summary": "The sky is the simulation's, not a clock's: the snapshot grows six read-only presentation keys (weather per region, corruption per cell as S9's band, the heat band, hour of day, the active region and night), an Atmosphere autoload maps them to sun, fog, wind, grade and night lights through a small AtmosphereTarget interface, and content/atmosphere/ owns every number.",
+  "status": "active",
+  "claimed_at": "2026-09-06T12:00:00Z",
+  "updated_at": "2026-09-06T12:00:00Z",
+  "paths": [
+    "godot-rust/src/godot_bridge.rs",
+    "content/atmosphere/",
+    "tools/src/validate.mjs",
+    "tools/src/build-content-bundle.mjs",
+    "game/generated/content_bundle.json",
+    "game/scripts/atmosphere/",
+    "game/tools/capture_review_scene.gd",
+    "game/tests/atmosphere_test.gd",
+    "game/project.godot",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "godot_bridge::expedition_state_dictionary",
+    "godot_bridge::corruption_band_name",
+    "godot_bridge::heat_band_name",
+    "Atmosphere.apply",
+    "Atmosphere.resolve",
+    "AtmosphereTarget",
+    "EnvironmentAtmosphereTarget",
+    "AtmosphereReviewSnapshots"
+  ],
+  "coordination": {
+    "depends_on": ["s8-dual-clocks", "s9-dungeon-context", "b9-pause-and-settings"],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at f5d26d1. Lane P2 (render foundation) runs in parallel and owns game/render/** and game/scripts/render/**; this lane touches neither. origin/lane/P2-render-foundation did not exist when the adapter was written, so EnvironmentAtmosphereTarget drives Godot's Environment and DirectionalLight3D directly and the AtmosphereTarget contract is duck-typed by method name -- P2's WorldEnvironment script implements set_sun/set_fog/set_wind/set_grade and Atmosphere prefers it over the fallback the moment it is in the tree, with no second code path to retire. game/tools/capture_review_scene.gd is EXTENDED, not copied: it takes an optional third user argument naming an authored atmosphere snapshot, so there is one capture tool. The godot_bridge.rs change is one appended block of read-only keys in the state dictionary plus its band-name helpers and tests; no ExpeditionState field is added, so EXPECTED_CURRENT_KEYS is untouched."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
