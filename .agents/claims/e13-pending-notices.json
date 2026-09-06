@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "task_id": "e13-pending-notices",
+  "agent": "claude-code lane E13",
+  "summary": "Seven of E12's eight pending third-party notices are filled from their upstream canonical licence files fetched over the network -- the five godot-rust crates from gdext's own License.txt at the pinned v0.5.5 tag, the Godot engine and its export templates from the engine's LICENSE.txt at the 4.7.2-stable tag -- each recording the URL fetched and the SHA-256 of the bytes received in a new noticeSources field; Mesa stays pending because gitlab.freedesktop.org is blocked by this environment's egress proxy, and its record now names the exact URL tried and the refusal.",
+  "status": "active",
+  "claimed_at": "2026-09-06T14:10:00Z",
+  "updated_at": "2026-09-06T14:10:00Z",
+  "paths": [
+    "content/art/third_party_ledger.json",
+    "tools/src/validate.mjs",
+    "game/scripts/shell/credits.gd",
+    "docs/SHARED_ASSET_PLATFORM.md",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "CreditsScreen.NOTICES_PENDING",
+    "CreditsScreen.NOTICE_BODIES",
+    "CreditsScreen.THIRD_PARTY",
+    "CreditsScreen.STILL_OWED"
+  ],
+  "coordination": {
+    "depends_on": ["e12-third-party-attribution"],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at dc22d75. E12's schema had one way to name where a notice came from -- noticeFiles, a path in this build environment, paired one-for-one with noticeSpdx and noticeSha256. A notice read over the network has no such path, so rather than fork the schema with a second parallel array set, this lane adds noticeSources (url + spdx + sha256 per entry) as the other admissible provenance and relaxes exactly one validator rule: a filled record must name at least one source, file or URL, instead of at least one file. Pending records must now carry noticeSources empty too, so the flag still means nothing was read. game/scripts/ is otherwise untouched: only credits.gd's notice-body table, the two THIRD_PARTY notice keys per filled record, the pending-count constant and the STILL_OWED sentence that count is interpolated into (leaving that sentence saying five crates and the engine are pending when they no longer are would be a false statement on the page the ledger exists to keep honest)."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
