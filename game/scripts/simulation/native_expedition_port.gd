@@ -126,7 +126,16 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 		"encounter_triggers": encounter_triggers,
 		"factions": factions
 	}
-	return bridge.configure(JSON.stringify(configuration))
+	var configured: Dictionary = bridge.configure(JSON.stringify(configuration))
+	# A refused configuration used to be silent here: every later call answered
+	# `expedition_not_configured` and the suite that noticed was several steps
+	# downstream of the record that caused it. The bridge already names the
+	# reason; say it once, where the payload was built.
+	if not bool(configured.get("configured", false)):
+		push_error("Native expedition bridge refused the catalog configuration: %s (%d cells, %d portals, %d factions)" % [
+			str(configured.get("error", "")), cells.size(), portals.size(), factions.size()
+		])
+	return configured
 
 
 func snapshot() -> Dictionary:
