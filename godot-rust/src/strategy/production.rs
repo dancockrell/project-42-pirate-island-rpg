@@ -1804,4 +1804,282 @@ mod tests {
             );
         }
     }
+
+    /// C14: the authored machine records are the contract, and this holds Rust
+    /// to them. `content/machines/` is read through the same
+    /// `MachineDefinition::validate` and the same `MachineDefinitions::insert`
+    /// the simulation uses -- the shape
+    /// `every_authored_building_record_loads_and_validates` set in
+    /// `building.rs`. Content owns; Rust carries; a test holds them equal.
+    ///
+    /// The failures it exists to catch: a record that stops deserializing (a
+    /// family renamed, `salvage_value` written as an array) dies at
+    /// `serde_json::from_str` before any rule runs, and a record carrying a
+    /// ninth family dies there too, because `MachineFamily` is closed and serde
+    /// knows only the eight `MachineFamily::ALL` names --- the same verdict
+    /// `tools/src/validate.mjs` gives it one step earlier.
+    #[test]
+    fn every_authored_machine_record_loads() {
+        let (definitions, from_filenames) = the_authored_machine_registry();
+
+        assert!(
+            !from_filenames.is_empty(),
+            "content/machines/ must author at least one record; C14 is what fills it"
+        );
+        assert_eq!(
+            definitions
+                .ids()
+                .map(str::to_owned)
+                .collect::<BTreeSet<_>>(),
+            from_filenames,
+            "the registry's IDs must be exactly the directory's"
+        );
+
+        // Every authored family is one of the eight, and the two records are
+        // deliberately two different ones: the card asks for shapes, and one
+        // road-bound hauler beside one walk-anywhere automaton is what makes
+        // `valid_route_types` mean something.
+        let families: BTreeSet<MachineFamily> = definitions
+            .ids()
+            .filter_map(|id| definitions.get(id))
+            .map(|record| record.family)
+            .collect();
+        for family in &families {
+            assert!(
+                MachineFamily::ALL.contains(family),
+                "{family:?} is not one of brief section 5.4's eight families"
+            );
+        }
+        assert!(
+            families.len() > 1,
+            "content/machines/ must author more than one family, or the family field is decoration"
+        );
+
+        // Brief section 18's "valid route types" against content's own
+        // `travelMode` vocabulary. The world records are the owner of that
+        // list; a machine may not name a way the island does not have.
+        let authored_travel_modes = the_authored_travel_modes();
+        for id in definitions.ids() {
+            let record = definitions.get(id).expect("the ID just came from the map");
+            assert!(
+                !record.valid_route_types.is_empty(),
+                "{id} names no route it may use, so nothing could ever move it"
+            );
+            for route in &record.valid_route_types {
+                assert!(
+                    authored_travel_modes.contains(route),
+                    "{id} names route type {route}, which no authored world portal offers: {authored_travel_modes:?}"
+                );
+            }
+        }
+    }
+
+    /// **The card's last Done-when, both halves.** The machine shop's rule names
+    /// a machine that exists, and the family agreement is what makes that
+    /// naming mean something: the authored record and the authored rule are put
+    /// through `produce_machine` together and it builds a dog, and the same pair
+    /// with the rule's family changed refuses.
+    ///
+    /// This is the one test in the file that runs on content rather than on a
+    /// fixture, which is the point -- the fixtures above prove the mechanism,
+    /// and this proves that what is authored on disk actually drives it.
+    #[test]
+    fn the_authored_machine_shop_builds_the_authored_dog_and_refuses_a_family_that_disagrees() {
+        let (machines, _) = the_authored_machine_registry();
+        let shop = the_authored_machine_shop();
+        let rule_index = shop
+            .production
+            .iter()
+            .position(|rule| matches!(rule.output, ProductionOutput::Machine { .. }))
+            .expect("content/buildings/machine_shop.json carries a machine rule");
+        assert_eq!(
+            shop.production[rule_index].output_key, "machine.mechanical_dog",
+            "the machine rule must name a record content/machines/ authors"
+        );
+        assert!(
+            machines
+                .get(&shop.production[rule_index].output_key)
+                .is_some(),
+            "and the registry must carry it"
+        );
+
+        let (mut state, definitions) = a_campaign_with_the_authored_shop(shop.clone());
+        let (dog, event) = state
+            .produce_machine(
+                DOG_INSTANCE,
+                YARD_INSTANCE,
+                rule_index,
+                &definitions,
+                &machines,
+            )
+            .expect("the authored shop, at the rule's tier, builds the authored dog");
+        assert_eq!(dog.def_id, "machine.mechanical_dog");
+        assert_eq!(
+            dog.fuel_remaining,
+            machines
+                .require("machine.mechanical_dog")
+                .expect("the record is in the registry")
+                .fuel_requirement,
+            "a new machine leaves the shop with the record's own fuel, not a number this file chose"
+        );
+        assert!(matches!(
+            event,
+            StrategicEvent::MachineProduced {
+                family: MachineFamily::MechanicalDog,
+                ..
+            }
+        ));
+
+        // S13's refusal, on the authored pair. Change only the rule's family --
+        // the record on disk is untouched -- and nothing is produced.
+        let mut disagreeing = shop;
+        disagreeing.production[rule_index].output = ProductionOutput::Machine {
+            family: MachineFamily::SteamWagon,
+        };
+        let rule_id = disagreeing.production[rule_index].id.clone();
+        let (mut state, definitions) = a_campaign_with_the_authored_shop(disagreeing);
+        assert_eq!(
+            state.produce_machine(
+                DOG_INSTANCE,
+                YARD_INSTANCE,
+                rule_index,
+                &definitions,
+                &machines
+            ),
+            Err(ProductionError::FamilyMismatch {
+                rule_id,
+                def_id: "machine.mechanical_dog".into(),
+                rule_family: MachineFamily::SteamWagon,
+                definition_family: MachineFamily::MechanicalDog,
+            }),
+            "a rule that claims a wagon and names a dog produces neither"
+        );
+        assert!(state.machines.is_empty());
+    }
+
+    /// `content/machines/`, loaded exactly as the simulation would: every file
+    /// deserialized, validated, and inserted, with the filename held equal to
+    /// the record's ID. Returns the registry and the IDs the directory names.
+    fn the_authored_machine_registry() -> (MachineDefinitions, BTreeSet<String>) {
+        let directory = concat!(env!("CARGO_MANIFEST_DIR"), "/../content/machines/");
+        let mut definitions = MachineDefinitions::new();
+        let mut from_filenames: BTreeSet<String> = BTreeSet::new();
+        for entry in std::fs::read_dir(directory).expect("content/machines/ is readable") {
+            let path = entry.expect("a readable directory entry").path();
+            if path.extension().and_then(|name| name.to_str()) != Some("json") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).expect("the machine file is readable");
+            let record: MachineDefinition = serde_json::from_str(&text).unwrap_or_else(|error| {
+                panic!("{} is a MachineDefinition: {error}", path.display())
+            });
+            record
+                .validate()
+                .unwrap_or_else(|error| panic!("{} fails validate: {error:?}", path.display()));
+            let stem = path
+                .file_stem()
+                .and_then(|name| name.to_str())
+                .expect("a UTF-8 filename");
+            assert_eq!(
+                record.id,
+                format!("{MACHINE_ID_PREFIX}{stem}"),
+                "{} must be named after the record it carries",
+                path.display()
+            );
+            assert!(
+                from_filenames.insert(record.id.clone()),
+                "{} is a second record for {}",
+                path.display(),
+                record.id
+            );
+            definitions
+                .insert(record)
+                .unwrap_or_else(|error| panic!("{} does not load: {error:?}", path.display()));
+        }
+        (definitions, from_filenames)
+    }
+
+    /// The authored `travelMode` vocabulary, read out of the world records that
+    /// own it rather than restated here, so a machine record and the island
+    /// cannot disagree about what a route is called.
+    fn the_authored_travel_modes() -> BTreeSet<String> {
+        let directory = concat!(env!("CARGO_MANIFEST_DIR"), "/../content/world/");
+        let mut modes = BTreeSet::new();
+        for entry in std::fs::read_dir(directory).expect("content/world/ is readable") {
+            let path = entry.expect("a readable directory entry").path();
+            if path.extension().and_then(|name| name.to_str()) != Some("json") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).expect("the world file is readable");
+            let value: serde_json::Value =
+                serde_json::from_str(&text).expect("the world record is JSON");
+            let Some(portals) = value["portals"].as_array() else {
+                continue;
+            };
+            for portal in portals {
+                if let Some(mode) = portal["travelMode"].as_str() {
+                    modes.insert(mode.to_owned());
+                }
+            }
+        }
+        assert!(
+            !modes.is_empty(),
+            "content/world/ must author at least one travelMode; it is the vocabulary machines answer to"
+        );
+        modes
+    }
+
+    /// `content/buildings/machine_shop.json`, deserialized. C10 authors it; this
+    /// reads it rather than restating its rules, because the point of the test
+    /// above is that the *authored* rule and the *authored* record agree.
+    fn the_authored_machine_shop() -> BuildingDefinition {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../content/buildings/machine_shop.json"
+        );
+        let text = std::fs::read_to_string(path).expect("the machine shop record is readable");
+        serde_json::from_str(&text).expect("machine_shop.json is a BuildingDefinition")
+    }
+
+    /// Michael holding the beach with the authored shop standing on it, raised
+    /// to its top tier and finished. Construction time and tier progress belong
+    /// to `building.rs`, so this sets the two fields directly rather than
+    /// waiting out the record's authored hours: what is under test here is the
+    /// production rule, not the scaffolding.
+    fn a_campaign_with_the_authored_shop(
+        shop: BuildingDefinition,
+    ) -> (ExpeditionState, BuildingDefinitions) {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state =
+            ExpeditionState::new(7, vec!["character.protagonist.captain".into()], BEACH)
+                .expect("a fresh campaign constructs");
+        let mut faction = FactionState::new();
+        faction.resources.insert(FUEL.to_owned(), 10);
+        state.factions.insert(michael(), faction);
+        state
+            .set_control(BEACH, Some(michael()), &geography)
+            .expect("the beach is a real cell");
+
+        let top_tier = shop.tier_states.len() as u32;
+        let shop_id = shop.id.clone();
+        let definitions = registry(shop);
+        state
+            .place_building(
+                YARD_INSTANCE,
+                &shop_id,
+                BEACH,
+                &michael(),
+                &geography,
+                &definitions,
+            )
+            .expect("the shop is placed");
+        let instance = state
+            .buildings
+            .get_mut(YARD_INSTANCE)
+            .expect("it was just placed");
+        instance.tier = top_tier;
+        instance.construction_hours_remaining = 0;
+        instance.state = BuildingState::Operational;
+        (state, definitions)
+    }
 }

@@ -57,7 +57,7 @@
     {
       "id": "presentation.paper_doll.razorbeak.active",
       "placeholderAssetId": "art.placeholder.razorbeak.active_actor",
-      "subjectId": "enemy.raptor.razorbeak.prototype",
+      "subjectId": "enemy.raptor.razorbeak",
       "displayName": "RAZORBEAK",
       "dollKind": "wild_raptor",
       "facing": "left",

@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "task_id": "e5-e9-nightly-and-pack",
+  "agent": "claude-code (lane E5+E9)",
+  "summary": "A scheduled nightly workflow that builds the Rust GDExtension, asserts the library exists at the path game/bin/project42_sim.gdextension names, exports the desktop presets it can honestly produce on a Linux runner and uploads them by commit SHA; plus tools/src/build-pack.mjs, which exports every packs/<id>/ to a .pck whose manifest lands at res://packs/<id>/pack.json where B10's ContentPackRegistry reads it.",
+  "status": "completed",
+  "claimed_at": "2026-09-06T12:00:00Z",
+  "updated_at": "2026-09-06T09:30:00Z",
+  "paths": [
+    ".github/workflows/nightly.yml",
+    ".github/workflows/verify.yml",
+    "tools/src/build-pack.mjs",
+    ".gitignore"
+  ],
+  "symbols": [],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [],
+    "notes": "E2 owns .github/workflows/verify.yml; this lane adds exactly one step to its existing godot-suites job (the pack build, which is free there because that job has already downloaded and verified the pinned engine) and changes nothing else in the file. The Godot download, checksum and version-confirmation steps in nightly.yml are E2's steps reused verbatim, not a second download path. game/export_presets.cfg is E4's and is read, not written. Nothing under godot-rust/, game/scripts/, content/ or docs/SHIP_PLAN.md is touched."
+  },
+  "completion": {
+    "commit": "6d1f817",
+    "checks": [
+      "node tools/src/check-claims.mjs (48 claims, 91 ship-plan rows, 85 cards): passed",
+      "Verify run 34024233613 on 6d1f817, both jobs green -- Rust and content, and Godot headless suites including the new pack step: passed",
+      "E9 end to end, Nightly run 34023865769 job \"Build the presentation packs\": build-pack.mjs exported packs/pack.presentation.fixture to work/packs/pack.presentation.fixture.pck and uploaded it as project42-packs-<sha> (artifact 9986409830), whole job 33 seconds: passed",
+      "E9 contract proven, not assumed -- the probe mounts the built .pck into an empty project and reads the manifest back: \"Pack pack.presentation.fixture verified: manifest and every declared asset present at res://packs/pack.presentation.fixture/.\" in Nightly run 34024132677, which is the path game/scripts/content/pack_registry.gd derives from the .pck basename: passed",
+      "E9 as a non-scheduled check in verify.yml's godot-suites job, step \"Build and verify the presentation packs\", 09:18:46 to 09:18:57 -- eleven seconds, because that job has already downloaded and checksummed the engine and --export-pack needs no export template: passed",
+      "E5 Linux Desktop, Nightly run 34023865769: exported and uploaded project42-linux-desktop-<sha> (artifact 9986459456, 69,527,092 bytes) carrying project42.x86_64, project42.pck and project42_sim.linux.expedition_v5_release.x86_64.so: passed",
+      "E5 Windows Desktop from the same Linux runner, Nightly run 34023865769: exported and uploaded project42-windows-desktop-<sha> (artifact 9986458550, 79,240,122 bytes) carrying project42.exe, project42.pck and project42_sim.windows.expedition_v5_release.x86_64.dll. No rcedit and no Wine were needed: passed",
+      "Engine and export templates pinned by SHA-512 and verified before unpacking, never --no-verify. The engine digest is verify.yml's, unchanged; the templates digest ca4d71c4...ff6bd5a is the Godot_v4.7.2-stable_export_templates.tpz line of the same published SHA512-SUMS.txt, and the engine line in that file matched verify.yml's pin exactly, which is what confirmed the source: passed",
+      "Bite proof: the native bridge build step was replaced by a no-op and pushed (d99283b). Nightly run 34024132677's \"Export Linux Desktop\" failed at the step named \"Confirm the GDExtension library is installed where Godot looks\" with \"The Linux Desktop export needs game/bin/linux/project42_sim.linux.expedition_v5_release.x86_64.so and it is not there. Exporting now would package a build with no simulation in it. Refusing.\" -- and Import, Export and Upload were all skipped. Restored in 6d1f817 and green: passed",
+      "macOS is NOT in the matrix, and the reason is recorded in the workflow rather than left silent. It was tried: Nightly run 34023865769's \"Export macOS\" job failed at the same assertion because game/bin/macos/ is empty and tools/build-native-bridge.sh builds for the host it runs on, so no Linux runner can produce project42_sim.macos.expedition_v5_release.x86_64.dylib. Godot would otherwise have written an unsigned .zip with no simulation in it. Adding macOS back needs a macos-latest runner in the matrix or a cross-compiled dylib: failed",
+      "workflow_dispatch could not be used to trigger the new workflow: GitHub only registers a workflow_dispatch workflow that exists on the DEFAULT branch, so nightly.yml on a lane branch returned 404 from the dispatches endpoint. It was proven instead with a temporary branch-scoped push trigger (3733a04), which is removed in 6d1f817; the runs cited above are real runs of this exact file with nothing but that trigger and the macOS matrix entry differing: passed",
+      "A first bite attempt (2bc156e) broke the workflow YAML -- an unquoted scalar carrying \": \" -- and GitHub failed run 34024095643 with zero jobs rather than with the assertion. Caught by reading the run, not by the tick; fixed in d99283b and every committed workflow parses under yaml.safe_load: passed",
+      "Not run in this lane because nothing under godot-rust/, content/ or game/scripts/ was touched: cargo fmt, cargo test, cargo check --features godot-ext, node tools/src/validate.mjs and the content bundle rebuild -- all of which Verify run 34024233613 ran on this tree anyway and passed: not_run"
+    ]
+  }
+}

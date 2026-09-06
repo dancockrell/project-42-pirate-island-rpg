@@ -28,6 +28,9 @@ pub mod directive;
 /// S9: `DungeonContext` and the generation signature -- the same context
 /// yields the same rooms; a different owner or tier never collides.
 pub mod dungeon;
+/// C5: the authored dungeon record -- the design bible's twelve tomb spaces,
+/// and the site rules each owning faction brings, selected by S9's context.
+pub mod dungeon_content;
 /// S10: elimination and the recovery chain -- a faction is gone only when
 /// every link is exhausted, and it never respawns.
 pub mod elimination;
@@ -43,6 +46,9 @@ pub mod journal;
 pub mod production;
 /// S12: `RecruitmentState` for the women -- stages, never numbers surfaced.
 pub mod recruitment;
+/// A7: what a site rule *does* -- the closed effect vocabulary behind the
+/// `site_rule.*` IDs C5 registered, and the registry `Battle` reads.
+pub mod site_rule;
 /// S4: the strategic tick, pause semantics and the determinism harness.
 pub mod tick;
 /// S5: utility scoring and the five strategic states, recomputed each tick.

@@ -28,19 +28,19 @@ func _init() -> void:
 		"actor_id": "character.heroine.betty",
 		"kind": "use_skill",
 		"skill_id": "skill.betty.guarded_strike",
-		"target_ids": ["enemy.raptor.razorbeak.prototype"]
+		"target_ids": ["enemy.raptor.razorbeak"]
 	})
 	check(rejected.size() == 1, "unsupported protocol must emit exactly one rejection")
 	check(rejected[0].kind == "command_rejected", "unsupported protocol must reject")
 	check(rejected[0].payload.reason == "unsupported_protocol_version", "rejection reason differs")
-	check(actor(port.bridge.snapshot(), "enemy.raptor.razorbeak.prototype").vitality == 70, "rejected protocol must not mutate battle")
+	check(actor(port.bridge.snapshot(), "enemy.raptor.razorbeak").vitality == 70, "rejected protocol must not mutate battle")
 	var events := port.submit({
 		"command_id": "command.test.guarded_strike",
 		"battle_id": "battle.prototype.returning_names",
 		"actor_id": "character.heroine.betty",
 		"kind": "use_skill",
 		"skill_id": "skill.betty.guarded_strike",
-		"target_ids": ["enemy.raptor.razorbeak.prototype"]
+		"target_ids": ["enemy.raptor.razorbeak"]
 	})
 	var kinds := events.map(func(event): return event.kind)
 	check(kinds.slice(0, 4) == ["command_accepted", "actor_focused", "damage_applied", "guard_changed"], "accepted event order differs")
@@ -94,10 +94,10 @@ func test_condition_cleanse() -> void:
 
 func test_rescue_and_interception() -> void:
 	var port := fresh_port()
-	var rescue := command(port, "command.test.rescue", "character.heroine.betty", "skill.betty.rescue_charge", ["character.heroine.vix", "enemy.raptor.razorbeak.prototype"])
+	var rescue := command(port, "command.test.rescue", "character.heroine.betty", "skill.betty.rescue_charge", ["character.heroine.vix", "enemy.raptor.razorbeak"])
 	check(rescue.any(func(event): return event.kind == "interception_set"), "Rescue Charge must establish an interception")
 	check(actor(port.bridge.snapshot(), "character.heroine.betty").band == 1, "Rescue Charge must move Betty to Vix's band")
-	var bite := command(port, "command.test.intercept", "enemy.raptor.razorbeak.prototype", "skill.enemy.razorbeak.rushing_bite", ["character.heroine.vix"])
+	var bite := command(port, "command.test.intercept", "enemy.raptor.razorbeak", "skill.enemy.razorbeak.rushing_bite", ["character.heroine.vix"])
 	check(bite.any(func(event): return event.kind == "interception_triggered"), "Rushing Bite aimed at Vix must be redirected to Betty")
 	check(actor(port.bridge.snapshot(), "character.heroine.vix").vitality == 10, "interception must preserve Vix's vitality")
 	check(actor(port.bridge.snapshot(), "character.heroine.betty").vitality == 84, "intercepted bite must damage Betty")
@@ -112,8 +112,8 @@ func test_mobile_infirmary() -> void:
 
 func test_fatal_intercept() -> void:
 	var port := fresh_port()
-	command(port, "command.test.open_reaction", "character.heroine.betty", "skill.betty.guarded_strike", ["enemy.raptor.razorbeak.prototype"])
-	var events := command(port, "command.test.lethal_bite", "enemy.raptor.razorbeak.prototype", "skill.enemy.razorbeak.rushing_bite", ["character.heroine.vix"])
+	command(port, "command.test.open_reaction", "character.heroine.betty", "skill.betty.guarded_strike", ["enemy.raptor.razorbeak"])
+	var events := command(port, "command.test.lethal_bite", "enemy.raptor.razorbeak", "skill.enemy.razorbeak.rushing_bite", ["character.heroine.vix"])
 	check(events.any(func(event): return event.kind == "reaction_triggered" and event.payload.skill_id == "skill.betty.fatal_intercept"), "lethal bite must trigger Betty's automatic Fatal Intercept")
 	check(events.any(func(event): return event.kind == "defeat_prevented"), "Fatal Intercept must cancel the lethal hit")
 	check(actor(port.bridge.snapshot(), "character.heroine.vix").vitality == 10, "Fatal Intercept must preserve Vix's vitality")
@@ -128,7 +128,7 @@ func test_combat_revival() -> void:
 	check(actor(port.bridge.snapshot(), "character.heroine.ayla").vitality == 32, "Ayla must revive at forty percent vitality")
 	var hold := command(port, "command.test.ayla_hold", "character.heroine.ayla", "skill.system.hold_position", [])
 	check(hold.any(func(event): return event.kind == "guard_changed"), "prototype support actor must be able to Hold Position")
-	check(hold.any(func(event): return event.kind == "turn_started" and event.subjects[0] == "enemy.raptor.razorbeak.prototype"), "bonus turn must resume at Betty's natural successor")
+	check(hold.any(func(event): return event.kind == "turn_started" and event.subjects[0] == "enemy.raptor.razorbeak"), "bonus turn must resume at Betty's natural successor")
 
 func check(condition: bool, message: String) -> void:
 	if condition:

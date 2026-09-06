@@ -2,7 +2,7 @@
   "id": "spawn_rule.reception_road.daily",
   "regionId": "region.reception_road",
   "trigger": "midnight_flash",
-  "definitionIds": ["enemy.raptor.razorbeak.prototype"],
+  "definitionIds": ["enemy.raptor.razorbeak"],
   "regionBaseLevel": 5,
   "dailyCount": 3,
   "pressure": 1,

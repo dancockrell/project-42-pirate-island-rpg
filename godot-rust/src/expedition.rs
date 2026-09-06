@@ -13,6 +13,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
+use crate::battle::{BattleEvent, CampaignBattleSetup};
 use crate::geography::{AnchorDefinition, AnchorKind, Geography, RouteOption};
 use crate::habitat::{Habitats, LootTable};
 use crate::hunter::{self, Hunter, HunterKind};
@@ -27,6 +28,7 @@ use crate::strategy::force::ForceRecord;
 use crate::strategy::journal::{JournalEntry, StrategicJournal};
 use crate::strategy::production::{MachineDefinitions, MachineInstance};
 use crate::strategy::recruitment::{RecruitmentStage, RecruitmentState};
+use crate::strategy::site_rule::{ActiveSiteRule, SiteRules};
 use crate::strategy::tick::{self, HOURS_PER_DAY, StrategicClock, StrategicEvent};
 use crate::world::{
     DeathMemory, NamedPerson, SpawnRule, SpawnedMonster, WorldClock, WorldEvent, mix_seed,
@@ -293,6 +295,33 @@ pub struct ExpeditionState {
     /// the same `save_version` -- with no ranks at all, which reads as the floor.
     #[serde(default)]
     pub bond_ranks: BTreeMap<String, String>,
+    /// A7: the site rules this expedition has taken out of force, as
+    /// `site_rule.*` IDs. Ayla's rank SSS Override Tomb Rule is the one writer:
+    /// the battle emits `BattleEvent::SiteRuleOverridden` and the bridge
+    /// records the ID here, which is what makes the override outlast the fight
+    /// -- the bible's "until the party leaves the site", and past it.
+    ///
+    /// It is also the once-per-expedition counter for that command: a
+    /// non-empty set means the override has been spent, so there is one fact
+    /// here and not a second flag beside it that could disagree.
+    ///
+    /// Nothing removes an entry. Whether an override can be revoked is not a
+    /// decision this card makes; when it is made it arrives as a method beside
+    /// the writer, not as a tuning constant here. `serde(default)` so a save
+    /// written before site rules existed loads with nothing suppressed.
+    #[serde(default)]
+    pub suppressed_site_rules: BTreeSet<String>,
+    /// A7: how many Deny Activations each site still has, keyed by the site --
+    /// a `dungeon.*` ID where the cell declares one, and the `world.cell.*` ID
+    /// itself where it does not (`LocationRecord::site_id`).
+    ///
+    /// Ayla's rank SS Deny Activation is once per site. A site with no entry
+    /// has its full [`DENY_ACTIVATION_CHARGES_PER_SITE`]; the bridge writes the
+    /// count down when the battle emits `BattleEvent::ActivationDenied`, so an
+    /// absent key means "untouched" and never "unknown". `serde(default)` so a
+    /// save written before this card loads with every site's charge intact.
+    #[serde(default)]
+    pub site_denial_charges: BTreeMap<String, u8>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -542,6 +571,11 @@ impl ExpeditionState {
                 ("character.heroine.betty".to_owned(), "D".to_owned()),
                 ("character.heroine.ayla".to_owned(), "D".to_owned()),
             ]),
+            // A7: nothing has been overridden and no site has spent its Deny
+            // Activation. Every site starts with its charge intact, which is
+            // what an absent key means.
+            suppressed_site_rules: BTreeSet::new(),
+            site_denial_charges: BTreeMap::new(),
         };
         state.validate()?;
         Ok(state)
@@ -1692,6 +1726,85 @@ impl ExpeditionState {
             .map_or(true, |memory| {
                 memory.last_death_day != Some(self.campaign_day)
             })
+    }
+}
+
+/// A7: how many times Ayla's rank SS Deny Activation may be spent at one site.
+/// The bible says "once per site" and this is that one, named so the bridge,
+/// the battle and the design document agree.
+pub const DENY_ACTIVATION_CHARGES_PER_SITE: u8 = 1;
+
+/// A7: how many times her rank SSS Override Tomb Rule may be spent in one
+/// expedition. The bible says "once per expedition".
+pub const OVERRIDE_TOMB_RULE_CHARGES_PER_EXPEDITION: u8 = 1;
+
+impl ExpeditionState {
+    /// A7: the site rules in force at the party's current location, minus the
+    /// ones this expedition has overridden, resolved against the authored
+    /// registry. This is what `Battle` stands under.
+    pub fn site_rules_in_force(
+        &self,
+        geography: &Geography,
+        registry: &SiteRules,
+    ) -> Vec<ActiveSiteRule> {
+        let Some(location) = geography.location(&self.active_location_id) else {
+            return Vec::new();
+        };
+        registry.in_force(&location.site_rule_ids, &self.suppressed_site_rules)
+    }
+
+    /// A7: everything the campaign says about a battle it is arming here --
+    /// where each woman's bond stands, which site rules hold, and whether
+    /// Ayla's two site-scoped commands still have their charge.
+    pub fn battle_setup(&self, geography: &Geography, registry: &SiteRules) -> CampaignBattleSetup {
+        let site_id = geography
+            .location(&self.active_location_id)
+            .map(|location| location.site_id().to_owned())
+            .unwrap_or_else(|| self.active_location_id.clone());
+        CampaignBattleSetup {
+            bond_ranks: self.bond_ranks.clone(),
+            site_rules: self.site_rules_in_force(geography, registry),
+            deny_activation_charges: self
+                .site_denial_charges
+                .get(&site_id)
+                .copied()
+                .unwrap_or(DENY_ACTIVATION_CHARGES_PER_SITE),
+            // Once per expedition, and `suppressed_site_rules` is the record of
+            // whether it has happened. One fact, one owner.
+            override_tomb_rule_charges: if self.suppressed_site_rules.is_empty() {
+                OVERRIDE_TOMB_RULE_CHARGES_PER_EXPEDITION
+            } else {
+                0
+            },
+        }
+    }
+
+    /// A7: writes a battle's site-rule consequences back into the campaign.
+    ///
+    /// Two events matter after a fight: an overridden rule stops applying for
+    /// the rest of the expedition, and a spent Deny Activation spends that
+    /// site's one charge. Both are recorded here, in one place, so the bridge
+    /// carries no rule of its own about what an event means.
+    pub fn record_battle_site_events(&mut self, geography: &Geography, events: &[BattleEvent]) {
+        let site_id = geography
+            .location(&self.active_location_id)
+            .map(|location| location.site_id().to_owned())
+            .unwrap_or_else(|| self.active_location_id.clone());
+        for event in events {
+            match event {
+                BattleEvent::SiteRuleOverridden { rule_id, .. } => {
+                    self.suppressed_site_rules.insert(rule_id.clone());
+                }
+                BattleEvent::ActivationDenied { .. } => {
+                    let remaining = self
+                        .site_denial_charges
+                        .entry(site_id.clone())
+                        .or_insert(DENY_ACTIVATION_CHARGES_PER_SITE);
+                    *remaining = remaining.saturating_sub(1);
+                }
+                _ => {}
+            }
+        }
     }
 }
 
@@ -3863,7 +3976,10 @@ mod tests {
             .expect("the authored milestone ID is a stable ID");
         state.recruitment.insert(BETTY.into(), betty);
 
-        let mut before = Battle::prototype_vertical_slice_from_bond_ranks(&state.bond_ranks);
+        let mut before = Battle::prototype_vertical_slice_from_campaign(&CampaignBattleSetup {
+            bond_ranks: state.bond_ranks.clone(),
+            ..CampaignBattleSetup::default()
+        });
         before.start();
         assert_eq!(
             before.submit(cleanse()).unwrap_err(),
@@ -3880,7 +3996,10 @@ mod tests {
             .expect("the authored beat plays");
         assert_eq!(state.bond_ranks[BETTY], "C");
 
-        let mut after = Battle::prototype_vertical_slice_from_bond_ranks(&state.bond_ranks);
+        let mut after = Battle::prototype_vertical_slice_from_campaign(&CampaignBattleSetup {
+            bond_ranks: state.bond_ranks.clone(),
+            ..CampaignBattleSetup::default()
+        });
         after.start();
         after
             .submit(cleanse())
@@ -3892,6 +4011,143 @@ mod tests {
                 .statuses
                 .is_empty(),
             "the cleanse resolved: Vix's authored poison is gone"
+        );
+    }
+    // ---- A7: the site-rule seam, campaign side ------------------------------
+
+    fn a_tomb_campaign() -> (ExpeditionState, Geography, SiteRules) {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = ExpeditionState::new(
+            7,
+            vec![
+                "character.protagonist.captain".into(),
+                "character.heroine.betty".into(),
+                "character.heroine.ayla".into(),
+            ],
+            "world.cell.tomb_threshold",
+        )
+        .expect("the campaign configures");
+        state.active_location_id = "world.cell.tomb_threshold".into();
+        let mut registry = SiteRules::new();
+        let directory = concat!(env!("CARGO_MANIFEST_DIR"), "/../content/site_rules/");
+        for entry in std::fs::read_dir(directory).expect("content/site_rules/ is readable") {
+            let path = entry.expect("a readable directory entry").path();
+            if path.extension().and_then(|name| name.to_str()) != Some("json") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).expect("the record is readable");
+            registry
+                .insert(
+                    crate::strategy::site_rule::AuthoredSiteRule::from_json(&text)
+                        .expect("the record loads"),
+                )
+                .expect("the record validates");
+        }
+        (state, geography, registry)
+    }
+
+    /// The tomb's threshold stands under its authored rules, in the authored
+    /// order, and the battle the campaign arms carries exactly them.
+    #[test]
+    fn a_battle_armed_in_the_tomb_stands_under_the_cells_authored_rules() {
+        let (state, geography, registry) = a_tomb_campaign();
+        let setup = state.battle_setup(&geography, &registry);
+        assert_eq!(
+            setup
+                .site_rules
+                .iter()
+                .map(|rule| rule.id.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "site_rule.tomb.grave_watch",
+                "site_rule.tomb.registry_order"
+            ]
+        );
+        assert_eq!(
+            setup.deny_activation_charges,
+            DENY_ACTIVATION_CHARGES_PER_SITE
+        );
+        assert_eq!(
+            setup.override_tomb_rule_charges,
+            OVERRIDE_TOMB_RULE_CHARGES_PER_EXPEDITION
+        );
+        let battle = crate::battle::Battle::prototype_vertical_slice_from_campaign(&setup);
+        assert_eq!(battle.site_rules(), setup.site_rules.as_slice());
+    }
+
+    /// The done-when: a suppressed rule survives the save, and is still not in
+    /// force on the other side of it.
+    #[test]
+    fn a_suppressed_site_rule_survives_a_save_and_is_still_not_in_force() {
+        let (mut state, geography, registry) = a_tomb_campaign();
+        state.record_battle_site_events(
+            &geography,
+            &[crate::battle::BattleEvent::SiteRuleOverridden {
+                command_id: "ayla.override".into(),
+                actor_id: crate::battle::ActorId("character.heroine.ayla".into()),
+                rule_id: "site_rule.tomb.grave_watch".into(),
+            }],
+        );
+        assert!(
+            state
+                .suppressed_site_rules
+                .contains("site_rule.tomb.grave_watch")
+        );
+
+        let reloaded = ExpeditionState::from_json(&state.to_json()).expect("the save reloads");
+        assert_eq!(reloaded.suppressed_site_rules, state.suppressed_site_rules);
+        let setup = reloaded.battle_setup(&geography, &registry);
+        assert_eq!(
+            setup
+                .site_rules
+                .iter()
+                .map(|rule| rule.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["site_rule.tomb.registry_order"],
+            "grave watch was overridden before the save and is still overridden after it"
+        );
+        assert_eq!(
+            setup.override_tomb_rule_charges, 0,
+            "once per expedition, and the suppressed set is the record of it"
+        );
+    }
+
+    /// Once per *site*, not once per room: the whole tomb is one site, so
+    /// walking into the next room does not refresh the charge, and a cell
+    /// outside every dungeon is its own site.
+    #[test]
+    fn a_spent_deny_activation_is_spent_for_the_whole_dungeon_and_survives_a_save() {
+        let (mut state, geography, registry) = a_tomb_campaign();
+        state.record_battle_site_events(
+            &geography,
+            &[crate::battle::BattleEvent::ActivationDenied {
+                command_id: "ayla.deny".into(),
+                actor_id: crate::battle::ActorId("character.heroine.ayla".into()),
+                target_id: crate::battle::ActorId("enemy.raptor.razorbeak".into()),
+            }],
+        );
+        assert_eq!(
+            state.site_denial_charges["dungeon.tomb_of_returning_names"], 0,
+            "the charge is keyed by the dungeon, not by the room"
+        );
+
+        let mut reloaded = ExpeditionState::from_json(&state.to_json()).expect("the save reloads");
+        reloaded.active_location_id = "world.cell.tomb_archive_core".into();
+        assert_eq!(
+            reloaded
+                .battle_setup(&geography, &registry)
+                .deny_activation_charges,
+            0,
+            "two rooms deeper into the same tomb is the same site"
+        );
+
+        reloaded.active_location_id = "world.cell.reception_terrace".into();
+        assert_eq!(
+            reloaded
+                .battle_setup(&geography, &registry)
+                .deny_activation_charges,
+            DENY_ACTIVATION_CHARGES_PER_SITE,
+            "a cell outside every dungeon is its own site, with its own charge"
         );
     }
 }

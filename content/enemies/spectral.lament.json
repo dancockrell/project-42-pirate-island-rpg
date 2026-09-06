@@ -1,13 +1,13 @@
 {
-  "id": "enemy.hunter.revenant.prototype",
-  "displayName": "Revenant",
-  "species": "returned_undying_pursuer",
-  "combatRole": "roaming_individual_pursuer",
-  "level": 13,
+  "id": "enemy.spectral.lament",
+  "displayName": "Lament",
+  "species": "returned_mourning_voice",
+  "combatRole": "mobile_individual_threat",
+  "level": 8,
   "stats": {
-    "vitality": 90,
-    "guard": 6,
-    "initiative": 10,
+    "vitality": 45,
+    "guard": 1,
+    "initiative": 13,
     "startingBand": 2
   },
   "skillIds": [
@@ -26,11 +26,11 @@
       "animationBeats": [
         {
           "atMs": 0,
-          "pose": "The revenant stops walking and turns fully toward the party and turns its full attention on the target, motionless."
+          "pose": "The lament stops mid-drift and turns its full attention on the target, motionless."
         },
         {
           "atMs": 200,
-          "pose": "The stare does not blink or waver; the target's guarded stance visibly begins to waver."
+          "pose": "The stare sharpens to a fixed point; the target's guarded stance visibly begins to waver."
         },
         {
           "atMs": 420,
@@ -46,7 +46,7 @@
         },
         {
           "atMs": 960,
-          "pose": "The revenant lets the stare go and the air around it settles, ready again."
+          "pose": "The lament lets the stare go and the air around it settles, ready again."
         }
       ],
       "framing": "Keep the full figure, both hands, the target line and the impact effect inside the battle safe frame for every beat."
@@ -59,15 +59,15 @@
     "midnightRespawnEligible": true
   },
   "text": {
-    "firstObservation": "The revenant was beaten before, and it remembers exactly nothing about stopping: the same unhurried approach, the same patient stare, as many times as it takes.",
+    "firstObservation": "The lament drifts the processional route it was never able to finish, mouth open on a mourning cry that never quite becomes sound.",
     "intentTells": {
-      "skill.enemy.eldritch.dread_gaze": "It stops its unhurried approach and turns its full, unblinking stare on the weakest stance in the party -- a dread gaze that does not tire."
+      "skill.enemy.eldritch.dread_gaze": "It stops its slow, wordless drift and turns a fixed, hollow stare on the weakest stance in the party -- the opening beat of a dread gaze."
     }
   },
   "art": {
-    "assetId": "art.placeholder.hunter.revenant.active_actor",
+    "assetId": "art.placeholder.spectral.lament.active_actor",
     "status": "placeholder",
-    "framing": "Entire returned pursuer figure, the stare's direction and the guard-break effect remain inside the battle safe frame."
+    "framing": "Entire translucent figure, the stare's direction and the guard-break effect remain inside the battle safe frame."
   },
   "metadata": {
     "implementationOwner": "rust-simulation",

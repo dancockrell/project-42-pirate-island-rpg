@@ -1,13 +1,20 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import { resolve, relative } from "node:path";
 import process from "node:process";
+import { resolveDerivedRecords } from "./derived-records.mjs";
 
 const repo = resolve(import.meta.dirname, "../..");
 const failures = [];
 const ids = new Map();
 const references = [];
-const supportedTargetRules = new Set(["self", "one_hostile", "one_living_hostile", "one_living_party_member", "ordered_pair_threatened_ally_then_hostile", "automatic_reaction_to_other_party_member_lethal_hit", "all_living_party_members", "one_defeated_party_member_other_than_betty"]);
-const bindableBattleEvents = new Set(["actor_focused", "actor_moved", "damage_applied", "guard_changed", "vitality_changed", "status_removed", "interception_set", "interception_triggered", "reaction_window_opened", "reaction_triggered", "defeat_prevented", "actor_revived", "bonus_turn_granted", "battlefield_effect_created", "battlefield_effect_pulse", "battlefield_effect_removed", "recovery_opening_created", "recovery_opening_consumed", "recovery_opening_expired", "actor_defeated", "turn_ended", "battle_ended"]);
+// Every rule here has real behaviour in `game/scripts/battle/targeting_session.gd`.
+// A7 added `automatic_reaction_to_hostile_attack_in_shared_band` for Ayla's
+// Reach Counter: a reaction the player never targets, like Fatal Intercept's,
+// but on a different trigger -- Fatal Intercept's names a lethal hit and Reach
+// Counter's does not, so reusing that rule would have been a false statement
+// about when the skill fires.
+const supportedTargetRules = new Set(["self", "one_hostile", "one_living_hostile", "one_living_party_member", "ordered_pair_threatened_ally_then_hostile", "automatic_reaction_to_other_party_member_lethal_hit", "automatic_reaction_to_hostile_attack_in_shared_band", "all_living_party_members", "one_defeated_party_member_other_than_betty"]);
+const bindableBattleEvents = new Set(["actor_focused", "actor_moved", "damage_applied", "guard_changed", "vitality_changed", "status_removed", "interception_set", "interception_triggered", "reaction_window_opened", "reaction_triggered", "defeat_prevented", "actor_revived", "bonus_turn_granted", "battlefield_effect_created", "battlefield_effect_pulse", "battlefield_effect_removed", "recovery_opening_created", "recovery_opening_consumed", "recovery_opening_expired", "actor_defeated", "turn_ended", "battle_ended", "target_inspected", "status_applied", "ward_line_placed", "ward_line_triggered", "activation_denied", "site_rule_overridden"]);
 let skillCount = 0;
 let presentationCueCount = 0;
 
@@ -328,7 +335,6 @@ for (const { file, value } of await readJsonDirectory("buildings")) {
       }
       if (Number.isInteger(rule?.minimum_tier) && topTier > 0 && rule.minimum_tier > topTier) fail(file, `${where}.minimum_tier ${rule.minimum_tier} is above this record's top tier ${topTier}`);
       if (typeof rule?.output_key !== "string") fail(file, `${where}.output_key must be a string`);
-      else if (rule.output_key !== "" && !rule.output_key.startsWith("resource.open.")) fail(file, `${where}.output_key ${rule.output_key} invents a resource category; brief section 20 leaves the resource list Open, so keys stay under resource.open.`);
 
       if (rule?.cost !== undefined) {
         if (rule.cost === null || typeof rule.cost !== "object" || Array.isArray(rule.cost)) fail(file, `${where}.cost must be an object of resource key to count`);
@@ -342,6 +348,22 @@ for (const { file, value } of await readJsonDirectory("buildings")) {
       const isSingleKeyObject = output !== null && typeof output === "object" && !Array.isArray(output) && Object.keys(output).length === 1;
       const isHumanRole = isSingleKeyObject && Object.keys(output)[0] === "human_role";
       const isMachine = isSingleKeyObject && Object.keys(output)[0] === "machine";
+      // C14: what `output_key` may name depends on what the rule makes. A
+      // machine rule names the `machine.<...>` record it builds -- S13's
+      // `produce_machine` looks the rule's `output_key` up in
+      // `MachineDefinitions` and refuses a rule whose record it cannot find or
+      // whose family disagrees -- so for that one output the key is a stable ID
+      // reference, resolved at the bottom of this file against the records
+      // content/machines/ registers. Every other output_key is still an open
+      // resource string, and inventing a resource category is still refused.
+      if (typeof rule?.output_key === "string") {
+        if (isMachine) {
+          if (!rule.output_key.startsWith("machine.")) fail(file, `${where}.output_key ${rule.output_key} must name the machine.<...> record this rule builds; ExpeditionState::produce_machine resolves it in MachineDefinitions (C14, S13)`);
+          else reference(rule.output_key, file, `${where}.output_key`);
+        } else if (rule.output_key !== "" && !rule.output_key.startsWith("resource.open.")) {
+          fail(file, `${where}.output_key ${rule.output_key} invents a resource category; brief section 20 leaves the resource list Open, so keys stay under resource.open.`);
+        }
+      }
       if (typeof output === "string") {
         if (output === "machine") fail(file, `${where}.output "machine" names no family; since S13 a machine rule is { "machine": { "family": "<one of ${[...machineFamilies].join(", ")}>" } }`);
         else if (!simpleProductionOutputs.has(output)) fail(file, `${where}.output ${output} is not a ProductionOutput: ${[...simpleProductionOutputs].join(", ")}, { "machine": { "family": "..." } }, or { "human_role": { "role": "..." } }`);
@@ -392,6 +414,119 @@ for (const { file, value } of await readJsonDirectory("buildings")) {
   if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "building metadata.notes must list what stays Provisional or Open");
 }
 
+// C14: machine records. S13 shipped `MachineDefinition` with brief section 18's
+// "Animal automata and vehicles need" list field for field and said a C card
+// must fill `content/machines/`; this block is the content half of that
+// contract, and `every_authored_machine_record_loads` in
+// `godot-rust/src/strategy/production.rs` is what holds the directory equal to
+// `MachineDefinitions`. C10's building block above is the shape this copies.
+//
+// Two records, not eight: one machine per family would be a catalogue invented
+// here, and the brief's section 5.4 families are candidates, not a roster. The
+// two that exist are the two the rest of the tree already needs -- the dog a
+// tier-two machine shop makes, and the hauler that shows what a road-bound
+// machine's record looks like.
+//
+// The families below are `MachineFamily::ALL`'s serde spellings, the same eight
+// the buildings block already mirrors for a machine rule's family. The route
+// vocabulary is the authored `travelMode` set from
+// `content/world/*.world_cell.json`, which the portals block below checks
+// against this same const, so the two readers of that vocabulary cannot drift.
+const travelModes = new Set(["on_foot", "safe_road", "jungle_edge"]);
+// Brief section 20 leaves the island's geometry and the resource list Open, so
+// every one of these is checked the inverted way C9 checks `displayName` and
+// C10 checks `height_class`: the validator requires that the decision has NOT
+// been made. A footprint written as 3 here would read as a number somebody
+// chose, and nobody has.
+const openMachineDimensions = ["operational_footprint_cells", "navigation_width_cells", "turning_clearance_cells", "maximum_slope", "wreck_footprint_cells", "salvage_value"];
+const openResourcePlaceholder = "resource.open.needs_decision";
+let machineCount = 0;
+for (const { file, value } of await readJsonDirectory("machines")) {
+  machineCount += 1;
+  const stem = file.split("/").pop().replace(/\.json$/, "");
+  if (typeof value.id !== "string" || !value.id.startsWith("machine.")) fail(file, `id ${value.id} must be machine.<slug>`);
+  else if (value.id !== `machine.${stem}`) fail(file, `id ${value.id} must be named after its file, machine.${stem}; the Rust equality test reads the directory by filename`);
+  requireString(value, "function", file);
+
+  // The tie between the authored asset and the closed family list. A ninth
+  // family is refused here and by `MachineFamily`'s serde in Rust, and a rule
+  // whose family disagrees with the record it names does not produce at all --
+  // ProductionError::FamilyMismatch.
+  if (!machineFamilies.has(value.family)) fail(file, `family ${JSON.stringify(value.family)} is not one of brief section 5.4's eight families: ${[...machineFamilies].join(", ")}`);
+
+  // Every dimension stays Open, and `open_dimensions` says so decision by
+  // decision rather than in one blanket note.
+  for (const field of ["operational_footprint_cells", "navigation_width_cells", "turning_clearance_cells", "wreck_footprint_cells"]) {
+    if (!Number.isInteger(value[field])) fail(file, `${field} must be an integer count of cells`);
+    else if (value[field] !== 0) fail(file, `${field} is ${value[field]}, which reads as a decided dimension; brief section 20 leaves exact dimensions Open, so it stays 0 and open_dimensions.${field} names the decision`);
+  }
+  if (!Number.isInteger(value.maximum_slope) || value.maximum_slope < 0 || value.maximum_slope > 255) fail(file, "maximum_slope must be an integer from 0 through 255 (a u8 downstream)");
+  else if (value.maximum_slope !== 0) fail(file, `maximum_slope is ${value.maximum_slope}, which reads as a decided limit; the world graph carries no slope to compare one against, so it stays 0 and open_dimensions.maximum_slope names the decision`);
+  if (!value.salvage_value || typeof value.salvage_value !== "object" || Array.isArray(value.salvage_value)) fail(file, "salvage_value must be an object keyed by authored resource strings");
+  else if (JSON.stringify(value.salvage_value) !== JSON.stringify({ [openResourcePlaceholder]: 0 })) fail(file, `salvage_value must stay the single placeholder { "${openResourcePlaceholder}": 0 }; brief section 20 leaves the resource list Open, so a wreck is worth nothing this file may name`);
+  if (!value.open_dimensions || typeof value.open_dimensions !== "object" || Array.isArray(value.open_dimensions)) fail(file, `open_dimensions must be an object naming the decision behind each of ${openMachineDimensions.join(", ")}`);
+  else {
+    for (const field of openMachineDimensions) {
+      const note = value.open_dimensions[field];
+      if (typeof note !== "string" || !note.includes("needs decision")) fail(file, `open_dimensions.${field} must be a placeholder containing "needs decision"; brief section 20 leaves exact dimensions Open and every one of them says so by name`);
+    }
+    for (const field of Object.keys(value.open_dimensions)) {
+      if (!openMachineDimensions.includes(field)) fail(file, `open_dimensions.${field} is not one of the Open dimensions: ${openMachineDimensions.join(", ")}`);
+    }
+  }
+
+  // Brief section 18's "valid route types", against content's own vocabulary.
+  if (!Array.isArray(value.valid_route_types) || value.valid_route_types.length === 0) fail(file, `valid_route_types must name at least one authored travel mode: ${[...travelModes].join(", ")}`);
+  else {
+    const seen = new Set();
+    for (const [index, mode] of value.valid_route_types.entries()) {
+      if (!travelModes.has(mode)) fail(file, `valid_route_types[${index}] ${JSON.stringify(mode)} is not an authored travelMode; the vocabulary is content/world/*.world_cell.json's portals: ${[...travelModes].join(", ")}`);
+      else if (seen.has(mode)) fail(file, `valid_route_types[${index}] ${mode} is listed twice`);
+      else seen.add(mode);
+    }
+  }
+
+  // "Bridge requirements": what reinforces a crossing is nobody's decision yet
+  // (brief section 5.11 puts reinforced bridges in the terrain signature and
+  // stops there), so a flag stays an obvious placeholder. An empty list is a
+  // real answer: a small automaton asks nothing of a bridge.
+  if (!Array.isArray(value.bridge_requirements)) fail(file, "bridge_requirements must be an array, empty when the machine asks nothing of a crossing");
+  else for (const [index, flag] of value.bridge_requirements.entries()) {
+    if (typeof flag !== "string" || !flag.startsWith("requirement.open.")) fail(file, `bridge_requirements[${index}] ${JSON.stringify(flag)} must be a requirement.open.<...> placeholder; what a crossing must satisfy is not decided`);
+  }
+
+  // Crew, fuel and water. The counts are real -- section 5.10 is about the crew
+  // number being non-zero at all -- but the keys fuel and water are counted in
+  // stay under resource.open., because section 20 leaves the resource list Open.
+  for (const field of ["crew_or_handler_requirement", "fuel_requirement", "water_requirement"]) {
+    if (!Number.isInteger(value[field]) || value[field] < 0) fail(file, `${field} must be a non-negative integer`);
+  }
+  for (const field of ["fuel_resource_key", "water_resource_key"]) {
+    if (typeof value[field] !== "string" || !value[field].startsWith("resource.open.")) fail(file, `${field} ${JSON.stringify(value[field])} invents a resource category; brief section 20 leaves the resource list Open, so keys stay under resource.open.`);
+  }
+
+  // "Repair sockets" and "local and offscreen representations": section 18's
+  // accepted list requires machines to retain future-ready sockets and
+  // metadata, so the sockets are authored now; the representations are prose
+  // until there is a materialiser to consume them, and they say so.
+  if (!Array.isArray(value.repair_sockets) || value.repair_sockets.length === 0) fail(file, "repair_sockets must name at least one socket a repair attaches to (brief section 18)");
+  else {
+    const socketIds = new Set();
+    for (const [index, socket] of value.repair_sockets.entries()) {
+      if (typeof socket !== "string" || !socket.startsWith("socket.")) fail(file, `repair_sockets[${index}] ${JSON.stringify(socket)} must be a socket.<...> string`);
+      else if (socketIds.has(socket)) fail(file, `repair_sockets[${index}] ${socket} is listed twice`);
+      else socketIds.add(socket);
+    }
+  }
+  requireString(value, "local_and_offscreen_representations", file);
+  if (typeof value.local_and_offscreen_representations === "string" && !value.local_and_offscreen_representations.includes("needs decision")) fail(file, "local_and_offscreen_representations must stay placeholder prose containing \"needs decision\" until a materialiser and an aggregate-force weight consume it");
+
+  requireString(value.metadata ?? {}, "implementationOwner", file);
+  requireString(value.metadata ?? {}, "maturity", file);
+  if (typeof value.metadata?.releaseLegal !== "boolean") fail(file, "machine metadata.releaseLegal must be boolean");
+  if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "machine metadata.notes must list what stays Provisional or Open");
+}
+
 // C6: relationship scene records. S12 left `RecruitmentState.milestone_rules` a
 // data table with nothing in it; a scene record is the row. The record owns the
 // rule, `MilestoneRule::from_authored` in
@@ -410,11 +545,6 @@ const inclinations = ["AwarenessOfMichael", "AttractionToMichael", "RomanticInte
 // Brief section 20 leaves the other two women Open. Only these two exist, and a
 // record naming a third is authoring a woman nobody has designed.
 const establishedWomenIds = ["character.heroine.betty", "character.heroine.ayla"];
-// C3 owns `content/characters/ayla.json` and has not shipped it, so Ayla's
-// stable ID is registered nowhere yet. That is the single exception to
-// resolving `womanId` against the ID registry, and naming it here is what stops
-// the exception from quietly becoming "unregistered women are fine".
-const womanWithoutACharacterRecordYet = "character.heroine.ayla";
 // The base game is fade-to-black, full stop. C8's presentation pack is a
 // separate artifact that overrides this field; nothing in this repository may
 // carry another level, so this is an equality and not a set membership.
@@ -428,7 +558,7 @@ for (const { file, value } of await readJsonDirectory("relationships")) {
   requireString(value, "displayName", file);
   if (!establishedWomenIds.includes(value.womanId)) {
     fail(file, `womanId ${value.womanId} is not one of the two women who exist (${establishedWomenIds.join(", ")}); the other two are Open, brief section 20`);
-  } else if (!ids.has(value.womanId) && value.womanId !== womanWithoutACharacterRecordYet) {
+  } else if (!ids.has(value.womanId)) {
     fail(file, `womanId references missing stable ID ${value.womanId}`);
   }
   const womanKey = typeof value.womanId === "string" ? value.womanId.split(".").pop() : null;
@@ -488,8 +618,57 @@ for (const { file, value } of await readJsonDirectory("relationships")) {
 // TrustInMichael, or nothing in the content tree is holding that line.
 if (relationshipSceneCount > 0 && sceneRulesRestingOnTrust === 0) failures.push("content/relationships/: no authored scene puts a floor under TrustInMichael, so nothing in the content tree holds the line that attraction creates openings rather than allegiance (brief section 5.6)");
 
-for (const { file, value } of await readJsonDirectory("enemies")) {
+// C15: the creature registry's ID is the one that survives. `Habitats`,
+// `WorldClock`'s spawn rules and every habitat roster spell these creatures
+// `enemy.raptor.razorbeak`; the seven authored records used to spell the same
+// creatures `enemy.raptor.razorbeak.prototype`, so a roster entry could never
+// resolve against content. Content owns the ID and it is the registry's
+// spelling, which is why the suffix is refused here rather than tolerated.
+//
+// `derivesFrom` is resolved before any of the checks below run, so a variant
+// record is validated as the complete creature Godot will receive from
+// `game/generated/content_bundle.json` -- the same resolution, from the same
+// module, that the bundle builder applies.
+const openEnemyFields = ["level", "stats.vitality", "stats.guard", "stats.initiative", "skillIds"];
+const enemyFieldValue = (record, path) => path.split(".").reduce((value, key) => (value === undefined || value === null ? undefined : value[key]), record);
+const authoredEnemies = await readJsonDirectory("enemies");
+for (const { file, value } of authoredEnemies) {
+  if (typeof value.id !== "string" || !value.id.startsWith("enemy.")) fail(file, `id ${JSON.stringify(value.id)} must use the enemy. prefix`);
+  else if (value.id.endsWith(".prototype")) fail(file, `id ${value.id} carries a .prototype suffix the creature registry does not use; Habitats and WorldClock spell this creature ${value.id.slice(0, -".prototype".length)}, and a roster entry cannot resolve against a suffix content invented`);
+}
+const { records: resolvedEnemies, problems: enemyDerivationProblems } = resolveDerivedRecords(authoredEnemies);
+for (const problem of enemyDerivationProblems) fail(problem.file, problem.message);
+let enemyCount = 0;
+for (const { file, value } of resolvedEnemies) {
+  enemyCount += 1;
   requireString(value, "displayName", file);
+
+  // The placeholder convention, inverted the way C14 checks a machine's Open
+  // dimensions: a number nobody has decided stays 0 and `open` names the
+  // decision by field, and -- the half that bites -- a field left at 0 or a
+  // skill list left empty MUST be named there, so a hollow creature record
+  // cannot pass as a finished one. `enemy.boar.thunderback` is the record this
+  // exists for: the habitat fixture puts it on the river jungle's roster and
+  // carries no stat, level or skill for it anywhere.
+  for (const path of ["level", "stats.vitality", "stats.guard", "stats.initiative"]) {
+    const stat = enemyFieldValue(value, path);
+    if (!Number.isInteger(stat) || stat < 0) fail(file, `${path} must be a non-negative integer`);
+  }
+  if (!Array.isArray(value.skillIds)) fail(file, "skillIds must be an array");
+  if (value.open !== undefined) {
+    if (typeof value.open !== "object" || value.open === null || Array.isArray(value.open)) fail(file, `open must be an object naming the decision behind each undecided field: ${openEnemyFields.join(", ")}`);
+    else for (const [field, note] of Object.entries(value.open)) {
+      if (!openEnemyFields.includes(field)) fail(file, `open.${field} is not one of the fields a creature record may leave undecided: ${openEnemyFields.join(", ")}`);
+      else if (typeof note !== "string" || !note.includes("needs decision")) fail(file, `open.${field} must be a placeholder containing "needs decision" that says what is undecided and why no source answers it`);
+      else if (field === "skillIds") {
+        if (!Array.isArray(value.skillIds) || value.skillIds.length !== 0) fail(file, "open.skillIds says this creature's skills are undecided, so skillIds must be the empty list rather than a guess");
+      } else if (enemyFieldValue(value, field) !== 0) fail(file, `open.${field} says this number is undecided, so ${field} must stay 0 rather than read as a decided value`);
+    }
+  }
+  for (const field of openEnemyFields) {
+    const empty = field === "skillIds" ? Array.isArray(value.skillIds) && value.skillIds.length === 0 : enemyFieldValue(value, field) === 0;
+    if (empty && typeof value.open?.[field] !== "string") fail(file, `${field} is empty, which makes this a placeholder record; open.${field} must name the decision it is waiting on (brief section 20's convention, as C14 applies it to machine dimensions)`);
+  }
   if (value.worldPresence?.penAllowed !== false) fail(file, "island monsters may not be designed as pen exhibits");
   if (value.worldPresence?.packSize !== 1) fail(file, "prototype enemies must be tuned as individual threats");
   for (const [index, id] of (value.skillIds ?? []).entries()) {
@@ -526,6 +705,99 @@ for (const { file, value } of await readJsonDirectory("enemies")) {
   }
 }
 
+// C15: `content/habitats/`. B7 recorded why this directory did not exist -- a
+// habitat is mostly its roster, and two rostered creatures had no content
+// record while the seven that did carried a suffix the registry never used --
+// and left `habitat.` in `intentionallyExternalPrefixes` as the honest
+// stopgap. Both halves are closed above, so the twin is authored and
+// `habitat.` is an ordinary registered ID like any other.
+//
+// The arrangement is `content/loot/`'s exactly: content owns the numbers,
+// `Habitats::black_beach_vertical_slice` in `godot-rust/src/habitat.rs`
+// carries them so the simulation never reads the disk mid-day, and
+// `habitat::tests::fixture_matches_the_authored_habitats` holds the two equal
+// field for field. The field names and the `rank` and `family` spellings below
+// are `HabitatRecord`'s, `EncounterRank`'s and `CreatureFamily`'s verbatim --
+// the Rust enums carry no serde rename, so C6's treatment of `RecruitmentStage`
+// applies: the variant names are what a record writes, and the Rust test is
+// what keeps these lists honest.
+const encounterRanks = new Set(["Ordinary", "Elevated", "Apex"]);
+const creatureFamilies = new Set(["Beast", "Undead", "Spectral", "Eldritch"]);
+const habitatRegionIds = new Map();
+const habitatTerritory = new Map();
+let habitatCount = 0;
+for (const { file, value } of await readJsonDirectory("habitats")) {
+  habitatCount += 1;
+  if (typeof value.id !== "string" || !value.id.startsWith("habitat.")) fail(file, `id ${JSON.stringify(value.id)} must use the habitat. prefix`);
+  requireString(value, "display_name", file);
+
+  // Every habitat owns a distinct region, because `WorldClock::resolve_midnight`
+  // builds each spawn's instance ID from region and slot: two habitats sharing
+  // a region would collide into one `HabitatState`.
+  if (typeof value.region_id !== "string" || !value.region_id.startsWith("world.region.")) fail(file, `region_id ${JSON.stringify(value.region_id)} must be a world.region.<...> ID`);
+  else if (habitatRegionIds.has(value.region_id)) fail(file, `region_id ${value.region_id} is already held by ${habitatRegionIds.get(value.region_id)}; Midnight Return derives instance IDs from region and slot, so two habitats sharing one region would collide into a single spawn record`);
+  else habitatRegionIds.set(value.region_id, value.id);
+
+  // The roster is the habitat. Every entry names a creature content declares,
+  // so a habitat can no longer roster something nobody authored.
+  if (!Array.isArray(value.roster) || value.roster.length === 0) fail(file, "roster must list every creature that can hold this habitat, baseline first");
+  else {
+    const rostered = new Set();
+    for (const [index, entry] of value.roster.entries()) {
+      if (typeof entry?.definition_id !== "string" || !entry.definition_id.startsWith("enemy.")) fail(file, `roster[${index}].definition_id ${JSON.stringify(entry?.definition_id)} must be an enemy.<...> creature ID`);
+      else {
+        reference(entry.definition_id, file, `roster[${index}].definition_id`);
+        if (rostered.has(entry.definition_id)) fail(file, `roster[${index}] rosters ${entry.definition_id} twice`);
+        else rostered.add(entry.definition_id);
+      }
+      if (!creatureFamilies.has(entry?.family)) fail(file, `roster[${index}].family ${JSON.stringify(entry?.family)} is not one of ${[...creatureFamilies].join(", ")}`);
+      if (!Number.isInteger(entry?.available_from_day) || entry.available_from_day < 1) fail(file, `roster[${index}].available_from_day must be an integer campaign day of 1 or more`);
+      if (typeof entry?.night_only !== "boolean") fail(file, `roster[${index}].night_only must be boolean`);
+    }
+    // A habitat whose whole roster is night-only has no daylight holder, and
+    // `leader_definition_id` would advertise a creature that cannot be there.
+    if (value.roster.every(entry => entry?.night_only === true)) fail(file, "roster leaves this habitat with no daylight holder at all; the first entry is the baseline answer to what normally lives here");
+  }
+
+  if (!encounterRanks.has(value.rank)) fail(file, `rank ${JSON.stringify(value.rank)} is not one of ${[...encounterRanks].join(", ")}`);
+  for (const field of ["behavior_tags", "intent_suite", "territory_location_ids"]) {
+    if (!Array.isArray(value[field]) || value[field].length === 0) fail(file, `${field} must be a non-empty array`);
+  }
+  for (const [index, tag] of (Array.isArray(value.behavior_tags) ? value.behavior_tags : []).entries()) {
+    if (typeof tag !== "string" || tag.trim() === "") fail(file, `behavior_tags[${index}] must be a non-empty string`);
+  }
+  // The intent suite is what this habitat advertises its holder will open with.
+  // Its IDs are enemy skills, which stay external for the reason the prefix
+  // list below gives.
+  for (const [index, id] of (Array.isArray(value.intent_suite) ? value.intent_suite : []).entries()) {
+    if (typeof id !== "string" || !id.startsWith("skill.enemy.")) fail(file, `intent_suite[${index}] ${JSON.stringify(id)} must be a skill.enemy.<...> ID`);
+    else reference(id, file, `intent_suite[${index}]`);
+  }
+  // Territory is authored world cells, and no two habitats may claim the same
+  // one: `Habitats::habitat_for_location` returns the first match, so an
+  // overlap would silently pick a winner.
+  for (const [index, id] of (Array.isArray(value.territory_location_ids) ? value.territory_location_ids : []).entries()) {
+    if (typeof id !== "string" || !id.startsWith("world.cell.")) fail(file, `territory_location_ids[${index}] ${JSON.stringify(id)} must be a world.cell.<...> ID`);
+    else {
+      reference(id, file, `territory_location_ids[${index}]`);
+      if (habitatTerritory.has(id)) fail(file, `territory_location_ids[${index}] ${id} is already territory of ${habitatTerritory.get(id)}; a location has one holder, because habitat_for_location answers with the first habitat that claims it`);
+      else habitatTerritory.set(id, value.id);
+    }
+  }
+
+  if (typeof value.drop_table_id !== "string" || !value.drop_table_id.startsWith("loot.")) fail(file, `drop_table_id ${JSON.stringify(value.drop_table_id)} must be a loot.<...> table ID`);
+  else reference(value.drop_table_id, file, "drop_table_id");
+  if (typeof value.return_eligible !== "boolean") fail(file, "return_eligible must be boolean");
+  // base_level is a u8 and daily_pressure an i8 downstream.
+  if (!Number.isInteger(value.base_level) || value.base_level < 1 || value.base_level > 255) fail(file, "base_level must be an integer from 1 through 255");
+  if (!Number.isInteger(value.daily_pressure) || value.daily_pressure < -128 || value.daily_pressure > 127) fail(file, "daily_pressure must be an integer from -128 through 127");
+
+  requireString(value.metadata ?? {}, "implementationOwner", file);
+  requireString(value.metadata ?? {}, "maturity", file);
+  if (typeof value.metadata?.releaseLegal !== "boolean") fail(file, "habitat metadata.releaseLegal must be boolean");
+  if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "habitat metadata.notes must say what this habitat's schedule means and where its field names come from");
+}
+
 for (const { file, value } of await readJsonDirectory("encounters")) {
   for (const [index, id] of (value.partyActorIds ?? []).entries()) reference(id, file, `partyActorIds[${index}]`);
   for (const [index, id] of (value.hostileActorIds ?? []).entries()) reference(id, file, `hostileActorIds[${index}]`);
@@ -539,6 +811,116 @@ for (const { file, value } of await readJsonDirectory("encounters")) {
   // nothing checked it, so the dangling ID shipped silently.
   reference(value.victory?.lootTableId, file, "victory.lootTableId");
   if (value.presentation?.inactivePartyMode !== "card_rail" || value.presentation?.activeActorMode !== "full_body_battle_plane") fail(file, "encounter must preserve the card-to-active combat contract");
+}
+
+// C5: `content/dungeons/`. The design bible's section 3.13 names the twelve
+// spaces of the Tomb of Returning Names; this record lists exactly those
+// twelve, says which world cell realises each one today, and gives each space
+// two site-rule sets -- the owning faction's and the corrupted variant's. The
+// selection between them is S9's `DungeonContext.owning_faction_id`, read by
+// `select_site_rules` in `godot-rust/src/strategy/dungeon_content.rs`; this
+// block refuses a record that reader could not honour.
+//
+// A7: a site rule is no longer opaque. C5 registered twenty-six
+// `site_rule.<...>` IDs from the dungeon record itself and said plainly that
+// what they *do* was A7's to decide; this block is that decision's content
+// half. `content/site_rules/<slug>.json` is now the owner of every one of
+// those IDs -- it registers them, and the dungeon record and the tomb cells
+// reference them like any other stable ID.
+//
+// The effect vocabulary is closed and is `SiteRuleEffect` in
+// `godot-rust/src/strategy/site_rule.rs`. Exactly two shapes are legal, and a
+// record carrying neither is refused here in the same words the Rust loader
+// refuses it in. There is no catch-all: a vocabulary that accepts anything is
+// not a vocabulary, and a rule whose mechanics are Open says so in its own
+// `effect` rather than defaulting to a mechanic nobody chose.
+const siteRuleIdPrefix = "site_rule.";
+const authoredSiteRuleIds = new Set();
+let siteRuleCount = 0;
+for (const { file, value } of await readJsonDirectory("site_rules")) {
+  siteRuleCount += 1;
+  if (typeof value.id !== "string" || !value.id.startsWith(siteRuleIdPrefix)) fail(file, `id ${value.id} must use the site_rule. prefix`);
+  else authoredSiteRuleIds.add(value.id);
+  requireString(value, "displayName", file);
+  const effect = value.effect;
+  if (!effect || typeof effect !== "object" || Array.isArray(effect)) {
+    fail(file, "effect must be an object naming exactly one of the closed vocabulary's two shapes");
+  } else {
+    const keys = Object.keys(effect);
+    if (keys.length !== 1 || !["guard_regen_per_round", "needs_decision"].includes(keys[0])) {
+      fail(file, `effect must be exactly one of {"guard_regen_per_round": <positive integer>} or {"needs_decision": true}; found ${JSON.stringify(keys)}`);
+    } else if (keys[0] === "guard_regen_per_round") {
+      if (!Number.isInteger(effect.guard_regen_per_round) || effect.guard_regen_per_round <= 0) fail(file, "effect.guard_regen_per_round must be a positive integer; a rule that regenerates nothing should have said needs_decision");
+    } else if (effect.needs_decision !== true) {
+      fail(file, "effect.needs_decision must be true; false would claim the decision is made and then name no mechanic");
+    }
+  }
+  requireString(value.metadata ?? {}, "implementationOwner", file);
+  requireString(value.metadata ?? {}, "maturity", file);
+  if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "site rule metadata.notes must say what the rule does or that the decision is Open");
+}
+
+const dungeonSpaceIdPrefix = "dungeon.";
+const selectedSiteRuleIds = new Set();
+const dungeonSpacesByDungeon = new Map();
+const dungeonRecordsById = new Map();
+let dungeonSpaceCount = 0;
+for (const { file, value } of await readJsonDirectory("dungeons")) {
+  if (value.kind !== "dungeon") fail(file, "kind must be dungeon");
+  if (!value.id?.startsWith(dungeonSpaceIdPrefix)) fail(file, `id ${value.id} must use the dungeon. prefix`);
+  requireString(value, "displayName", file);
+  // Concept keys, never proper names: brief section 4 leaves faction names
+  // Open, and `factionConceptKeys` above is the one list of the six.
+  for (const field of ["defaultOwnerConceptKey", "corruptedVariantConceptKey"]) {
+    if (!factionConceptKeys.includes(value[field])) fail(file, `${field} ${value[field]} is not one of the six concept keys: ${factionConceptKeys.join(", ")}`);
+  }
+  if (value.defaultOwnerConceptKey === value.corruptedVariantConceptKey) fail(file, "defaultOwnerConceptKey and corruptedVariantConceptKey must differ, or an owner change can never change the rules");
+  const spaces = new Map();
+  if (!Array.isArray(value.spaces) || value.spaces.length === 0) fail(file, "spaces must list the dungeon's authored spaces");
+  else for (const [index, space] of value.spaces.entries()) {
+    dungeonSpaceCount += 1;
+    const where = `spaces[${index}]`;
+    registerId(space?.id, file);
+    if (!space?.id?.startsWith(`${value.id}.space.`)) fail(file, `${where}.id ${space?.id} must be ${value.id}.space.<space>`);
+    if (typeof space?.space !== "string" || !/^[a-z][a-z0-9_]*$/.test(space.space)) fail(file, `${where}.space must be a lower_snake_case slug`);
+    else if (space.id !== `${value.id}.space.${space.space}`) fail(file, `${where}.id must end in its own space slug ${space.space}`);
+    else if (spaces.has(space.space)) fail(file, `${where}.space ${space.space} is authored twice`);
+    else spaces.set(space.space, space);
+    for (const field of ["displayName", "purpose", "persistentProof", "note"]) requireString(space ?? {}, field, file);
+    // Either a cell realises this space today, or the record says plainly
+    // that none does. An absent key is neither, and would read as "unknown".
+    if (space?.worldCellId === undefined) fail(file, `${where}.worldCellId must be a world cell ID or null`);
+    else if (space.worldCellId !== null) reference(space.worldCellId, file, `${where}.worldCellId`);
+    for (const field of ["siteRuleIds", "corruptedSiteRuleIds"]) {
+      const rules = space?.[field];
+      if (!Array.isArray(rules) || rules.length === 0) fail(file, `${where}.${field} must name at least one site rule`);
+      else for (const [ruleIndex, ruleId] of rules.entries()) {
+        if (typeof ruleId !== "string" || !ruleId.startsWith(siteRuleIdPrefix)) fail(file, `${where}.${field}[${ruleIndex}] must be a site_rule.<...> stable ID`);
+        else {
+          reference(ruleId, file, `${where}.${field}[${ruleIndex}]`);
+          selectedSiteRuleIds.add(ruleId);
+        }
+      }
+    }
+    // The card's whole point: a different owner is a different dungeon. A
+    // space whose corrupted set equals its default set would make the owner
+    // change invisible, which is brief section 12's "palette swap".
+    if (JSON.stringify(space?.siteRuleIds) === JSON.stringify(space?.corruptedSiteRuleIds)) fail(file, `${where}.corruptedSiteRuleIds must differ from siteRuleIds; a corrupted variant that selects the same rules is a palette swap (brief section 12)`);
+  }
+  dungeonSpacesByDungeon.set(value.id, spaces);
+  dungeonRecordsById.set(value.id, value);
+  requireString(value.metadata ?? {}, "implementationOwner", file);
+  requireString(value.metadata ?? {}, "maturity", file);
+  if (typeof value.metadata?.releaseLegal !== "boolean") fail(file, "dungeon metadata.releaseLegal must be boolean");
+  if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "dungeon metadata.notes must record which spaces are unrealised and what stays Open");
+}
+
+// Both directions, the way `content/skills/` and `battle::skill_rank` are held
+// equal: an authored rule no dungeon selects is a noodle to nowhere, and a
+// selected rule with no record is a mechanic nobody wrote. The Rust twin is
+// `every_site_rule_the_tomb_selects_has_a_record_and_the_other_way_round`.
+for (const ruleId of authoredSiteRuleIds) {
+  if (!selectedSiteRuleIds.has(ruleId)) fail(resolve(repo, `content/site_rules`), `${ruleId} has a record that no dungeon space selects`);
 }
 
 const worldRecords = await readJsonDirectory("world");
@@ -602,7 +984,7 @@ for (const { file, value } of worldRecords) {
       for (const field of ["id", "fromAnchorId", "targetAnchorId", "travelMode", "returnRule"]) requireString(portal, field, file);
       reference(portal.targetCellId, file, `portals[${index}].targetCellId`);
       if (!entryAnchorIds.has(portal.fromAnchorId)) fail(file, `portals[${index}].fromAnchorId must name an entry anchor in this cell`);
-      if (!new Set(["on_foot", "safe_road", "jungle_edge"]).has(portal.travelMode)) fail(file, `portals[${index}].travelMode is unsupported`);
+      if (!travelModes.has(portal.travelMode)) fail(file, `portals[${index}].travelMode is unsupported; the authored vocabulary is ${[...travelModes].join(", ")}`);
       if (!new Set(["always", "allowed_while_no_pending_encounter"]).has(portal.returnRule)) fail(file, `portals[${index}].returnRule is unsupported`);
       // C2: travel costs live with the portal that charges them. They are
       // optional so a connection can be authored before it is priced, but a
@@ -615,6 +997,15 @@ for (const { file, value } of worldRecords) {
       }
       if (portal.requiredDiscoveryId !== undefined) reference(portal.requiredDiscoveryId, file, `portals[${index}].requiredDiscoveryId`);
     }
+    // B7: a battle entry's `status` says what, if anything, actually fights
+    // here, and it is now a closed set. `future_spawn_socket` is a reserved
+    // place with nothing in it; `vertical_slice_encounter` is content's own
+    // one-time fight; `habitat_holder` is the socket where whatever the named
+    // habitat currently holds answers, through `begin_encounter`'s existing
+    // habitat path rather than a second spawn rule. The last two are what make
+    // a cell encounter-eligible in godot-rust/src/geography.rs, so a status
+    // typo used to be a silently dead room.
+    const battleEntryStatuses = new Set(["future_spawn_socket", "vertical_slice_encounter", "habitat_holder"]);
     if (!Array.isArray(value.battleEntries) || value.battleEntries.length === 0) fail(file, "world cell requires one or more battle entries");
     else for (const [index, entry] of value.battleEntries.entries()) {
       requireString(entry, "id", file);
@@ -622,6 +1013,14 @@ for (const { file, value } of worldRecords) {
       for (const field of ["returnAnchorId", "safeRetreatAnchorId"]) requireString(entry, field, file);
       if (!entryAnchorIds.has(entry.returnAnchorId)) fail(file, `battleEntries[${index}].returnAnchorId must name an entry anchor in this cell`);
       if (!entryAnchorIds.has(entry.safeRetreatAnchorId)) fail(file, `battleEntries[${index}].safeRetreatAnchorId must name an entry anchor in this cell`);
+      if (!battleEntryStatuses.has(entry.status)) fail(file, `battleEntries[${index}].status must be one of ${[...battleEntryStatuses].join(", ")}`);
+      if (entry.habitatId !== undefined) {
+        reference(entry.habitatId, file, `battleEntries[${index}].habitatId`);
+        if (typeof entry.habitatId === "string" && !entry.habitatId.startsWith("habitat.")) fail(file, `battleEntries[${index}].habitatId must use the habitat. prefix`);
+        if (entry.status === "future_spawn_socket") fail(file, `battleEntries[${index}] is bound to ${entry.habitatId} and is therefore not a future socket; use status habitat_holder or vertical_slice_encounter`);
+      } else if (entry.status === "habitat_holder") {
+        fail(file, `battleEntries[${index}].status is habitat_holder but no habitatId names the habitat that holds it`);
+      }
     }
     if (!Array.isArray(value.explorationActions) || value.explorationActions.length < 2) fail(file, "world cell requires two or more real exploration actions");
     else for (const [index, action] of value.explorationActions.entries()) {
@@ -650,6 +1049,38 @@ for (const { file, value } of worldRecords) {
       registerId(description.id, file);
       if (!description.id?.startsWith("observation.")) fail(file, `readableDescriptions[${index}].id must use the observation. prefix`);
       if (typeof description.text !== "string" || description.text.length < 90) fail(file, `readableDescriptions[${index}].text must be at least 90 characters`);
+    }
+    // C5: a cell may declare which dungeon space it realises. The dungeon
+    // record above is the owner of the space table and of both rule sets; this
+    // block is the mirror, and every field of it is checked against the record
+    // rather than believed. `siteRuleIds` here is the space's default-owner
+    // list and nothing else -- A7 reads a cell's site rules from this one
+    // field, so a second list, or a drifted copy of this one, would be two
+    // answers to one question.
+    const dungeonContext = value.dungeonContext;
+    if (dungeonContext !== undefined) {
+      if (!dungeonContext || typeof dungeonContext !== "object" || Array.isArray(dungeonContext)) fail(file, "dungeonContext must be an object");
+      else {
+        reference(dungeonContext.dungeonId, file, "dungeonContext.dungeonId");
+        const authoredSpaces = dungeonSpacesByDungeon.get(dungeonContext.dungeonId);
+        const space = authoredSpaces?.get(dungeonContext.space);
+        if (authoredSpaces && !space) fail(file, `dungeonContext.space ${dungeonContext.space} is not a space of ${dungeonContext.dungeonId}`);
+        for (const field of ["ownerConceptKey", "corruptedVariantConceptKey"]) {
+          if (!factionConceptKeys.includes(dungeonContext[field])) fail(file, `dungeonContext.${field} ${dungeonContext[field]} is not one of the six concept keys: ${factionConceptKeys.join(", ")}`);
+        }
+        const dungeonRecord = dungeonRecordsById.get(dungeonContext.dungeonId);
+        if (dungeonRecord) {
+          if (dungeonContext.ownerConceptKey !== dungeonRecord.defaultOwnerConceptKey) fail(file, `dungeonContext.ownerConceptKey must be ${dungeonRecord.defaultOwnerConceptKey}, the dungeon record's default owner`);
+          if (dungeonContext.corruptedVariantConceptKey !== dungeonRecord.corruptedVariantConceptKey) fail(file, `dungeonContext.corruptedVariantConceptKey must be ${dungeonRecord.corruptedVariantConceptKey}, the dungeon record's corrupted variant`);
+        }
+        if (space) {
+          if (space.worldCellId !== value.id) fail(file, `dungeonContext.space ${dungeonContext.space} is realised by ${space.worldCellId}, not by this cell`);
+          if (JSON.stringify(dungeonContext.siteRuleIds) !== JSON.stringify(space.siteRuleIds)) fail(file, `dungeonContext.siteRuleIds must equal the ${dungeonContext.space} space's siteRuleIds in ${dungeonContext.dungeonId}`);
+        } else if (!Array.isArray(dungeonContext.siteRuleIds) || dungeonContext.siteRuleIds.length === 0) {
+          fail(file, "dungeonContext.siteRuleIds must name at least one site rule");
+        }
+        for (const [index, ruleId] of (dungeonContext.siteRuleIds ?? []).entries()) reference(ruleId, file, `dungeonContext.siteRuleIds[${index}]`);
+      }
     }
     if (value.admission?.collisionSeparatedFromVisualShell !== true || value.admission?.navigationSeparatedFromVisualShell !== true) fail(file, "world cell must separate visual shell, collision and navigation");
   } else {
@@ -951,6 +1382,18 @@ for (const directoryName of packDirectoryNames) {
   if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "pack metadata.notes must record what the pack is and what it deliberately does not carry");
 }
 
+// An enemy *skill* is the one reference that still resolves outside this ID
+// map. `content/skills/` authors the party's skills; an enemy's skill is
+// declared inline by the creature record that uses it and by the habitat that
+// advertises it, and battle.rs owns what it does, so `skill.enemy.` has no
+// registered record to point at.
+//
+// `habitat.` used to sit beside it. B7 put it there because a habitat record
+// could not be authored honestly yet -- the roster named creatures content did
+// not declare, and the records that existed carried a `.prototype` suffix the
+// registry never used. C15 closed both, so `content/habitats/` now registers
+// every `habitat.*` ID and a world cell's `battleEntries[].habitatId` resolves
+// against a record like any other reference.
 const intentionallyExternalPrefixes = ["skill.enemy."];
 for (const item of references) {
   if (!ids.has(item.id) && !intentionallyExternalPrefixes.some(prefix => item.id.startsWith(prefix))) {
@@ -963,4 +1406,4 @@ if (failures.length) {
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
-console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${buildingCount} building records, ${relationshipSceneCount} relationship scenes, ${packCount} presentation packs carrying ${packOverrideCount} scene overrides, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
+console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${enemyCount} creature records, ${habitatCount} habitats, ${buildingCount} building records, ${machineCount} machine records, ${dungeonSpaceCount} authored dungeon spaces, ${siteRuleCount} site rules, ${relationshipSceneCount} relationship scenes, ${packCount} presentation packs carrying ${packOverrideCount} scene overrides, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);

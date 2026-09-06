@@ -1,0 +1,29 @@
+{
+  "id": "habitat.black_beach.terrace_precinct",
+  "region_id": "world.region.black_beach.terrace_precinct",
+  "display_name": "Reception Terrace Precinct",
+  "roster": [
+    { "definition_id": "enemy.raptor.razorbeak.crested", "family": "Beast", "available_from_day": 1, "night_only": false },
+    { "definition_id": "enemy.undead.tomb_wight", "family": "Undead", "available_from_day": 2, "night_only": false },
+    { "definition_id": "enemy.spectral.lament", "family": "Spectral", "available_from_day": 3, "night_only": true },
+    { "definition_id": "enemy.eldritch.tide_spawn", "family": "Eldritch", "available_from_day": 12, "night_only": false }
+  ],
+  "rank": "Apex",
+  "behavior_tags": ["individual-threat", "territorial"],
+  "intent_suite": ["skill.enemy.razorbeak.guard_breaking_kick", "skill.enemy.razorbeak.rushing_bite"],
+  "territory_location_ids": ["world.cell.reception_terrace", "world.cell.processional_ramp", "world.cell.tomb_service_passage"],
+  "drop_table_id": "loot.razorbeak.crested.prototype",
+  "return_eligible": true,
+  "base_level": 9,
+  "daily_pressure": 2,
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "maturity": "vertical_slice",
+    "releaseLegal": false,
+    "notes": [
+      "The elven funerary site turns first -- its dead walk in daylight from day 2 and its ghosts from day 3 -- and it is the only habitat that ever holds an Eldritch creature, from day 12.",
+      "world.cell.tomb_service_passage is territory because D3's ungated wrong turn inside the tomb is answered by this precinct's guardians; B7's battle entry there binds to this habitat by ID.",
+      "Field names and value spellings are HabitatRecord's in godot-rust/src/habitat.rs verbatim, because habitat::tests::fixture_matches_the_authored_habitats holds the two equal field for field."
+    ]
+  }
+}

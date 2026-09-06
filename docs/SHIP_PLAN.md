@@ -346,17 +346,16 @@ top of the document is never stale:
 
 - **M0** shipped 7/13 · A1 A2 A11 B1 H6 H7 H9 · H2 and H10 superseded by
   `main`'s own rewrite · **remaining: C2, B2, H5, H8**
-- **M1** shipped 8/12 — **A10** (a woman's higher-ranked commands open as her arc advances), **C1, C2, C4** (loot, portal costs, Michael's
+- **M1** shipped 10/12 — **A7** and **C3** (Ayla lands: seven of seven, site rules as data), **A10** (a woman's higher-ranked commands open as her arc advances), **C1, C2, C4** (loot, portal costs, Michael's
   commands), **A3** (the supply loop closes: anchors produce, rations bite,
   victory pays), **A4** (the estate's rooms are anchor actions; one way to act
   at a place), **A5** (five named bands, Composure, the Shaken gate) and
   **A6** (Michael is a playable actor: Weapon Attack, Guard, Reposition)
-- **M2** shipped 8/9 (E8 is listed for the record but sits outside the bracket) — **B8** (save slots and continue through the bridge; newest by in-world time), **B9** (pause is one Godot fact; settings persist), **E7** (a crash log on the player's disk; nothing leaves the machine, proven), **E8** (both ledgers a CI gate), **E1** (CI live and green on GitHub), **E2** (Godot
+- **M2** shipped 9/9 (E8 is listed for the record but sits outside the bracket) — **E5** (nightly Linux and Windows builds that refuse to ship hollow; macOS honestly absent), **B8** (save slots and continue through the bridge; newest by in-world time), **B9** (pause is one Godot fact; settings persist), **E7** (a crash log on the player's disk; nothing leaves the machine, proven), **E8** (both ledgers a CI gate), **E1** (CI live and green on GitHub), **E2** (Godot
   suites, first run executed and green), **E3** portable gates, **E4** desktop
-  export presets, **E6** save-migration fixtures; E5 open with a hard
-  build-before-export requirement
+  export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `ff7a81a`. If this line is older than
+- Last updated 2026-09-06 against trunk `252b3fb`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -369,7 +368,7 @@ top of the document is never stale:
 | A4 | Estate actions as anchor actions; delete `rest_at_estate` | A3 | shipped 047e0f4 2026-09-05 — pursuit made gate-aware in cae9337 on merge |
 | A5 | Five named bands and Composure | A1 | shipped 906411c 2026-09-05 — skill_rank reconciled to authored bondRank on merge |
 | A6 | Captain Michael as a battle actor: Weapon Attack, Guard, Reposition | A5, C4 | shipped f33f364 2026-09-05 — name and reposition record reconciled on merge |
-| A7 | Ayla's Deny Activation and Override Tomb Rule via site rules | A2, H5 | open |
+| A7 | Ayla's Deny Activation and Override Tomb Rule via site rules; PR #2's five skills re-landed on the current engine | A2, H5 | shipped abe9a5a 2026-09-06 |
 | A8 | Reconcile `hold_position` with the Guard decision | A6 | shipped 4572361 2026-09-06 |
 | A9 | Faction-agent observation record (was "Champion") | A6, S5 | open |
 | A10 | Bond rank D→C with a specified combat effect | A6, C6 | shipped f75cc64 2026-09-06 |
@@ -396,6 +395,7 @@ top of the document is never stale:
 | S14 | Founding sequence: shipwreck to first strategic core | S13, O5 | open |
 | S15 | Two Provisional doctrines approved and encoded | S1, human | blocked: needs approval of brief §6.x doctrines |
 | S16 | Production runs in the tick: interval rules produce on the economy draw | S13, B16 | open |
+| S17 | Goals become actions: Develop places a building, Supply gathers, Expand and Pressure dispatch a force | S16, S5, S7, B16 | open — after S16 |
 
 ### Lane B — Bridge, board and Godot
 
@@ -407,7 +407,7 @@ top of the document is never stale:
 | B4 | Route board shows anchor and estate commands | B3 | shipped 9090284 2026-09-06 |
 | B5 | Battle screen: Michael's card unfolds; bands and Composure drawn | A5, A6 | shipped ab81aee 2026-09-06 |
 | B6 | World cells for the tomb interior | A2 | shipped 95ada6f 2026-09-06 |
-| B7 | Battle-entry sockets bound to habitat holders | B3 | open |
+| B7 | Battle-entry sockets bound to habitat holders | B3 | shipped 9f09b9c 2026-09-06 |
 | B8 | New game, save slots, continue | E6 | shipped ff7a81a 2026-09-06 |
 | B9 | Settings, accessibility, and **pause** | — | shipped 649852a 2026-09-06 |
 | B10 | `ContentPackRegistry` and the presentation override pack | C8 | shipped 2f2b355 2026-09-06 |
@@ -418,7 +418,8 @@ top of the document is never stale:
 | B15 | The bridge loads the faction records and hands the registry down; S5's seam closed | C9, S5 | shipped 777a943 2026-09-06 — the seam is closed as an honest negative until a record carries a real weight |
 | B16 | The bridge loads the building records and hands the registry to the tick; S10's sweep reads real buildings | C10, S10 | shipped 049bd45 2026-09-06 |
 | B17 | A battle is built from the campaign: bond ranks reach the fight | A10 | shipped b9c6ad5 2026-09-06 |
-| B18 | RTS controls: select, then order a move by tile, words or hotkey; route markers go | B14 | open |
+| B19 | The bridge loads the machine records and hands the registry to the tick | C14, S16 | open — after S16 |
+| B18 | RTS controls: select, then order a move by tile, words or hotkey; route markers go | B14 | superseded by P7 — the owner returned the front end to this branch the same day |
 
 ### Lane C — Content and validator (`content/`, `tools/src/validate.mjs`)
 
@@ -426,9 +427,9 @@ top of the document is never stale:
 |---|---|---|---|
 | C1 | Loot records and the `lootTableId` reference check | — | shipped ab17bfa 2026-09-05 |
 | C2 | Portal cost fields (the location IDs were fixed by A2) | — | shipped ab17bfa 2026-09-05 — its costs first reached the engine under C13; the port had dropped them |
-| C3 | `ayla.json` and seven Ayla skill records | A7 | open |
+| C3 | `ayla.json` and seven Ayla skill records | A7 | shipped abe9a5a 2026-09-06 |
 | C4 | Captain Michael's skill records and a `self` target rule | — | shipped ab17bfa 2026-09-05 |
-| C5 | The tomb as a faction-specific dungeon: twelve spaces | B6, S9 | open |
+| C5 | The tomb as a faction-specific dungeon: twelve spaces | B6, S9 | shipped 419f64c 2026-09-06 |
 | C6 | Relationship scene records and schema | — | shipped 3857ffa 2026-09-06 — five scenes, fade-to-black by rule, the pack's seam left open |
 | C7 | Placeholder deprecation migration | D4 | open |
 | C8 | Scene `presentationLevel` and the pack manifest schema | C6 | shipped a579ff9 2026-09-06 |
@@ -437,7 +438,8 @@ top of the document is never stale:
 | C11 | Room contract fields on world cells | B11 | open |
 | C12 | One recruitable woman's arc (records only; identity per O2) | C6, S12, O2 | blocked: needs decision O2 |
 | C13 | Content can declare a discovery ID; the tidal cut's gate authored | A4 | shipped 3c85451 2026-09-05 — plus the bridge wire it turned out to need |
-| C14 | Machine records: the eight families with brief §18's fields | S13 | open |
+| C14 | Machine records: the eight families with brief §18's fields | S13 | shipped 6d2aa16 2026-09-06 |
+| C15 | Habitats and their creatures as content: the two rostered creatures with no record, then `content/habitats/` | B7 | shipped eba030a 2026-09-06 |
 
 ### Lane D — Art (`content/art/`, `work/art/`, `game/assets/`)
 
@@ -464,16 +466,39 @@ top of the document is never stale:
 | E2 | Godot headless suites in CI | E1, E3 | shipped 7b8f698 2026-09-05 — executed and green; **hardened 5107113 2026-09-06**: the gate now fails any step that prints an ERROR line, after a suite's exit-code hole let a missing scene anchor through a green run |
 | E3 | Shell equivalents of the two PowerShell gates | — | shipped 5344b7b 2026-09-05 |
 | E4 | Desktop export presets for Windows, Linux, macOS | — | shipped 838824e 2026-09-05 |
-| E5 | Nightly build artifacts per platform | E2, E4 | open — **must build the native library before exporting**, see its card |
+| E5 | Nightly build artifacts per platform | E2, E4 | shipped ab23ab9 2026-09-06 — Linux and Windows; macOS refused honestly, see its card |
 | E6 | Save-version migration fixtures | — | shipped 85413f0 2026-09-05 — **blind spot closed 095f3ac 2026-09-06**: the expected key set is a literal now |
 | E7 | Crash log with state snapshot; no silent telemetry | — | shipped 47fa829 2026-09-06 |
 | E8 | Claims enforcement in CI | E1 | shipped 528773b 2026-09-06 — both ledgers are a gate; it corrected 120-odd records on arrival |
-| E9 | Pack build script and pack artifact | C8, E5 | open |
+| E9 | Pack build script and pack artifact | C8, E5 | shipped ab23ab9 2026-09-06 |
+| E10 | macOS nightly on a macOS runner; the dylib built where it can be | E5 | shipped 252b3fb 2026-09-06 — the job refuses by name until E11 lands |
+| E11 | The macOS export actually exports: arm64 rows in the `.gdextension`, a universal preset, the build script names the host architecture | E10 | open |
 
 ### Lane F — Audio · Lane G — QA
 
 Cards at M4 from bible §14's backlog and the brief's calm-interface rules.
 G1 is the acceptance script; G2/G3 two external rounds.
+
+### Lane P — Presentation (`game/`, everything but the models)
+
+The owner's direction, 2026-09-06: *"make this game look great … except for
+the models, the rest is stuff you need to build right now. This should be a
+3A game from 2027, award winner in systems and art … keep going and
+iterating until you get there."* The models are the owner's; every other
+pixel is this lane's. Each card ends in a screenshot the owner can look at,
+captured by P1's gate, and no card claims a look it has not captured.
+
+| ID | Task | Depends on | Status |
+|---|---|---|---|
+| P1 | Screenshot gate: every review scene and screen rendered offscreen in CI and locally; the visual loop | E2 | open |
+| P2 | Render foundation: Forward+ with a compatibility fallback, the world environment, the material and shader library, the camera director | P1 | open |
+| P3 | Atmosphere from the simulation: time of day, weather, corruption and pressure read from the snapshot, never a clock | P2, S8 | open |
+| P4 | The isometric board (B11 + B12): room cells with board metadata, three distances, party miniatures, ownership tint, forces in motion | P2, S2, S7, O3 (provisional) | open |
+| P5 | The bronze-and-vellum grammar (D11) and the calm information surface (B13): one Theme, the card rail, the command grid, journal and directive surfaces, accessibility wired | S6, S11, B9 | open |
+| P6 | Battle presentation: skill VFX and camera beats from the registries, hit-stop, band motion, site-rule ambience, the paper rigs until models | A5, A7, C3 | open |
+| P7 | RTS controls on the board (B18 resumed): select, then order a move by tile, words or hotkey; the drawn markers go | B14 | open |
+| P8 | The shell: title, new game, continue, settings, pause, save slots, loading; one scene flow shell → expedition → battle and back | B8, B9 | open |
+| P9 | Audio: buses, ambience by region, time and weather, cues keyed to battle events, a music state machine; procedural placeholders until assets | P3 | open |
 
 ### Lane H — Docs and hygiene
 
@@ -483,7 +508,7 @@ G1 is the acceptance script; G2/G3 two external rounds.
 | H2 | `GAME_BUILD_PLAN.md` §7 rewritten | — | superseded — `main` replaced the whole document (e77c9e6); its version is canonical and this plan defers to it |
 | H3 | Bible wording: 3D; romance and the pack | — | done (this pass) |
 | H4 | 3D production docs: rigging is a switch; clips wait for the tool | — | done (this pass) |
-| H5 | Site-rule spec into `HEROINE_AYLA_DESIGN.md` | — | open |
+| H5 | Site-rule spec into `HEROINE_AYLA_DESIGN.md` | — | shipped abe9a5a 2026-09-06 — written inside A7, beside the code |
 | H6 | Retarget PR #3 to `main`; note PR #4; flag the stale status branch | — | shipped 34142a8 2026-09-05 — PR #3 now targets `main`, conflict resolved by merging it |
 | H7 | dr-companion `.gitmodules` branch pointer | — | shipped (dr-companion e387d29) 2026-09-05 — the work landed in dr-companion, not here: merged to its `main` in its PR #276; no commit of that SHA exists in this repository |
 | H8 | Regenerate the design bible `.docx` | H3, H9 | open (needs `python-docx`) |
@@ -779,7 +804,7 @@ resolved by the integrator:**
   wrong, not the lane.
 
 ### A7 · Ayla's Deny Activation and Override Tomb Rule via site rules
-Status: open · Depends on: A2, H5
+Status: shipped `abe9a5a` 2026-09-06 · Depends on: A2, H5
 `CellDefinition`/`LocationRecord` gain `site_rule_ids`; the tomb cells declare
 `site_rule.tomb.grave_watch` (hostiles regain 2 guard each round).
 `ExpeditionState.suppressed_site_rules: BTreeSet<String>` `#[serde(default)]`.
@@ -789,7 +814,35 @@ and the bridge writes it to `suppressed_site_rules`. Deny Activation (SS)
 applies `Stunned` for one turn via `apply_status` (arrives with PR #2).
 **(brief)** Site rules are the first hook S9's `DungeonContext` will set per
 owning faction; author them as data from the start.
+**Scope as run (2026-09-06):** PR #2 (`feature/ayla-bridge-art`) implemented
+five of Ayla's seven skills on a battle engine that has since been rewritten
+by A5/A6/A10, so it cannot merge; its diff is the specification and its
+tests are re-landed on the current engine. C5 registered twenty-six
+`site_rule.*` IDs as opaque; this card gives them a record shape
+(`content/site_rules/*.json`, a closed effect vocabulary starting with
+`guard_regen_per_round`) and makes `Battle` apply the cell's rules minus
+`suppressed_site_rules`. H5's spec is written into `HEROINE_AYLA_DESIGN.md`
+beside the code. C3 (her character record and seven skill records) follows
+in the same lane once the two site-rule skills exist. Ayla's physical
+identity stays unestablished; no palette or build is invented.
 Done when: two tests per skill; a suppressed rule survives save/reload.
+**Shipped:** `content/site_rules/*.json` owns all twenty-six IDs; `effect` is
+a closed two-shape vocabulary (`guard_regen_per_round` for grave watch,
+`needs_decision` for the rest) with a single Rust owner in
+`strategy/site_rule.rs`, refused identically by serde and the validator when
+neither shape is named; held equal to the directory and to the dungeon
+record in both directions. Cells carry `site_rule_ids` and `dungeon_id`
+from `dungeonContext`; `LocationRecord::site_id()` defines a site once.
+`suppressed_site_rules` and `site_denial_charges` appended to the save.
+`Battle` applies grave watch in `begin_round`. PR #2's five skills re-landed
+with their tests; Deny Activation is once per site and survives save;
+Override Tomb Rule is once per expedition and its suppression *is* the
+counter. B17's constructor was replaced, not duplicated, by
+`prototype_vertical_slice_from_campaign(&CampaignBattleSetup)`. The port
+forwards site-rule records and each cell's `dungeonContext`. C15's leftover
+literal renamed in the same commit. Four bites proven. **Needs decision:**
+which rule Override Tomb Rule replaces (first in authored order is a
+deterministic stand-in); twenty-five rule mechanics.
 
 ### A8 · Reconcile `hold_position` with the Guard decision
 Status: shipped `4572361` 2026-09-06 · Depends on: A6 — rewrite
@@ -1302,6 +1355,41 @@ produces a machine on the authored interval and the 2,400-hour run still
 reproduces; an unstocked yard skips with a journal entry and never goes
 negative; removing the countdown makes the probe fail (bite).
 
+### S17 · Goals become actions
+Status: open — after S16 · Depends on: S16, S5, S7, B16
+Touches: `godot-rust/src/strategy/tick.rs` (`run_hour`), a new
+`strategy/action.rs`, `strategy/building.rs` (only if a placement helper is
+missing), `godot-rust/tests/strategic_determinism.rs`.
+S4 through S16 built a faction that reads the board, chooses goals, explains
+directives, marches forces, produces machines and can be eliminated — but
+`run_hour` ends at `faction.current_goals = goals` and nothing acts. This
+card is the brief's "factions act autonomously", kept generic so no §6
+doctrine is encoded: **Develop** places the faction's first compatible
+building (from the real registry) on a held cell with room, paying
+`construction_cost` from the stockpile or skipping with a journaled reason;
+**Supply**/**Recover** gather a per-hour trickle from held cells into the
+open-keyed stockpile (one named constant, needs decision); **Expand** and
+**Pressure** dispatch a force along a real route toward the chosen cell
+through `dispatch_force`; **Consolidate** and **Withdraw** do nothing new yet
+and say so. Every action consumes its reserved draw whether or not it acts;
+Michael's faction takes no autonomous action (the player directs it, brief
+§5). A journaled `ActionSkipped { reason }` for every refusal.
+Done when: the 2,400-hour harness with the authored registries shows at
+least one faction placing a building and one dispatching a force, still
+reproducing byte-identically; the M3 done-when — one faction eliminated
+with its recovery chain demonstrably exhausted in a 100-day run — passes
+as a harness test (a scripted opening may seed the imbalance; say so).
+
+### B19 · The bridge loads the machine records and hands the registry to the tick
+Status: open — after S16 · Depends on: C14, S16
+Touches: `game/scripts/simulation/native_expedition_port.gd`,
+`godot-rust/src/godot_bridge.rs` (`configure`), `godot-rust/tests/authored_world.rs`.
+B15's and B16's shape for machines: the port forwards `machine.*` records,
+`configure` builds a validated `MachineDefinitions` and hands it wherever
+S16 threaded the empty one. Done when: the Godot snapshot carries the two
+machine IDs and the harness runs the authored island with all three
+registries.
+
 ### Lane B — new cards
 
 ### B1 · Rewire the campaign bridge from `RouteGraph` to `Geography`
@@ -1411,7 +1499,7 @@ not exist yet, exactly as the estate and river landing do — that is D12's
 work, not content's.
 
 ### B7 · Battle-entry sockets bound to habitat holders
-Status: open · Depends on: B3
+Status: shipped `9f09b9c` 2026-09-06 · Depends on: B3
 Touches: `content/world/*.world_cell.json` (`battleEntries[].habitatId`),
 `tools/src/validate.mjs`, `game/scripts/simulation/native_expedition_port.gd`,
 `godot-rust/src/geography.rs` (`from_authored` and the equality test),
@@ -1426,6 +1514,18 @@ holds — the same `begin_encounter` path, no second spawn rule. The equality
 test then compares `encounter_eligible` too and the tolerance goes.
 Done when: the service passage is eligible from content alone; removing its
 `habitatId` fails the equality test (bite); the Godot job green.
+**Shipped:** `AuthoredBattleEntry` with `habitatId`; an entry is live when
+its status is the one-time slice encounter or it names a habitat, and
+`AuthoredCell::encounter_eligible()` is the whole rule — the port forwards
+`battle_entries` and judges nothing. The service passage binds the terrace
+precinct's habitat from content; the equality test compares eligibility for
+every cell with no tolerance and holds each `habitatId` against the registry
+(the habitat must exist and its territory must cover the cell). Three bites
+proven. **Decision recorded:** no `content/habitats/` mirror yet — a habitat
+is mostly its roster, and two of the roster's creatures have no content
+record, so `habitat.` is an intentionally external prefix until
+`content/enemies/` grows them; the registry cross-check is the stronger
+guard meanwhile.
 
 ### B8 · New game, save slots, continue
 Status: shipped `ff7a81a` 2026-09-06 · Depends on: E6
@@ -1678,7 +1778,7 @@ beat remains the only thing that moves a bond. Two live-bridge assertions in
 the Godot suites; CI's Godot job is their proof.
 
 ### B18 · RTS controls: select, then order a move by tile, by the words, or by hotkey; the drawn route markers go
-Status: open · Depends on: B14
+Status: held — the owner assigned the front end to another tool on 2026-09-06; the lane was stopped with nothing integrated · Depends on: B14
 Touches: `game/scripts/world/expedition_route_board.gd`,
 `game/scripts/world/expedition_prototype.gd`, `game/tests/expedition_prototype_test.gd`.
 The owner's direction (2026-09-06): "remove the route markers … it's
@@ -1741,7 +1841,16 @@ can use it. (The encounter's location IDs, listed here in an earlier draft,
 were fixed by A2.)
 
 ### C3 · `ayla.json` and seven Ayla skill records
-Status: open · Depends on: A7
+Status: shipped `abe9a5a` 2026-09-06 · Depends on: A7
+**Shipped inside A7's lane:** `content/characters/ayla.json` and seven
+`ayla.*` skill records in rank order D…SSS, each bound only to events Rust
+emits and to a registered target rule (Reach Counter got its own rule and
+targeting behaviour rather than borrowing Fatal Intercept's); ten camera and
+ten VFX presentation entries of her own; two placeholder art assets. C6's
+one-line exception for a woman without a record is deleted — the validator
+now finds her. Her build, colouring and palette are **not** established and
+her record says so; her art waits on an identity lock. Stable IDs 270 → 300;
+bundle 59 → 93.
 
 ### C4 · Captain Michael's two commands · shipped ab17bfa
 Status: shipped ab17bfa 2026-09-05 · Depends on: —
@@ -1759,9 +1868,24 @@ binding referenced, pointing a cue at a nonexistent camera, and listing an
 unwritten skill — and watching all five failures appear.
 
 ### C5 · The tomb as a faction-specific dungeon **(brief)**
+Status: shipped `419f64c` 2026-09-06 · Depends on: B6, S9
 As the first edition (twelve spaces per bible §3.13) plus: the tomb's cells
 carry `site_rule_ids` and a `dungeonContext` block; S9 selects rules by
 owning faction (elves by default; corrupted variant when Cthulhu holds it).
+**Shipped:** `content/dungeons/tomb_of_returning_names.json` — the bible's
+twelve spaces, six realised by a world cell today and six carrying
+`worldCellId: null` with a note; the default (elves) and corrupted (Cthulhu)
+site-rule sets, disjoint by test; each tomb cell's `dungeonContext` mirrors
+its space and exactly its rules. `strategy/dungeon_content.rs` reads the
+record (a reader is a different responsibility from S9's signature, so
+`dungeon.rs` is untouched) and `select_site_rules` brings the corrupted set
+only when the Cthulhu concept key holds the ground. Same context, same
+rules; owner change, different rules — the card's done-when, plus the
+record held equal to what the reader loads. Three bites proven. Stable IDs
+225 → 264 (the dungeon, twelve spaces, twenty-six `site_rule.*` IDs).
+**Left, on purpose:** site rules are opaque IDs — A7 owns what a rule does
+and no registry exists; a third owner's rule set and what corruption does to
+a space are `blocked: needs decision`.
 
 ### C6 · Relationship scene records and schema
 Status: shipped `3857ffa` 2026-09-06 · Depends on: —
@@ -1948,7 +2072,7 @@ performs the GDScript's translation field for field and drives the prototype's
 opening on it — the nearest local proof; the Godot job is the real one.
 
 ### C14 · Machine records: the eight families with brief §18's fields
-Status: open · Depends on: S13
+Status: shipped `6d2aa16` 2026-09-06 · Depends on: S13
 Touches: `content/machines/*.json` (new), `tools/src/validate.mjs` (one
 block), `tools/src/build-content-bundle.mjs` (`machines` in the domain list),
 `game/generated/content_bundle.json` (regenerated), one equality test in
@@ -1969,6 +2093,58 @@ Traps: no proper names; no invented footprint numbers presented as decided;
 refuses — and the test must show that refusal.
 Done when: validator and equality test green; a record with a ninth family
 fails both (bite); the machine shop's rule names a machine that exists.
+**Shipped:** `machine.mechanical_dog` and `machine.steam_wagon`, every §18
+field in `MachineDefinition`'s own names, route types from the authored
+`travelMode` vocabulary (now one const the portal block shares), fuel and
+water under `resource.open.`, and every Open dimension held at zero with an
+`open_dimensions` map naming the decision — the validator requires the
+placeholder rather than a number. The machine shop's rule names
+`machine.mechanical_dog`; a machine rule's `output_key` must be a `machine.*`
+stable ID while every other output key stays under `resource.open.`.
+`every_authored_machine_record_loads` holds `MachineDefinitions` equal to
+the directory; the yard builds the authored dog and refuses a family that
+disagrees. Four bites proven. Stable IDs 223 → 225; bundle 51 → 53.
+**Left, on purpose:** six families unauthored (§5.4 lists candidates, not a
+roster); no yard makes the wagon yet; every dimension `blocked: needs
+decision` (§20).
+
+### C15 · Habitats and their creatures as content
+Status: shipped `eba030a` 2026-09-06 · Depends on: B7
+Touches: `content/enemies/boar.thunderback.json` and
+`content/enemies/razorbeak.crested.json` (new, read from the Rust roster
+verbatim), `content/habitats/*.json` (new), `tools/src/validate.mjs` (one
+block; `habitat.` leaves `intentionallyExternalPrefixes`),
+`tools/src/build-content-bundle.mjs` (`habitats` in the domain list),
+`game/generated/content_bundle.json` (regenerated), one equality test in
+`godot-rust/src/habitat.rs`.
+B7 recorded the gap: a habitat is mostly its roster, two rostered creatures
+(`enemy.boar.thunderback`, `enemy.raptor.razorbeak.crested`) have no content
+record, and the seven that exist carry a `.prototype` suffix the registry
+does not use. Author the two creatures the way the seven were (the Rust
+`Habitats` fixture and `content/art/creature_plan.json` are the sources —
+invent no stats), settle the suffix one way for all nine (the registry's
+IDs win; content owns, Rust carries), then author every habitat in the
+fixture as a record and hold `Habitats` equal to the directory the way
+geography and loot are held. Traps: no new creatures, no new habitats, no
+number that is not already in the fixture.
+Done when: `habitat.` is no longer an external prefix; the equality test
+bites when a roster entry is removed from either side; validator and
+bundle green.
+**Shipped:** the seven enemy records renamed to the registry's spelling
+(`.prototype` gone from IDs and filenames; the validator now refuses the
+suffix) with every reference repaired; `razorbeak.crested` derives from the
+razorbeak and overrides only what the fixture overrides, resolved once in
+`tools/src/derived-records.mjs` for both validator and bundle; the
+thunderback carries placeholders the validator *requires* for the five
+numbers nothing has decided. Three habitat records in `HabitatRecord`'s own
+field names; `habitat.` is no longer an external prefix;
+`fixture_matches_the_authored_habitats` holds the registry equal field for
+field. Six bites proven. Stable IDs 264 → 270; bundle 54 → 59. **Left, on
+purpose:** the vertical-slice battle fixture (battle.rs, protocol.rs, the
+mock port and five Godot suites) still spells its hostile
+`enemy.raptor.razorbeak.prototype` — a hand-built instance ID nothing
+resolves against content; it is renamed when A7's battle.rs work lands, not
+in parallel with it.
 
 ### Lane D — new cards
 
@@ -2076,7 +2252,7 @@ did not. And the shape of the *first* failing suite decided whether the gate
 could see at all.
 
 ### E5 · Nightly build artifacts
-Status: open · Depends on: E2, E4
+Status: shipped `ab23ab9` 2026-09-06 · Depends on: E2, E4
 A scheduled workflow that exports all three desktop presets and uploads them
 as artifacts named with the commit SHA.
 
@@ -2092,6 +2268,18 @@ Note the distinction from E2: E2 is genuinely unblocked, because its CI job
 builds the `.so` itself at run time via the same script — confirmed by its
 first green run, which built the library and loaded it. It is *release
 packaging* that the missing committed binaries affect, not the test job.
+**Shipped:** `.github/workflows/nightly.yml` — daily schedule plus dispatch;
+engine and 4.7.2 export templates pinned by SHA-512 exactly as verify.yml
+pins the engine; `tools/build-native-bridge.sh release` first, then the
+assertion that the library exists at the path the `.gdextension` names, then
+the export; artifacts `project42-linux-desktop-<sha>` and
+`project42-windows-desktop-<sha>` (both from the Linux runner) plus the
+packs. Proven to bite: with the native build no-op'd the job refused at the
+assertion by name. **macOS is not in the matrix, on purpose:** no Linux
+runner can build the dylib, so the export would package a build with no
+simulation in it; the workflow carries the reason and the evidence run.
+Adding it needs a macOS runner or a cross-compiled dylib. `workflow_dispatch`
+registers once this file is on the default branch.
 
 ### E6 · Save-version migration fixtures
 Status: shipped `85413f0` 2026-09-05, blind spot closed `095f3ac` 2026-09-06
@@ -2175,13 +2363,73 @@ here. Every correction is listed in the claim. From here the integrator runs
 ledger commit.
 
 ### E9 · Pack build script and pack artifact — `tools/src/build-pack.mjs`
+Status: shipped `ab23ab9` 2026-09-06 · Depends on: C8, E5
 runs `godot --headless --export-pack` on `packs/<id>/`; CI uploads the `.pck`
 beside the nightly; the adult-store build is base + pack, never a second build.
+**Shipped:** one `.pck` per `packs/<id>/`, exported from a throwaway project
+whose whole `res://` is the pack directory so the manifest lands at
+`res://packs/<id>/pack.json` — the path B10's registry reads. Each built pack
+is mounted into an empty probe project and its manifest and every declared
+asset read back; the probe's own words go to the log. Runs nightly beside
+the desktop builds and as an eleven-second step in verify.yml's Godot job
+(no template needed for `--export-pack`). Error detection reuses
+`tools/verify-godot.sh`'s pattern character for character.
+
+### E10 · macOS nightly on a macOS runner
+Status: shipped `252b3fb` 2026-09-06 · Depends on: E5
+**Shipped:** a `macos` job on `macos-latest` with the macOS engine zip
+pinned by SHA-512 (taken from the published sums whose other lines match
+E5's pins, recomputed on a local fetch), the same templates, the Rust
+build, and E5's assertion tightened to ask for the architecture Godot
+actually resolves. **The export does not complete, and that is the
+finding:** the runner is Apple Silicon, `game/bin/project42_sim.gdextension`
+declares only `macos.*.x86_64`, and the preset asks for an `x86_64` template
+the official archive does not carry (it ships `universal` only). Two log
+lines, verbatim, in the claim. The job refuses by name rather than
+packaging a build with no simulation in it; E5's comment now points at the
+job and names both blockers. Fixing them is E4's files — E11.
+
+### E11 · The macOS export actually exports
+Status: open · Depends on: E10
+Touches: `game/bin/project42_sim.gdextension` (add `macos.debug.arm64`,
+`macos.release.arm64`, and `universal` rows pointing at the files the build
+produces), `game/export_presets.cfg` (macOS preset
+`binary_format/architecture="universal"`, `include_filter` lists the arm64
+dylibs), `tools/build-native-bridge.sh` (name the library by `uname -m`
+instead of a hard-coded `x86_64`, on every platform, and repair every path
+that names the old file: the `.gdextension` rows, the presets, verify.yml's
+and nightly.yml's assertions), `.github/workflows/nightly.yml` (the macOS
+assertion asks for the arm64 file; the "blockers" comment goes).
+Done when: a nightly proof run's macOS job exports and uploads
+`project42-macos-<sha>` whose zip contains the dylib at the path Godot
+resolves; Linux and Windows jobs unchanged and green; verify.yml green.
+Touches: `.github/workflows/nightly.yml` only.
+E5 refused to export macOS from a Linux runner because no Linux runner can
+build the dylib, and said the fix is a `macos-latest` runner. Add that job:
+the same pinned engine download (the macOS zip and its own SHA-512, fetched
+once and pinned — never `--no-verify`), the same templates, the Rust
+toolchain, `tools/build-native-bridge.sh release` on the Mac, the same
+assertion that the dylib exists at the `.gdextension` path, then the
+`macOS` preset export, uploaded as `project42-macos-<sha>`. Unsigned is
+honest; say so in the artifact's README step. Delete E5's "deliberately
+absent" comment when the job exists. Prove it with a run whose log shows
+the assertion passing and the export succeeding; if `macos-latest` cannot
+run the headless export (templates or codesign refusals), record the exact
+failure in the claim and leave E5's comment in place, corrected.
+Done when: a nightly run uploads a macOS artifact whose zip contains the
+dylib, or the claim names the exact reason it cannot.
 
 ### Lane H — cards for this pass
 
 ### H5 · Site-rule spec into `HEROINE_AYLA_DESIGN.md`
-Status: open · Depends on: —
+Status: shipped `abe9a5a` 2026-09-06 · Depends on: —
+Brought onto trunk from PR #2 and rewritten as the site-rule specification:
+seven of seven, how the two site-scoped skills were scoped, the closed
+effect vocabulary, and the twenty-five rules whose mechanics are still
+`needs decision`. `ARCHITECTURE.md` updated. PR #2 closed with a comment
+recording the re-land and naming the two art-planning files on that branch
+that are not superseded (`still_image_plan.json`, the razorbeak reference
+ledger) as open work worth a card.
 
 ### H6 · Retarget PR #3 to `main`; note PR #4; flag the stale status branch
 Status: shipped 34142a8 2026-09-05 · Depends on: — · PR #3 now targets `main`, conflict resolved by merging it
@@ -2209,6 +2457,175 @@ stand.
 ---
 
 # Part III — Bookkeeping
+
+### Lane P — Presentation cards
+
+Rules that hold for every P card: the simulation is never read for
+presentation through anything but the snapshot; nothing here decides a
+game result; every number that is a design decision is a named constant or
+a content field marked `needs decision`; models are the owner's — placeholder
+geometry is procedural, clearly marked, and replaced by name when a model
+arrives; and every card's done-when ends in a captured image committed
+under `docs/verification/captures/` with its commit SHA in the filename, so
+the ledger can be *looked at*. Palette: the deep green, teal, cream and
+bronze the two prototypes already use (`DEEP`, `TEAL`, `CREAM`, `BRONZE`,
+`DANGER`) and Betty's locked teal-cream-bronze; one owner for those values
+after P5 (the Theme).
+
+### P1 · Screenshot gate and the visual loop
+Status: open · Depends on: E2
+Touches: `tools/capture-scenes.sh` (new), `game/tools/capture_review_scene.gd`
+(any scene, settle frames, optional viewport size), `.github/workflows/verify.yml`
+(a `captures` job), `docs/verification/captures/README.md`.
+Rendering offscreen works: Xvfb plus Mesa's software GL renders a review
+scene through the existing capture tool in this container, and
+`ubuntu-latest` can install `mesa-vulkan-drivers` for the Forward+ path.
+Build the loop everyone else iterates in: one script that renders every
+`scenes/review/*_review.tscn` and every screen under `scenes/world`,
+`scenes/battle`, `scenes/shell` to `work/captures/<scene>.png` at 1920×1080
+(and a 1280×720 thumbnail), on whichever driver the project declares
+(`--rendering-driver vulkan` under lavapipe when present, else `opengl3`);
+a CI job that runs it and uploads `captures-<sha>`; a documented local
+command. The gate fails on an `ERROR:` line the same way `verify-godot.sh`
+does. A capture that comes out black or uniform is a failure, not a pass
+(measure it).
+Done when: CI uploads captures for every scene on a green run; the local
+command produces the same set; the README says how to look.
+
+### P2 · Render foundation
+Status: open · Depends on: P1
+Touches: `game/project.godot` (`[rendering]`), `game/render/` (new:
+`world_environment.tres`, `camera_rig.tscn`, materials), `game/shaders/`
+(new), `game/scripts/render/` (new: `camera_director.gd`, `render_profile.gd`),
+the three review scenes (they adopt the environment and camera), one suite.
+The project renders on `gl_compatibility`, which caps lighting at what a
+2017 mobile game could do. Move the desktop target to **Forward+** with the
+compatibility method kept as the declared fallback (`rendering_method.mobile`
+and a `render_profile.gd` that reports which one is live and what it
+disables). One `WorldEnvironment` resource: AgX tonemapping, SSAO, SSIL or
+SDFGI where Forward+ allows, glow with a low threshold, depth fog tuned for
+the island, a colour-correction ramp toward the palette; a fixed isometric
+camera rig (the brief: fixed view, bold silhouettes at gameplay distance)
+with orthographic and near-orthographic modes and framing rules for the
+three distances. A material library the models will inherit: matte clay
+with an edge-light rim for blockouts, stylised water (sea and river, with
+shore foam), wind-moved foliage, wet stone, bronze, vellum, and a
+"placeholder" material that is visibly a placeholder. Every shader carries
+a compatibility path.
+Done when: the terrace review scene captured on both renderers looks like
+one intended image on each; a suite asserts the environment resource's
+values are the ones the card names; the captures are committed.
+
+### P3 · Atmosphere from the simulation
+Status: open · Depends on: P2, S8
+Touches: `game/scripts/atmosphere/` (new autoload `Atmosphere`), one suite.
+The snapshot carries `campaign_day`, `time_segment`, per-region weather
+(S8), corruption per cell and the Cthulhu heat band (S9's bands through the
+bridge if exposed; if not, add the read-only key to the state dictionary —
+one hunk in `godot_bridge.rs`). Drive the environment from those and
+nothing else: sun angle and colour by segment, night with warm points at
+held buildings, weather as fog density, rain and mist particles, wind
+strength into the foliage shader, corruption as a desaturating tint with a
+named palette per band, pressure as a slow sky shift the player feels
+before reading. Transitions are tweened between snapshots; no wall clock,
+no randomness outside the snapshot's own seed. Reduced motion (B9) stills
+the particles.
+Done when: four captures — dawn, dusk, night, storm — from four authored
+snapshots, committed; a suite asserts a snapshot maps to the named
+environment values.
+
+### P4 · The isometric board (B11 + B12)
+Status: open · Depends on: P2, S2, S7, O3 (provisional)
+Touches: `content/world/*.world_cell.json` (a `board` block),
+`tools/src/validate.mjs`, `game/scripts/board/` (new), `game/scenes/board/`
+(new), `game/scripts/simulation/native_expedition_port.gd` (forwarding),
+one suite, and a snapshot key for forces if the bridge lacks one.
+B11's shape with dr-companion's field names (`footprint`, `spawnPoints`,
+`tethers`); the exact dimensions are Open (O3), so the block carries named
+provisional values marked `needs decision` and the validator requires the
+mark. One scene graph, three distances: world (ownership and influence
+tint the cells from S2, routes drawn by control and risk from B14), route
+(forces and convoys from S7 visible in motion between cells), room (the
+setpiece, spawn sockets, exits, the encounter space). The party is a
+miniature that snaps between nodes on confirmed travel and never moves on
+a click. Entering an encounter opens the existing battle screen (O1's lens
+is Open; this is the stand-in and says so). Blockout geometry is
+procedural and marked.
+Done when: a suite drives travel across three cells and asserts the
+miniature's node each time; three captures, one per distance, committed.
+
+### P5 · The bronze-and-vellum grammar and the calm information surface
+Status: open · Depends on: S6, S11, B9
+Touches: `game/themes/bronze_vellum.tres` (new, the one owner of the
+palette and type scale), `game/scripts/ui/` (components: card, rail,
+command diamond, panel, notice, tooltip, journal entry), `game/scripts/surface/`
+(new: `information_surface.gd`), the settings panel (adopts the Theme),
+one suite. The two prototypes adopt the Theme in P6 and P7, not here.
+D11's card rail and command grid as reusable components; B13's three levels:
+Ambient (the world changes), Notable (a companion line or journal entry —
+no interruption), Urgent (interrupt only for the party, a major
+relationship, the core, or a final-stage threat), with S6's explanation
+shown before a directive is confirmed and S11's journal readable while
+paused. No flashing alerts, no red countdowns. B9's text scale, high
+contrast and reduced motion are read here and applied through the Theme.
+Done when: a suite feeds 100 strategic events and asserts ≤1 Urgent; the
+settings change the Theme live; captures of the surface at each level.
+
+### P6 · Battle presentation
+Status: open · Depends on: A5, A7, C3
+Touches: `game/scripts/battle/**`, `game/scenes/battle/**`, the presentation
+registries only if a record is missing a field the effect needs.
+`vfx.registry.json` and `camera.registry.json` already describe every
+skill's effect (palette, anchor, layer, blend, envelope, motion, lifetime,
+reduced-flash substitute); today they are read for labels. Render them:
+GPU particles and shaders per record, camera beats from the camera
+registry, hit-stop and a restrained shake, damage numbers with weight,
+the band rail moving actors with easing, Composure and Shaken readable at
+a glance, the ward line as a real line, grave watch as a visible pulse on
+hostiles, death as a dissolve. The paper rigs stay until the models arrive
+and get a lighting pass that makes them sit in the plate. Betty's and
+Ayla's kits both play. Reduced-flash substitutes honoured.
+Done when: a suite plays each of the fourteen skills through the live
+bridge and asserts the effect node named by the record was instantiated
+and cleaned up; six captures across a fight, committed.
+
+### P7 · RTS controls on the board (B18 resumed)
+Status: open · Depends on: B14
+The B18 card as written, on P4's board when it exists and on the current
+route board until then: left-click selects, right-click on a tile orders
+the move, the words and digit hotkeys issue the same order, the drawn
+markers and legend go; every path is `request_travel`. Owner's words in
+B18's card. Done when: B18's done-when; a capture with the markers gone.
+
+### P8 · The shell
+Status: open · Depends on: B8, B9
+Touches: `game/scenes/shell/` and `game/scripts/shell/` (new), `game/project.godot`
+(`run/main_scene`), one suite.
+Title, new game, continue (newest by the save's own clock, B8), save slots,
+settings (B9's panel), pause menu, loading between scenes, credits with the
+attribution the assets require; one scene flow shell → expedition → battle
+and back that holds the campaign in `CampaignSession` throughout. The shell
+looks like the game: the environment, the Theme, a slow atmosphere behind
+the title.
+Done when: a suite walks title → new game → expedition → battle → back →
+save → title → continue and asserts the same legal actions; captures of the
+title and the pause menu.
+
+### P9 · Audio
+Status: open · Depends on: P3
+Touches: `game/scripts/audio/` (new autoload `Soundscape`), `content/audio/`
+(new records: ambience by region/segment/weather, cue by battle event and
+skill, music states), `tools/src/validate.mjs`, the bundle, one suite.
+Buses (master, music, ambience, effects, voice) with the settings panel's
+volumes; ambience layers chosen from the snapshot the way P3 chooses light;
+cues keyed to the battle events the bridge emits and the skill's presentation
+record; a music state machine (calm, notable, battle, urgent) that follows
+P5's levels. No audio asset exists: every sound is a procedural placeholder
+generated at runtime (`AudioStreamGenerator`) and marked as such in its
+record, replaced by name when a real asset is admitted.
+Done when: a suite asserts every battle event and every skill resolves to
+a cue record and every region/segment/weather triple to an ambience record;
+the placeholder count is in the validator's summary line.
 
 ## 8. Claiming, finishing, and keeping this document true
 

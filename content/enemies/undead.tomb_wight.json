@@ -1,13 +1,13 @@
 {
-  "id": "enemy.undead.drowned_bearer.prototype",
-  "displayName": "Drowned Bearer",
-  "species": "returned_estuary_porter",
+  "id": "enemy.undead.tomb_wight",
+  "displayName": "Tomb Wight",
+  "species": "returned_tomb_guardian",
   "combatRole": "mobile_individual_threat",
-  "level": 7,
+  "level": 6,
   "stats": {
-    "vitality": 65,
-    "guard": 3,
-    "initiative": 7,
+    "vitality": 55,
+    "guard": 2,
+    "initiative": 9,
     "startingBand": 2
   },
   "skillIds": [
@@ -26,15 +26,15 @@
       "animationBeats": [
         {
           "atMs": 0,
-          "pose": "The bearer turns, water sheeting off its shoulders and fixes on the target with a slow, certain turn."
+          "pose": "The wight turns its bare skull toward the party and fixes on the target with a slow, certain turn."
         },
         {
           "atMs": 180,
-          "pose": "Both arms rise and reach, fingers splaying wide for the waterlogged grip."
+          "pose": "Both arms rise and reach, fingers splaying wide for the grasp."
         },
         {
           "atMs": 360,
-          "pose": "The grip closes on the target's nearest limb and the whole body leans into the drag."
+          "pose": "The grip closes on the target's nearest limb and the whole body leans into the pull."
         },
         {
           "atMs": 520,
@@ -42,7 +42,7 @@
         },
         {
           "atMs": 700,
-          "pose": "The bearer releases and settles back into a low, patient ready stance."
+          "pose": "The wight releases and settles back into a low, patient ready stance."
         }
       ],
       "framing": "Keep the full figure, both hands, the target line and the impact effect inside the battle safe frame for every beat."
@@ -55,15 +55,15 @@
     "midnightRespawnEligible": true
   },
   "text": {
-    "firstObservation": "The drowned bearer still wears its porter's yoke, empty now, and still walks the old load-road from the river landing exactly as it did alive.",
+    "firstObservation": "The tomb wight moves the way its own funeral procession once did: slow, certain, unhurried by anything the living party can do.",
     "intentTells": {
-      "skill.enemy.undead.grasping_strike": "It still carries its porter's yoke across dead shoulders, arms rising toward the weakest stance for a waterlogged grasping strike."
+      "skill.enemy.undead.grasping_strike": "It raises both bony arms and fixes on the weakest stance in the party, fingers spreading for a grasping strike."
     }
   },
   "art": {
-    "assetId": "art.placeholder.undead.drowned_bearer.active_actor",
+    "assetId": "art.placeholder.undead.tomb_wight.active_actor",
     "status": "placeholder",
-    "framing": "Entire waterlogged figure, yoke, both hands and impact effect remain inside the battle safe frame."
+    "framing": "Entire skeletal figure, both hands, grave wrappings and impact effect remain inside the battle safe frame."
   },
   "metadata": {
     "implementationOwner": "rust-simulation",

@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "task_id": "b7-battle-entries-habitats",
+  "agent": "claude-code (lane B7)",
+  "summary": "A battle entry may declare the habitat that holds it, so a cell whose fight is the habitat holder's is encounter-eligible from content alone; the fixture/content equality test then compares encounter_eligible and B6's last Rust-side-only field goes.",
+  "status": "completed",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T11:05:00Z",
+  "paths": [
+    "content/world/reception_terrace.world_cell.json",
+    "content/world/tomb_service_passage.world_cell.json",
+    "tools/src/validate.mjs",
+    "game/generated/content_bundle.json",
+    "game/scripts/simulation/native_expedition_port.gd",
+    "godot-rust/src/geography.rs",
+    "godot-rust/tests/authored_world.rs"
+  ],
+  "symbols": [
+    "geography::AuthoredBattleEntry",
+    "geography::AuthoredCell",
+    "geography::tests::fixture_matches_the_authored_world_cells",
+    "NativeExpeditionPort.configure_from_catalog"
+  ],
+  "coordination": {
+    "depends_on": [
+      "b6-tomb-interior-cells",
+      "backend-d3-tomb-architecture"
+    ],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at 2ec3243. Only the battleEntries block of each world cell is touched: lane C5 is adding a dungeonContext block to the same tomb files, so the hunks do not meet. expedition.rs, strategy/ and godot_bridge.rs are untouched -- the fight at a habitat-bound entry is the existing begin_encounter habitat path, not a second spawn rule. Shipped: `AuthoredBattleEntry` (id, status, habitatId with the wire alias habitat_id) is the authored battle-entry shape; `AuthoredCell.battle_entries` replaces the `encounter_eligible` bool the port used to compute, and `AuthoredCell::encounter_eligible` -- an entry is live when its status is `vertical_slice_encounter` or it names a habitat -- is the whole rule, with one owner in Rust instead of half of it in GDScript. `habitat_id` is deliberately NOT carried into `CellDefinition`/`LocationRecord`: which habitat covers a cell is already answered by `HabitatRecord.territory_location_ids`, and a second copy of that answer would drift; `begin_encounter` is untouched, so the fight at a habitat-bound entry is the existing habitat path and there is no second spawn rule. Content authors the binding on tomb_service_passage (status future_spawn_socket -> habitat_holder) and on reception_terrace, whose one-time razorbeak stands on the same precinct's ground; processional_ramp is precinct territory too but carries no habitatId, because the fixture leaves it encounter-ineligible and authoring one would have changed D3's map rather than described it. CHOICE ON HABITAT IDs, per the card: no `content/habitats/` mirror was authored; `habitat.` joins `skill.enemy.` in the validator's `intentionallyExternalPrefixes` instead. A habitat record is mostly its roster, and the roster names creature definition IDs content does not declare -- `enemy.boar.thunderback` and `enemy.raptor.razorbeak.crested` exist nowhere in content/enemies/, and the seven records that do exist carry a `.prototype` suffix the registry does not use -- so an honest twin would first have to invent those creatures, and a half-record that omits the roster would answer \"what is a habitat\" differently from the registry. That is the card's \"cannot be authored honestly\" escape. What replaces the validator's reference check is stronger than a prefix allowance: fixture_matches_the_authored_world_cells now fails unless every authored habitatId names a habitat `Habitats::black_beach_vertical_slice()` actually has AND that habitat's territory covers the cell binding it. A `content/habitats/` twin held equal to the registry remains the right end state and is blocked on content/enemies/ growing the two missing creatures and settling the `.prototype` suffix."
+  },
+  "completion": {
+    "commit": "2cb30d2",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (307 lib + 6 authored_world + 5 save_migration + 8 strategic_determinism + 1 vertical_slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (223 stable IDs; unchanged count -- habitatId references resolve through the new intentionally-external habitat. prefix rather than registering anything): passed",
+      "node tools/src/check-claims.mjs (48 claims, 91 ship-plan rows, 85 cards): passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/ (51 records, sha256:2fc5c55f4452b73f791bb095bf5cc4a5a98016aaae48c3c1d4ad4a992eaa6e5d): passed",
+      "geography::tests::fixture_matches_the_authored_world_cells with encounter_eligible compared for every authored cell and no tolerance left, plus each authored habitatId held against the habitat registry: passed",
+      "geography::tests::a_battle_entry_bound_to_a_habitat_makes_its_cell_encounter_eligible -- habitat_id and habitatId both make a cell eligible, a bare future_spawn_socket does not, and a malformed habitat ID is refused as InvalidStableId{field: \"battle_entry.habitat_id\"}: passed",
+      "Bite (the card's): habitatId removed from content/world/tomb_service_passage.world_cell.json's battle entry (status back to future_spawn_socket); fixture_matches_the_authored_world_cells FAILED at src/geography.rs:1735 with 'world.cell.tomb_service_passage is encounter-eligible in the fixture but not in content/world/, or the other way round', left: true, right: false: failed",
+      "Bite, the registry side: the same habitatId changed to habitat.black_beach.tideline, a habitat that exists but does not hold this ground; the test FAILED at src/geography.rs:1756 with 'world.cell.tomb_service_passage binds a battle entry to habitat.black_beach.tideline, whose territory does not cover it': failed",
+      "Bite, the validator side: habitatId deleted leaving status habitat_holder; node tools/src/validate.mjs FAILED with 'content/world/tomb_service_passage.world_cell.json: battleEntries[0].status is habitat_holder but no habitatId names the habitat that holds it': failed",
+      "Bite, restored: cargo test --lib fixture_matches (geography + habitat twins) and node tools/src/validate.mjs: passed",
+      "Merged origin/backend/b0-expedition-state (030bef3, campaign_session.gd is_inside_tree guard) into the lane at 786bdf4 before judging CI, per the coordinator's note that the red save_slots_test.gd on 2ec3243 was a trunk fault: passed",
+      "CI 'Verify' run 34024063896 on lane/B7-battle-entries-habitats at 2cb30d2: both jobs green. 'Rust and content' -- fmt, the full Rust test suite, cargo check --features godot-ext, validate.mjs, check-claims.mjs and the stale-bundle gate. 'Godot headless suites' -- every game/tests/*.gd suite under the pinned Godot 4.7.2-stable against the real GDExtension bridge, with 'Prove the real bridge loaded, not the mock' green, which is the proof for the reshaped configure payload native_expedition_port.gd now sends (battle_entries in place of the encounter_eligible bool). No Godot binary exists in the authoring container, so this was proven in CI rather than locally. Recorded honestly: an earlier revision of this claim called the Godot gate not_run because the Actions API served stale in_progress job data for over an hour after the jobs had in fact completed at 09:16Z: passed"
+    ]
+  }
+}

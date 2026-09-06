@@ -35,7 +35,7 @@
     {"id": "world.portal.tomb_service_passage_to_tomb_threshold", "fromAnchorId": "entry.tomb_service_passage.threshold", "targetCellId": "world.cell.tomb_threshold", "targetAnchorId": "entry.tomb_threshold.service_passage", "travelMode": "on_foot", "returnRule": "always", "timeCostMinutes": 15, "supplyCost": 0, "riskLevel": 2}
   ],
   "battleEntries": [
-    {"id": "battle_entry.tomb_service_passage.working_lane", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [1.0, 0.0, 0.5], "returnAnchorId": "entry.tomb_service_passage.reception", "safeRetreatAnchorId": "entry.tomb_service_passage.threshold", "status": "future_spawn_socket"}
+    {"id": "battle_entry.tomb_service_passage.working_lane", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [1.0, 0.0, 0.5], "returnAnchorId": "entry.tomb_service_passage.reception", "safeRetreatAnchorId": "entry.tomb_service_passage.threshold", "status": "habitat_holder", "habitatId": "habitat.black_beach.terrace_precinct"}
   ],
   "explorationActions": [
     {"id": "action.tomb_service_passage.inspect_grave_goods", "type": "inspect", "result": "discover.returning_names.disturbed_goods", "once": true},
@@ -45,5 +45,6 @@
     {"id": "observation.tomb_service_passage.disturbed_grave_goods", "text": "This is the passage the masons used, never finished and never sealed. Someone has already been through the grave goods stacked along it, and what they left behind is worth carrying out on the way back."}
   ],
   "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
+  "dungeonContext": {"dungeonId": "dungeon.tomb_of_returning_names", "space": "service_crawl", "ownerConceptKey": "elves", "corruptedVariantConceptKey": "cthulhu", "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.service_right_of_passage"]},
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 1, "browserPerformanceGate": "pending", "releaseLegal": false}
 }

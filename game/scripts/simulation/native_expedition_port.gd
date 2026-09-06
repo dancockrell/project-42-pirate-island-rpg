@@ -60,18 +60,47 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 				if not value.is_empty():
 					forwarded_anchor[pair[1]] = value
 			anchors.append(forwarded_anchor)
-		var encounter_eligible := false
+		# B7: the cell's battle entries, forwarded rather than judged here.
+		# This used to send a single `encounter_eligible` bool that GDScript
+		# derived from `status == "vertical_slice_encounter"`, which meant the
+		# eligibility rule lived on this side and the tomb's service passage --
+		# whose fight is the terrace precinct's habitat holder, not a one-time
+		# authored encounter -- had no way to say so. The rule now has one
+		# owner, `AuthoredCell::encounter_eligible` in Rust, and this forwards
+		# the two authored fields it reads.
+		var battle_entries: Array[Dictionary] = []
 		for entry in cell.get("battleEntries", []):
-			if str(entry.get("status", "")) == "vertical_slice_encounter":
-				encounter_eligible = true
-		cells.append({
+			var forwarded_entry := {
+				"id": str(entry.get("id", "")),
+				"status": str(entry.get("status", ""))
+			}
+			var habitat_id := str(entry.get("habitatId", ""))
+			if not habitat_id.is_empty():
+				forwarded_entry["habitat_id"] = habitat_id
+			battle_entries.append(forwarded_entry)
+		# A7: C5's dungeonContext, forwarded rather than judged here. Two fields
+		# of it reach the simulation -- the site rules in force in this cell and
+		# the dungeon the cell belongs to -- and `AuthoredCell` reads both. The
+		# rest of the block is `strategy/dungeon_content.rs`'s business. Without
+		# this the engine fought under no site rules while the Rust harness
+		# fought under the tomb's, which is the same drift B15 and B16 closed
+		# for factions and buildings.
+		var forwarded_cell := {
 			"id": str(cell.get("id", "")),
 			"region_id": str(cell.get("regionId", "")),
 			"display_name": str(cell.get("displayName", "")),
 			"observation_ids": observation_ids,
 			"anchors": anchors,
-			"encounter_eligible": encounter_eligible
-		})
+			"battle_entries": battle_entries
+		}
+		var dungeon_context: Dictionary = cell.get("dungeonContext", {})
+		if not dungeon_context.is_empty():
+			var forwarded_context := {"site_rule_ids": dungeon_context.get("siteRuleIds", [])}
+			var dungeon_id := str(dungeon_context.get("dungeonId", ""))
+			if not dungeon_id.is_empty():
+				forwarded_context["dungeon_id"] = dungeon_id
+			forwarded_cell["dungeon_context"] = forwarded_context
+		cells.append(forwarded_cell)
 		for portal in cell.get("portals", []):
 			# Every field PortalDefinition reads, not only the endpoints. Until
 			# C13 this forwarded id, endpoints and travelMode alone, so through
@@ -128,6 +157,14 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 	var buildings: Array[Dictionary] = []
 	for building_id in catalog.ids_with_prefix("building."):
 		buildings.append(as_rust_integers(catalog.get_record(building_id)) as Dictionary)
+	# A7: the authored site-rule records, forwarded verbatim. They are authored
+	# in `AuthoredSiteRule`'s own field names -- `id`, `displayName`, `effect` --
+	# and the one number in an effect is a whole count, so they take the same
+	# integer coercion the factions and buildings need. A cell's siteRuleIds
+	# resolve against this registry; without it `Battle` stands under nothing.
+	var site_rules: Array[Dictionary] = []
+	for site_rule_id in catalog.ids_with_prefix("site_rule."):
+		site_rules.append(as_rust_integers(catalog.get_record(site_rule_id)) as Dictionary)
 	var configuration := {
 		"seed": seed,
 		"party_ids": INITIAL_PARTY,
@@ -136,7 +173,8 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 		"portals": portals,
 		"encounter_triggers": encounter_triggers,
 		"factions": factions,
-		"buildings": buildings
+		"buildings": buildings,
+		"site_rules": site_rules
 	}
 	var configured: Dictionary = bridge.configure(JSON.stringify(configuration))
 	# A refused configuration used to be silent here: every later call answered

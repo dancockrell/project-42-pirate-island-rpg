@@ -1,0 +1,51 @@
+{
+  "id": "machine.mechanical_dog",
+  "family": "mechanical_dog",
+  "function": "The first thing a tier-two machine shop makes: a small four-legged automaton that scouts ahead of a column, raises an alarm and goes where a person goes. Brief section 5.4 -- scouting, alarm, and the small end of the animal forms.",
+  "operational_footprint_cells": 0,
+  "navigation_width_cells": 0,
+  "turning_clearance_cells": 0,
+  "maximum_slope": 0,
+  "wreck_footprint_cells": 0,
+  "open_dimensions": {
+    "operational_footprint_cells": "needs decision: operational footprint for machine.mechanical_dog -- brief section 20, exact standard dimensions",
+    "navigation_width_cells": "needs decision: navigation width for machine.mechanical_dog -- brief section 20, exact standard dimensions",
+    "turning_clearance_cells": "needs decision: turning clearance for machine.mechanical_dog -- brief section 20, exact standard dimensions",
+    "maximum_slope": "needs decision: maximum slope for machine.mechanical_dog -- brief section 20, and the world graph carries no slope to compare one against",
+    "wreck_footprint_cells": "needs decision: wreck footprint for machine.mechanical_dog -- brief section 20, exact standard dimensions",
+    "salvage_value": "needs decision: salvage value for machine.mechanical_dog -- brief section 20 leaves the resource list Open, so the wreck is worth resource.open.needs_decision and nothing named"
+  },
+  "valid_route_types": [
+    "on_foot",
+    "safe_road",
+    "jungle_edge"
+  ],
+  "bridge_requirements": [],
+  "crew_or_handler_requirement": 1,
+  "fuel_requirement": 4,
+  "water_requirement": 2,
+  "fuel_resource_key": "resource.open.fuel",
+  "water_resource_key": "resource.open.water",
+  "repair_sockets": [
+    "socket.machine.mechanical_dog.boiler",
+    "socket.machine.mechanical_dog.fore_leg_linkage",
+    "socket.machine.mechanical_dog.hind_leg_linkage"
+  ],
+  "local_and_offscreen_representations": "needs decision: local and offscreen representations for machine.mechanical_dog. Locally it is one small quadruped blockout standing in a room; offscreen it counts as one scouting element inside an aggregate force. Both readings stay prose until there is a materialiser and an aggregate-force weight to consume them.",
+  "salvage_value": {
+    "resource.open.needs_decision": 0
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "maturity": "prototype",
+    "releaseLegal": true,
+    "notes": [
+      "Brief section 18, 'Animal automata and vehicles need': this record carries that list field for field, in the brief's order, exactly as MachineDefinition in godot-rust/src/strategy/production.rs declares it. every_authored_machine_record_loads is what holds the two equal.",
+      "Open (brief section 20, exact standard dimensions): operational footprint, navigation width, turning clearance, maximum slope, wreck footprint and salvage value are all 0 or the single resource.open.needs_decision placeholder, and open_dimensions names each decision. The validator refuses a decided-looking number here rather than requiring one: a footprint invented in this file would read as a decision somebody made.",
+      "Open (brief section 20, exact resource list): fuel and water are counted, but the keys they are counted in stay under resource.open. -- resource.open.fuel and resource.open.water name no category the brief has not chosen.",
+      "Provisional: crew_or_handler_requirement 1 and the fuel and water capacities are small working counts, not balance. Brief section 5.10 is about this number being non-zero at all -- a machine that needs a handler is not free of the scarcest thing the faction has.",
+      "valid_route_types come from the authored travelMode vocabulary in content/world/*.world_cell.json portals (on_foot, safe_road, jungle_edge) and from nowhere else. A dog walks every way a person does.",
+      "family mechanical_dog must agree with the production rule that names this record: production.machine_shop.automaton_frames in content/buildings/machine_shop.json declares the same family, and ExpeditionState::produce_machine refuses the pair if they ever disagree."
+    ]
+  }
+}

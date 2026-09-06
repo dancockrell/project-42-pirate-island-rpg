@@ -1,0 +1,127 @@
+{
+  "id": "skill.ayla.ward_line",
+  "displayName": "Ward Line",
+  "ownerId": "character.heroine.ayla",
+  "bondRank": "A",
+  "activation": "normal_action",
+  "targetRule": "self",
+  "rules": {
+    "wardBand": "aylas_current_band",
+    "wardsInPlay": 1,
+    "recastReplacesExistingWard": true,
+    "trigger": "first_hostile_attack_on_a_party_member_in_the_warded_band",
+    "triggerRawDamage": 8,
+    "triggerDamageLevelScale": 1,
+    "triggerResolvesThroughGuard": true,
+    "appliesStatus": "staggered",
+    "statusRounds": 1,
+    "spentOnFirstTrigger": true
+  },
+  "animation": {
+    "cardId": "animation.ayla.ward_line",
+    "durationMs": 760,
+    "beats": [
+      {
+        "atMs": 0,
+        "name": "set_the_spear_butt"
+      },
+      {
+        "atMs": 220,
+        "name": "walk_the_line"
+      },
+      {
+        "atMs": 520,
+        "name": "seal_the_line"
+      },
+      {
+        "atMs": 760,
+        "name": "step_back_behind_it"
+      }
+    ],
+    "eventBindings": {
+      "actor_focused": "set_the_spear_butt",
+      "ward_line_placed": "seal_the_line",
+      "ward_line_triggered": "walk_the_line",
+      "damage_applied": "walk_the_line",
+      "status_applied": "seal_the_line",
+      "turn_ended": "step_back_behind_it"
+    },
+    "presentationCues": [
+      {
+        "beat": "set_the_spear_butt",
+        "pose": "spear_butt_planted",
+        "motion": "plant_and_take_the_bearing",
+        "audio": "haft_strike_stone",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "spear",
+          "band_boundary"
+        ],
+        "cameraId": "presentation.camera.ayla_band_line_medium",
+        "vfxId": "presentation.vfx.none"
+      },
+      {
+        "beat": "walk_the_line",
+        "pose": "sidestep_drawing_the_ward",
+        "motion": "walk_the_boundary_end_to_end",
+        "audio": "drawn_line_hum",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "spear",
+          "ward_line"
+        ],
+        "cameraId": "presentation.camera.ayla_band_line_medium",
+        "vfxId": "presentation.vfx.ayla.ward_line_drawn"
+      },
+      {
+        "beat": "seal_the_line",
+        "pose": "haft_struck_once_at_the_centre",
+        "motion": "single_downward_seal",
+        "audio": "sealing_strike",
+        "hitStopMs": 35,
+        "shake": 0.08,
+        "frameSubjects": [
+          "ayla",
+          "spear",
+          "ward_line",
+          "attacker"
+        ],
+        "cameraId": "presentation.camera.ayla_ward_snap",
+        "vfxId": "presentation.vfx.ayla.ward_line_break"
+      },
+      {
+        "beat": "step_back_behind_it",
+        "pose": "guard_behind_the_ward",
+        "motion": "one_step_back_and_settle",
+        "audio": "boots_on_stone",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "spear",
+          "ward_line"
+        ],
+        "cameraId": "presentation.camera.ayla_band_line_medium",
+        "vfxId": "presentation.vfx.ayla.recall_fade"
+      }
+    ],
+    "framing": "Ayla, her recurved bronze spear, every named subject and the complete effect remain inside the safe frame.",
+    "replacementAssetIds": [
+      "art.placeholder.ayla.active_actor"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "maturity": "executable-core",
+    "notes": [
+      "'The first enemy crossing it' is translated the same way Reach Counter translates 'entering the Contested band': the first hostile attack on a party member standing in the warded band. No hostile in this engine ever moves bands.",
+      "triggerRawDamage and triggerDamageLevelScale are held equal to battle.rs by reach_counter_and_ward_line_deal_their_authored_damage. A separate number from Reach Counter's because the two reactions cost differently: one is free and unlimited, this one costs a whole turn to place and is spent after one hit.",
+      "targetRule self: the ward is placed at Ayla's own band and the player selects nobody."
+    ]
+  }
+}

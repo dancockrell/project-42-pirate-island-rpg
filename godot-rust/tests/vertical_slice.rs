@@ -186,7 +186,7 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
                 bond_rank: "D".into(),
             },
             Actor {
-                id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                id: ActorId("enemy.raptor.razorbeak".into()),
                 display_name: "Razorbeak".into(),
                 faction: Faction::Hostile,
                 level: 7,
@@ -209,7 +209,7 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
     );
     battle.start();
     let captain_id = ActorId("character.protagonist.captain".into());
-    let razorbeak_id = ActorId("enemy.raptor.razorbeak.prototype".into());
+    let razorbeak_id = ActorId("enemy.raptor.razorbeak".into());
 
     // Round one: Betty opens, the razorbeak answers, and the Captain steps up
     // from the party's rear band to its front. Reposition takes no target,

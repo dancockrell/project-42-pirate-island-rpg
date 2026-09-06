@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { resolveDerivedRecords } from "./derived-records.mjs";
 
 const repo = resolve(import.meta.dirname, "../..");
 // Every authored domain Godot may read. `factions` joined the list with B15:
@@ -15,20 +16,48 @@ const repo = resolve(import.meta.dirname, "../..");
 // strategic tick reads, and the bridge builds it from this bundle exactly as it
 // builds the faction registry, so a building record that never reached Godot
 // would make the engine's island differ from the harness's.
+// `machines` joined with C14, for the half of that same seam S13 named: a
+// building's machine rule resolves its `output_key` in `MachineDefinitions`, so
+// a machine record that never reached Godot would leave the engine refusing a
+// production the harness completes.
+// `dungeons` joined with C5: the Tomb of Returning Names' twelve authored
+// spaces and the two site-rule sets an owner brings are read by
+// `strategy/dungeon_content.rs`, and the four tomb world cells mirror their
+// space's rules, so the record has to reach Godot beside the cells that point
+// at it or the engine would carry the mirror without the original.
 //
 // `packs/` is deliberately absent and is not a domain. A presentation-override
 // pack is a separate artifact: E9 builds each one into its own `.pck` and B10's
 // registry discovers it at runtime under `user://packs/` or `res://packs/`.
 // Folding a pack into the base bundle would ship the override with the base
 // game, which is the one thing the pack seam exists to prevent.
-const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships", "buildings"];
+// `habitats` joined with C15: `content/habitats/` is the twin of the Rust
+// `Habitats` registry, the way `content/loot/` is the twin of its loot tables,
+// and a world cell's battle entry binds to a habitat by ID -- so the record has
+// to reach Godot beside the cells that name it.
+// `site_rules` joined with A7, for the half of C5's seam that card names: a
+// `Battle` stands under the rules the cell it is fought in declares, and the
+// bridge builds `strategy::site_rule::SiteRules` from this bundle exactly as it
+// builds the faction and building registries. A site-rule record that never
+// reached Godot would leave the engine fighting under no rules while the Rust
+// harness fought under the tomb's.
+const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships", "buildings", "machines", "dungeons", "habitats", "site_rules"];
 const records = [];
 
 for (const domain of domains) {
   const directory = resolve(repo, "content", domain);
+  const authored = [];
   for (const filename of (await readdir(directory)).filter(name => name.endsWith(".json")).sort()) {
     const sourcePath = `content/${domain}/${filename}`;
-    const value = JSON.parse(await readFile(resolve(directory, filename), "utf8"));
+    authored.push({ file: sourcePath, value: JSON.parse(await readFile(resolve(directory, filename), "utf8")) });
+  }
+  // A record that declares `derivesFrom` ships resolved, so Godot receives the
+  // complete creature rather than the handful of fields the variant overrides.
+  // The merge is `tools/src/derived-records.mjs`'s, the same one
+  // `tools/src/validate.mjs` validates through, so what was checked is what
+  // ships. Broken derivation is the validator's to report; here an unresolved
+  // record simply passes through as authored.
+  for (const { file: sourcePath, value } of resolveDerivedRecords(authored).records) {
     records.push({ domain, id: value.id, sourcePath, value });
   }
 }

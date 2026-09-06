@@ -1,0 +1,122 @@
+{
+  "id": "skill.ayla.reach_counter",
+  "displayName": "Reach Counter",
+  "ownerId": "character.heroine.ayla",
+  "bondRank": "D",
+  "activation": "automatic_reaction",
+  "targetRule": "automatic_reaction_to_hostile_attack_in_shared_band",
+  "rules": {
+    "trigger": "hostile_attack_on_a_party_member_standing_in_aylas_band",
+    "counterRawDamage": 10,
+    "counterDamageLevelScale": 1,
+    "counterResolvesThroughGuard": true,
+    "usesPerBattle": "unlimited",
+    "nestedReactionsAllowed": false,
+    "refusedWhileStunned": true
+  },
+  "animation": {
+    "cardId": "animation.ayla.reach_counter",
+    "durationMs": 520,
+    "beats": [
+      {
+        "atMs": 0,
+        "name": "read_the_threat"
+      },
+      {
+        "atMs": 140,
+        "name": "drop_spear_level"
+      },
+      {
+        "atMs": 320,
+        "name": "reach_strike"
+      },
+      {
+        "atMs": 520,
+        "name": "recover_stance"
+      }
+    ],
+    "eventBindings": {
+      "reaction_window_opened": "read_the_threat",
+      "reaction_triggered": "drop_spear_level",
+      "damage_applied": "reach_strike",
+      "actor_defeated": "recover_stance"
+    },
+    "presentationCues": [
+      {
+        "beat": "read_the_threat",
+        "pose": "low_guard_watch",
+        "motion": "weight_shift_toward_ally",
+        "audio": "breath_catch",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "ally",
+          "hostile"
+        ],
+        "cameraId": "presentation.camera.ayla_target_medium",
+        "vfxId": "presentation.vfx.none"
+      },
+      {
+        "beat": "drop_spear_level",
+        "pose": "spear_levelled_at_reach",
+        "motion": "hips_turn_into_the_line",
+        "audio": "haft_slide",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "spear",
+          "hostile"
+        ],
+        "cameraId": "presentation.camera.ayla_spear_track",
+        "vfxId": "presentation.vfx.ayla.spear_reach_arc"
+      },
+      {
+        "beat": "reach_strike",
+        "pose": "full_extension_thrust",
+        "motion": "drive_from_the_rear_foot",
+        "audio": "bronze_bite",
+        "hitStopMs": 45,
+        "shake": 0.1,
+        "frameSubjects": [
+          "ayla",
+          "spear",
+          "hostile",
+          "counter_arc"
+        ],
+        "cameraId": "presentation.camera.ayla_counter_punch",
+        "vfxId": "presentation.vfx.ayla.spear_reach_arc"
+      },
+      {
+        "beat": "recover_stance",
+        "pose": "spear_recovered_to_guard",
+        "motion": "withdraw_and_reset",
+        "audio": "haft_settle",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "spear",
+          "ally"
+        ],
+        "cameraId": "presentation.camera.ayla_target_medium",
+        "vfxId": "presentation.vfx.ayla.recall_fade"
+      }
+    ],
+    "framing": "Ayla, her recurved bronze spear, every named subject and the complete effect remain inside the safe frame.",
+    "replacementAssetIds": [
+      "art.placeholder.ayla.active_actor"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "maturity": "executable-core",
+    "notes": [
+      "Reaction, not a spendable turn. The bible's 'attack an enemy that enters the Contested band' is translated with the concept the engine has: no hostile in this engine moves bands, and a shared band is a contested one, so the trigger is a hostile's attack on a party member standing where Ayla stands.",
+      "counterRawDamage and counterDamageLevelScale are held equal to battle.rs by reach_counter_and_ward_line_deal_their_authored_damage.",
+      "Unlimited use: the skill_uses_remaining entry behind this is a presence gate and is never decremented, unlike Fatal Intercept's charge."
+    ]
+  }
+}
