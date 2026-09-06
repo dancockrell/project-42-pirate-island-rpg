@@ -3,9 +3,9 @@
   "task_id": "b10-content-pack-registry",
   "agent": "claude-code (lane B10)",
   "summary": "ContentPackRegistry autoload: scans user://packs/ and res://packs/ for .pck files and for plain pack directories, reads C8's pack.json, merges overrides by scene ID in load order, and answers presentation_level_for / override_for / loaded_packs against the one fade_to_black < explicit level table.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
-  "updated_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T07:20:00Z",
   "paths": [
     "game/scripts/content/pack_registry.gd",
     "game/project.godot",
@@ -22,12 +22,34 @@
     "ContentPackRegistry.PRESENTATION_LEVELS"
   ],
   "coordination": {
-    "depends_on": ["c10-c8-buildings-and-pack-manifest"],
+    "depends_on": [
+      "c10-c8-buildings-and-pack-manifest"
+    ],
     "conflicts_with": [],
     "notes": "The manifest schema has exactly one owner: tools/src/validate.mjs's packFile block (C8). This registry is the runtime reader, not a second validator -- it refuses only what it cannot use and says why. The fixture pack at packs/pack.presentation.fixture/ is NOT copied under game/; scan(root) takes an explicit root so the suite points it at the repository directory by absolute path. game/project.godot takes one appended [autoload] line at the end of the block, so parallel lanes merge as keep-both tails. content/relationships records already reach Godot through the bundle as scene.<woman>.<slug> records, so ContentCatalog.has/get_record answer the base presentationLevel and the catalog needed no new accessor at all. Nothing in the Rust crate or the port is touched: the simulation never reads presentation."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "ddfdd55",
+    "checks": [
+      "Godot 4.7.2-stable (the exact pinned CI engine, SHA-512 verified) run locally: game/tests/pack_registry_test.gd, EXIT=0, printing only 'ContentPackRegistry pack tests passed.' and no ERROR, SCRIPT ERROR or backtrace line: passed",
+      "CI Verify run 34018590172 on ddfdd55, both jobs green -- 'Rust and content' and 'Godot headless suites', the latter ending 'Real Rust bridge confirmed: all three native suites reported a pass.' with the gate's fallback-marker scan clean; verify-godot.sh globs game/tests/*_test.gd, so the new suite ran inside that gate: passed",
+      "Done-when, with the pack: presentation_level_for('scene.betty.the_lamp_left_burning') reads the fixture pack's targetLevel fade_to_black, and override_for resolves the fixture's two declared assets, one per overridden scene, to files that exist inside packs/pack.presentation.fixture/assets/: passed",
+      "Done-when, without: a registry that scanned nothing returns the scene's authored presentationLevel from the content bundle and an empty override_for: passed",
+      "A scene the fixture does not override (scene.betty.the_second_watch) falls back to base with no override: passed",
+      "A pack.json whose declared asset is not a file inside the pack is refused whole, the reason names the path, loaded_packs stays empty and none of its overrides merge: passed",
+      "The level switch proved for real: a second pack written by the suite under user:// with targetLevel explicit lifts presentation_level_for to explicit, wins the scene it shares with the fixture (later wins, and the winning pack ID is recorded), leaves the fixture's other scene at fade_to_black, and lifts nothing for a scene no pack overrides: passed",
+      "Bite 1: the asset-existence refusal deleted from _read_manifest -- the suite FAILED on 'a pack with a missing asset does not load', 'a refused pack is not among the loaded packs', 'a refused pack merges none of its overrides', 'a refused pack lifts no scene's level' and 'the refusal is recorded', EXIT=1: failed",
+      "Bite 2: presentation_level_for made to ignore the loaded packs -- the suite FAILED on 'the highest level any loaded pack offers for the scene is what the scene player reads', EXIT=1: failed",
+      "Bite, restored: the suite is green again, EXIT=0, on the committed tree: passed",
+      "The new autoload breaks no existing suite: content_catalog_test, combat_text_renderer_test, targeting_session_test, world_cell_test and placeholder_action_presenter_test all EXIT=0 with no new ERROR line (the only ERROR lines are the missing GDExtension, which is absent locally and built in CI): passed",
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (303 lib + 5 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice), unchanged by this lane: passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (214 stable IDs, 1 presentation pack carrying 2 scene overrides) -- the validator is untouched and stays the manifest schema's only owner: passed",
+      "node tools/src/check-claims.mjs (41 claims, 88 ship-plan rows, 82 cards): passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/ -- no content changed, bundle unchanged (sha256:13655d16...): passed",
+      "ContentCatalog needed no new accessor: relationship scenes already reach Godot as scene.<woman>.<slug> records in the bundle, so has()/get_record() answer the base presentationLevel and content_catalog.gd is untouched: not_run",
+      "The .pck branch of scan() is exercised by no test: E9 builds the .pck and this lane creates none, so ProjectSettings.load_resource_pack and the res://packs/<id>/pack.json manifest lookup are written to the validator's id-equals-directory rule and proved only by the directory branch. E9's build must land a manifest at that path: not_run"
+    ]
   }
 }
