@@ -48,6 +48,7 @@ use serde::{Deserialize, Serialize};
 use crate::expedition::ExpeditionState;
 use crate::geography::Geography;
 use crate::strategy::faction::FactionDefinitions;
+use crate::strategy::utility::{BoardView, GoalWeights, choose_goals, recompute_strategic_state};
 use crate::world::mix_seed;
 
 /// Hours in an in-world day. The one place the number lives; `resolve_midnight_in`
@@ -226,15 +227,42 @@ pub fn hour_draws(
 /// faction's numbers, which is exactly the kind of hidden coupling this fixed
 /// sequence exists to prevent.
 ///
-/// `geography` and `factions` are the board and the authored records S5 will
-/// score against. They are in the signature now, unread, so that S5 fills a
-/// body rather than changing a signature every caller passes. Nothing in this
-/// file branches on them, and
-/// `strategic_determinism.rs::the_registry_cannot_change_a_tick_yet` holds
-/// that claim true until S5 deliberately breaks it.
+/// `geography` is the board S5 scores against. `factions` is the authored
+/// registry, and it is still unread: the bridge does not load
+/// `content/factions/*.json` yet, so `resolve_midnight_in` hands this function
+/// an empty registry and a game launched from Godot would otherwise be a
+/// different island from the same game run in the harness. S5 therefore scores
+/// with `GoalWeights::default()`, and
+/// `strategic_determinism.rs::the_registry_cannot_change_a_tick_yet` still
+/// holds -- `GoalWeights::from_definition` is the seam the lane that loads the
+/// records will swap in, and that test says of itself that it is written to be
+/// deleted when they do.
+///
+/// ## What S5 does with the hour's draws
+///
+/// The seven draws are made and folded into the witness exactly as before: the
+/// loop below is untouched, so the digest of a given hour is the number it
+/// always was and no save written since S4 has changed meaning.
+///
+/// Of the two draws [`PURPOSES`] reserves for S5, one is consumed and one is
+/// deliberately not:
+///
+/// * `strategic.goal` is [`choose_goals`]' bounded personality variation, and
+///   the only source of variation in the whole of S5.
+/// * `strategic.board_position` is **read by nothing**, and that is the
+///   decision rather than an omission. Card S5 requires `StrategicState` to be
+///   "recomputed each tick from position, never set by hand", and a random
+///   nudge -- even one bounded to a threshold's width -- would make the board
+///   position partly a matter of chance instead of a fact about the board.
+///   [`recompute_strategic_state`] is therefore a pure function of
+///   [`BoardView`]. The purpose keeps its slot in the sequence because
+///   removing it would change every island ever saved for no gain, and because
+///   the position is the natural place for a future *perception* model -- a
+///   faction misreading its own position -- to attach without moving anyone
+///   else's numbers.
 pub(crate) fn run_hour(
     state: &mut ExpeditionState,
-    _geography: &Geography,
+    geography: &Geography,
     _factions: &FactionDefinitions,
 ) -> Vec<StrategicEvent> {
     let day = state.campaign_day;
@@ -243,9 +271,31 @@ pub(crate) fn run_hour(
 
     let faction_ids: Vec<String> = state.factions.keys().cloned().collect();
     for faction_id in &faction_ids {
-        for draw in hour_draws(rng_seed, day, hour, faction_id).values() {
+        let draws = hour_draws(rng_seed, day, hour, faction_id);
+        for draw in draws.values() {
             state.strategic_clock.absorb(*draw);
         }
+
+        // Every faction reads the board as it stands at the top of the hour,
+        // before any of them has decided anything, so the order the factions
+        // are visited in cannot change what any of them sees. Nothing in S5
+        // writes ownership, so the view is the same for all of them; when a
+        // later lane does move the board mid-hour, this is the line that has
+        // to decide whether it wants that, rather than discovering it.
+        let view = BoardView::of(faction_id, state, geography);
+        let strategic_state = recompute_strategic_state(&view);
+        let goal_draw = draws
+            .get("strategic.goal")
+            .copied()
+            .expect("PURPOSES reserves strategic.goal and hour_draws makes every purpose");
+        let goals = choose_goals(&view, strategic_state, goal_draw, &GoalWeights::default());
+
+        let faction = state
+            .factions
+            .get_mut(faction_id)
+            .expect("faction_ids was taken from this map and nothing removes from it");
+        faction.strategic_state = strategic_state;
+        faction.current_goals = goals;
     }
 
     state.strategic_clock.advance_one_hour();
