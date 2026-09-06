@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "task_id": "s11-event-journal",
+  "agent": "claude-code (lane S11)",
+  "summary": "The strategic event journal: a bounded, saved window of StrategicEvents whose evicted prefix is folded into a history digest, so a save never grows without limit and never loses what happened.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/journal.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/tests/save_migration.rs"
+  ],
+  "symbols": [
+    "StrategicJournal",
+    "JournalEntry",
+    "JOURNAL_WINDOW",
+    "ExpeditionState.strategic_journal",
+    "ExpeditionState.strategic_tick"
+  ],
+  "coordination": {
+    "depends_on": [
+      "s4-strategic-tick"
+    ],
+    "conflicts_with": [],
+    "notes": "expedition.rs: appends one field at the END of ExpeditionState plus its initialiser at the end of the struct literal in new(), and one hunk inside the thin strategic_tick that journals the events run_hour returns before returning them. Other lanes appending at the same struct tail merge with this. tick.rs is untouched: JournalEntry wraps StrategicEvent, which already derives Clone/Serialize/Deserialize. save_migration.rs: EXPECTED_CURRENT_KEYS gains strategic_journal in struct order; v1_current.json is NOT regenerated, because the card's Done-when is that a fixture predating the field still loads with an empty journal.",
+    "notes_scores": "Entries carry only what StrategicEvent carries plus day and hour: no utility scores (S5), no dispositions (S12). The journal is not a side channel."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
