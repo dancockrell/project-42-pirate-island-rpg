@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "task_id": "b14-control-and-risk-surface",
+  "agent": "claude-code (lane B14)",
+  "summary": "Project S2's control and risk model through the bridge and draw live, contested-aware route risk on the expedition screen",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/godot_bridge.rs",
+    "godot-rust/tests/authored_world.rs",
+    "game/scripts/simulation/native_expedition_port.gd",
+    "game/scripts/campaign/campaign_session.gd",
+    "game/scripts/world/expedition_prototype.gd",
+    "game/tests/expedition_prototype_test.gd",
+    ".agents/claims/b14-control-and-risk-surface.json"
+  ],
+  "symbols": [
+    "Project42ExpeditionBridge.set_control",
+    "Project42ExpeditionBridge.controller_of",
+    "Project42ExpeditionBridge.effective_risk",
+    "expedition_state_dictionary.route_options",
+    "NativeExpeditionPort.set_control",
+    "CampaignSession.set_control",
+    "ExpeditionPrototype.populate_routes"
+  ],
+  "coordination": {
+    "depends_on": ["s2-ownership-and-influence", "b3-b4-legal-commands-and-controls"],
+    "conflicts_with": [],
+    "notes": "Bridge-side only. geography.rs, expedition.rs, strategy/, content/, tools/ and docs/SHIP_PLAN.md are untouched; the derived risk is never stored in GDScript."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
