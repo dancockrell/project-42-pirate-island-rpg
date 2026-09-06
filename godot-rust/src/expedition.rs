@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::geography::{AnchorDefinition, AnchorKind, Geography, RouteOption};
 use crate::habitat::{Habitats, LootTable};
 use crate::hunter::{self, Hunter, HunterKind};
+use crate::strategy::recruitment::{RecruitmentStage, RecruitmentState};
 use crate::world::{
     DeathMemory, NamedPerson, SpawnRule, SpawnedMonster, WorldClock, WorldEvent, mix_seed,
 };
@@ -122,6 +123,13 @@ pub struct ExpeditionState {
     /// existed still loads at the same `save_version`, with no factions.
     #[serde(default)]
     pub factions: BTreeMap<String, crate::strategy::faction::FactionState>,
+    /// S12: where each woman's relationship to Captain Michael and his faction
+    /// stands, keyed by character ID. Moved only by
+    /// [`ExpeditionState::record_recruitment_milestone`] -- authored beats, never
+    /// a timer. See `strategy/recruitment.rs` for the projection contract that
+    /// keeps this out of the bridge as anything but a stage word and a beat ID.
+    #[serde(default)]
+    pub recruitment: BTreeMap<String, RecruitmentState>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -192,6 +200,19 @@ pub enum ExpeditionError {
     /// The party cannot walk away from a fight it has already been offered.
     TravelBlockedByEncounter {
         encounter_id: String,
+    },
+    /// S12: a milestone was recorded against a woman this campaign has no
+    /// recruitment record for. Refused rather than created, because a woman is
+    /// authored content -- buildings do not manufacture women, and neither does
+    /// a stray milestone ID.
+    UnknownRecruit {
+        character_id: String,
+    },
+    /// S12: that authored beat has already played for her. Replaying it would
+    /// be the one way to walk a stage forward without new authored content.
+    MilestoneAlreadyRecorded {
+        character_id: String,
+        milestone_id: String,
     },
 }
 
@@ -310,6 +331,7 @@ impl ExpeditionState {
             anchor_uses: BTreeMap::new(),
             rng_seed: seed,
             factions: BTreeMap::new(),
+            recruitment: BTreeMap::new(),
         };
         state.validate()?;
         Ok(state)
@@ -1046,6 +1068,35 @@ impl ExpeditionState {
         );
 
         Ok(events)
+    }
+
+    /// S12: plays one authored recruitment beat for one woman.
+    ///
+    /// Rejects before mutating on an unknown woman, a malformed milestone ID, a
+    /// malformed recruitment record, or a milestone already recorded for her.
+    /// On success returns the stage she stands at afterward -- which is very
+    /// often the stage she was already at, because a milestone moves her only
+    /// when her authored rule for it permits it. Attraction creates openings,
+    /// not allegiance, and nothing here advances on a clock.
+    pub fn record_recruitment_milestone(
+        &mut self,
+        woman_id: &str,
+        milestone_id: &str,
+    ) -> Result<RecruitmentStage, ExpeditionError> {
+        require_stable_id("milestone_id", milestone_id)?;
+        let recruit =
+            self.recruitment
+                .get_mut(woman_id)
+                .ok_or_else(|| ExpeditionError::UnknownRecruit {
+                    character_id: woman_id.to_owned(),
+                })?;
+        recruit.validate()?;
+        recruit.record_milestone(milestone_id).ok_or_else(|| {
+            ExpeditionError::MilestoneAlreadyRecorded {
+                character_id: woman_id.to_owned(),
+                milestone_id: milestone_id.to_owned(),
+            }
+        })
     }
 
     /// Derives "alive today" from the death memory alone -- `named_person_memory`
