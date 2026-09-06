@@ -70,6 +70,9 @@ func inspect(observation_id: String) -> Dictionary:
 func resolve_midnight() -> Dictionary:
 	if expedition == null:
 		return unavailable_state()
+	var refusal := advance_refused_while_paused()
+	if not refusal.is_empty():
+		return refusal
 	latest_snapshot = expedition.resolve_midnight()
 	return latest_snapshot.duplicate(true)
 
