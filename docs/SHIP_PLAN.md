@@ -395,6 +395,7 @@ top of the document is never stale:
 | S13 | Michael's faction production: machines, not people | S3 | shipped 245aa5c 2026-09-06 |
 | S14 | Founding sequence: shipwreck to first strategic core | S13, O5 | open |
 | S15 | Two Provisional doctrines approved and encoded | S1, human | blocked: needs approval of brief §6.x doctrines |
+| S16 | Production runs in the tick: interval rules produce on the economy draw | S13, B16 | open |
 
 ### Lane B — Bridge, board and Godot
 
@@ -417,6 +418,7 @@ top of the document is never stale:
 | B15 | The bridge loads the faction records and hands the registry down; S5's seam closed | C9, S5 | shipped 777a943 2026-09-06 — the seam is closed as an honest negative until a record carries a real weight |
 | B16 | The bridge loads the building records and hands the registry to the tick; S10's sweep reads real buildings | C10, S10 | shipped 049bd45 2026-09-06 |
 | B17 | A battle is built from the campaign: bond ranks reach the fight | A10 | shipped b9c6ad5 2026-09-06 |
+| B18 | Travel by tile, by the words, or by hotkey; the drawn route markers go | B14 | open |
 
 ### Lane C — Content and validator (`content/`, `tools/src/validate.mjs`)
 
@@ -435,6 +437,7 @@ top of the document is never stale:
 | C11 | Room contract fields on world cells | B11 | open |
 | C12 | One recruitable woman's arc (records only; identity per O2) | C6, S12, O2 | blocked: needs decision O2 |
 | C13 | Content can declare a discovery ID; the tidal cut's gate authored | A4 | shipped 3c85451 2026-09-05 — plus the bridge wire it turned out to need |
+| C14 | Machine records: the eight families with brief §18's fields | S13 | open |
 
 ### Lane D — Art (`content/art/`, `work/art/`, `game/assets/`)
 
@@ -1277,6 +1280,28 @@ the two for the Demo (Provisional recommendation: pirates and colonial
 powers — both coastal, both give the contested route and port front M4
 needs), get explicit approval, then encode their `FactionDefinition`s (C9).
 
+### S16 · Production runs in the tick: interval rules produce on the economy draw
+Status: open · Depends on: S13, B16
+Touches: `godot-rust/src/strategy/production.rs` (the hourly step),
+`godot-rust/src/strategy/tick.rs` (`run_hour` consumes `strategic.economy`;
+one appended event if needed), `godot-rust/src/strategy/building.rs` (one
+appended `#[serde(default)]` countdown on `BuildingInstance`),
+`godot-rust/tests/strategic_determinism.rs` (the probe).
+S13 left it plainly: nothing calls `produce_machine` on a timer and the
+`strategic.economy` draw is unconsumed since S4. This card closes both. An
+operational building whose rule has `interval_hours > 0` counts down each
+hour and, at zero, produces through the existing `produce_machine` /
+capacity / service path — one owner, no second production function — paying
+the rule's `cost` from the faction's open-keyed stockpile or skipping with a
+journaled reason. Human-role rules never run on a timer (S3's refusal
+stands). The economy draw is the only randomness and is consumed whether or
+not anything produces, so the hash contract holds. Nothing refills a
+stockpile yet: say so.
+Done when: the harness with a placed machine shop and a stocked faction
+produces a machine on the authored interval and the 2,400-hour run still
+reproduces; an unstocked yard skips with a journal entry and never goes
+negative; removing the countdown makes the probe fail (bite).
+
 ### Lane B — new cards
 
 ### B1 · Rewire the campaign bridge from `RouteGraph` to `Geography`
@@ -1387,6 +1412,20 @@ work, not content's.
 
 ### B7 · Battle-entry sockets bound to habitat holders
 Status: open · Depends on: B3
+Touches: `content/world/*.world_cell.json` (`battleEntries[].habitatId`),
+`tools/src/validate.mjs`, `game/scripts/simulation/native_expedition_port.gd`,
+`godot-rust/src/geography.rs` (`from_authored` and the equality test),
+`godot-rust/tests/authored_world.rs`.
+B6 found the gap: the port derives `encounter_eligible` only from a battle
+entry authored as a one-time `vertical_slice_encounter`, so a cell whose
+fight is the habitat holder's (the service passage, D3) has no content
+expression and the flag stays Rust-side. Give a battle entry a `habitatId`
+(registered stable ID, `habitat.*`); a cell with such an entry is encounter-
+eligible and the fight at that entry is whatever the habitat currently
+holds — the same `begin_encounter` path, no second spawn rule. The equality
+test then compares `encounter_eligible` too and the tolerance goes.
+Done when: the service passage is eligible from content alone; removing its
+`habitatId` fails the equality test (bite); the Godot job green.
 
 ### B8 · New game, save slots, continue
 Status: shipped `ff7a81a` 2026-09-06 · Depends on: E6
@@ -1638,6 +1677,26 @@ bridge setter for a bond rank was added and none is blocked:** an authored
 beat remains the only thing that moves a bond. Two live-bridge assertions in
 the Godot suites; CI's Godot job is their proof.
 
+### B18 · Travel by tile, by the words, or by hotkey; the drawn route markers go
+Status: open · Depends on: B14
+Touches: `game/scripts/world/expedition_route_board.gd`,
+`game/scripts/world/expedition_prototype.gd`, `game/tests/expedition_prototype_test.gd`.
+The owner's direction: remove the route markers. The board no longer draws
+portal lines or the teal midpoint dots or the "solid teal route" legend. You
+travel three ways, all of them the same command: **click another tile** on
+the board (a cell node whose portal from the active cell is in
+`legal_route_commands` — an illegal or unconnected tile does nothing and
+says why in the status line), **click the words** (the route list, as
+today), or **a hotkey** (digits 1–9 in the route list's order, shown on each
+entry). Every path calls `request_travel(portal_id)` and nothing else; no
+second legality check in GDScript — the native list decides, the screen
+only reads it. Tiles still show which cells are reachable now (tint), since
+that is the snapshot's fact, not a marker.
+Done when: the prototype suite travels once by tile, once by hotkey, and
+once by the words and lands on the same cell each way; a click on an
+unreachable tile leaves the snapshot unchanged; `draw_portal` is gone;
+the Godot job green.
+
 ### Lane C — new cards
 
 ### C1 · Loot records and a reference check that bites · shipped ab17bfa
@@ -1884,6 +1943,29 @@ bridge with an `anchor_outcome` block, session and scene wrappers, and the
 prototype test salvaging the wreck before it travels. `tests/authored_world.rs`
 performs the GDScript's translation field for field and drives the prototype's
 opening on it — the nearest local proof; the Godot job is the real one.
+
+### C14 · Machine records: the eight families with brief §18's fields
+Status: open · Depends on: S13
+Touches: `content/machines/*.json` (new), `tools/src/validate.mjs` (one
+block), `tools/src/build-content-bundle.mjs` (`machines` in the domain list),
+`game/generated/content_bundle.json` (regenerated), one equality test in
+`godot-rust/src/strategy/production.rs`, and `building.machine_shop`'s
+rule `output_key` pointing at a real machine ID.
+S13 shipped `MachineDefinition` with §18's fields verbatim and said this
+card must exist. Shapes, not a catalogue: one record per family is too many
+to invent honestly — author **two** (`machine.mechanical_dog`, the first
+thing a tier-one yard makes, and `machine.steam_wagon`, the first hauler),
+each `id` exactly `machine.<slug>`, `family` one of the eight keys, valid
+route types from the authored `travelMode` vocabulary, fuel and water as
+`resource.open.` keys, and every dimension a named placeholder marked needs
+decision (brief §20 leaves dimensions Open). Validator mirrors the family
+list and the route vocabulary; Rust `every_authored_machine_record_loads`
+holds `MachineDefinitions` equal to the directory, the C10 shape.
+Traps: no proper names; no invented footprint numbers presented as decided;
+`family` must agree with the machine shop's rule or `produce_machine`
+refuses — and the test must show that refusal.
+Done when: validator and equality test green; a record with a ninth family
+fails both (bite); the machine shop's rule names a machine that exists.
 
 ### Lane D — new cards
 
