@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "task_id": "ci-usage-efficiency",
+  "agent": "codex",
+  "summary": "Remove duplicate verification runs and bound transient artifact storage",
+  "status": "active",
+  "claimed_at": "2026-09-06T14:09:08.159738Z",
+  "updated_at": "2026-09-06T14:09:08.159738Z",
+  "paths": [
+    ".github/workflows/verify.yml",
+    ".github/workflows/nightly.yml",
+    ".agents/claims/ci-usage-efficiency.json"
+  ],
+  "symbols": [],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [],
+    "notes": "No active or blocked claims at inspection. Update existing backend/b0-expedition-state branch and PR 3; preserve all jobs and assertions."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}

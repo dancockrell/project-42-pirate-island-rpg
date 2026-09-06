@@ -259,6 +259,7 @@ jobs:
           name: project42-${{ matrix.slug }}-${{ github.sha }}
           path: ${{ runner.temp }}/export/${{ matrix.slug }}
           if-no-files-found: error
+          retention-days: 7
 
   macos:
     name: Export macOS
@@ -491,6 +492,7 @@ jobs:
           name: project42-macos-${{ github.sha }}
           path: work/macos-desktop
           if-no-files-found: error
+          retention-days: 7
 
   packs:
     name: Build the presentation packs
@@ -543,3 +545,4 @@ jobs:
           name: project42-packs-${{ github.sha }}
           path: work/packs/*.pck
           if-no-files-found: error
+          retention-days: 7

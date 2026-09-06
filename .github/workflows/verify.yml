@@ -1,14 +1,22 @@
 name: Verify
 
-# The repository's CI. Two independent jobs: rust-and-content covers the checks
+# The repository's CI. Three independent jobs: rust-and-content covers the checks
 # that need no game engine (the Rust simulation crate and the content tooling),
 # and godot-suites downloads a pinned Godot, builds the Rust GDExtension and
 # runs the headless GDScript suites against the real bridge. They run in
-# parallel; neither waits on the other.
+# parallel; captures renders scenes for visual review.
 
+# Proposed changes run once through their pull request; main remains verified.
+# Manual branch runs are available once this workflow is on the default branch.
 on:
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # P1 hoisted these three from godot-suites to the workflow, unchanged: the
 # captures job downloads the same engine, and a pin copied into two jobs is two
@@ -281,7 +289,7 @@ jobs:
       # whose manifest lands at res://packs/<id>/pack.json costs two short
       # headless runs per pack. The nightly workflow runs the same script and
       # uploads what it builds; this one only checks that it still works, on
-      # every push, because a pack that stops building is a content change and
+      # every verification run, because a pack that stops building is a content change and
       # content changes land here.
       - name: Build and verify the presentation packs
         shell: bash
@@ -294,6 +302,7 @@ jobs:
           name: godot-gate-log
           path: ${{ runner.temp }}/godot-gate.log
           if-no-files-found: warn
+          retention-days: 7
 
   captures:
     name: Scene captures
@@ -382,6 +391,7 @@ jobs:
           name: captures-${{ github.sha }}
           path: work/captures/
           if-no-files-found: error
+          retention-days: 7
 
       - name: Upload the capture log
         if: always()
@@ -390,3 +400,4 @@ jobs:
           name: captures-log-${{ github.sha }}
           path: ${{ runner.temp }}/captures.log
           if-no-files-found: warn
+          retention-days: 7
