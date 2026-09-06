@@ -82,10 +82,16 @@ func _init() -> void:
 
 	# Two surfaces, one pause. A reading surface opens on top of settings, and
 	# closing settings must not resume the island underneath it.
-	check(game_pause.pause(READING_REASON), "a second surface must be able to add its own reason")
+	# The return value reports whether the call changed the verdict, not whether
+	# the reason was new: the island was already held, so a second surface
+	# joining changes nothing the player can see.
+	check(not game_pause.pause(READING_REASON), "a second reason must not re-announce a pause that already stands")
 	check(game_pause.pause_reasons() == [READING_REASON, SettingsPanel.PAUSE_REASON], "both reasons must be readable while both surfaces are open")
-	check(not game_pause.pause(READING_REASON), "the same reason twice must not stack")
-	panel.close()
+	game_pause.pause(READING_REASON)
+	check(game_pause.pause_reasons() == [READING_REASON, SettingsPanel.PAUSE_REASON], "the same reason twice must not stack a second entry")
+	# Closed through its own control, so the wiring the player uses is what the
+	# suite exercises.
+	panel.close_button.pressed.emit()
 	await process_frame
 	check(game_pause.is_paused(), "closing settings must leave the game paused while a reading surface is open")
 	check(paused, "the scene tree must stay paused while any reason stands")

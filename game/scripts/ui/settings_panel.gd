@@ -39,9 +39,6 @@ const TEAL := Color("55c9ac")
 const CREAM := Color("eadfca")
 const MUTED := Color("9eb0a7")
 
-## Emitted after the panel has released its pause reason and is closing.
-signal closed
-
 var text_scale := DEFAULT_TEXT_SCALE
 var high_contrast := false
 var reduced_motion := false
@@ -74,7 +71,6 @@ func _exit_tree() -> void:
 func close() -> void:
 	save_settings()
 	release_pause()
-	closed.emit()
 	queue_free()
 
 
