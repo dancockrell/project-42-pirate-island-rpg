@@ -356,7 +356,7 @@ top of the document is never stale:
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
 - **M3** shipped 11/16 — **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
-- Last updated 2026-09-06 against trunk `a1018dd`. If this line is older than
+- Last updated 2026-09-06 against trunk `3857ffa`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -425,7 +425,7 @@ top of the document is never stale:
 | C3 | `ayla.json` and seven Ayla skill records | A7 | open |
 | C4 | Captain Michael's skill records and a `self` target rule | — | shipped ab17bfa 2026-09-05 |
 | C5 | The tomb as a faction-specific dungeon: twelve spaces | B6, S9 | open |
-| C6 | Relationship scene records and schema | — | open |
+| C6 | Relationship scene records and schema | — | shipped 3857ffa 2026-09-06 — five scenes, fade-to-black by rule, the pack's seam left open |
 | C7 | Placeholder deprecation migration | D4 | open |
 | C8 | Scene `presentationLevel` and the pack manifest schema | C6 | open |
 | C9 | Faction records (no proper names) | S1 | shipped 3598628 2026-09-06 — the validator refuses a real name until one is approved |
@@ -1429,7 +1429,7 @@ carry `site_rule_ids` and a `dungeonContext` block; S9 selects rules by
 owning faction (elves by default; corrupted variant when Cthulhu holds it).
 
 ### C6 · Relationship scene records and schema
-Status: open · Depends on: —
+Status: shipped `3857ffa` 2026-09-06 · Depends on: —
 Touches: `content/relationships/*.json` (new), `tools/src/validate.mjs` (one
 block), `godot-rust/src/strategy/recruitment.rs` (`MilestoneRule::from_authored`
 and one equality test), `game/generated/content_bundle.json` (regenerated)
@@ -1463,6 +1463,21 @@ timers. Two or three scenes per woman is enough to prove the shape.
 Done when: the validator passes with the records; the equality test passes;
 a scene with `presentationLevel: "explicit"` in the base tree fails the
 validator (bite).
+
+**Shipped.** Five scenes — three for Betty, two for Ayla — each granting one
+milestone whose rule is S12's `MilestoneRule` itself (serde aliases for the
+authored spelling; one type, not a copy). `adopt_authored_scenes` is the one
+door into a woman's rule table; `every_authored_scene_rule_loads` holds the
+table equal to the directory. Three rules rest on a `TrustInMichael` floor
+and the validator refuses the directory if none does. `fade_to_black`
+everywhere, refused otherwise — the adult pack (C8/B10/E9) overrides this
+seam. Proven to bite three ways in both the validator and Rust. Prose is
+marked placeholder and written as real moments that stop at the fade.
+**Left, on purpose:** Ayla has no character record (C3 ← A7/H5), so the
+validator carries a one-line named exception for her alone, deleted when C3
+lands; the never-joins rung is still undecided, and a woman who never joins
+stays at `Contact`; conditions are opaque `condition.*` IDs with no registry
+yet. Stable IDs 200 → 210.
 
 ### C8 · Scene `presentationLevel` and the pack manifest schema
 Status: open · Depends on: C6
