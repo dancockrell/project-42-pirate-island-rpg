@@ -15,7 +15,12 @@ func has_legal_targets(skill_record: Dictionary, actors: Array) -> bool:
 	var rule := str(skill_record.get("targetRule", ""))
 	if rule == "all_living_party_members":
 		return actors.any(func(actor): return is_actor(actor, "party", true))
-	if rule == "automatic_reaction_to_other_party_member_lethal_hit":
+	# A7: Ayla's Reach Counter is the second automatic reaction. It is a
+	# separate rule from Fatal Intercept's because the trigger is different --
+	# Fatal Intercept's names a lethal hit and this one does not -- but the
+	# targeting behaviour is identical: the player never points at anything and
+	# the simulation decides when it fires.
+	if rule in ["automatic_reaction_to_other_party_member_lethal_hit", "automatic_reaction_to_hostile_attack_in_shared_band"]:
 		return false
 	if rule in ["one_hostile", "one_living_hostile"]:
 		return actors.any(func(actor): return is_actor(actor, "hostile", true))
@@ -41,7 +46,7 @@ func begin(skill_record: Dictionary, actors: Array) -> Dictionary:
 			actors_by_id[str(actor.get("id", ""))] = actor.duplicate(true)
 	if target_rule in ["all_living_party_members"]:
 		return {"status": "ready", "target_ids": []}
-	if target_rule == "automatic_reaction_to_other_party_member_lethal_hit":
+	if target_rule in ["automatic_reaction_to_other_party_member_lethal_hit", "automatic_reaction_to_hostile_attack_in_shared_band"]:
 		return {"status": "automatic", "target_ids": []}
 	active = true
 	return {"status": "selecting", "prompt": prompt()}

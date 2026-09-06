@@ -486,7 +486,7 @@ func on_party_card_pressed(id: String, display_name: String, accent: Color) -> v
 
 func on_enemy_gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		accept_target("enemy.raptor.razorbeak.prototype")
+		accept_target("enemy.raptor.razorbeak")
 
 func begin_skill_targeting(skill_id: String) -> void:
 	if animation_director.playing:
@@ -563,7 +563,7 @@ func run_automatic_turns() -> void:
 			"target_ids": [],
 			"payload": {}
 		}
-		if active_actor_id == "enemy.raptor.razorbeak.prototype":
+		if active_actor_id == "enemy.raptor.razorbeak":
 			automatic_command = simulation.recommended_enemy_command(command_id)
 			if not automatic_command.get("available", false):
 				description_label.text += " [color=#c24e45]ENEMY DECISION FAILED[/color] %s." % automatic_command.get("reason", "unknown_reason")

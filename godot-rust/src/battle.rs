@@ -691,7 +691,7 @@ impl Battle {
             id: "status.ayla.bleeding.prototype".into(),
             kind: StatusKind::Bleeding,
             remaining_rounds: 2,
-            source_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+            source_id: ActorId("enemy.raptor.razorbeak".into()),
         });
 
         let mut vix = actor("character.heroine.vix", "Vix", Faction::Party, 3, 80, 0, 10);
@@ -701,11 +701,11 @@ impl Battle {
             id: "status.vix.poisoned.prototype".into(),
             kind: StatusKind::Poisoned,
             remaining_rounds: 3,
-            source_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+            source_id: ActorId("enemy.raptor.razorbeak".into()),
         });
 
         let mut razorbeak = actor(
-            "enemy.raptor.razorbeak.prototype",
+            "enemy.raptor.razorbeak",
             "Razorbeak",
             Faction::Hostile,
             7,
@@ -1088,7 +1088,7 @@ impl Battle {
         } else if command.skill_id.starts_with("skill.ayla.") {
             Some(ActorId("character.heroine.ayla".into()))
         } else if command.skill_id.starts_with("skill.enemy.razorbeak.") {
-            Some(ActorId("enemy.raptor.razorbeak.prototype".into()))
+            Some(ActorId("enemy.raptor.razorbeak".into()))
         } else {
             None
         };
@@ -2520,14 +2520,7 @@ mod tests {
             "battle.prototype.returning_names",
             [
                 actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12),
-                actor(
-                    "enemy.raptor.razorbeak.prototype",
-                    Faction::Hostile,
-                    7,
-                    70,
-                    3,
-                    8,
-                ),
+                actor("enemy.raptor.razorbeak", Faction::Hostile, 7, 70, 3, 8),
             ],
         )
     }
@@ -2542,12 +2535,12 @@ mod tests {
                 command_id: "command.test.1".into(),
                 actor_id: ActorId("character.heroine.betty".into()),
                 skill_id: "skill.betty.guarded_strike".into(),
-                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+                target_ids: vec![ActorId("enemy.raptor.razorbeak".into())],
             })
             .unwrap();
         assert_eq!(
             battle
-                .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+                .actor(&ActorId("enemy.raptor.razorbeak".into()))
                 .unwrap()
                 .vitality,
             58
@@ -2576,7 +2569,7 @@ mod tests {
                 command_id: "open.enemy.turn".into(),
                 actor_id: ActorId("character.heroine.betty".into()),
                 skill_id: "skill.betty.guarded_strike".into(),
-                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+                target_ids: vec![ActorId("enemy.raptor.razorbeak".into())],
             })
             .unwrap();
         let decision = battle.enemy_decision().expect("razorbeak is active");
@@ -2607,7 +2600,7 @@ mod tests {
                 skill_id: "skill.betty.rescue_charge".into(),
                 target_ids: vec![
                     ActorId("character.heroine.vix".into()),
-                    ActorId("enemy.raptor.razorbeak.prototype".into()),
+                    ActorId("enemy.raptor.razorbeak".into()),
                 ],
             })
             .unwrap();
@@ -2636,7 +2629,7 @@ mod tests {
                 command_id: "open.enemy.turn.with.guard".into(),
                 actor_id: ActorId("character.heroine.betty".into()),
                 skill_id: "skill.betty.guarded_strike".into(),
-                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+                target_ids: vec![ActorId("enemy.raptor.razorbeak".into())],
             })
             .unwrap();
 
@@ -2669,7 +2662,7 @@ mod tests {
                 skill_id: "skill.betty.rescue_charge".into(),
                 target_ids: vec![
                     ActorId("character.heroine.vix".into()),
-                    ActorId("enemy.raptor.razorbeak.prototype".into()),
+                    ActorId("enemy.raptor.razorbeak".into()),
                 ],
             })
             .unwrap();
@@ -2704,14 +2697,14 @@ mod tests {
                 skill_id: "skill.betty.rescue_charge".into(),
                 target_ids: vec![
                     ActorId("character.heroine.vix".into()),
-                    ActorId("enemy.raptor.razorbeak.prototype".into()),
+                    ActorId("enemy.raptor.razorbeak".into()),
                 ],
             })
             .unwrap();
         let events = battle
             .submit(SkillCommand {
                 command_id: "enemy.guard.break".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.enemy.razorbeak.guard_breaking_kick".into(),
                 target_ids: vec![ActorId("character.heroine.vix".into())],
             })
@@ -2752,13 +2745,13 @@ mod tests {
                 command_id: "open.enemy.turn.for.recovery".into(),
                 actor_id: ActorId("character.heroine.betty".into()),
                 skill_id: "skill.betty.guarded_strike".into(),
-                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+                target_ids: vec![ActorId("enemy.raptor.razorbeak".into())],
             })
             .unwrap();
         let kick_events = battle
             .submit(SkillCommand {
                 command_id: "create.recovery.opening".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.enemy.razorbeak.guard_breaking_kick".into(),
                 target_ids: vec![ActorId("character.heroine.vix".into())],
             })
@@ -2769,7 +2762,7 @@ mod tests {
                 actor_id,
                 bonus_raw_damage: 6,
                 ..
-            } if actor_id.0 == "enemy.raptor.razorbeak.prototype"
+            } if actor_id.0 == "enemy.raptor.razorbeak"
         )));
         assert_eq!(battle.snapshot().recovery_openings.len(), 1);
 
@@ -2798,7 +2791,7 @@ mod tests {
                 command_id: "betty.punishes.recovery".into(),
                 actor_id: ActorId("character.heroine.betty".into()),
                 skill_id: "skill.betty.guarded_strike".into(),
-                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+                target_ids: vec![ActorId("enemy.raptor.razorbeak".into())],
             })
             .unwrap();
         let consumed_index = punish_events
@@ -2815,13 +2808,13 @@ mod tests {
             .expect("recovery opening consumed");
         let damage_index = punish_events
             .iter()
-            .position(|event| matches!(event, BattleEvent::DamageApplied { target_id, amount: 21, .. } if target_id.0 == "enemy.raptor.razorbeak.prototype"))
+            .position(|event| matches!(event, BattleEvent::DamageApplied { target_id, amount: 21, .. } if target_id.0 == "enemy.raptor.razorbeak"))
             .expect("bonus damage applied");
         assert!(consumed_index < damage_index);
         assert!(battle.snapshot().recovery_openings.is_empty());
         assert_eq!(
             battle
-                .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+                .actor(&ActorId("enemy.raptor.razorbeak".into()))
                 .expect("Razorbeak remains")
                 .vitality,
             37
@@ -2842,13 +2835,13 @@ mod tests {
                 command_id: "open.enemy.turn.for.expiry".into(),
                 actor_id: ActorId("character.heroine.betty".into()),
                 skill_id: "skill.betty.guarded_strike".into(),
-                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+                target_ids: vec![ActorId("enemy.raptor.razorbeak".into())],
             })
             .unwrap();
         battle
             .submit(SkillCommand {
                 command_id: "create.expiring.opening".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.enemy.razorbeak.guard_breaking_kick".into(),
                 target_ids: vec![ActorId("character.heroine.vix".into())],
             })
@@ -2881,7 +2874,7 @@ mod tests {
             .unwrap();
         let expired_index = events
             .iter()
-            .position(|event| matches!(event, BattleEvent::RecoveryOpeningExpired { actor_id } if actor_id.0 == "enemy.raptor.razorbeak.prototype"))
+            .position(|event| matches!(event, BattleEvent::RecoveryOpeningExpired { actor_id } if actor_id.0 == "enemy.raptor.razorbeak"))
             .expect("recovery opening expired");
         let intent_index = events
             .iter()
@@ -2898,7 +2891,7 @@ mod tests {
         let error = battle
             .submit(SkillCommand {
                 command_id: "bad".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
                 target_ids: vec![ActorId("character.heroine.betty".into())],
             })
@@ -2917,7 +2910,7 @@ mod tests {
                 command_id: "unsupported".into(),
                 actor_id: ActorId("character.heroine.betty".into()),
                 skill_id: "skill.betty.not_real".into(),
-                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+                target_ids: vec![ActorId("enemy.raptor.razorbeak".into())],
             })
             .unwrap_err();
         assert_eq!(
@@ -3058,14 +3051,7 @@ mod tests {
             .insert("skill.betty.fatal_intercept".into(), 1);
         let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 80, 0, 8);
         ayla.band = Band::PartyFront.index();
-        let enemy = actor(
-            "enemy.raptor.razorbeak.prototype",
-            Faction::Hostile,
-            4,
-            50,
-            0,
-            10,
-        );
+        let enemy = actor("enemy.raptor.razorbeak", Faction::Hostile, 4, 50, 0, 10);
         let mut battle = Battle::new("battle.intercept", [betty, ayla, enemy]);
         battle.start();
         battle
@@ -3075,14 +3061,14 @@ mod tests {
                 skill_id: "skill.betty.rescue_charge".into(),
                 target_ids: vec![
                     ActorId("character.heroine.ayla".into()),
-                    ActorId("enemy.raptor.razorbeak.prototype".into()),
+                    ActorId("enemy.raptor.razorbeak".into()),
                 ],
             })
             .unwrap();
         let events = battle
             .submit(SkillCommand {
                 command_id: "bite".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
                 target_ids: vec![ActorId("character.heroine.ayla".into())],
             })
@@ -3216,14 +3202,7 @@ mod tests {
             .skill_uses_remaining
             .insert("skill.betty.fatal_intercept".into(), 1);
         let ayla = actor("character.heroine.ayla", Faction::Party, 3, 10, 0, 8);
-        let enemy = actor(
-            "enemy.raptor.razorbeak.prototype",
-            Faction::Hostile,
-            4,
-            50,
-            0,
-            10,
-        );
+        let enemy = actor("enemy.raptor.razorbeak", Faction::Hostile, 4, 50, 0, 10);
         let mut battle = Battle::new("battle.fatal_intercept", [betty, ayla, enemy]);
         battle.start();
         battle
@@ -3231,13 +3210,13 @@ mod tests {
                 command_id: "betty.turn".into(),
                 actor_id: ActorId("character.heroine.betty".into()),
                 skill_id: "skill.betty.guarded_strike".into(),
-                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+                target_ids: vec![ActorId("enemy.raptor.razorbeak".into())],
             })
             .unwrap();
         let events = battle
             .submit(SkillCommand {
                 command_id: "lethal.bite".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
                 target_ids: vec![ActorId("character.heroine.ayla".into())],
             })
@@ -3251,7 +3230,7 @@ mod tests {
         );
         assert_eq!(
             battle
-                .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+                .actor(&ActorId("enemy.raptor.razorbeak".into()))
                 .unwrap()
                 .vitality,
             11
@@ -3370,14 +3349,7 @@ mod tests {
     fn mobile_infirmary_pulses_immediately_and_on_two_future_betty_turns() {
         let mut betty = actor("character.heroine.betty", Faction::Party, 3, 50, 0, 12);
         betty.max_vitality = 100;
-        let enemy = actor(
-            "enemy.raptor.razorbeak.prototype",
-            Faction::Hostile,
-            1,
-            200,
-            0,
-            8,
-        );
+        let enemy = actor("enemy.raptor.razorbeak", Faction::Hostile, 1, 200, 0, 8);
         let mut battle = Battle::new("battle.mobile_infirmary", [betty, enemy]);
         battle.start();
         let cast_events = battle
@@ -3409,7 +3381,7 @@ mod tests {
         battle
             .submit(SkillCommand {
                 command_id: "enemy.one".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
                 target_ids: vec![ActorId("character.heroine.betty".into())],
             })
@@ -3421,13 +3393,13 @@ mod tests {
                 command_id: "betty.two".into(),
                 actor_id: ActorId("character.heroine.betty".into()),
                 skill_id: "skill.betty.guarded_strike".into(),
-                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+                target_ids: vec![ActorId("enemy.raptor.razorbeak".into())],
             })
             .unwrap();
         let final_pulse_events = battle
             .submit(SkillCommand {
                 command_id: "enemy.two".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
                 target_ids: vec![ActorId("character.heroine.betty".into())],
             })
@@ -3513,7 +3485,7 @@ mod tests {
                 command_id: "stunned.command".into(),
                 actor_id: ActorId("character.heroine.betty".into()),
                 skill_id: "skill.betty.guarded_strike".into(),
-                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+                target_ids: vec![ActorId("enemy.raptor.razorbeak".into())],
             })
             .unwrap_err();
         assert!(matches!(error, BattleError::ActorIncapacitated { .. }));
@@ -3637,20 +3609,13 @@ mod tests {
             .insert("skill.betty.combat_revival".into(), 1);
         let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 0, 0, 15);
         ayla.max_vitality = 80;
-        let enemy = actor(
-            "enemy.raptor.razorbeak.prototype",
-            Faction::Hostile,
-            1,
-            100,
-            0,
-            10,
-        );
+        let enemy = actor("enemy.raptor.razorbeak", Faction::Hostile, 1, 100, 0, 10);
         let mut battle = Battle::new("battle.bonus_wrap", [betty, ayla, enemy]);
         battle.start();
         battle
             .submit(SkillCommand {
                 command_id: "enemy.first".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
                 target_ids: vec![ActorId("character.heroine.betty".into())],
             })
@@ -3727,18 +3692,18 @@ mod tests {
             command_id: "command.idempotent.1".into(),
             actor_id: ActorId("character.heroine.betty".into()),
             skill_id: "skill.betty.guarded_strike".into(),
-            target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+            target_ids: vec![ActorId("enemy.raptor.razorbeak".into())],
         };
         let first = battle.submit(command.clone()).unwrap();
         let vitality_after_first = battle
-            .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+            .actor(&ActorId("enemy.raptor.razorbeak".into()))
             .unwrap()
             .vitality;
         let second = battle.submit(command).unwrap();
         assert_eq!(first, second);
         assert_eq!(
             battle
-                .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+                .actor(&ActorId("enemy.raptor.razorbeak".into()))
                 .unwrap()
                 .vitality,
             vitality_after_first
@@ -3768,7 +3733,7 @@ mod tests {
                 command_id: "command.after_retreat".into(),
                 actor_id: ActorId("character.heroine.betty".into()),
                 skill_id: "skill.betty.guarded_strike".into(),
-                target_ids: vec![ActorId("enemy.raptor.razorbeak.prototype".into())],
+                target_ids: vec![ActorId("enemy.raptor.razorbeak".into())],
             })
             .unwrap_err();
         assert_eq!(error, BattleError::BattleAlreadyEnded);
@@ -3794,14 +3759,7 @@ mod tests {
     #[test]
     fn retreat_is_rejected_for_a_hostile_actor_without_mutation() {
         let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 20);
-        let enemy = actor(
-            "enemy.raptor.razorbeak.prototype",
-            Faction::Hostile,
-            7,
-            70,
-            3,
-            30,
-        );
+        let enemy = actor("enemy.raptor.razorbeak", Faction::Hostile, 7, 70, 3, 30);
         betty.initiative = 1;
         let mut battle = Battle::new("battle.retreat_hostile", [betty, enemy]);
         battle.start();
@@ -3809,14 +3767,14 @@ mod tests {
         let error = battle
             .submit(SkillCommand {
                 command_id: "command.retreat.hostile".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.system.retreat".into(),
                 target_ids: vec![],
             })
             .unwrap_err();
         assert_eq!(
             error,
-            BattleError::IllegalRetreatActor(ActorId("enemy.raptor.razorbeak.prototype".into()))
+            BattleError::IllegalRetreatActor(ActorId("enemy.raptor.razorbeak".into()))
         );
         assert_eq!(battle.snapshot(), before);
     }
@@ -4010,10 +3968,7 @@ mod tests {
         assert_eq!(band_of("character.heroine.betty"), Some(Band::PartyFront));
         assert_eq!(band_of("character.heroine.vix"), Some(Band::PartyFront));
         assert_eq!(band_of("character.heroine.ayla"), Some(Band::PartyRear));
-        assert_eq!(
-            band_of("enemy.raptor.razorbeak.prototype"),
-            Some(Band::EnemyFront)
-        );
+        assert_eq!(band_of("enemy.raptor.razorbeak"), Some(Band::EnemyFront));
         assert_eq!(
             band_of("character.protagonist.captain"),
             Some(Band::PartyRear)
@@ -4823,23 +4778,17 @@ mod tests {
     fn a_campaign_battle_leaves_every_actor_who_is_not_a_woman_alone() {
         assert!(is_woman_actor_id("character.heroine.betty"));
         assert!(!is_woman_actor_id("character.protagonist.captain"));
-        assert!(!is_woman_actor_id("enemy.raptor.razorbeak.prototype"));
+        assert!(!is_woman_actor_id("enemy.raptor.razorbeak"));
 
         let ranks = BTreeMap::from([
             ("character.protagonist.captain".to_owned(), "SSS".to_owned()),
-            (
-                "enemy.raptor.razorbeak.prototype".to_owned(),
-                "SSS".to_owned(),
-            ),
+            ("enemy.raptor.razorbeak".to_owned(), "SSS".to_owned()),
         ]);
         let campaign = Battle::prototype_vertical_slice_from_campaign(&CampaignBattleSetup {
             bond_ranks: ranks.clone(),
             ..CampaignBattleSetup::default()
         });
-        for id in [
-            "character.protagonist.captain",
-            "enemy.raptor.razorbeak.prototype",
-        ] {
+        for id in ["character.protagonist.captain", "enemy.raptor.razorbeak"] {
             assert_eq!(
                 campaign.actor(&ActorId(id.into())).unwrap().bond_rank,
                 STARTING_BOND_RANK,
@@ -4864,7 +4813,7 @@ mod tests {
 
     fn razorbeak(vitality: i32, guard: i32) -> Actor {
         let mut enemy = actor(
-            "enemy.raptor.razorbeak.prototype",
+            "enemy.raptor.razorbeak",
             Faction::Hostile,
             4,
             vitality,
@@ -4906,7 +4855,7 @@ mod tests {
                 id: format!("status.betty.{slug}"),
                 kind,
                 remaining_rounds: rounds,
-                source_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                source_id: ActorId("enemy.raptor.razorbeak".into()),
             });
         }
         let mut battle = Battle::new(
@@ -4948,7 +4897,7 @@ mod tests {
             id: "status.betty.staggered".into(),
             kind: StatusKind::Staggered,
             remaining_rounds: 1,
-            source_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+            source_id: ActorId("enemy.raptor.razorbeak".into()),
         });
         betty.spend_composure(10);
         assert!(
@@ -4990,7 +4939,7 @@ mod tests {
             .submit(ayla_command(
                 "ayla.scan",
                 "skill.ayla.structural_scan",
-                vec!["enemy.raptor.razorbeak.prototype"],
+                vec!["enemy.raptor.razorbeak"],
             ))
             .expect("Ayla reads the construct");
         assert!(events.iter().any(|event| matches!(
@@ -5002,7 +4951,7 @@ mod tests {
             } if counter_tag == "break_guard_before_striking"
         )));
         let enemy = battle
-            .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+            .actor(&ActorId("enemy.raptor.razorbeak".into()))
             .expect("the razorbeak stands in this fight");
         assert_eq!(enemy.guard, 5);
         assert_eq!(enemy.vitality, 70);
@@ -5020,7 +4969,7 @@ mod tests {
             .submit(ayla_command(
                 "ayla.scan",
                 "skill.ayla.structural_scan",
-                vec!["enemy.raptor.razorbeak.prototype"],
+                vec!["enemy.raptor.razorbeak"],
             ))
             .expect("Ayla reads the construct");
         assert!(events.iter().any(|event| matches!(
@@ -5136,7 +5085,7 @@ mod tests {
         let events = battle
             .submit(SkillCommand {
                 command_id: "enemy.bite".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
                 target_ids: vec![ActorId("character.heroine.betty".into())],
             })
@@ -5147,7 +5096,7 @@ mod tests {
                 if skill_id == "skill.ayla.reach_counter"
         )));
         let enemy = battle
-            .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+            .actor(&ActorId("enemy.raptor.razorbeak".into()))
             .expect("the razorbeak stands in this fight");
         assert_eq!(
             enemy.vitality,
@@ -5178,7 +5127,7 @@ mod tests {
         let events = battle
             .submit(SkillCommand {
                 command_id: "enemy.bite".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
                 target_ids: vec![ActorId("character.heroine.betty".into())],
             })
@@ -5190,7 +5139,7 @@ mod tests {
         )));
         assert_eq!(
             battle
-                .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+                .actor(&ActorId("enemy.raptor.razorbeak".into()))
                 .expect("the razorbeak stands in this fight")
                 .vitality,
             50
@@ -5216,7 +5165,7 @@ mod tests {
         let events = battle
             .submit(SkillCommand {
                 command_id: "enemy.bite".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
                 target_ids: vec![ActorId("character.heroine.betty".into())],
             })
@@ -5234,7 +5183,7 @@ mod tests {
             }
         )));
         let enemy = battle
-            .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+            .actor(&ActorId("enemy.raptor.razorbeak".into()))
             .expect("the razorbeak stands in this fight");
         assert_eq!(enemy.vitality, 50 - (WARD_LINE_RAW_DAMAGE + 3));
         assert!(
@@ -5260,13 +5209,13 @@ mod tests {
         battle
             .submit(SkillCommand {
                 command_id: "first_bite".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
                 target_ids: vec![ActorId("character.heroine.betty".into())],
             })
             .expect("the first crossing");
         let after_first = battle
-            .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+            .actor(&ActorId("enemy.raptor.razorbeak".into()))
             .expect("the razorbeak stands in this fight")
             .clone();
         battle
@@ -5287,7 +5236,7 @@ mod tests {
         let second = battle
             .submit(SkillCommand {
                 command_id: "second_bite".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
                 target_ids: vec![ActorId("character.heroine.betty".into())],
             })
@@ -5298,7 +5247,7 @@ mod tests {
                 .any(|event| matches!(event, BattleEvent::WardLineTriggered { .. }))
         );
         let after_second = battle
-            .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+            .actor(&ActorId("enemy.raptor.razorbeak".into()))
             .expect("the razorbeak stands in this fight");
         assert_eq!(after_second.vitality, after_first.vitality);
         assert_eq!(after_second.statuses.len(), after_first.statuses.len());
@@ -5320,7 +5269,7 @@ mod tests {
         let events = battle
             .submit(SkillCommand {
                 command_id: "bite".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
                 target_ids: vec![ActorId("character.heroine.betty".into())],
             })
@@ -5349,7 +5298,7 @@ mod tests {
             .submit(ayla_command(
                 "ayla.deny",
                 "skill.ayla.deny_activation",
-                vec!["enemy.raptor.razorbeak.prototype"],
+                vec!["enemy.raptor.razorbeak"],
             ))
             .expect("Ayla denies the activation");
         assert!(
@@ -5374,7 +5323,7 @@ mod tests {
         assert_eq!(battle.snapshot().round, 2);
         assert!(
             battle
-                .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+                .actor(&ActorId("enemy.raptor.razorbeak".into()))
                 .expect("the razorbeak stands in this fight")
                 .statuses
                 .is_empty(),
@@ -5390,7 +5339,7 @@ mod tests {
             .submit(ayla_command(
                 "ayla.deny",
                 "skill.ayla.deny_activation",
-                vec!["enemy.raptor.razorbeak.prototype"],
+                vec!["enemy.raptor.razorbeak"],
             ))
             .expect("the site's one denial");
         let before = battle.snapshot();
@@ -5398,7 +5347,7 @@ mod tests {
             .submit(ayla_command(
                 "ayla.deny.again",
                 "skill.ayla.deny_activation",
-                vec!["enemy.raptor.razorbeak.prototype"],
+                vec!["enemy.raptor.razorbeak"],
             ))
             .expect_err("the charge is spent");
         assert!(matches!(error, BattleError::SkillUnavailable { .. }));
@@ -5450,7 +5399,7 @@ mod tests {
         battle
             .submit(SkillCommand {
                 command_id: "enemy_bite".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
                 target_ids: vec![ActorId("character.heroine.ayla".into())],
             })
@@ -5475,16 +5424,16 @@ mod tests {
         let mut battle = Battle::new("battle.grave_watch", [ayla(1, 60), razorbeak(50, 0)])
             .with_site_rules(grave_watch());
         battle.start();
-        assert_eq!(guard_of(&battle, "enemy.raptor.razorbeak.prototype"), 0);
+        assert_eq!(guard_of(&battle, "enemy.raptor.razorbeak"), 0);
         play_one_round(&mut battle);
         assert_eq!(battle.snapshot().round, 2);
         assert_eq!(
-            guard_of(&battle, "enemy.raptor.razorbeak.prototype"),
+            guard_of(&battle, "enemy.raptor.razorbeak"),
             2,
             "the tomb watches its own dead: two Guard back at every round boundary"
         );
         play_one_round(&mut battle);
-        assert_eq!(guard_of(&battle, "enemy.raptor.razorbeak.prototype"), 4);
+        assert_eq!(guard_of(&battle, "enemy.raptor.razorbeak"), 4);
     }
 
     #[test]
@@ -5493,7 +5442,7 @@ mod tests {
         battle.start();
         play_one_round(&mut battle);
         assert_eq!(battle.snapshot().round, 2);
-        assert_eq!(guard_of(&battle, "enemy.raptor.razorbeak.prototype"), 0);
+        assert_eq!(guard_of(&battle, "enemy.raptor.razorbeak"), 0);
     }
 
     /// The other half of the suppression seam, inside the battle: a rule the
@@ -5518,14 +5467,14 @@ mod tests {
         battle
             .submit(SkillCommand {
                 command_id: "enemy_bite".into(),
-                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                actor_id: ActorId("enemy.raptor.razorbeak".into()),
                 skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
                 target_ids: vec![ActorId("character.heroine.ayla".into())],
             })
             .expect("the razorbeak answers, and the round turns");
         assert_eq!(battle.snapshot().round, 2);
         assert_eq!(
-            guard_of(&battle, "enemy.raptor.razorbeak.prototype"),
+            guard_of(&battle, "enemy.raptor.razorbeak"),
             0,
             "the rule was overridden before the boundary, so nothing regenerated"
         );
@@ -5544,7 +5493,7 @@ mod tests {
             .submit(ayla_command(
                 "ayla.scan",
                 "skill.ayla.structural_scan",
-                vec!["enemy.raptor.razorbeak.prototype"],
+                vec!["enemy.raptor.razorbeak"],
             ))
             .expect_err("her bond has not reached C");
         assert_eq!(

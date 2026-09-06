@@ -85,7 +85,7 @@ mod tests {
             actor_id: "character.heroine.betty".into(),
             kind: CommandKind::UseSkill,
             skill_id: "skill.betty.guarded_strike".into(),
-            target_ids: vec!["enemy.raptor.razorbeak.prototype".into()],
+            target_ids: vec!["enemy.raptor.razorbeak".into()],
         }
     }
 
@@ -98,7 +98,7 @@ mod tests {
         );
         assert_eq!(
             converted.target_ids,
-            vec![ActorId("enemy.raptor.razorbeak.prototype".into())]
+            vec![ActorId("enemy.raptor.razorbeak".into())]
         );
     }
 

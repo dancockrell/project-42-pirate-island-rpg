@@ -32,7 +32,7 @@ func actor_anchor(actor_id: String) -> Node3D:
 	match actor_id:
 		"character.heroine.betty":
 			return party_foreground_anchor
-		"enemy.raptor.razorbeak.prototype":
+		"enemy.raptor.razorbeak":
 			return enemy_foreground_anchor
 		_:
 			push_error("No 3D staging anchor registered for actor: %s" % actor_id)

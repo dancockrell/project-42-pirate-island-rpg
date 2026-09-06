@@ -4100,7 +4100,7 @@ mod tests {
             &[crate::battle::BattleEvent::ActivationDenied {
                 command_id: "ayla.deny".into(),
                 actor_id: crate::battle::ActorId("character.heroine.ayla".into()),
-                target_id: crate::battle::ActorId("enemy.raptor.razorbeak.prototype".into()),
+                target_id: crate::battle::ActorId("enemy.raptor.razorbeak".into()),
             }],
         );
         assert_eq!(
