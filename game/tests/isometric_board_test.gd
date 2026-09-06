@@ -101,17 +101,17 @@ func _init() -> void:
 	# faction and the tile's tint follows the bridge's own answer.
 	var tile := board.terrain_root.get_node_or_null("Tile_river_landing") as MeshInstance3D
 	check(tile != null, "the world distance must carry a tile for every cell")
-	var unheld_tint: Color = tile.mesh.material.albedo_color
+	var unheld_tint: Color = tile.mesh.material.get_shader_parameter("albedo")
 	check(unheld_tint.is_equal_approx(BoardPalette.CLAY), "an unheld cell must be drawn in the unheld clay")
 	var claimed: Dictionary = campaign_session.set_control("world.cell.river_landing", "faction.pirates")
 	check(bool(claimed.get("configured", false)), "claiming a cell must be accepted by the native bridge")
 	board.project_snapshot(claimed)
-	var held_tint: Color = tile.mesh.material.albedo_color
+	var held_tint: Color = tile.mesh.material.get_shader_parameter("albedo")
 	check(not held_tint.is_equal_approx(unheld_tint), "a cell that changed hands must change tint on the board")
 	check(held_tint.is_equal_approx(BoardPalette.controller_tint("faction.pirates")), "the tint must be the one the holding faction's concept key names")
 	var released: Dictionary = campaign_session.set_control("world.cell.river_landing", "")
 	board.project_snapshot(released)
-	check((tile.mesh.material.albedo_color as Color).is_equal_approx(unheld_tint), "releasing a cell must put its tint back")
+	check((tile.mesh.material.get_shader_parameter("albedo") as Color).is_equal_approx(unheld_tint), "releasing a cell must put its tint back")
 
 	# B14's live risk, drawn. The safe road out of the landing is legal from the
 	# terrace's neighbour, so the board's road for it is coloured by the risk the

@@ -11,11 +11,10 @@ extends RefCounted
 ## makes carries `blockout_placeholder` metadata naming what will replace it, so
 ## a model arriving later can be found by name rather than by eye.
 ##
-## The material is a local `StandardMaterial3D`. **P2 owns the material library**
-## (`game/render/`, the matte clay with an edge-light rim that blockouts are
-## meant to inherit); that lane had not landed on `origin` when this board was
-## written, so `clay` below is the stand-in and is marked as one. When P2's clay
-## exists this class asks for it and deletes its own.
+## The material is P2's clay (`game/render/materials/clay_blockout.tres`, the
+## matte clay with an edge-light rim that blockouts inherit), asked for through
+## `SetpieceMeshFactory.material`, which is the one adapter over the library.
+## This class holds no material of its own.
 
 ## **needs decision.** How thick a cell tile stands, in metres. A framing choice.
 const TILE_THICKNESS_METRES := 1.4
@@ -39,9 +38,11 @@ const LAND := Color("4a5b48")
 const SOCKET_RADIUS_METRES := 1.15
 
 
-## The board's clay. `SetpieceMeshFactory.material` is the one adapter over
-## StandardMaterial3D in this project and this uses it rather than a second one.
-static func clay(color: Color, emission_energy: float = 0.0) -> StandardMaterial3D:
+## The board's clay. `SetpieceMeshFactory.material` is the one adapter over the
+## material library in this project and this uses it rather than a second one.
+## The tint is the shader's `albedo` parameter; read it back with
+## `get_shader_parameter("albedo")`.
+static func clay(color: Color, emission_energy: float = 0.0) -> Material:
 	return SetpieceMeshFactory.material(color, 0.0, 0.86, color, emission_energy)
 
 
