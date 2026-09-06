@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "task_id": "b6-tomb-interior-cells",
+  "agent": "claude-code (lane B6)",
+  "summary": "The four tomb rooms D3 put in the Rust fixture become authored world cells under content/world/, and fixture_matches_the_authored_world_cells drops its three B6 tolerances so the equality holds over the whole graph rather than the beach alone.",
+  "status": "completed",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "content/world/tomb_threshold.world_cell.json",
+    "content/world/tomb_reception.world_cell.json",
+    "content/world/tomb_archive_core.world_cell.json",
+    "content/world/tomb_service_passage.world_cell.json",
+    "content/world/processional_ramp.world_cell.json",
+    "content/world/black_beach.region.json",
+    "game/generated/content_bundle.json",
+    "godot-rust/src/geography.rs",
+    "game/tests/black_beach_route_contract_test.gd"
+  ],
+  "symbols": [
+    "geography::tests::fixture_matches_the_authored_world_cells"
+  ],
+  "coordination": {
+    "depends_on": [
+      "a2-canonical-world-cell-ids",
+      "backend-d3-tomb-architecture",
+      "c13-authored-discoveries-and-anchor-wire"
+    ],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at 2f51e77. geography.rs is touched in the equality test only; the fixture itself is not edited, so content is written to the fixture's values rather than the other way round. Two files outside the card's literal list are required and are edited rather than duplicated: content/world/processional_ramp.world_cell.json gains world.portal.processional_ramp_to_tomb_threshold (the fixture already carries it, and removing the routes_from tolerance makes its absence a failure), and content/world/black_beach.region.json gains the four cell IDs (native_expedition_port.gd walks region.worldCellIds, so a cell missing from the region never reaches the game). game/tests/black_beach_route_contract_test.gd asserts region.worldCellIds equals a literal five-cell list and is extended to nine honestly. Shipped: three tolerances removed from fixture_matches_the_authored_world_cells -- the world.cell.tomb_ filter on the cell set, the tomb_only escape in the portal-gate check, and the world.cell.tomb_ filter on each cell's routes_from set -- so the equality is total. The one fixture value content cannot express is world.cell.tomb_service_passage's encounter_eligible = true: D3 set it so the terrace precinct's habitat holder answers the wrong turn (expedition.rs::the_service_passage_presents_the_same_territorial_guardian_as_the_terrace), but native_expedition_port.gd derives encounter_eligible solely from a battleEntries[].status of vertical_slice_encounter, which would instead author a second one-time razorbeak encounter inside the tomb and take precedence over the habitat. Authoring that would be inventing content, so the passage carries a future_spawn_socket like the other four sockets and the field stays Rust-side. The equality test does not compare encounter_eligible (nor interaction_anchor_ids, which the port never forwards either), so nothing was weakened; a later card should give content a way to declare habitat eligibility and hold that field equal too."
+  },
+  "completion": {
+    "commit": "4ff852e",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (303 lib + 5 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (223 stable IDs, up from 210: the four tomb cells, their entry/interaction anchors, exploration actions, observations and the service passage's loot-cache anchor): passed",
+      "node tools/src/check-claims.mjs: passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/ (51 records, sha256:69fbc8adf997ea8154d982db50db71a80988eddbc1518a1308499a6b221ccfe0): passed",
+      "geography::tests::fixture_matches_the_authored_world_cells with all three world.cell.tomb_ tolerances deleted -- nine cells, twenty portals, every gate, anchor and observation held equal in both directions: passed",
+      "Bite: world.portal.tomb_reception_to_tomb_service_passage deleted from content/world/tomb_reception.world_cell.json; the test FAILED at src/geography.rs:1622 naming it -- 'world.cell.tomb_reception leaves by a different set of portals in the fixture', left carrying the service-passage portal and right without it: failed",
+      "Bite, the other side (the card's done-when says either side): the same portal deleted from the Rust fixture instead; the test FAILED at src/geography.rs:1525 with 'authored portal world.portal.tomb_service_passage_to_tomb_threshold is missing from the fixture'; restored: failed",
+      "Bite, restored: cargo test --lib fixture_matches (geography + habitat twins): passed",
+      "geography::tests::the_tomb_archive_core_route_is_gated_on_the_true_name_discovery and the_service_passage_offers_a_clear_return_path_without_the_discovery -- D3's gate and its recoverable branch, unchanged and still green now that both sides are authored: passed",
+      "expedition::tests::the_service_passage_presents_the_same_territorial_guardian_as_the_terrace and the_wrong_turn_pays_for_itself's loot-cache test -- the fixture behaviour the authored anchor mirrors: passed",
+      "Godot suites (game/tests/*.gd) not run in this lane: no Godot binary in the container. black_beach_route_contract_test.gd's EXPECTED_CELLS was extended from five to nine to match black_beach.region.json; world_cell_test.gd and expedition_prototype_test.gd assert no cell count and were not touched; native_expedition_port.gd needed no change -- it walks region.worldCellIds and forwards each cell's anchors, portals and gates verbatim: not_run",
+      "The tomb cells' visualShell runtimePaths and collision/navigation scenes name res:// files that do not exist yet, exactly as damaged_estate, river_landing and processional_ramp already do; each is marked procedural_blockout_pending_baked_scene with browserPerformanceGate pending and releaseLegal false. Only reception_terrace has authored .tscn files, and it is the only cell world_cell_test.gd instantiates: not_run"
+    ]
+  }
+}

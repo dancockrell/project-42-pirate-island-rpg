@@ -1,0 +1,38 @@
+{
+  "id": "world.cell.tomb_archive_core",
+  "kind": "world_cell",
+  "regionId": "world.region.black_beach",
+  "displayName": "Archive Core of Returning Names",
+  "visualShell": {
+    "runtimePath": "res://assets/world/black_beach/tomb_archive_core.glb",
+    "status": "procedural_blockout_pending_baked_scene",
+    "requiredFeatures": ["standing bronze name ledger", "racked register plates in working order", "dry air and no water damage", "one way back to the reception", "elven civic record-keeping, not burial goods"],
+    "prohibitedFeatures": ["gold hoard", "sarcophagus centrepiece", "modern library shelving"]
+  },
+  "collisionScene": "res://scenes/world/black_beach/tomb_archive_core_collision.tscn",
+  "navigationScene": "res://scenes/world/black_beach/tomb_archive_core_navigation.tscn",
+  "cameraRailId": "camera.exploration.tomb_archive_core",
+  "entryAnchors": [
+    {"id": "entry.tomb_archive_core.reception", "positionMetres": [-12.0, 0.0, 6.0], "facingDegrees": 19, "role": "reception_route"},
+    {"id": "entry.tomb_archive_core.ledger_stand", "positionMetres": [3.0, 0.0, -8.0], "facingDegrees": 187, "role": "ledger_station"}
+  ],
+  "interactionAnchors": [
+    {"id": "interact.tomb_archive_core.name_ledger", "role": "inspect", "actionId": "action.tomb_archive_core.read_name_ledger"},
+    {"id": "interact.tomb_archive_core.reception", "role": "depart", "actionId": "action.tomb_archive_core.return_to_reception"}
+  ],
+  "portals": [
+    {"id": "world.portal.tomb_archive_core_to_tomb_reception", "fromAnchorId": "entry.tomb_archive_core.reception", "targetCellId": "world.cell.tomb_reception", "targetAnchorId": "entry.tomb_reception.archive_core", "travelMode": "on_foot", "returnRule": "always", "timeCostMinutes": 10, "supplyCost": 0, "riskLevel": 2}
+  ],
+  "battleEntries": [
+    {"id": "battle_entry.tomb_archive_core.ledger_floor", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [0.5, 0.0, -1.0], "returnAnchorId": "entry.tomb_archive_core.reception", "safeRetreatAnchorId": "entry.tomb_archive_core.reception", "status": "future_spawn_socket"}
+  ],
+  "explorationActions": [
+    {"id": "action.tomb_archive_core.read_name_ledger", "type": "inspect", "result": "discover.returning_names.ledger", "once": true},
+    {"id": "action.tomb_archive_core.return_to_reception", "type": "travel", "portalId": "world.portal.tomb_archive_core_to_tomb_reception", "once": false}
+  ],
+  "readableDescriptions": [
+    {"id": "observation.tomb_archive_core.the_returning_names", "text": "The ledger is intact and still being written. Names struck from the registers outside are entered again here in a later hand, which is the plain reason the island calls this the Tomb of Returning Names."}
+  ],
+  "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
+  "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 1, "browserPerformanceGate": "pending", "releaseLegal": false}
+}

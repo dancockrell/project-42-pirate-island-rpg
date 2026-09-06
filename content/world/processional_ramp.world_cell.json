@@ -18,21 +18,22 @@
   ],
   "interactionAnchors": [
     {"id": "interact.processional_ramp.name_plaque", "role": "inspect", "actionId": "action.processional_ramp.inspect_name_plaque"},
-    {"id": "interact.processional_ramp.tomb_threshold", "role": "locked_departure", "actionId": "action.processional_ramp.assess_tomb_gate"}
+    {"id": "interact.processional_ramp.tomb_threshold", "role": "depart", "actionId": "action.processional_ramp.enter_tomb_threshold"}
   ],
   "portals": [
-    {"id": "world.portal.processional_ramp_to_reception_terrace", "fromAnchorId": "entry.processional_ramp.reception_terrace", "targetCellId": "world.cell.reception_terrace", "targetAnchorId": "entry.reception_terrace.processional_ramp", "travelMode": "on_foot", "returnRule": "always", "timeCostMinutes": 10, "supplyCost": 0, "riskLevel": 2}
+    {"id": "world.portal.processional_ramp_to_reception_terrace", "fromAnchorId": "entry.processional_ramp.reception_terrace", "targetCellId": "world.cell.reception_terrace", "targetAnchorId": "entry.reception_terrace.processional_ramp", "travelMode": "on_foot", "returnRule": "always", "timeCostMinutes": 10, "supplyCost": 0, "riskLevel": 2},
+    {"id": "world.portal.processional_ramp_to_tomb_threshold", "fromAnchorId": "entry.processional_ramp.tomb_threshold", "targetCellId": "world.cell.tomb_threshold", "targetAnchorId": "entry.tomb_threshold.processional_ramp", "travelMode": "on_foot", "returnRule": "allowed_while_no_pending_encounter", "timeCostMinutes": 10, "supplyCost": 0, "riskLevel": 2}
   ],
   "battleEntries": [
     {"id": "battle_entry.processional_ramp.stair_break", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [1.0, 0.0, 1.5], "returnAnchorId": "entry.processional_ramp.reception_terrace", "safeRetreatAnchorId": "entry.processional_ramp.tomb_threshold", "status": "future_spawn_socket"}
   ],
   "explorationActions": [
     {"id": "action.processional_ramp.inspect_name_plaque", "type": "inspect", "result": "discover.returning_names.plaque", "once": true},
-    {"id": "action.processional_ramp.assess_tomb_gate", "type": "locked_departure", "result": "gate.tomb.threshold_locked", "once": false}
+    {"id": "action.processional_ramp.enter_tomb_threshold", "type": "travel", "portalId": "world.portal.processional_ramp_to_tomb_threshold", "once": false}
   ],
   "readableDescriptions": [
     {"id": "observation.processional_ramp.plaque", "text": "The ramp was cut for a procession of honored dead. Bronze name plaques line the wet stone, and several bear scratches where someone has tried to remove names that keep returning."},
-    {"id": "observation.processional_ramp.threshold", "text": "At the top of the ramp, a sealed inner door sits under a fractured bronze arch. It is a destination beyond the first route, not an empty backdrop or a doorway the party can fake open."}
+    {"id": "observation.processional_ramp.threshold", "text": "At the top of the ramp, the inner door stands under a fractured bronze arch, open on the threshold of the tomb. It is a destination beyond the first route, not an empty backdrop or a doorway the party can fake open."}
   ],
   "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 2, "browserPerformanceGate": "pending", "releaseLegal": false}

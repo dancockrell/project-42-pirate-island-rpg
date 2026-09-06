@@ -1,0 +1,42 @@
+{
+  "id": "world.cell.tomb_reception",
+  "kind": "world_cell",
+  "regionId": "world.region.black_beach",
+  "displayName": "Reception of Returning Names",
+  "visualShell": {
+    "runtimePath": "res://assets/world/black_beach/tomb_reception.glb",
+    "status": "procedural_blockout_pending_baked_scene",
+    "requiredFeatures": ["round elven truth space with three named ways out", "standing bronze speaking stone", "sealed archive door with no visible mechanism", "low service opening at floor level", "worked drainage that still runs"],
+    "prohibitedFeatures": ["altar and pews", "puzzle room with coloured levers", "treasure vault piled with gold"]
+  },
+  "collisionScene": "res://scenes/world/black_beach/tomb_reception_collision.tscn",
+  "navigationScene": "res://scenes/world/black_beach/tomb_reception_navigation.tscn",
+  "cameraRailId": "camera.exploration.tomb_reception",
+  "entryAnchors": [
+    {"id": "entry.tomb_reception.threshold", "positionMetres": [-11.0, 0.0, 7.0], "facingDegrees": 16, "role": "threshold_route"},
+    {"id": "entry.tomb_reception.archive_core", "positionMetres": [13.0, 0.0, -5.0], "facingDegrees": 199, "role": "archive_core_route"},
+    {"id": "entry.tomb_reception.service_passage", "positionMetres": [4.0, 0.0, -12.0], "facingDegrees": 247, "role": "service_passage_route"}
+  ],
+  "interactionAnchors": [
+    {"id": "interact.tomb_reception.speaking_stone", "role": "inspect", "actionId": "action.tomb_reception.inspect_speaking_stone"},
+    {"id": "interact.tomb_reception.archive_door", "role": "locked_departure", "actionId": "action.tomb_reception.open_archive_door"}
+  ],
+  "portals": [
+    {"id": "world.portal.tomb_reception_to_tomb_threshold", "fromAnchorId": "entry.tomb_reception.threshold", "targetCellId": "world.cell.tomb_threshold", "targetAnchorId": "entry.tomb_threshold.reception", "travelMode": "on_foot", "returnRule": "always", "timeCostMinutes": 10, "supplyCost": 0, "riskLevel": 2},
+    {"id": "world.portal.tomb_reception_to_tomb_archive_core", "fromAnchorId": "entry.tomb_reception.archive_core", "targetCellId": "world.cell.tomb_archive_core", "targetAnchorId": "entry.tomb_archive_core.reception", "travelMode": "on_foot", "returnRule": "allowed_while_no_pending_encounter", "timeCostMinutes": 10, "supplyCost": 0, "riskLevel": 2, "requiredDiscoveryId": "observation.tomb_reception.true_name"},
+    {"id": "world.portal.tomb_reception_to_tomb_service_passage", "fromAnchorId": "entry.tomb_reception.service_passage", "targetCellId": "world.cell.tomb_service_passage", "targetAnchorId": "entry.tomb_service_passage.reception", "travelMode": "on_foot", "returnRule": "allowed_while_no_pending_encounter", "timeCostMinutes": 10, "supplyCost": 0, "riskLevel": 3}
+  ],
+  "battleEntries": [
+    {"id": "battle_entry.tomb_reception.truth_space", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [0.0, 0.0, 0.0], "returnAnchorId": "entry.tomb_reception.threshold", "safeRetreatAnchorId": "entry.tomb_reception.threshold", "status": "future_spawn_socket"}
+  ],
+  "explorationActions": [
+    {"id": "action.tomb_reception.inspect_speaking_stone", "type": "inspect", "result": "discover.returning_names.true_name", "once": true},
+    {"id": "action.tomb_reception.open_archive_door", "type": "locked_departure", "portalId": "world.portal.tomb_reception_to_tomb_archive_core", "once": false},
+    {"id": "action.tomb_reception.take_service_passage", "type": "travel", "portalId": "world.portal.tomb_reception_to_tomb_service_passage", "once": false}
+  ],
+  "readableDescriptions": [
+    {"id": "observation.tomb_reception.true_name", "text": "The speaking stone gives back one name in full, the way the dead were recorded rather than the way they were called. Reading it aloud is what the archive door was cut to hear, and the low service opening is the only other way on."}
+  ],
+  "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
+  "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 1, "browserPerformanceGate": "pending", "releaseLegal": false}
+}

@@ -492,8 +492,9 @@ impl Geography {
             // Processional Ramp already establishes. Elven public-purpose plan:
             // threshold -> reception/truth space -> (gated) archive core, with an
             // ungated service passage as the recoverable failure branch. These four
-            // cells are fixture-only until B6 authors them under `content/world/`,
-            // which is why `fixture_matches_the_authored_world_cells` skips them.
+            // cells are authored under `content/world/` by B6, and
+            // `fixture_matches_the_authored_world_cells` holds them equal like
+            // every other cell.
             cell(
                 "world.cell.tomb_threshold",
                 "Threshold of Returning Names",
@@ -1380,6 +1381,11 @@ mod tests {
     /// with two different ID sets, so they drifted. `content/world/` is the map
     /// the frontend actually draws, so it is canonical, and this test fails the
     /// moment a cell or a portal exists on one side and not the other.
+    ///
+    /// B6 widened it from the beach to the whole graph: the four tomb rooms are
+    /// authored cells now, so the three tolerances this test used to carry for
+    /// `world.cell.tomb_*` -- in the cell set, in the gate check and in the
+    /// per-cell portal set -- are gone, and the equality is total.
     #[test]
     fn fixture_matches_the_authored_world_cells() {
         use std::collections::BTreeSet;
@@ -1500,15 +1506,10 @@ mod tests {
         );
 
         let geography = Geography::black_beach_vertical_slice();
-        // B6 authors the four tomb rooms as world cells. Until it does they exist
-        // only in this fixture, and they are the single difference this test
-        // tolerates. When B6 lands, delete this filter: the set comparison below
-        // then covers the tomb too, with nothing else to change.
-        let fixture_cell_ids: BTreeSet<String> = geography
-            .all_location_ids()
-            .filter(|id| !id.starts_with("world.cell.tomb_"))
-            .map(str::to_owned)
-            .collect();
+        // B6 authored the tomb, so there is no tolerance left: every cell the
+        // fixture knows is a cell content declares, and the other way round.
+        let fixture_cell_ids: BTreeSet<String> =
+            geography.all_location_ids().map(str::to_owned).collect();
         assert_eq!(
             fixture_cell_ids, authored_cell_ids,
             "the fixture's cells and content/world/'s cells must be the same set"
@@ -1584,9 +1585,8 @@ mod tests {
                     || authored_observation_ids
                         .values()
                         .any(|ids| ids.iter().any(|id| id == discovery_id));
-                let tomb_only = route.from_location_id.starts_with("world.cell.tomb_");
                 assert!(
-                    declared_by_content || tomb_only,
+                    declared_by_content,
                     "{} is gated on {discovery_id}, which no authored anchor grants and no authored cell observes",
                     route.id
                 );
@@ -1617,11 +1617,6 @@ mod tests {
             let fixture_portal_ids: BTreeSet<String> = geography
                 .routes_from(cell_id)
                 .into_iter()
-                // The same B6 tolerance as the cell filter above, and no wider:
-                // the ramp's door into the tomb is fixture-only until the tomb
-                // is authored. Every other route out of an authored cell must be
-                // in content.
-                .filter(|route| !route.to_location_id.starts_with("world.cell.tomb_"))
                 .map(|route| route.id.clone())
                 .collect();
             assert_eq!(
