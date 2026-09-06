@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "task_id": "p8-shell",
+  "agent": "claude-code (lane P8)",
+  "summary": "The game's front door: a title screen with new game, continue, load, settings, credits and quit; one SceneFlow autoload that owns every transition between title, expedition and battle with a fade and a threaded loading veil; a pause menu on Escape; and a suite that walks the whole round trip through the live bridge.",
+  "status": "active",
+  "claimed_at": "2026-09-06T12:00:00Z",
+  "updated_at": "2026-09-06T12:00:00Z",
+  "paths": [
+    "game/scenes/shell/",
+    "game/scripts/shell/",
+    "game/project.godot",
+    "game/tests/shell_flow_test.gd",
+    "game/scripts/world/expedition_prototype.gd",
+    "game/scripts/battle/battle_prototype.gd",
+    "game/scripts/campaign/campaign_session.gd",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "SceneFlow",
+    "TitleScreen",
+    "PauseMenu",
+    "CreditsScreen",
+    "SlotList",
+    "CampaignSession.continue_slot",
+    "CampaignSession.describe_slot"
+  ],
+  "coordination": {
+    "depends_on": ["b8-save-slots-continue", "b9-pause-and-settings"],
+    "conflicts_with": [],
+    "notes": "game/project.godot takes an append at the END of [autoload] plus the run/main_scene line, per the keep-both-tails rule for parallel lanes. expedition_prototype.gd and battle_prototype.gd each take exactly ONE changed line -- the get_tree().change_scene_to_file call becomes the SceneFlow call that owns that transition -- because P7 owns the former and P6 the latter this round; a conflict there is a keep-both tail on one line. campaign_session.gd is extended, not forked: describe_slot gains the active_location_id a save screen has to show, and continue_newest is split so that continue_slot(slot) is the one load path and continue_newest picks a slot and delegates to it. No second save reader enters the tree."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
