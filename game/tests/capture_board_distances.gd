@@ -19,7 +19,7 @@ const BoardVerificationCampaign = preload("res://tests/board_verification_campai
 ## Usage:
 ##   godot --path game --script res://tests/capture_board_distances.gd \
 ##     -- <output-directory> <prefix>
-## writes <prefix>-{world,route,room,selected,refused}.png.
+## writes <prefix>-{world,route,room,selected,refused,development,development-room}.png.
 
 const SETTLE_FRAMES := 4
 
@@ -69,6 +69,15 @@ func capture() -> void:
 		var marched: Dictionary = BoardVerificationCampaign.add_marching_force(screen.campaign_session)
 		if bool(marched.get("configured", false)):
 			screen.project_snapshot(marched, "A pirate column is on the safe road, most of the way to the terrace.")
+		# P13: and something built on it. Until this card the island was nine
+		# empty terraces however long a campaign ran, which is a picture of a
+		# board that cannot draw what the simulation makes.
+		# `BoardVerificationCampaign` owns that development for the same reason
+		# it owns the opening and the column: the suite asserts it and this
+		# photographs it, and they must be one island.
+		var developed: Dictionary = BoardVerificationCampaign.develop_island(screen.campaign_session)
+		if bool(developed.get("configured", false)):
+			screen.project_snapshot(developed, "Michael's yard is working on the terrace. The pirates are raising a watch post over the landing.")
 	for distance in IsometricBoard.DISTANCES:
 		screen.press_camera_hotkey(camera_key_for(distance))
 		if not await save_state(screen, directory, prefix, distance):
@@ -84,6 +93,28 @@ func capture() -> void:
 	screen.order_move_to_tile(UNREACHABLE_CELL)
 	if not await save_state(screen, directory, prefix, "refused"):
 		return
+	# P13: and the island looked at where it has actually been developed. The
+	# five states above are photographed from the river landing, because that is
+	# where a road is still open to refuse an order at; Captain Michael's yard
+	# and the machine it turned out stand on the terrace, so this state takes the
+	# last leg of the same authored opening and looks at the room they are in
+	# from the route distance. It is last for that reason: arriving at the
+	# terrace arms its authored encounter and every road becomes illegal, which
+	# is exactly what the states above need not to have happened yet.
+	if screen.campaign_session != null and NativeExpeditionPort.bridge_is_registered():
+		screen.project_snapshot(
+			screen.campaign_session.travel(str(BoardVerificationCampaign.OPENING_TRAVEL[2])),
+			"Michael's yard, and the dog it turned out, standing on the terrace."
+		)
+		screen.press_camera_hotkey(KEY_F2)
+		if not await save_state(screen, directory, prefix, "development"):
+			return
+		# And the same room close up, because a `mechanical_dog` is 2.3 m long in
+		# a 40 m room: the route distance says a machine is standing there and
+		# the room distance is where it can be looked at.
+		screen.press_camera_hotkey(KEY_F3)
+		if not await save_state(screen, directory, prefix, "development-room"):
+			return
 	quit(0)
 
 

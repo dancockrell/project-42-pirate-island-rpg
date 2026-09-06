@@ -13,7 +13,9 @@ use crate::geography::{
 };
 use crate::habitat::Habitats;
 use crate::protocol::{CommandEnvelope, CommandKind, PROTOCOL_VERSION};
-use crate::strategy::building::{BuildingDefinition, BuildingDefinitions, BuildingError};
+use crate::strategy::building::{
+    BuildingDefinition, BuildingDefinitions, BuildingError, BuildingState,
+};
 use crate::strategy::directive::{DirectiveStatus, Explanation, StrategicDirective};
 use crate::strategy::dungeon::{CorruptionBand, HeatBand};
 use crate::strategy::faction::{
@@ -1268,6 +1270,38 @@ fn expedition_state_dictionary(
     result.set("factions", &factions_projected);
     result.set("forces", &forces_projected);
     result.set("buildings", &building_ids);
+    // P13: and what is actually *standing* on the island, which the array above
+    // deliberately is not. Two keys, never one: `buildings` is the registry of
+    // records the bridge was configured with and `building_instances` is the
+    // save's `ExpeditionState::buildings`, and mixing them would be the two
+    // answers to one key that B16's comment above refused.
+    //
+    // Seven fields, and every one of them is a place, a name or a countdown the
+    // board must draw to be honest: which instance this is, which record it was
+    // raised from (the envelope, the tiers and the sockets are read from the
+    // record through `BuildingBlockoutKit`, never copied here), the cell it
+    // stands on, whose it is, how many storeys stand, where it is in its life,
+    // and how many hours of work are left on the tier being built.
+    //
+    // What is deliberately NOT here, for the reason B16 gives: hit points, the
+    // stored dungeon value, how many machines the yard has turned out, and the
+    // tier's authored statistics. A screen that could read a building's hit
+    // points off the snapshot would start drawing a health bar over a shed
+    // nobody has looked at. `tier` crosses because it is how many storeys stand
+    // -- the blockout kit's own `tier` argument -- and not a strength.
+    let mut building_instances = Array::<VarDictionary>::new();
+    for building in state.buildings.values() {
+        building_instances.push(&vdict! {
+            "id" => building.id.as_str(),
+            "def_id" => building.def_id.as_str(),
+            "cell_id" => building.cell_id.as_str(),
+            "faction_id" => building.faction_id.as_str(),
+            "tier" => i64::from(building.tier),
+            "state" => building_state_name(&building.state),
+            "construction_hours_remaining" => i64::from(building.construction_hours_remaining),
+        });
+    }
+    result.set("building_instances", &building_instances);
     // P3: what the sky is allowed to know. Six read-only keys, every one of
     // them a *name* or a position on a clock the simulation already owns, so
     // the atmosphere is driven by the island and never by the host's clock.
@@ -1315,8 +1349,54 @@ fn expedition_state_dictionary(
     );
     result.set("is_night", crate::habitat::is_night(&state.time_segment));
     result.set("machines", &machine_ids);
+    // P13: and the machines that have actually been built, beside the registry
+    // of records, on exactly the terms `building_instances` crosses on. The
+    // yard that made it (`built_by_building_instance_id`) is provenance the
+    // board has no use for and does not get; fuel, water and damage are
+    // quantities nobody has seen and stay in the save.
+    //
+    // `state` is a *band*, not a field: `MachineInstance` carries no state enum
+    // at all -- `strategy/production.rs` gives a machine fuel, water and damage
+    // and never a life stage -- so this says the one thing that can be said
+    // truthfully from what exists, in the same shape `corruption` says S9's
+    // accumulation: a word, never the number it was banded from. Naming a real
+    // `MachineState` is production.rs's decision to take, and when it does this
+    // arm becomes a match over it the way `building_state_name` already is.
+    let mut machine_instances = Array::<VarDictionary>::new();
+    for machine in state.machines.values() {
+        machine_instances.push(&vdict! {
+            "id" => machine.id.as_str(),
+            "def_id" => machine.def_id.as_str(),
+            "faction_id" => machine.faction_id.as_str(),
+            "cell_id" => machine.cell_id.as_str(),
+            "state" => machine_condition_name(machine.damage),
+        });
+    }
+    result.set("machine_instances", &machine_instances);
     result.set("metadata", &metadata);
     result
+}
+
+/// P13: `BuildingState` by name, exhaustively. The names are the enum's own
+/// serde spelling, so what the board reads off a live snapshot and what a save
+/// file spells for the same building are one word and not two; the match is
+/// exhaustive so a sixth state cannot be added without this boundary being told
+/// what to call it.
+fn building_state_name(state: &BuildingState) -> &'static str {
+    match state {
+        BuildingState::UnderConstruction => "under_construction",
+        BuildingState::Operational => "operational",
+        BuildingState::Damaged => "damaged",
+        BuildingState::Ruined => "ruined",
+        BuildingState::Captured => "captured",
+    }
+}
+
+/// P13: the one word that can honestly be said about a machine's condition from
+/// what `MachineInstance` carries. Two bands over `damage`, and the number
+/// itself never crosses -- see the comment at `machine_instances`.
+fn machine_condition_name(damage: u32) -> &'static str {
+    if damage == 0 { "whole" } else { "damaged" }
 }
 
 /// Every `WorldEvent` midnight can produce, projected by name. The match is

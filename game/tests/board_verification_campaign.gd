@@ -23,6 +23,48 @@ extends RefCounted
 ## which no verb here turns. `progress` is 0.0 and `next_cell_id` is the cell
 ## the first hop reaches, which is what the board draws.
 
+## ## P13: and what is standing on it
+##
+## The same rule, for the same reason: the suite that asserts a building on the
+## board and the capture that photographs one must be of one island. The three
+## instances below are that island's development, and `develop_island` is the one
+## way either proof reaches it.
+##
+## **It goes through a save round trip, and P13's suite says at length why.** In
+## short: S5 scores a goal from stockpiles and relationships, a campaign begun
+## through the bridge has neither, so no faction ever chooses `Goal::Develop`;
+## and `advance_construction` has no caller on a clock, so a building S17 did
+## place could never finish and `produce_machine` refuses a building that is not
+## `Operational`. No number of hours fixes either. The day a verb seeds a
+## stockpile, or spends a construction hour, this file's splice is replaced by it
+## exactly as the force above replaced its own round trip when S18 landed.
+
+## Where the bridge's save spells what is standing, and what this file puts
+## there. Written as JSON text rather than as a Dictionary because Godot's
+## `JSON.stringify` writes every integer with a decimal point and the bridge's
+## save parser refuses `"tier": 2.0` -- the port's integer coercion is on the way
+## in to `configure`, and a save document is not configuration.
+const EMPTY_DEVELOPMENT := '"buildings":{},"machines":{}'
+const DEVELOPMENT_ENDS_BEFORE := ',"bond_ranks"'
+
+## Captain Michael's yard on the terrace, standing and working; a pirate watch
+## post on the landing they hold, with three hours of work still on it; and the
+## dog the yard turned out, whole, standing at the yard's own cell. Real records
+## out of `content/buildings/` and `content/machines/`, real cells off the
+## authored island, and concept keys only.
+const YARD_ID := "building_instance.michael_yard"
+const POST_ID := "building_instance.pirate_post"
+const DOG_ID := "machine_instance.yard_dog"
+const YARD_CELL := "world.cell.reception_terrace"
+const POST_CELL := "world.cell.river_landing"
+const YARD_JSON := '"building_instance.michael_yard":{"id":"building_instance.michael_yard","def_id":"building.machine_shop","cell_id":"world.cell.reception_terrace","faction_id":"faction.michael","tier":2,"hp":200,"state":"operational","construction_hours_remaining":0}'
+const POST_JSON := '"building_instance.pirate_post":{"id":"building_instance.pirate_post","def_id":"building.coast_watch_post","cell_id":"world.cell.river_landing","faction_id":"faction.pirates","tier":1,"hp":60,"state":"under_construction","construction_hours_remaining":3}'
+const DOG_JSON := '"machine_instance.yard_dog":{"id":"machine_instance.yard_dog","def_id":"machine.mechanical_dog","faction_id":"faction.michael","cell_id":"world.cell.reception_terrace","built_by_building_instance_id":"building_instance.michael_yard","fuel_remaining":3,"water_remaining":0,"damage":0}'
+const DEVELOPMENT := '"buildings":{' + YARD_JSON + ',' + POST_JSON + '},"machines":{' + DOG_JSON + '}'
+## The same island with the post pulled down and the dog gone: what a board must
+## show when a snapshot stops carrying an instance.
+const HALF_CLEARED := '"buildings":{' + YARD_JSON + '},"machines":{}'
+
 const OPENING_SALVAGE := "anchor.black_beach.salvage_point"
 const OPENING_TRAVEL := [
 	"world.portal.black_beach_to_damaged_estate",
@@ -78,3 +120,27 @@ static func add_marching_force(session: Node) -> Dictionary:
 	if not bool(dispatched.get("configured", false)):
 		return {}
 	return dispatched
+
+
+## Develops the island: the campaign's own save is taken from the bridge, the
+## whole of its `buildings` and `machines` maps is replaced by `development`, and
+## it is loaded back **through the bridge**, which parses it, validates it and
+## projects it. Returns the snapshot the bridge gives, or an empty dictionary if
+## it refused.
+static func develop_island(session: Node, development: String = DEVELOPMENT) -> Dictionary:
+	var raw: String = session.expedition.save_json()
+	var replaced := ""
+	if raw.contains(EMPTY_DEVELOPMENT):
+		replaced = raw.replace(EMPTY_DEVELOPMENT, development)
+	else:
+		var start := raw.find('"buildings":{')
+		var ends := raw.find(DEVELOPMENT_ENDS_BEFORE)
+		if start < 0 or ends <= start:
+			push_error("The bridge's save no longer spells its buildings and machines where this file can develop them.")
+			return {}
+		replaced = raw.substr(0, start) + development + raw.substr(ends)
+	var loaded: Dictionary = session.expedition.load_json(replaced)
+	if not bool(loaded.get("configured", false)):
+		return {}
+	session.latest_snapshot = loaded
+	return loaded
