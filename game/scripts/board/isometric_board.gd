@@ -119,9 +119,20 @@ var camera: BoardCamera
 var terrain_root: Node3D
 var route_root: Node3D
 var miniature_root: Node3D
+## P13: what has been *built* on the island. One layer, drawn at every distance:
+## the same nodes stand on the tile at the world and route distances and inside
+## the room's footprint at the room distance, because a second set of nodes for
+## the close view would be two boards and the one this file draws is one board.
+var development_root: Node3D
 var room_root: Node3D
 var party_miniature: Node3D
 var force_miniatures: Dictionary = {}
+## P13: node name -> the `Node3D` one building or machine instance is standing
+## as, and the order the snapshot gave them in. The order is kept because a
+## cell's row is laid out in it and `Dictionary` iteration order is insertion
+## order, which the rebuild of a single node would otherwise disturb.
+var development_nodes: Dictionary = {}
+var development_order: Array[String] = []
 ## The port used purely as the catalog's board reader when no campaign is live.
 var reader: NativeExpeditionPort
 
@@ -181,6 +192,7 @@ func build_scene_graph() -> void:
 	route_root = make_layer("Routes")
 	room_root = make_layer("Room")
 	miniature_root = make_layer("Miniatures")
+	development_root = make_layer("Development")
 	load_cells()
 	build_sea()
 	for cell_id in sorted_cell_ids():
@@ -435,6 +447,7 @@ func project_snapshot(next_snapshot: Dictionary) -> void:
 	apply_routes()
 	apply_party()
 	apply_forces()
+	apply_development()
 	apply_rings()
 	apply_distance()
 
@@ -573,6 +586,122 @@ func apply_forces() -> void:
 		(force_miniatures[force_id] as Node3D).visible = seen.has(force_id)
 
 
+## P13: what S17 raised and S16 built, standing on the cells that hold it.
+##
+## The two read-only snapshot keys are read and nothing else is: an instance
+## names the record it was raised from, the cell it stands on, whose it is and
+## where it is in its life, and `BoardDevelopment` turns those into a node built
+## by P12's kit. Nothing here decides anything -- a building appears because the
+## snapshot carries it and stops standing the moment the snapshot does not, which
+## is the same rule the party miniature and the force miniatures already follow.
+##
+## A node is rebuilt only when what it looks like has changed (its record, its
+## state, its tier or its holder); otherwise it is moved. That is what makes a
+## building finishing visible: `under_construction` is the first tier in the
+## placeholder material and `operational` is the full kit, and the signature
+## catches the change between two snapshots.
+func apply_development() -> void:
+	var wanted: Dictionary = {}
+	var order: Array[String] = []
+	for kind in BoardDevelopment.ORDER_KINDS:
+		var key := "building_instances" if kind == BoardDevelopment.BUILDING else "machine_instances"
+		for entry in snapshot.get(key, []):
+			var instance: Dictionary = entry
+			if not cells.has(str(instance.get("cell_id", ""))) or not BoardDevelopment.is_standing(instance):
+				continue
+			var node_name := BoardDevelopment.node_name_for(str(kind), str(instance.get("id", "")))
+			wanted[node_name] = {"kind": str(kind), "instance": instance}
+			order.append(node_name)
+	# Gone from the snapshot, or standing as something else now: the node goes.
+	for node_name in development_nodes.keys():
+		var standing: Node3D = development_nodes[node_name]
+		var still := wanted.has(node_name)
+		if still:
+			var entry: Dictionary = wanted[node_name]
+			still = str(standing.get_meta("signature", "")) == BoardDevelopment.signature_of(str(entry["kind"]), entry["instance"])
+		if still:
+			continue
+		development_root.remove_child(standing)
+		standing.queue_free()
+		development_nodes.erase(node_name)
+	for node_name in order:
+		if development_nodes.has(node_name):
+			continue
+		var entry: Dictionary = wanted[node_name]
+		var kind := str(entry["kind"])
+		var instance: Dictionary = entry["instance"]
+		var def_id := str(instance.get("def_id", ""))
+		if catalog == null or not catalog.has(def_id):
+			push_error("The save stands %s on %s and content declares no such record." % [def_id, instance.get("cell_id", "")])
+			continue
+		var record: Dictionary = catalog.get_record(def_id)
+		# The room a thing stands in is the room its share of the ground is
+		# measured against, so the kit is handed the holding cell's own
+		# footprint rather than a reference one: a shed in a court is a court's
+		# worth of shed.
+		var room_footprint: Dictionary = (cells[str(instance.get("cell_id", ""))] as Dictionary).get("footprint", {})
+		var node := BoardDevelopment.build_instance(kind, instance, record, room_footprint)
+		if node == null:
+			continue
+		var apron: Vector2 = BoardDevelopment.apron_metres(kind, record, room_footprint)
+		node.set_meta("row_width", apron.x)
+		node.set_meta("row_depth", apron.y)
+		development_root.add_child(node)
+		development_nodes[node_name] = node
+	development_order = order
+	place_development()
+
+
+## Where each standing thing is put, which is the one thing that changes with
+## the distance. At the world and route distances a cell's things stand in one
+## row across the back of its tile; at the room distance the same nodes stand on
+## the authored spawn sockets of the cell being looked at, and the things
+## standing on every other cell are not drawn -- the room distance is one room.
+func place_development() -> void:
+	var focus := party_cell_id()
+	if not cells.has(focus):
+		focus = str(sorted_cell_ids()[0]) if not cells.is_empty() else ""
+	var by_cell: Dictionary = {}
+	for node_name in development_order:
+		if not development_nodes.has(node_name):
+			continue
+		var node: Node3D = development_nodes[node_name]
+		var cell_id := str(node.get_meta("cell_id", ""))
+		if not by_cell.has(cell_id):
+			by_cell[cell_id] = []
+		(by_cell[cell_id] as Array).append(node)
+	for cell_id in by_cell:
+		var group: Array = by_cell[cell_id]
+		var cell: Dictionary = cells[cell_id]
+		var grounds: Array = []
+		var kinds: Array = []
+		for node in group:
+			grounds.append(Vector2(float((node as Node3D).get_meta("row_width", 0.0)), float((node as Node3D).get_meta("row_depth", 0.0))))
+			kinds.append(str((node as Node3D).get_meta("instance_kind", "")))
+		var places: Array[Vector3] = BoardDevelopment.row_places(cell, grounds, kinds)
+		var seats: Dictionary = {}
+		# What is already standing in this room, so the next thing does not take a
+		# socket underneath it. Buildings are placed before machines, so a yard
+		# takes its socket and the dog it turned out takes the first free one.
+		var taken: Array = []
+		for index in group.size():
+			var node: Node3D = group[index]
+			var kind := str(node.get_meta("instance_kind", ""))
+			if distance != DISTANCE_ROOM:
+				node.visible = true
+				node.position = places[index]
+				continue
+			node.visible = cell_id == focus
+			if not node.visible:
+				continue
+			var seat := int(seats.get(kind, 0))
+			seats[kind] = seat + 1
+			var ground := Vector2(float(node.get_meta("row_width", 0.0)), float(node.get_meta("row_depth", 0.0)))
+			var socket_point: Vector3 = BoardDevelopment.room_place(cell, kind, seat, ground, taken)
+			node.position = places[index] if socket_point == Vector3.INF else socket_point
+			taken.append(BoardDevelopment.ground_rect(node.position, ground))
+
+
 ## Where a miniature stands in a cell: on the tile, at its centre.
 func stand_point(cell: Dictionary) -> Vector3:
 	return BoardBlockout.centre_of(cell) + Vector3(0.0, MINIATURE_LIFT_METRES, 0.0)
@@ -596,6 +725,9 @@ func apply_distance() -> void:
 	terrain_root.visible = distance != DISTANCE_ROOM
 	route_root.visible = distance != DISTANCE_ROOM
 	miniature_root.visible = distance != DISTANCE_ROOM
+	# P13: and what is built stands at every distance, so the same node is
+	# re-placed rather than a second one being drawn close up.
+	place_development()
 	match distance:
 		DISTANCE_ROOM:
 			build_room(focus_cell_id)
