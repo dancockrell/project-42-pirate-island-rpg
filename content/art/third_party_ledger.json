@@ -1,0 +1,508 @@
+{
+  "id": "content.art.third_party_ledger",
+  "format": "third_party_component_ledger",
+  "schemaVersion": 1,
+  "purpose": "One admission record per third-party component this build links, runs on, or is packaged by. Every field is copied from a file in this repository or from the crate's own published source in the local cargo registry; a component whose licence text cannot be read from a file here carries noticeText null and needsReview true, and the credits page says its notice is pending rather than inventing one.",
+  "rustClosureCommand": "cargo tree --manifest-path godot-rust/Cargo.toml --features godot-ext -e normal",
+  "localPackages": [
+    "project42_sim"
+  ],
+  "buildOnlyPackages": [
+    {
+      "name": "gdextension-api",
+      "reason": "godot-bindings reads the pinned GDExtension API JSON at build time; no code from it is linked."
+    },
+    {
+      "name": "godot-bindings",
+      "reason": "build-dependency of godot-ffi: locates the engine API and drives codegen."
+    },
+    {
+      "name": "godot-codegen",
+      "reason": "build-dependency of godot-core: generates the binding source that is then compiled."
+    },
+    {
+      "name": "heck",
+      "reason": "build-dependency of godot-codegen: case conversion for generated identifiers."
+    },
+    {
+      "name": "nanoserde",
+      "reason": "build-dependency of godot-codegen: parses the GDExtension API JSON at build time."
+    },
+    {
+      "name": "nanoserde-derive",
+      "reason": "proc-macro of nanoserde, build side only."
+    }
+  ],
+  "componentCount": 22,
+  "noticePendingCount": 8,
+  "noticeBodies": {
+    "mit_permission_only": "the MIT body with no copyright line above it",
+    "mit_rust_project_developers": "MIT, copyright The Rust Project Developers",
+    "mit_and_unicode_3_0": "MIT followed by the Unicode-3.0 licence",
+    "mit_olivier_faure": "MIT, copyright 2022 Olivier FAURE",
+    "mit_andrew_gallant": "MIT, copyright 2015 Andrew Gallant"
+  },
+  "components": [
+    {
+      "id": "third_party.crate.godot",
+      "kind": "rust_crate",
+      "name": "godot",
+      "version": "0.5.5",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "MPL-2.0",
+      "canonicalUrl": "https://github.com/godot-rust/gdext",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [],
+      "noticeFiles": [],
+      "noticeSha256": [],
+      "noticeText": null,
+      "noticeTextKey": null,
+      "needsReview": true,
+      "reviewNote": "The published godot 0.5.5 crate carries no licence file: its Cargo.toml declares MPL-2.0 and the text lives only in the upstream repository, which is not readable from this environment. The notice is pending an admission that reads it from https://github.com/godot-rust/gdext."
+    },
+    {
+      "id": "third_party.crate.godot_core",
+      "kind": "rust_crate",
+      "name": "godot-core",
+      "version": "0.5.5",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "MPL-2.0",
+      "canonicalUrl": "https://github.com/godot-rust/gdext",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [],
+      "noticeFiles": [],
+      "noticeSha256": [],
+      "noticeText": null,
+      "noticeTextKey": null,
+      "needsReview": true,
+      "reviewNote": "The published godot-core 0.5.5 crate carries no licence file: its Cargo.toml declares MPL-2.0 and the text lives only in the upstream repository, which is not readable from this environment. The notice is pending an admission that reads it from https://github.com/godot-rust/gdext."
+    },
+    {
+      "id": "third_party.crate.godot_cell",
+      "kind": "rust_crate",
+      "name": "godot-cell",
+      "version": "0.5.5",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "MPL-2.0",
+      "canonicalUrl": "https://github.com/godot-rust/gdext",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [],
+      "noticeFiles": [],
+      "noticeSha256": [],
+      "noticeText": null,
+      "noticeTextKey": null,
+      "needsReview": true,
+      "reviewNote": "The published godot-cell 0.5.5 crate carries no licence file: its Cargo.toml declares MPL-2.0 and the text lives only in the upstream repository, which is not readable from this environment. The notice is pending an admission that reads it from https://github.com/godot-rust/gdext."
+    },
+    {
+      "id": "third_party.crate.godot_ffi",
+      "kind": "rust_crate",
+      "name": "godot-ffi",
+      "version": "0.5.5",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "MPL-2.0",
+      "canonicalUrl": "https://github.com/godot-rust/gdext",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [],
+      "noticeFiles": [],
+      "noticeSha256": [],
+      "noticeText": null,
+      "noticeTextKey": null,
+      "needsReview": true,
+      "reviewNote": "The published godot-ffi 0.5.5 crate carries no licence file: its Cargo.toml declares MPL-2.0 and the text lives only in the upstream repository, which is not readable from this environment. The notice is pending an admission that reads it from https://github.com/godot-rust/gdext."
+    },
+    {
+      "id": "third_party.crate.godot_macros",
+      "kind": "rust_crate",
+      "name": "godot-macros",
+      "version": "0.5.5",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "MPL-2.0",
+      "canonicalUrl": "https://github.com/godot-rust/gdext",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [],
+      "noticeFiles": [],
+      "noticeSha256": [],
+      "noticeText": null,
+      "noticeTextKey": null,
+      "needsReview": true,
+      "reviewNote": "The published godot-macros 0.5.5 crate carries no licence file: its Cargo.toml declares MPL-2.0 and the text lives only in the upstream repository, which is not readable from this environment. The notice is pending an admission that reads it from https://github.com/godot-rust/gdext."
+    },
+    {
+      "id": "third_party.crate.glam",
+      "kind": "rust_crate",
+      "name": "glam",
+      "version": "0.32.1",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "MIT OR Apache-2.0",
+      "canonicalUrl": "https://github.com/bitshifter/glam-rs",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [
+        "MIT"
+      ],
+      "noticeFiles": [
+        "glam-0.32.1/LICENSE-MIT"
+      ],
+      "noticeSha256": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      ],
+      "noticeText": "Permission is hereby granted, free of charge, to any\nperson obtaining a copy of this software and associated\ndocumentation files (the \"Software\"), to deal in the\nSoftware without restriction, including without\nlimitation the rights to use, copy, modify, merge,\npublish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software\nis furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice\nshall be included in all copies or substantial portions\nof the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF\nANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED\nTO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A\nPARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT\nSHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION\nOF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR\nIN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE.",
+      "noticeTextKey": "mit_permission_only",
+      "needsReview": false,
+      "reviewNote": ""
+    },
+    {
+      "id": "third_party.crate.libc",
+      "kind": "rust_crate",
+      "name": "libc",
+      "version": "0.2.189",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "MIT OR Apache-2.0",
+      "canonicalUrl": "https://github.com/rust-lang/libc",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [
+        "MIT"
+      ],
+      "noticeFiles": [
+        "libc-0.2.189/LICENSE-MIT"
+      ],
+      "noticeSha256": [
+        "123a331b5dbf04c30097fa43b8f858bc85df671fe776de498d01f3d6b7c1f69e"
+      ],
+      "noticeText": "Copyright (c) The Rust Project Developers\n\nPermission is hereby granted, free of charge, to any\nperson obtaining a copy of this software and associated\ndocumentation files (the \"Software\"), to deal in the\nSoftware without restriction, including without\nlimitation the rights to use, copy, modify, merge,\npublish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software\nis furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice\nshall be included in all copies or substantial portions\nof the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF\nANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED\nTO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A\nPARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT\nSHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION\nOF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR\nIN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE.",
+      "noticeTextKey": "mit_rust_project_developers",
+      "needsReview": false,
+      "reviewNote": ""
+    },
+    {
+      "id": "third_party.crate.proc_macro2",
+      "kind": "rust_crate",
+      "name": "proc-macro2",
+      "version": "1.0.107",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "MIT OR Apache-2.0",
+      "canonicalUrl": "https://github.com/dtolnay/proc-macro2",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [
+        "MIT"
+      ],
+      "noticeFiles": [
+        "proc-macro2-1.0.107/LICENSE-MIT"
+      ],
+      "noticeSha256": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      ],
+      "noticeText": "Permission is hereby granted, free of charge, to any\nperson obtaining a copy of this software and associated\ndocumentation files (the \"Software\"), to deal in the\nSoftware without restriction, including without\nlimitation the rights to use, copy, modify, merge,\npublish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software\nis furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice\nshall be included in all copies or substantial portions\nof the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF\nANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED\nTO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A\nPARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT\nSHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION\nOF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR\nIN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE.",
+      "noticeTextKey": "mit_permission_only",
+      "needsReview": false,
+      "reviewNote": ""
+    },
+    {
+      "id": "third_party.crate.quote",
+      "kind": "rust_crate",
+      "name": "quote",
+      "version": "1.0.47",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "MIT OR Apache-2.0",
+      "canonicalUrl": "https://github.com/dtolnay/quote",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [
+        "MIT"
+      ],
+      "noticeFiles": [
+        "quote-1.0.47/LICENSE-MIT"
+      ],
+      "noticeSha256": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      ],
+      "noticeText": "Permission is hereby granted, free of charge, to any\nperson obtaining a copy of this software and associated\ndocumentation files (the \"Software\"), to deal in the\nSoftware without restriction, including without\nlimitation the rights to use, copy, modify, merge,\npublish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software\nis furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice\nshall be included in all copies or substantial portions\nof the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF\nANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED\nTO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A\nPARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT\nSHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION\nOF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR\nIN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE.",
+      "noticeTextKey": "mit_permission_only",
+      "needsReview": false,
+      "reviewNote": ""
+    },
+    {
+      "id": "third_party.crate.unicode_ident",
+      "kind": "rust_crate",
+      "name": "unicode-ident",
+      "version": "1.0.24",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "(MIT OR Apache-2.0) AND Unicode-3.0",
+      "canonicalUrl": "https://github.com/dtolnay/unicode-ident",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [
+        "MIT",
+        "Unicode-3.0"
+      ],
+      "noticeFiles": [
+        "unicode-ident-1.0.24/LICENSE-MIT",
+        "unicode-ident-1.0.24/LICENSE-UNICODE"
+      ],
+      "noticeSha256": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "f7db81051789b729fea528a63ec4c938fdcb93d9d61d97dc8cc2e9df6d47f2a1"
+      ],
+      "noticeText": "Permission is hereby granted, free of charge, to any\nperson obtaining a copy of this software and associated\ndocumentation files (the \"Software\"), to deal in the\nSoftware without restriction, including without\nlimitation the rights to use, copy, modify, merge,\npublish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software\nis furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice\nshall be included in all copies or substantial portions\nof the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF\nANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED\nTO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A\nPARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT\nSHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION\nOF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR\nIN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE.\n\nUNICODE LICENSE V3\n\nCOPYRIGHT AND PERMISSION NOTICE\n\nCopyright © 1991-2023 Unicode, Inc.\n\nNOTICE TO USER: Carefully read the following legal agreement. BY\nDOWNLOADING, INSTALLING, COPYING OR OTHERWISE USING DATA FILES, AND/OR\nSOFTWARE, YOU UNEQUIVOCALLY ACCEPT, AND AGREE TO BE BOUND BY, ALL OF THE\nTERMS AND CONDITIONS OF THIS AGREEMENT. IF YOU DO NOT AGREE, DO NOT\nDOWNLOAD, INSTALL, COPY, DISTRIBUTE OR USE THE DATA FILES OR SOFTWARE.\n\nPermission is hereby granted, free of charge, to any person obtaining a\ncopy of data files and any associated documentation (the \"Data Files\") or\nsoftware and any associated documentation (the \"Software\") to deal in the\nData Files or Software without restriction, including without limitation\nthe rights to use, copy, modify, merge, publish, distribute, and/or sell\ncopies of the Data Files or Software, and to permit persons to whom the\nData Files or Software are furnished to do so, provided that either (a)\nthis copyright and permission notice appear with all copies of the Data\nFiles or Software, or (b) this copyright and permission notice appear in\nassociated Documentation.\n\nTHE DATA FILES AND SOFTWARE ARE PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY\nKIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF\nMERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF\nTHIRD PARTY RIGHTS.\n\nIN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS INCLUDED IN THIS NOTICE\nBE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES,\nOR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,\nWHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,\nARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THE DATA\nFILES OR SOFTWARE.\n\nExcept as contained in this notice, the name of a copyright holder shall\nnot be used in advertising or otherwise to promote the sale, use or other\ndealings in these Data Files or Software without prior written\nauthorization of the copyright holder.",
+      "noticeTextKey": "mit_and_unicode_3_0",
+      "needsReview": false,
+      "reviewNote": ""
+    },
+    {
+      "id": "third_party.crate.venial",
+      "kind": "rust_crate",
+      "name": "venial",
+      "version": "0.6.1",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "MIT",
+      "canonicalUrl": "https://github.com/PoignardAzur/venial",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [
+        "MIT"
+      ],
+      "noticeFiles": [
+        "venial-0.6.1/LICENSE"
+      ],
+      "noticeSha256": [
+        "c307673606c3635bcbc4e03a52a06eb9e04c7fd8ffa1649d715388da6ce5512a"
+      ],
+      "noticeText": "MIT License\n\nCopyright (c) 2022 Olivier FAURE\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.",
+      "noticeTextKey": "mit_olivier_faure",
+      "needsReview": false,
+      "reviewNote": ""
+    },
+    {
+      "id": "third_party.crate.serde",
+      "kind": "rust_crate",
+      "name": "serde",
+      "version": "1.0.229",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "MIT OR Apache-2.0",
+      "canonicalUrl": "https://github.com/serde-rs/serde",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [
+        "MIT"
+      ],
+      "noticeFiles": [
+        "serde-1.0.229/LICENSE-MIT"
+      ],
+      "noticeSha256": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      ],
+      "noticeText": "Permission is hereby granted, free of charge, to any\nperson obtaining a copy of this software and associated\ndocumentation files (the \"Software\"), to deal in the\nSoftware without restriction, including without\nlimitation the rights to use, copy, modify, merge,\npublish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software\nis furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice\nshall be included in all copies or substantial portions\nof the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF\nANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED\nTO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A\nPARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT\nSHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION\nOF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR\nIN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE.",
+      "noticeTextKey": "mit_permission_only",
+      "needsReview": false,
+      "reviewNote": ""
+    },
+    {
+      "id": "third_party.crate.serde_core",
+      "kind": "rust_crate",
+      "name": "serde_core",
+      "version": "1.0.229",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "MIT OR Apache-2.0",
+      "canonicalUrl": "https://github.com/serde-rs/serde",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [
+        "MIT"
+      ],
+      "noticeFiles": [
+        "serde_core-1.0.229/LICENSE-MIT"
+      ],
+      "noticeSha256": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      ],
+      "noticeText": "Permission is hereby granted, free of charge, to any\nperson obtaining a copy of this software and associated\ndocumentation files (the \"Software\"), to deal in the\nSoftware without restriction, including without\nlimitation the rights to use, copy, modify, merge,\npublish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software\nis furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice\nshall be included in all copies or substantial portions\nof the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF\nANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED\nTO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A\nPARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT\nSHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION\nOF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR\nIN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE.",
+      "noticeTextKey": "mit_permission_only",
+      "needsReview": false,
+      "reviewNote": ""
+    },
+    {
+      "id": "third_party.crate.serde_derive",
+      "kind": "rust_crate",
+      "name": "serde_derive",
+      "version": "1.0.229",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "MIT OR Apache-2.0",
+      "canonicalUrl": "https://github.com/serde-rs/serde",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [
+        "MIT"
+      ],
+      "noticeFiles": [
+        "serde_derive-1.0.229/LICENSE-MIT"
+      ],
+      "noticeSha256": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      ],
+      "noticeText": "Permission is hereby granted, free of charge, to any\nperson obtaining a copy of this software and associated\ndocumentation files (the \"Software\"), to deal in the\nSoftware without restriction, including without\nlimitation the rights to use, copy, modify, merge,\npublish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software\nis furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice\nshall be included in all copies or substantial portions\nof the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF\nANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED\nTO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A\nPARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT\nSHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION\nOF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR\nIN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE.",
+      "noticeTextKey": "mit_permission_only",
+      "needsReview": false,
+      "reviewNote": ""
+    },
+    {
+      "id": "third_party.crate.syn",
+      "kind": "rust_crate",
+      "name": "syn",
+      "version": "3.0.4",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "MIT OR Apache-2.0",
+      "canonicalUrl": "https://github.com/dtolnay/syn",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [
+        "MIT"
+      ],
+      "noticeFiles": [
+        "syn-3.0.4/LICENSE-MIT"
+      ],
+      "noticeSha256": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      ],
+      "noticeText": "Permission is hereby granted, free of charge, to any\nperson obtaining a copy of this software and associated\ndocumentation files (the \"Software\"), to deal in the\nSoftware without restriction, including without\nlimitation the rights to use, copy, modify, merge,\npublish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software\nis furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice\nshall be included in all copies or substantial portions\nof the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF\nANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED\nTO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A\nPARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT\nSHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION\nOF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR\nIN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE.",
+      "noticeTextKey": "mit_permission_only",
+      "needsReview": false,
+      "reviewNote": ""
+    },
+    {
+      "id": "third_party.crate.serde_json",
+      "kind": "rust_crate",
+      "name": "serde_json",
+      "version": "1.0.151",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "MIT OR Apache-2.0",
+      "canonicalUrl": "https://github.com/serde-rs/json",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [
+        "MIT"
+      ],
+      "noticeFiles": [
+        "serde_json-1.0.151/LICENSE-MIT"
+      ],
+      "noticeSha256": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      ],
+      "noticeText": "Permission is hereby granted, free of charge, to any\nperson obtaining a copy of this software and associated\ndocumentation files (the \"Software\"), to deal in the\nSoftware without restriction, including without\nlimitation the rights to use, copy, modify, merge,\npublish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software\nis furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice\nshall be included in all copies or substantial portions\nof the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF\nANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED\nTO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A\nPARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT\nSHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION\nOF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR\nIN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE.",
+      "noticeTextKey": "mit_permission_only",
+      "needsReview": false,
+      "reviewNote": ""
+    },
+    {
+      "id": "third_party.crate.itoa",
+      "kind": "rust_crate",
+      "name": "itoa",
+      "version": "1.0.18",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "MIT OR Apache-2.0",
+      "canonicalUrl": "https://github.com/dtolnay/itoa",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [
+        "MIT"
+      ],
+      "noticeFiles": [
+        "itoa-1.0.18/LICENSE-MIT"
+      ],
+      "noticeSha256": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      ],
+      "noticeText": "Permission is hereby granted, free of charge, to any\nperson obtaining a copy of this software and associated\ndocumentation files (the \"Software\"), to deal in the\nSoftware without restriction, including without\nlimitation the rights to use, copy, modify, merge,\npublish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software\nis furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice\nshall be included in all copies or substantial portions\nof the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF\nANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED\nTO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A\nPARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT\nSHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION\nOF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR\nIN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE.",
+      "noticeTextKey": "mit_permission_only",
+      "needsReview": false,
+      "reviewNote": ""
+    },
+    {
+      "id": "third_party.crate.memchr",
+      "kind": "rust_crate",
+      "name": "memchr",
+      "version": "2.8.3",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "Unlicense OR MIT",
+      "canonicalUrl": "https://github.com/BurntSushi/memchr",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [
+        "MIT"
+      ],
+      "noticeFiles": [
+        "memchr-2.8.3/LICENSE-MIT"
+      ],
+      "noticeSha256": [
+        "0f96a83840e146e43c0ec96a22ec1f392e0680e6c1226e6f3ba87e0740af850f"
+      ],
+      "noticeText": "The MIT License (MIT)\n\nCopyright (c) 2015 Andrew Gallant\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in\nall copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN\nTHE SOFTWARE.",
+      "noticeTextKey": "mit_andrew_gallant",
+      "needsReview": false,
+      "reviewNote": ""
+    },
+    {
+      "id": "third_party.crate.zmij",
+      "kind": "rust_crate",
+      "name": "zmij",
+      "version": "1.0.23",
+      "versionPinnedBy": "godot-rust/Cargo.lock",
+      "licenseSpdx": "MIT",
+      "canonicalUrl": "https://github.com/dtolnay/zmij",
+      "distribution": "linked_into_the_gdextension",
+      "noticeSpdx": [
+        "MIT"
+      ],
+      "noticeFiles": [
+        "zmij-1.0.23/LICENSE-MIT"
+      ],
+      "noticeSha256": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      ],
+      "noticeText": "Permission is hereby granted, free of charge, to any\nperson obtaining a copy of this software and associated\ndocumentation files (the \"Software\"), to deal in the\nSoftware without restriction, including without\nlimitation the rights to use, copy, modify, merge,\npublish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software\nis furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice\nshall be included in all copies or substantial portions\nof the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF\nANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED\nTO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A\nPARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT\nSHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION\nOF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR\nIN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE.",
+      "noticeTextKey": "mit_permission_only",
+      "needsReview": false,
+      "reviewNote": ""
+    },
+    {
+      "id": "third_party.engine.godot",
+      "kind": "engine",
+      "name": "Godot Engine",
+      "version": "4.7.2-stable",
+      "versionPinnedBy": ".github/workflows/verify.yml",
+      "licenseSpdx": "MIT",
+      "canonicalUrl": "https://github.com/godotengine/godot",
+      "distribution": "runs_the_game",
+      "noticeSpdx": [],
+      "noticeFiles": [],
+      "noticeSha256": [],
+      "noticeText": null,
+      "noticeTextKey": null,
+      "needsReview": true,
+      "reviewNote": "The pinned artefact is the published Linux binary zip (Godot_v4.7.2-stable_linux.x86_64.zip), which contains the executable and nothing else: no LICENSE.txt, no COPYRIGHT.txt. The engine's notice and its third-party copyright list are inside the source tree, which is not in this repository and not readable here, so nothing is copied. The MIT identifier and the URL come from the pinned release, not from memory."
+    },
+    {
+      "id": "third_party.engine.godot_export_templates",
+      "kind": "engine_export_templates",
+      "name": "Godot Engine export templates",
+      "version": "4.7.2-stable",
+      "versionPinnedBy": ".github/workflows/nightly.yml",
+      "licenseSpdx": "MIT",
+      "canonicalUrl": "https://github.com/godotengine/godot",
+      "distribution": "packaged_into_every_exported_build",
+      "noticeSpdx": [],
+      "noticeFiles": [],
+      "noticeSha256": [],
+      "noticeText": null,
+      "noticeTextKey": null,
+      "needsReview": true,
+      "reviewNote": "Godot_v4.7.2-stable_export_templates.tpz is the engine built for each target platform, so an exported build ships it and owes its notice. The .tpz carries templates only; the licence text is not in it and is not readable here."
+    },
+    {
+      "id": "third_party.ci.mesa",
+      "kind": "ci_graphics_driver",
+      "name": "Mesa (mesa-vulkan-drivers, lavapipe)",
+      "version": null,
+      "versionPinnedBy": ".github/workflows/verify.yml",
+      "licenseSpdx": "MIT",
+      "canonicalUrl": "https://gitlab.freedesktop.org/mesa/mesa",
+      "distribution": "continuous_integration_only",
+      "noticeSpdx": [],
+      "noticeFiles": [],
+      "noticeSha256": [],
+      "noticeText": null,
+      "noticeTextKey": null,
+      "needsReview": true,
+      "reviewNote": "The capture job installs mesa-vulkan-drivers from the runner's apt archive with no version pin, so this repository pins no version and states none. Mesa renders the CI captures and is not distributed with the game; it is recorded because the CI plate names it, not because a build ships it."
+    }
+  ]
+}

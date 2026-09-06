@@ -1,4 +1,5 @@
 import { readFile, readdir, stat } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { resolve, relative } from "node:path";
 import process from "node:process";
 import { resolveDerivedRecords } from "./derived-records.mjs";
@@ -1844,6 +1845,128 @@ for (const id of ["atmosphere.segment_table", "atmosphere.weather_table", "atmos
   if (!atmosphereRecordsById.has(id)) failures.push(`content/atmosphere/: ${id} is missing; the Atmosphere autoload refuses to apply a sky without it`);
 }
 
+// ---------------------------------------------------------------------------
+// E12. Third-party attribution as content.
+//
+// Everything this build links, runs on, or is packaged by has an admission
+// record here, and the record carries the notice its licence requires copied
+// verbatim from that project's own licence file. Two rules make the file worth
+// trusting. The first is that no fact is invented: a component whose licence
+// text cannot be read from a file in the build environment carries
+// `noticeText: null` and `needsReview: true`, and the credits page says its
+// notice is pending. The second is the equality below: the ledger is held to
+// `godot-rust/Cargo.lock` in both directions, so a crate cannot be credited
+// that the extension does not link (a ghost) and a crate cannot be linked that
+// nothing credits (an orphan). Cargo.lock does not record dependency kind, so
+// the packages that are compiled on the host and never linked -- the bindings'
+// code generator and what it uses -- are named in `buildOnlyPackages` with a
+// reason. That list is the only way a lock entry escapes attribution, and
+// adding to it is a deliberate, reviewable act.
+// ---------------------------------------------------------------------------
+const thirdPartyLedgerFile = resolve(repo, "content/art/third_party_ledger.json");
+const thirdPartyLedger = JSON.parse(await readFile(thirdPartyLedgerFile, "utf8"));
+registerId(thirdPartyLedger.id, thirdPartyLedgerFile);
+if (thirdPartyLedger.format !== "third_party_component_ledger" || thirdPartyLedger.schemaVersion !== 1) fail(thirdPartyLedgerFile, "must declare third_party_component_ledger format version 1");
+for (const key of ["purpose", "rustClosureCommand"]) requireString(thirdPartyLedger, key, thirdPartyLedgerFile);
+if (!thirdPartyLedger.rustClosureCommand?.includes("--features godot-ext") || !thirdPartyLedger.rustClosureCommand?.includes("-e normal")) fail(thirdPartyLedgerFile, "rustClosureCommand must be the normal-dependency closure of the extension's own feature set");
+const thirdPartyComponents = thirdPartyLedger.components ?? [];
+if (!Array.isArray(thirdPartyComponents) || thirdPartyLedger.componentCount !== thirdPartyComponents.length) fail(thirdPartyLedgerFile, "componentCount must match components");
+const thirdPartyKinds = new Set(["rust_crate", "engine", "engine_export_templates", "ci_graphics_driver"]);
+const thirdPartyDistributions = new Set(["linked_into_the_gdextension", "runs_the_game", "packaged_into_every_exported_build", "continuous_integration_only"]);
+const noticeBodies = thirdPartyLedger.noticeBodies ?? {};
+if (typeof noticeBodies !== "object" || Array.isArray(noticeBodies) || Object.keys(noticeBodies).length === 0) fail(thirdPartyLedgerFile, "noticeBodies must name every distinct notice body the components share");
+const noticeTextByKey = new Map();
+const creditedCrates = new Map();
+let noticePending = 0;
+for (const [index, component] of thirdPartyComponents.entries()) {
+  const field = `components[${index}]`;
+  registerId(component?.id, thirdPartyLedgerFile);
+  if (!component?.id?.startsWith("third_party.")) fail(thirdPartyLedgerFile, `${field}.id must use the third_party prefix`);
+  for (const key of ["name", "versionPinnedBy", "licenseSpdx", "canonicalUrl", "distribution"]) requireString(component ?? {}, key, thirdPartyLedgerFile);
+  if (!thirdPartyKinds.has(component?.kind)) fail(thirdPartyLedgerFile, `${field}.kind is unsupported`);
+  if (!thirdPartyDistributions.has(component?.distribution)) fail(thirdPartyLedgerFile, `${field}.distribution is unsupported`);
+  if (!component?.canonicalUrl?.startsWith("https://")) fail(thirdPartyLedgerFile, `${field}.canonicalUrl must be an HTTPS URL`);
+  // A version is either a string this repository actually pins or an explicit
+  // null saying it pins none; the file it is pinned by must exist, so a pin
+  // that moves house is caught here rather than by a reader.
+  if (!(typeof component?.version === "string" && component.version.trim() !== "") && component?.version !== null) fail(thirdPartyLedgerFile, `${field}.version must be the pinned version or null`);
+  if (!existsSync(resolve(repo, component?.versionPinnedBy ?? ""))) fail(thirdPartyLedgerFile, `${field}.versionPinnedBy must name a file in this repository: ${component?.versionPinnedBy}`);
+  if (typeof component?.needsReview !== "boolean") fail(thirdPartyLedgerFile, `${field}.needsReview must be boolean`);
+  for (const key of ["noticeSpdx", "noticeFiles", "noticeSha256"]) {
+    if (!Array.isArray(component?.[key])) fail(thirdPartyLedgerFile, `${field}.${key} must be an array`);
+  }
+  const noticeFiles = component?.noticeFiles ?? [];
+  if (noticeFiles.length !== (component?.noticeSpdx ?? []).length || noticeFiles.length !== (component?.noticeSha256 ?? []).length) fail(thirdPartyLedgerFile, `${field} must carry one SPDX id and one digest per notice file`);
+  for (const digest of component?.noticeSha256 ?? []) {
+    if (!/^[a-f0-9]{64}$/.test(digest ?? "")) fail(thirdPartyLedgerFile, `${field}.noticeSha256 entries must be lowercase SHA-256 of the licence file as read`);
+  }
+  if (component?.needsReview) {
+    noticePending += 1;
+    // The whole point of the flag: pending means nothing was copied, and the
+    // reason is on the record so the next reader knows what to go and get.
+    if (component?.noticeText !== null || noticeFiles.length !== 0 || component?.noticeTextKey !== null) fail(thirdPartyLedgerFile, `${field} needsReview means no notice was read: noticeText, noticeTextKey and noticeFiles must be empty`);
+    requireString(component ?? {}, "reviewNote", thirdPartyLedgerFile);
+    if ((component?.reviewNote ?? "").length < 80) fail(thirdPartyLedgerFile, `${field}.reviewNote must say what could not be read and where the notice lives`);
+  } else {
+    if (typeof component?.noticeText !== "string" || component.noticeText.trim() === "") fail(thirdPartyLedgerFile, `${field}.noticeText must be the licence text, or null with needsReview true`);
+    if (noticeFiles.length === 0) fail(thirdPartyLedgerFile, `${field} must name the licence file its notice was copied from`);
+    if (component?.reviewNote !== "") fail(thirdPartyLedgerFile, `${field}.reviewNote must be empty when the notice was read`);
+    if (!Object.hasOwn(noticeBodies, component?.noticeTextKey ?? "")) fail(thirdPartyLedgerFile, `${field}.noticeTextKey must be one of the named notice bodies`);
+    // One key, one text. Ten crates ship a byte-identical MIT body; the key is
+    // what lets the credits page carry it once, so two records under one key
+    // that disagree would put two different notices on one line of the page.
+    else if (noticeTextByKey.has(component.noticeTextKey)) {
+      if (noticeTextByKey.get(component.noticeTextKey) !== component.noticeText) fail(thirdPartyLedgerFile, `${field}.noticeTextKey ${component.noticeTextKey} is already used by a different notice body`);
+    } else {
+      for (const [key, text] of noticeTextByKey) {
+        if (text === component.noticeText) fail(thirdPartyLedgerFile, `${field} repeats the body already named ${key} under a second key`);
+      }
+      noticeTextByKey.set(component.noticeTextKey, component.noticeText);
+    }
+  }
+  if (component?.kind === "rust_crate") {
+    if (component?.distribution !== "linked_into_the_gdextension") fail(thirdPartyLedgerFile, `${field} is a crate, so it is linked into the extension`);
+    if (component?.versionPinnedBy !== "godot-rust/Cargo.lock") fail(thirdPartyLedgerFile, `${field}.versionPinnedBy must be the lock file that pins it`);
+    creditedCrates.set(component.name, component.version);
+  }
+}
+if (thirdPartyLedger.noticePendingCount !== noticePending) fail(thirdPartyLedgerFile, `noticePendingCount must be ${noticePending}`);
+for (const key of Object.keys(noticeBodies)) {
+  if (!noticeTextByKey.has(key)) fail(thirdPartyLedgerFile, `noticeBodies names ${key}, which no component carries`);
+  requireString(noticeBodies, key, thirdPartyLedgerFile);
+}
+
+// The equality, in both directions, against the lock file itself.
+const cargoLockFile = resolve(repo, "godot-rust/Cargo.lock");
+const lockedCrates = new Map();
+for (const block of (await readFile(cargoLockFile, "utf8")).split("[[package]]").slice(1)) {
+  const name = /^name = "(.+)"$/m.exec(block)?.[1];
+  const version = /^version = "(.+)"$/m.exec(block)?.[1];
+  if (name && version) lockedCrates.set(name, version);
+}
+if (lockedCrates.size === 0) fail(cargoLockFile, "no packages could be read; the attribution equality below would pass vacuously");
+const buildOnlyByName = new Map();
+for (const [index, entry] of (thirdPartyLedger.buildOnlyPackages ?? []).entries()) {
+  requireString(entry ?? {}, "name", thirdPartyLedgerFile);
+  if ((entry?.reason ?? "").length < 30) fail(thirdPartyLedgerFile, `buildOnlyPackages[${index}].reason must say why nothing shipped links it`);
+  if (!lockedCrates.has(entry?.name)) fail(thirdPartyLedgerFile, `buildOnlyPackages[${index}] names ${entry?.name}, which is not in the lock file`);
+  buildOnlyByName.set(entry?.name, entry);
+}
+for (const name of thirdPartyLedger.localPackages ?? []) {
+  if (!lockedCrates.has(name)) fail(thirdPartyLedgerFile, `localPackages names ${name}, which is not in the lock file`);
+}
+const localPackages = new Set(thirdPartyLedger.localPackages ?? []);
+for (const [name, version] of lockedCrates) {
+  if (localPackages.has(name) || buildOnlyByName.has(name)) continue;
+  if (!creditedCrates.has(name)) fail(thirdPartyLedgerFile, `${name} ${version} is in godot-rust/Cargo.lock and is credited by nothing; add its record or declare it in buildOnlyPackages`);
+  else if (creditedCrates.get(name) !== version) fail(thirdPartyLedgerFile, `${name} is credited at ${creditedCrates.get(name)} but the lock pins ${version}`);
+}
+for (const [name, version] of creditedCrates) {
+  if (!lockedCrates.has(name)) fail(thirdPartyLedgerFile, `${name} ${version} is credited but nothing in godot-rust/Cargo.lock links it`);
+  if (localPackages.has(name)) fail(thirdPartyLedgerFile, `${name} is this repository's own package and is not third-party attribution`);
+  if (buildOnlyByName.has(name)) fail(thirdPartyLedgerFile, `${name} is declared build-only and cannot also be credited as shipped`);
+}
+
 // An enemy *skill* is the one reference that still resolves outside this ID
 // map. `content/skills/` authors the party's skills; an enemy's skill is
 // declared inline by the creature record that uses it and by the habitat that
@@ -1868,4 +1991,4 @@ if (failures.length) {
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
-console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${enemyCount} creature records, ${habitatCount} habitats, ${buildingCount} building records, ${machineCount} machine records, ${atmosphereRecordsById.size} atmosphere tables carrying ${atmosphereRowCount} rows, ${dungeonSpaceCount} authored dungeon spaces, ${siteRuleCount} site rules, ${relationshipSceneCount} relationship scenes, ${packCount} presentation packs carrying ${packOverrideCount} scene overrides, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked; ${audioCueCount} audio cues and ${audioAmbienceCount} ambience triples resolve, ${audioPlaceholderCount} audio records still procedural placeholders.`);
+console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${enemyCount} creature records, ${habitatCount} habitats, ${buildingCount} building records, ${machineCount} machine records, ${atmosphereRecordsById.size} atmosphere tables carrying ${atmosphereRowCount} rows, ${dungeonSpaceCount} authored dungeon spaces, ${siteRuleCount} site rules, ${relationshipSceneCount} relationship scenes, ${packCount} presentation packs carrying ${packOverrideCount} scene overrides, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked; ${thirdPartyComponents.length} third-party components credited against ${lockedCrates.size} locked crates with ${noticePending} notices pending; ${audioCueCount} audio cues and ${audioAmbienceCount} ambience triples resolve, ${audioPlaceholderCount} audio records still procedural placeholders.`);

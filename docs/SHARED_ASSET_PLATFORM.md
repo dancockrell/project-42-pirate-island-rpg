@@ -202,3 +202,66 @@ not a procedural-face-generator detour.
 
 This is how the library becomes a professional advantage: the more it grows,
 the more dependable, coherent, and legally understandable it becomes.
+
+## 8. Third-party components: the software this build admits
+
+Sections 1 through 7 govern art. Software has the same problem and had no
+answer: the engine the game runs on, the bindings the simulation is linked
+through, and every Rust crate compiled into the GDExtension are third-party
+work with licences that require a notice, and until E12 none of them had an
+admission record. `content/art/third_party_ledger.json` is that record, and
+`tools/src/validate.mjs` and `game/tests/shell_flow_test.gd` are what stop it
+from quietly going stale.
+
+**What a component record carries.** `name`; `version`, which is the version
+this repository actually pins, and `versionPinnedBy`, the file it is pinned in
+(the validator checks that file exists, so a pin that moves house is caught
+here rather than by a reader); `licenseSpdx` and `canonicalUrl`, taken from the
+component's own published metadata — a crate's registry `Cargo.toml`, the
+pinned engine release — and never from memory; `distribution`, which says
+whether the thing is linked into the extension, runs the game, is packaged
+into an exported build, or only renders CI captures; and the notice: the
+licence files it was copied from, one SPDX id and one SHA-256 of the file's
+bytes per file, and `noticeText`, the text itself, verbatim.
+
+**What "no notice" means.** A component whose licence text cannot be read from
+a file in the environment the ledger was written from carries
+`noticeText: null` and `needsReview: true` with a `reviewNote` saying what
+could not be read and where the text lives, and the credits page prints
+"notice pending" for it. Eight components stand there today: the five
+godot-rust crates, which publish no licence file inside the crate (their
+Cargo.toml declares MPL-2.0 and the text lives only in the upstream
+repository), and the Godot engine, its export templates, and Mesa — the pinned
+Godot download is a zip containing the executable and nothing else, no
+LICENSE.txt beside it. Pending is not waived. Writing a notice from memory for
+any of them would be exactly the invention this ledger exists to prevent.
+
+**Which crates count.** The set is the normal-dependency closure of
+`project42_sim` built with the extension's own feature set —
+`cargo tree --manifest-path godot-rust/Cargo.toml --features godot-ext
+-e normal` — not the whole lock file. `Cargo.lock` does not record dependency
+kind, so the packages that are compiled on the build host and never linked
+into the shipped library (the bindings' code generator, `gdextension-api`,
+`heck`, `nanoserde`) are named in the ledger's `buildOnlyPackages` with a
+reason each. That list is the only way a locked package escapes attribution,
+and adding to it is a deliberate edit somebody reviews.
+
+**Dual and conjunctive licences.** Where a component offers a choice
+(`MIT OR Apache-2.0`, `Unlicense OR MIT`) the ledger records the full
+expression in `licenseSpdx` and reproduces the notice of the option this
+project takes, MIT, naming it in `noticeSpdx`. Taking one of the options a
+disjunctive licence offers is the licence working as written, not a decision
+about the component. Where the expression is conjunctive — `unicode-ident`'s
+`(MIT OR Apache-2.0) AND Unicode-3.0` — both required notices are reproduced.
+
+**The two gates.** The validator holds the ledger equal to `Cargo.lock` in both
+directions: a credited crate that nothing links is a ghost, a locked package
+that neither a record nor `buildOnlyPackages` accounts for is an orphan, and a
+credited version that disagrees with the lock's is a lie. It also holds
+`needsReview` and `noticeText` to each other, so a record cannot claim a
+notice it has not got or hide one it has. The credits page cannot read
+`content/art/` at runtime — it is not a bundle domain — so it carries the text,
+and `shell_flow_test.gd` reads the ledger off disk and holds the page to it
+component for component and licence body for licence body, including the count
+of notices still pending. A notice that arrives in the ledger and not on the
+page fails the gate rather than shipping.
