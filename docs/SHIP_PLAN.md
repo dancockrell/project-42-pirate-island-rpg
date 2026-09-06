@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 (S16, S17 and S18 are additions outside the bracket; S18 made the M3 100-day elimination pass for a faction that does not act; an autonomous faction still cannot fall while its stockpile never lowers) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `477447e`. If this line is older than
+- Last updated 2026-09-06 against trunk `11d3982`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -476,7 +476,7 @@ top of the document is never stale:
 | E10 | macOS nightly on a macOS runner; the dylib built where it can be | E5 | shipped 252b3fb 2026-09-06 — the job refuses by name until E11 lands |
 | E11 | The macOS export actually exports: arm64 rows in the `.gdextension`, a universal preset, the build script names the host architecture | E10 | shipped `10ee623` 2026-09-06 |
 | E12 | Third-party attribution as content: the engine, the bindings and every bundled component in a ledger the credits read and a test holds equal | P8 | shipped `101b838` 2026-09-06 |
-| E13 | The eight pending notices read from their upstream licence files, or recorded as unreachable with the URL tried | E12 | open |
+| E13 | The eight pending notices read from their upstream licence files, or recorded as unreachable with the URL tried | E12 | shipped `11d3982` 2026-09-06 |
 
 ### Lane F — Audio · Lane G — QA
 
@@ -2647,7 +2647,7 @@ not the gate script); the records name the true files. Follow-up: the eight
 pending notices need their texts read from upstream files.
 
 ### E13 · The pending notices
-Status: open · Depends on: E12
+Status: shipped `11d3982` 2026-09-06 · Depends on: E12
 Touches: `content/art/third_party_ledger.json` (the eight records),
 `docs/SHARED_ASSET_PLATFORM.md` §8 (the pending count).
 E12 left eight records `noticeText: null, needsReview: true`: the five
@@ -2664,6 +2664,21 @@ change and the pending count constant in `credits.gd` moves with it (that
 one line is yours).
 Done when: the validator and `shell_flow_test.gd` green with the new count;
 a capture of the notices page.
+**Shipped:** seven of eight filled from upstream bytes, each with
+`noticeSources` (URL, SPDX, SHA-256 of the bytes received, size): the five
+godot-rust crates from `gdext/v0.5.5/License.txt` (the whole MPL 2.0, since
+the page has no short-notice form and inventing one would be a second way)
+and the engine plus its export templates from `godot/4.7.2-stable/LICENSE.txt`
+(MIT with Godot's two copyright lines, a distinct body). Mesa stays
+pending: the egress proxy refuses `gitlab.freedesktop.org` outright, and
+the record names the URL and the failure. The validator now accepts a
+notice from a file or a URL and requires a pending record to carry empty
+sources; `NOTICES_PENDING` is 1 and the STILL OWED line names Mesa in
+words. Bites: `needsReview` flipped back on a filled record fails three
+validator rules by name; the page's count put back to 8 fails the suite.
+Captures `E13-08dbe85-{notices,engine-notice}.png`, read. Noted, not
+fixed: the credits page's component lines are single non-wrapping labels
+that run past the right edge at 1280 wide (E12's layout; a page change).
 
 ### Lane H — cards for this pass
 
