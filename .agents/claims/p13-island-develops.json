@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "task_id": "p13-island-develops",
+  "agent": "claude-code (lane P13)",
+  "summary": "What S17 raises and S16 builds stands on the board: two read-only state-dictionary keys, building_instances and machine_instances, and the placement code that stands P12's kits on the holding cell at the world and route distances and inside the room's footprint at the socket the record names.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/godot_bridge.rs",
+    "game/scripts/simulation/native_expedition_port.gd",
+    "game/scripts/board/isometric_board.gd",
+    "game/scripts/board/board_development.gd",
+    "game/tests/board_development_test.gd",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "expedition_state_dictionary.building_instances",
+    "expedition_state_dictionary.machine_instances",
+    "building_state_name",
+    "machine_condition_name",
+    "BoardDevelopment",
+    "IsometricBoard.apply_development"
+  ],
+  "coordination": {
+    "depends_on": [
+      "p10-expedition-screen-is-the-board",
+      "p12-blockout-kits",
+      "s17-goals-become-actions",
+      "b19-machine-registry"
+    ],
+    "conflicts_with": [],
+    "notes": "Lane S19 edits the journal match arms in godot_bridge.rs this round; this lane's hunks are confined to expedition_state_dictionary and two small helper functions placed immediately before world_event_dictionary, so the two merge as keep-both. game/scripts/blockouts/ is called and not edited. No content, tools/ or strategy/ file is touched."
+  }
+}
