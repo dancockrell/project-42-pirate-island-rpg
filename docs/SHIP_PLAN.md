@@ -356,7 +356,7 @@ top of the document is never stale:
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
 - **M3** shipped 3/16 — **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
-- Last updated 2026-09-06 against trunk `SHAMARK`. If this line is older than
+- Last updated 2026-09-06 against trunk `ce32cc2`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -1088,7 +1088,7 @@ integrator added it in the shape S2 specified. The lane's own push ran green
 through the hardened gate. **Flagged, left in its owner's file:**
 `ExpeditionState::inspect` records every observation at the cell, not the one
 named; the bridge validates the name against the legal list and then records
-the cell. Per-observation recording is expedition.rs's rule to change — **changed by the integrator, SHAMARK**: `inspect_observation` records exactly one and refuses one not declared here; `inspect` (the whole cell) is its sum, kept for the household room and the slice tests; the bridge calls the single one.
+the cell. Per-observation recording is expedition.rs's rule to change — **changed by the integrator, ce32cc2**: `inspect_observation` records exactly one and refuses one not declared here; `inspect` (the whole cell) is its sum, kept for the household room and the slice tests; the bridge calls the single one.
 **Next B item, from S2:** `set_control`, `controller_of` (effective, never
 raw `ownership`), `effective_risk(portal)`, route projections carrying
 effective risk plus `contested: bool` and never the authored base as a
