@@ -1116,11 +1116,48 @@ for (const { file, value } of await readJsonDirectory("presentation")) {
     }
   } else if (value.kind === "vfx_registry") {
     const defaults = value.defaults ?? {};
+    // P6's three closed vocabularies, hoisted so the failure message can print
+    // them. `game/scripts/battle/vfx_factory.gd` implements exactly these.
+    const vfxSockets = new Set([
+      "none", "actor_body", "actor_main_hand", "actor_weapon_head", "actor_feet", "actor_overhead",
+      "target_body", "target_impact", "target_feet", "target_overhead",
+      "contact_midpoint", "ground_contact", "band_boundary", "party_rail"
+    ]);
+    const vfxEmitters = new Set(["none", "burst", "ring", "crescent", "beam", "trail", "motes", "panel"]);
+    const vfxDirections = new Set(["none", "outward", "inward", "upward", "downward", "forward", "backward", "along_line"]);
+    const vfxPaletteWords = new Set([
+      "teal", "bronze", "gold", "cream", "white", "black", "red", "amber",
+      "dust_brown", "warm_skin", "transparent",
+      // Ayla's identity is an Open decision; her nine records carry this word
+      // and the runtime renders them in a neutral marked `needs decision`.
+      "palette_unestablished_pending_ayla_identity_lock"
+    ]);
     for (const [index, entry] of (value.entries ?? []).entries()) {
       registerId(entry.id, file);
       if (!entry.id?.startsWith("presentation.vfx.")) fail(file, `entries[${index}].id must use presentation.vfx prefix`);
       for (const field of ["purpose", "anchor", "motion"]) requireString(entry, field, file);
+      // P6: `anchor` and `motion` stay the authored art words -- the brief a
+      // painter reads -- and these three closed vocabularies are what the
+      // runtime resolves them to, so a record owns its own effect and the
+      // factory holds no table of its own. `socket` names the live rig socket
+      // the effect is parented to, `emitter` the primitive that is built and
+      // `direction` the way that primitive travels. Several anchors share one
+      // socket (an ampoule and a mace core are both carried in the main hand);
+      // that is a mapping, not a second answer to the same question.
+      if (!vfxSockets.has(entry.socket)) fail(file, `${entry.id} socket must be one of ${[...vfxSockets].join(", ")}`);
+      if (!vfxEmitters.has(entry.emitter)) fail(file, `${entry.id} emitter must be one of ${[...vfxEmitters].join(", ")}`);
+      if (!vfxDirections.has(entry.direction)) fail(file, `${entry.id} direction must be one of ${[...vfxDirections].join(", ")}`);
+      if ((entry.emitter === "none") !== (entry.socket === "none")) fail(file, `${entry.id} must build an emitter exactly when it hangs on a socket`);
+      if (entry.emitter === "none" && entry.direction !== "none") fail(file, `${entry.id} emits nothing and must not claim a direction`);
+      if (entry.emitter !== "beam" && entry.direction === "along_line") fail(file, `${entry.id} direction along_line belongs to a beam, the only emitter with two endpoints`);
       if (!Array.isArray(entry.palette) || entry.palette.length === 0 || entry.palette.some(color => typeof color !== "string" || color.length === 0)) fail(file, `${entry.id} palette must contain at least one named color`);
+      // Every palette word must be one the runtime can resolve to a colour.
+      // BattlePalette.EFFECT_COLORS is the other half of this pair; a word
+      // added to one without the other is a black effect at runtime, so the
+      // list is written here too and the two are kept equal by hand-off in
+      // `game/tests/battle_presentation_test.gd`, which asserts every authored
+      // word resolves.
+      for (const word of entry.palette ?? []) if (!vfxPaletteWords.has(word)) fail(file, `${entry.id} palette word ${word} has no colour in BattlePalette.EFFECT_COLORS`);
       const layer = entry.layer ?? defaults.layer;
       const blend = entry.blend ?? defaults.blend;
       const reducedFlashMode = entry.reducedFlashMode ?? defaults.reducedFlashMode;

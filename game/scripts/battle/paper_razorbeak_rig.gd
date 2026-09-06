@@ -21,21 +21,34 @@ var left_leg: RazorbeakPiece
 var right_leg: RazorbeakPiece
 var home_position := Vector2.ZERO
 var reaction_tween: Tween
+## The design grid the rig is laid out on, and where its feet and its footprint
+## sit inside that grid. `build` scales the whole grid as one object, so these
+## three constants are what lets the stage put the creature's claws on the
+## plate's floor line instead of leaving it hanging in the air.
+const DESIGN_GRID := Vector2(450.0, 455.0)
+const GROUND_CENTRE := Vector2(287.0, 386.0)
+const GROUND_WIDTH := 205.0
+var uniform_scale := 1.0
 
 
 func build(canvas: Vector2) -> void:
 	for child in get_children():
 		child.queue_free()
-	var uniform_scale := minf(canvas.x / 450.0, canvas.y / 455.0) * .83
-	position = Vector2((canvas.x - 450.0 * uniform_scale) * .52, canvas.y * .22)
-	scale = Vector2.ONE * uniform_scale
+	uniform_scale = minf(canvas.x / DESIGN_GRID.x, canvas.y / DESIGN_GRID.y) * .83
+	# Mirrored on the x axis: the grid is drawn facing right, and a hostile that
+	# faces away from the party reads as scenery. It occupies the same span of
+	# the canvas either way, so the flip is the sign of the scale plus the grid
+	# width added back to the origin.
+	var grid_left := (canvas.x - DESIGN_GRID.x * uniform_scale) * .52
+	scale = Vector2(-uniform_scale, uniform_scale)
+	position = Vector2(grid_left + DESIGN_GRID.x * uniform_scale, canvas.y * .22)
 	home_position = position
 	body = add_piece("body", Vector2(230, 112), Vector2(255, 228), 0.0)
 	tail = add_piece("tail", Vector2(205, 80), Vector2(154, 214), -7.0)
 	left_leg = add_piece("leg", Vector2(48, 132), Vector2(245, 292), 4.0)
 	right_leg = add_piece("leg", Vector2(48, 132), Vector2(325, 292), -3.0)
 	neck = add_piece("neck", Vector2(90, 94), Vector2(358, 183), -17.0)
-	head = add_child_piece(neck, "head", Vector2(104, 72), Vector2(50, -35), 16.0)
+	head = add_child_piece(neck, "head", Vector2(104, 72), Vector2(36, -26), 16.0)
 	jaw = add_child_piece(head, "jaw", Vector2(73, 34), Vector2(48, 28), 0.0)
 	set_pose("ready_idle")
 
@@ -60,6 +73,39 @@ func add_child_piece(parent_piece: RazorbeakPiece, kind: String, piece_size: Vec
 	piece.z_index = 6
 	parent_piece.add_child(piece)
 	return piece
+
+
+## The same shade the heroine rigs take: legs and tail stand in the terrace's
+## shadow while the back and head keep the sky, and every piece renders through
+## the doll's lighting material.
+func apply_lighting(shade: float) -> void:
+	var low := Color.WHITE.darkened(shade)
+	var mid := Color.WHITE.darkened(shade * .5)
+	for piece in [left_leg, right_leg, tail]:
+		if piece != null:
+			piece.self_modulate = low
+	for piece in [body]:
+		if piece != null:
+			piece.self_modulate = mid
+	for piece in get_children():
+		mark_child_material(piece)
+
+
+func mark_child_material(piece: Node) -> void:
+	if piece is CanvasItem:
+		(piece as CanvasItem).use_parent_material = true
+	for child in piece.get_children():
+		mark_child_material(child)
+
+
+## Where the creature's claws meet the floor, in the parent doll's coordinates.
+func ground_point() -> Vector2:
+	return position + GROUND_CENTRE * scale
+
+
+## How wide its footprint is on the floor, for the contact shadow.
+func ground_width() -> float:
+	return GROUND_WIDTH * uniform_scale
 
 
 func set_pose(pose_name: String) -> void:

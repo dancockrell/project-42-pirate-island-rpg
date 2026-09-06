@@ -1,16 +1,32 @@
 class_name PlaceholderActionPresenter
 extends Node
 
-## Development-only visual proof that authored production cues are consumed.
-## Final sprites, camera, VFX and audio systems will replace this adapter.
+## The rigs' reaction to one authored presentation cue: the pose the doll takes,
+## the lunge or recoil of the panel it stands in, and the cue's technical
+## contract on a tooltip for the art pass.
+##
+## It is one half of consuming a cue and it stays that half. `battle_stage.gd`
+## owns the other -- the camera beat, the effect the VFX record builds, the
+## hit-stop and the shake -- because those are properties of the stage rather
+## than of a body. Both are handed the same cue and neither reads a skill id.
 
 signal cue_presented(cue: Dictionary)
 
 var actor_panel: PanelContainer
 var enemy_panel: PanelContainer
 var cue_label: Label
-var actor_home_position := Vector2.ZERO
-var enemy_home_position := Vector2.ZERO
+## How much weight a lunge puts into the body. The camera's zoom is not reused
+## here: `battle_camera_rig.gd` owns the frame, and scaling the actor by the
+## camera record's zoom as well was the same beat played twice.
+const LUNGE_SCALE := 1.06
+const ENTRY_SCALE := 0.86
+
+## The presenter never owns where an actor stands -- `battle_stage.gd` does,
+## and it moves actors between bands underneath this. So a cue's displacement
+## is kept as an offset from wherever the stage has put the body, applied as a
+## delta, and returned to zero on reset.
+var actor_offset := Vector2.ZERO
+var enemy_offset := Vector2.ZERO
 var actor_home_scale := Vector2.ONE
 var enemy_home_scale := Vector2.ONE
 var actor_tween: Tween
@@ -20,8 +36,6 @@ func configure(active_actor: PanelContainer, hostile_actor: PanelContainer, disp
 	actor_panel = active_actor
 	enemy_panel = hostile_actor
 	cue_label = display
-	actor_home_position = actor_panel.position
-	enemy_home_position = enemy_panel.position
 	actor_home_scale = actor_panel.scale
 	enemy_home_scale = enemy_panel.scale
 
@@ -64,11 +78,11 @@ func reset() -> void:
 	if enemy_tween != null:
 		enemy_tween.kill()
 	if actor_panel != null:
-		actor_panel.position = actor_home_position
+		set_actor_offset(Vector2.ZERO)
 		actor_panel.scale = actor_home_scale
 		actor_panel.modulate = Color.WHITE
 	if enemy_panel != null:
-		enemy_panel.position = enemy_home_position
+		set_enemy_offset(Vector2.ZERO)
 		enemy_panel.scale = enemy_home_scale
 		enemy_panel.rotation = 0.0
 		enemy_panel.modulate = Color.WHITE
@@ -76,57 +90,67 @@ func reset() -> void:
 	if actor_panel != null:
 		reset_paper_pose(actor_panel)
 
+func set_actor_offset(offset: Vector2) -> void:
+	if actor_panel == null:
+		return
+	actor_panel.position += offset - actor_offset
+	actor_offset = offset
+
+
+func set_enemy_offset(offset: Vector2) -> void:
+	if enemy_panel == null:
+		return
+	enemy_panel.position += offset - enemy_offset
+	enemy_offset = offset
+
+
 func animate_actor_plane(motion: String, camera_zoom: float, vfx_id: String) -> void:
 	if actor_tween != null:
 		actor_tween.kill()
-	var target_scale := actor_home_scale * clampf(camera_zoom, 0.92, 1.12)
-	var target_position := actor_home_position
+	var target_scale := actor_home_scale
+	var target_offset := Vector2.ZERO
 	var start_scale := actor_panel.scale
-	var start_position := actor_panel.position
 	var duration := .12
 	if motion == "card_to_battle_plane":
 		# The rail card is still the roster state. This compact expansion makes
 		# the selected woman read as entering the shared plane, without moving a
 		# fake duplicate or putting a title card under her feet.
-		start_scale = actor_home_scale * .82
-		start_position = actor_home_position + Vector2(-38, 26)
-		target_scale = actor_home_scale
+		start_scale = actor_home_scale * ENTRY_SCALE
 		duration = .16
 	elif motion == "contact_lunge":
-		target_position = actor_home_position + Vector2(18, -7)
+		target_offset = Vector2(18, -7)
+		target_scale = actor_home_scale * LUNGE_SCALE
 		duration = .08
 	elif motion == "recoil_to_guard":
-		target_position = actor_home_position + Vector2(8, -2)
+		target_offset = Vector2(8, -2)
 		duration = .10
 	elif motion == "battle_plane_to_card":
-		target_position = actor_home_position
-		target_scale = actor_home_scale * .91
+		target_scale = actor_home_scale * .96
 		duration = .18
-	actor_panel.position = start_position
 	actor_panel.scale = start_scale
-	actor_panel.modulate = Color("bffdf3") if vfx_id != "presentation.vfx.none" else Color.WHITE
+	actor_panel.modulate = Color("d8f6ee") if vfx_id != "presentation.vfx.none" else Color.WHITE
 	actor_tween = actor_panel.create_tween().set_parallel(true)
 	actor_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	actor_tween.tween_property(actor_panel, "position", target_position, duration)
+	actor_tween.tween_method(set_actor_offset, actor_offset, target_offset, duration)
 	actor_tween.tween_property(actor_panel, "scale", target_scale, duration)
 
 func animate_enemy_reaction(motion: String, shake: float) -> void:
 	if enemy_tween != null:
 		enemy_tween.kill()
-	var target_position := enemy_home_position
+	var target_offset := Vector2.ZERO
 	var target_rotation := 0.0
 	var target_modulate := Color.WHITE
 	var duration := .12
 	if motion == "contact_lunge" and shake > 0.0:
 		# A single raptor recoils. This preserves the game’s individual-creature
 		# power dynamic instead of making enemies look like disposable mob packs.
-		target_position = enemy_home_position + Vector2(18, -8)
+		target_offset = Vector2(18, -8)
 		target_rotation = deg_to_rad(2.5 * shake)
 		target_modulate = Color("ffd6bf")
 		duration = .08
 	enemy_tween = enemy_panel.create_tween().set_parallel(true)
 	enemy_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	enemy_tween.tween_property(enemy_panel, "position", target_position, duration)
+	enemy_tween.tween_method(set_enemy_offset, enemy_offset, target_offset, duration)
 	enemy_tween.tween_property(enemy_panel, "rotation", target_rotation, duration)
 	enemy_tween.tween_property(enemy_panel, "modulate", target_modulate, duration)
 	set_paper_reaction(enemy_panel, motion, shake)
