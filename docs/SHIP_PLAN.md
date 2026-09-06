@@ -368,7 +368,7 @@ top of the document is never stale:
 | A4 | Estate actions as anchor actions; delete `rest_at_estate` | A3 | shipped 047e0f4 2026-09-05 — pursuit made gate-aware in cae9337 on merge |
 | A5 | Five named bands and Composure | A1 | shipped 906411c 2026-09-05 — skill_rank reconciled to authored bondRank on merge |
 | A6 | Captain Michael as a battle actor: Weapon Attack, Guard, Reposition | A5, C4 | shipped f33f364 2026-09-05 — name and reposition record reconciled on merge |
-| A7 | Ayla's Deny Activation and Override Tomb Rule via site rules | A2, H5 | open |
+| A7 | Ayla's Deny Activation and Override Tomb Rule via site rules; PR #2's five skills re-landed on the current engine | A2, H5 | open |
 | A8 | Reconcile `hold_position` with the Guard decision | A6 | shipped 4572361 2026-09-06 |
 | A9 | Faction-agent observation record (was "Champion") | A6, S5 | open |
 | A10 | Bond rank D→C with a specified combat effect | A6, C6 | shipped f75cc64 2026-09-06 |
@@ -395,6 +395,7 @@ top of the document is never stale:
 | S14 | Founding sequence: shipwreck to first strategic core | S13, O5 | open |
 | S15 | Two Provisional doctrines approved and encoded | S1, human | blocked: needs approval of brief §6.x doctrines |
 | S16 | Production runs in the tick: interval rules produce on the economy draw | S13, B16 | open |
+| S17 | Goals become actions: Develop places a building, Supply gathers, Expand and Pressure dispatch a force | S16, S5, S7, B16 | open — after S16 |
 
 ### Lane B — Bridge, board and Godot
 
@@ -417,6 +418,7 @@ top of the document is never stale:
 | B15 | The bridge loads the faction records and hands the registry down; S5's seam closed | C9, S5 | shipped 777a943 2026-09-06 — the seam is closed as an honest negative until a record carries a real weight |
 | B16 | The bridge loads the building records and hands the registry to the tick; S10's sweep reads real buildings | C10, S10 | shipped 049bd45 2026-09-06 |
 | B17 | A battle is built from the campaign: bond ranks reach the fight | A10 | shipped b9c6ad5 2026-09-06 |
+| B19 | The bridge loads the machine records and hands the registry to the tick | C14, S16 | open — after S16 |
 | B18 | RTS controls: select, then order a move by tile, words or hotkey; route markers go | B14 | held: the front end is the owner's other tool's from 2026-09-06; this branch builds everything but the screens |
 
 ### Lane C — Content and validator (`content/`, `tools/src/validate.mjs`)
@@ -437,6 +439,7 @@ top of the document is never stale:
 | C12 | One recruitable woman's arc (records only; identity per O2) | C6, S12, O2 | blocked: needs decision O2 |
 | C13 | Content can declare a discovery ID; the tidal cut's gate authored | A4 | shipped 3c85451 2026-09-05 — plus the bridge wire it turned out to need |
 | C14 | Machine records: the eight families with brief §18's fields | S13 | shipped 6d2aa16 2026-09-06 |
+| C15 | Habitats and their creatures as content: the two rostered creatures with no record, then `content/habitats/` | B7 | open |
 
 ### Lane D — Art (`content/art/`, `work/art/`, `game/assets/`)
 
@@ -468,6 +471,7 @@ top of the document is never stale:
 | E7 | Crash log with state snapshot; no silent telemetry | — | shipped 47fa829 2026-09-06 |
 | E8 | Claims enforcement in CI | E1 | shipped 528773b 2026-09-06 — both ledgers are a gate; it corrected 120-odd records on arrival |
 | E9 | Pack build script and pack artifact | C8, E5 | shipped ab23ab9 2026-09-06 |
+| E10 | macOS nightly on a macOS runner; the dylib built where it can be | E5 | open |
 
 ### Lane F — Audio · Lane G — QA
 
@@ -482,7 +486,7 @@ G1 is the acceptance script; G2/G3 two external rounds.
 | H2 | `GAME_BUILD_PLAN.md` §7 rewritten | — | superseded — `main` replaced the whole document (e77c9e6); its version is canonical and this plan defers to it |
 | H3 | Bible wording: 3D; romance and the pack | — | done (this pass) |
 | H4 | 3D production docs: rigging is a switch; clips wait for the tool | — | done (this pass) |
-| H5 | Site-rule spec into `HEROINE_AYLA_DESIGN.md` | — | open |
+| H5 | Site-rule spec into `HEROINE_AYLA_DESIGN.md` | — | open — done inside A7 (the spec is written beside the code, not ahead of it) |
 | H6 | Retarget PR #3 to `main`; note PR #4; flag the stale status branch | — | shipped 34142a8 2026-09-05 — PR #3 now targets `main`, conflict resolved by merging it |
 | H7 | dr-companion `.gitmodules` branch pointer | — | shipped (dr-companion e387d29) 2026-09-05 — the work landed in dr-companion, not here: merged to its `main` in its PR #276; no commit of that SHA exists in this repository |
 | H8 | Regenerate the design bible `.docx` | H3, H9 | open (needs `python-docx`) |
@@ -788,6 +792,17 @@ and the bridge writes it to `suppressed_site_rules`. Deny Activation (SS)
 applies `Stunned` for one turn via `apply_status` (arrives with PR #2).
 **(brief)** Site rules are the first hook S9's `DungeonContext` will set per
 owning faction; author them as data from the start.
+**Scope as run (2026-09-06):** PR #2 (`feature/ayla-bridge-art`) implemented
+five of Ayla's seven skills on a battle engine that has since been rewritten
+by A5/A6/A10, so it cannot merge; its diff is the specification and its
+tests are re-landed on the current engine. C5 registered twenty-six
+`site_rule.*` IDs as opaque; this card gives them a record shape
+(`content/site_rules/*.json`, a closed effect vocabulary starting with
+`guard_regen_per_round`) and makes `Battle` apply the cell's rules minus
+`suppressed_site_rules`. H5's spec is written into `HEROINE_AYLA_DESIGN.md`
+beside the code. C3 (her character record and seven skill records) follows
+in the same lane once the two site-rule skills exist. Ayla's physical
+identity stays unestablished; no palette or build is invented.
 Done when: two tests per skill; a suppressed rule survives save/reload.
 
 ### A8 · Reconcile `hold_position` with the Guard decision
@@ -1300,6 +1315,41 @@ Done when: the harness with a placed machine shop and a stocked faction
 produces a machine on the authored interval and the 2,400-hour run still
 reproduces; an unstocked yard skips with a journal entry and never goes
 negative; removing the countdown makes the probe fail (bite).
+
+### S17 · Goals become actions
+Status: open — after S16 · Depends on: S16, S5, S7, B16
+Touches: `godot-rust/src/strategy/tick.rs` (`run_hour`), a new
+`strategy/action.rs`, `strategy/building.rs` (only if a placement helper is
+missing), `godot-rust/tests/strategic_determinism.rs`.
+S4 through S16 built a faction that reads the board, chooses goals, explains
+directives, marches forces, produces machines and can be eliminated — but
+`run_hour` ends at `faction.current_goals = goals` and nothing acts. This
+card is the brief's "factions act autonomously", kept generic so no §6
+doctrine is encoded: **Develop** places the faction's first compatible
+building (from the real registry) on a held cell with room, paying
+`construction_cost` from the stockpile or skipping with a journaled reason;
+**Supply**/**Recover** gather a per-hour trickle from held cells into the
+open-keyed stockpile (one named constant, needs decision); **Expand** and
+**Pressure** dispatch a force along a real route toward the chosen cell
+through `dispatch_force`; **Consolidate** and **Withdraw** do nothing new yet
+and say so. Every action consumes its reserved draw whether or not it acts;
+Michael's faction takes no autonomous action (the player directs it, brief
+§5). A journaled `ActionSkipped { reason }` for every refusal.
+Done when: the 2,400-hour harness with the authored registries shows at
+least one faction placing a building and one dispatching a force, still
+reproducing byte-identically; the M3 done-when — one faction eliminated
+with its recovery chain demonstrably exhausted in a 100-day run — passes
+as a harness test (a scripted opening may seed the imbalance; say so).
+
+### B19 · The bridge loads the machine records and hands the registry to the tick
+Status: open — after S16 · Depends on: C14, S16
+Touches: `game/scripts/simulation/native_expedition_port.gd`,
+`godot-rust/src/godot_bridge.rs` (`configure`), `godot-rust/tests/authored_world.rs`.
+B15's and B16's shape for machines: the port forwards `machine.*` records,
+`configure` builds a validated `MachineDefinitions` and hands it wherever
+S16 threaded the empty one. Done when: the Godot snapshot carries the two
+machine IDs and the harness runs the authored island with all three
+registries.
 
 ### Lane B — new cards
 
@@ -2010,6 +2060,29 @@ disagrees. Four bites proven. Stable IDs 223 → 225; bundle 51 → 53.
 roster); no yard makes the wagon yet; every dimension `blocked: needs
 decision` (§20).
 
+### C15 · Habitats and their creatures as content
+Status: open · Depends on: B7
+Touches: `content/enemies/boar.thunderback.json` and
+`content/enemies/razorbeak.crested.json` (new, read from the Rust roster
+verbatim), `content/habitats/*.json` (new), `tools/src/validate.mjs` (one
+block; `habitat.` leaves `intentionallyExternalPrefixes`),
+`tools/src/build-content-bundle.mjs` (`habitats` in the domain list),
+`game/generated/content_bundle.json` (regenerated), one equality test in
+`godot-rust/src/habitat.rs`.
+B7 recorded the gap: a habitat is mostly its roster, two rostered creatures
+(`enemy.boar.thunderback`, `enemy.raptor.razorbeak.crested`) have no content
+record, and the seven that exist carry a `.prototype` suffix the registry
+does not use. Author the two creatures the way the seven were (the Rust
+`Habitats` fixture and `content/art/creature_plan.json` are the sources —
+invent no stats), settle the suffix one way for all nine (the registry's
+IDs win; content owns, Rust carries), then author every habitat in the
+fixture as a record and hold `Habitats` equal to the directory the way
+geography and loot are held. Traps: no new creatures, no new habitats, no
+number that is not already in the fixture.
+Done when: `habitat.` is no longer an external prefix; the equality test
+bites when a roster entry is removed from either side; validator and
+bundle green.
+
 ### Lane D — new cards
 
 ### D1 · Generate Betty's identity plate from `still_image_plan.json`
@@ -2239,10 +2312,28 @@ the desktop builds and as an eleven-second step in verify.yml's Godot job
 (no template needed for `--export-pack`). Error detection reuses
 `tools/verify-godot.sh`'s pattern character for character.
 
+### E10 · macOS nightly on a macOS runner
+Status: open · Depends on: E5
+Touches: `.github/workflows/nightly.yml` only.
+E5 refused to export macOS from a Linux runner because no Linux runner can
+build the dylib, and said the fix is a `macos-latest` runner. Add that job:
+the same pinned engine download (the macOS zip and its own SHA-512, fetched
+once and pinned — never `--no-verify`), the same templates, the Rust
+toolchain, `tools/build-native-bridge.sh release` on the Mac, the same
+assertion that the dylib exists at the `.gdextension` path, then the
+`macOS` preset export, uploaded as `project42-macos-<sha>`. Unsigned is
+honest; say so in the artifact's README step. Delete E5's "deliberately
+absent" comment when the job exists. Prove it with a run whose log shows
+the assertion passing and the export succeeding; if `macos-latest` cannot
+run the headless export (templates or codesign refusals), record the exact
+failure in the claim and leave E5's comment in place, corrected.
+Done when: a nightly run uploads a macOS artifact whose zip contains the
+dylib, or the claim names the exact reason it cannot.
+
 ### Lane H — cards for this pass
 
 ### H5 · Site-rule spec into `HEROINE_AYLA_DESIGN.md`
-Status: open · Depends on: —
+Status: open — written inside A7, beside the code; closes with it · Depends on: —
 
 ### H6 · Retarget PR #3 to `main`; note PR #4; flag the stale status branch
 Status: shipped 34142a8 2026-09-05 · Depends on: — · PR #3 now targets `main`, conflict resolved by merging it
