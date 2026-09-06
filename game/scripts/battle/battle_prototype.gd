@@ -19,13 +19,33 @@ const CREAM := Color("eadfca")
 const TEAL := Color("4fc7b4")
 const DANGER := Color("c24e45")
 
+const BETTY_ID := "character.heroine.betty"
+const CAPTAIN_ID := "character.protagonist.captain"
+## The five bands A5 named, in the order the board reads: the party's rear rank
+## through the enemy's. The screen groups cards by the `band_name` string the
+## bridge sends and uses this list only for the order they are shown in.
+const BAND_ORDER := ["party_rear", "party_front", "contested", "enemy_front", "enemy_rear"]
+## The actors the player commands. Every other actor's turn is played out
+## automatically; these two stop the cycle and wait for a command.
+const PLAYER_COMMANDED_ACTOR_IDS := [BETTY_ID, CAPTAIN_ID]
+## Captain Michael's command grid: his two authored commands and the universal
+## Guard verb. `skill.system.hold_position` has no record under `content/skills/`
+## (A8 owns that gap), so its label is written here; the other two take the
+## authored `displayName`.
+const CAPTAIN_COMMANDS := [
+	["skill.captain.weapon_attack", "WEAPON ATTACK"],
+	["skill.system.hold_position", "GUARD"],
+	["skill.captain.reposition", "REPOSITION"]
+]
+const CARD_SIZE := Vector2(178, 124)
+
 var simulation: SimulationPort
 var catalog := ContentCatalog.new()
 var targeting := TargetingSession.new()
 var animation_director: SkillAnimationDirector
 var placeholder_presenter: Node
 var text_renderer := CombatTextRenderer.new()
-var active_actor_id := "character.heroine.betty"
+var active_actor_id := BETTY_ID
 var selected_skill_id := ""
 var snapshot_actors: Array = []
 var description_label: RichTextLabel
@@ -33,7 +53,12 @@ var actor_panel: PanelContainer
 var actor_name: Label
 var enemy_panel: PanelContainer
 var card_buttons: Dictionary = {}
+var card_portraits: Dictionary = {}
 var status_labels: Dictionary = {}
+var band_rail: HBoxContainer
+var band_names_by_index: Dictionary = {}
+var captain_command_buttons: Dictionary = {}
+var captain_command_grid: Control
 var intent_label: Label
 var round_label: Label
 var target_label: Label
@@ -167,21 +192,15 @@ func build_battle_plane() -> Control:
 	action_cue_label.position = Vector2(470, 760)
 	action_cue_label.size = Vector2(220, 28)
 	plane.add_child(action_cue_label)
-	# Only present party members receive cards. The prototype does not invent
-	# empty roster slots merely to imitate a reference composition.
-	var cards := HBoxContainer.new()
-	cards.name = "PartyCardRail"
-	cards.position = Vector2(32, 794)
-	cards.size = Vector2(420, 172)
-	cards.add_theme_constant_override("separation", 12)
-	for item in [
-		["character.protagonist.captain", "MICHAEL", "STEAM CUTTER CAPTAIN", Color("536c79"), "MC", "captain"],
-		["character.heroine.betty", "BETTY", "FIELD MEDIC", Color("2d7770"), "D"]
-	]:
-		var card := make_party_card(item[0], item[1], item[2], item[3], item[4], item[5] if item.size() > 5 else "heroine")
-		cards.add_child(card)
-		card_buttons[item[0]] = card
-	plane.add_child(cards)
+	# Every actor the simulation reports receives one card, standing in the band
+	# the simulation puts it in. The prototype does not invent empty roster slots
+	# and does not draw a band nobody occupies.
+	band_rail = HBoxContainer.new()
+	band_rail.name = "BandRail"
+	band_rail.position = Vector2(32, 712)
+	band_rail.size = Vector2(600, 320)
+	band_rail.add_theme_constant_override("separation", 14)
+	plane.add_child(band_rail)
 	command_dock = build_footer()
 	command_dock.position = Vector2(650, 805)
 	command_dock.size = Vector2(560, 175)
@@ -255,38 +274,169 @@ func make_stage_box() -> StyleBoxFlat:
 	box.content_margin_bottom = 8
 	return box
 
-func make_party_card(id: String, display_name: String, role: String, accent: Color, rank: String, portrait_kind := "heroine") -> Control:
+## Rebuild the rail from the actors the simulation reports. Cards are grouped by
+## the `band_name` the bridge sends, in `BAND_ORDER`; a band nobody stands in is
+## not drawn. Called on every snapshot and whenever an actor changes band.
+func rebuild_band_rail() -> void:
+	if band_rail == null:
+		return
+	for child in band_rail.get_children():
+		band_rail.remove_child(child)
+		child.queue_free()
+	card_buttons.clear()
+	card_portraits.clear()
+	status_labels.clear()
+	captain_command_buttons.clear()
+	captain_command_grid = null
+	var drawn := 0
+	for band in BAND_ORDER:
+		var occupants := actors_in_band(band)
+		if occupants.is_empty():
+			continue
+		band_rail.add_child(make_band_column(band, occupants))
+		drawn += occupants.size()
+	if drawn != snapshot_actors.size():
+		push_error("The simulation reported %d actors but only %d stand in a named band." % [snapshot_actors.size(), drawn])
+	refresh_command_availability()
+
+func actors_in_band(band: String) -> Array:
+	var occupants: Array = []
+	for actor in snapshot_actors:
+		if str(actor.get("band_name", "")) == band:
+			occupants.append(actor)
+	return occupants
+
+func make_band_column(band: String, occupants: Array) -> Control:
+	var column := VBoxContainer.new()
+	column.name = "BandColumn_" + band
+	column.add_theme_constant_override("separation", 6)
+	var heading := make_label(band.replace("_", " ").to_upper(), 12, BRONZE)
+	heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(heading)
+	for actor in occupants:
+		column.add_child(make_band_card(actor))
+	return column
+
+func make_band_card(actor: Dictionary) -> Control:
+	var id := str(actor.get("id", ""))
+	var band := str(actor.get("band_name", ""))
+	var display_name := str(actor.get("display_name", id)).to_upper()
+	var holder := VBoxContainer.new()
+	holder.name = "Card_" + id.replace(".", "_")
+	holder.add_theme_constant_override("separation", 4)
 	var card := Control.new()
-	card.name = display_name + "Card"
-	card.custom_minimum_size = Vector2(190, 146)
+	card.custom_minimum_size = CARD_SIZE
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.tooltip_text = "PAPER PORTRAIT — DEVELOPMENT BLOCKOUT\nStable actor ID: %s\nRole: %s\nFuture portrait must preserve card crop, role read, face, hair, outfit palette and readiness overlay." % [id, role]
+	card.tooltip_text = "PAPER PORTRAIT — DEVELOPMENT BLOCKOUT\nStable actor ID: %s\nBand: %s\nFuture portrait must preserve card crop, face, hair, outfit palette and readiness overlay." % [id, band]
 	var portrait := PaperCardScript.new()
+	portrait.name = "Portrait"
 	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	portrait.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	portrait.configure(display_name, role, accent, rank, portrait_kind)
+	portrait.configure(display_name, band, accent_for(actor), int(actor.get("composure", 0)), actor_is_shaken(actor), portrait_kind_for(actor))
 	card.add_child(portrait)
 	var copy := VBoxContainer.new()
 	copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	copy.set_anchors_preset(Control.PRESET_FULL_RECT)
 	copy.offset_left = 70
-	copy.offset_top = 20
-	copy.offset_right = -10
-	copy.offset_bottom = -18
-	var name_label := make_label(display_name, 16, CREAM)
+	copy.offset_top = 14
+	copy.offset_right = -8
+	copy.offset_bottom = -22
+	var name_label := make_label(display_name, 14, CREAM)
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	copy.add_child(name_label)
-	var role_label := make_label(role, 10, Color("caa66a"))
-	role_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	copy.add_child(role_label)
-	var initial_status := "ECHO DECK\nSTANDBY" if id == "character.protagonist.captain" else "VIT 84/100  •  GRD 0\nREADY"
-	var status_label := make_label(initial_status, 11, Color("d7e0d7"))
+	# The band label is the string the bridge sent for this actor. The screen
+	# never spells a band name of its own.
+	var band_label := make_label(band, 10, Color("caa66a"))
+	band_label.name = "BandLabel"
+	band_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.add_child(band_label)
+	var status_label := make_label("", 11, Color("d7e0d7"))
 	status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	copy.add_child(status_label)
 	card.add_child(copy)
-	if id != "character.protagonist.captain":
-		status_labels[id] = status_label
-	return card
+	holder.add_child(card)
+	if id == CAPTAIN_ID:
+		captain_command_grid = make_captain_command_grid()
+		holder.add_child(captain_command_grid)
+	card_buttons[id] = holder
+	card_portraits[id] = portrait
+	status_labels[id] = status_label
+	update_actor_status(actor)
+	return holder
+
+## Captain Michael's command grid, unfolded on his card when he is the active
+## actor. Every entry is submitted through the same SimulationPort path Betty's
+## commands use; the simulation remains the authority on whether it is legal.
+func make_captain_command_grid() -> Control:
+	var grid := VBoxContainer.new()
+	grid.name = "CaptainCommandGrid"
+	grid.visible = false
+	grid.add_theme_constant_override("separation", 3)
+	for entry in CAPTAIN_COMMANDS:
+		var skill_id: String = entry[0]
+		var button := Button.new()
+		button.name = "Command_" + skill_id.replace(".", "_")
+		button.text = captain_command_label(skill_id, entry[1])
+		button.add_theme_font_size_override("font_size", 12)
+		button.add_theme_stylebox_override("normal", make_command_box(Color("1a322e"), TEAL))
+		button.tooltip_text = "Captain Michael's command. Stable skill ID: %s" % skill_id
+		button.pressed.connect(func() -> void: on_captain_command(skill_id))
+		grid.add_child(button)
+		captain_command_buttons[skill_id] = button
+	return grid
+
+func captain_command_label(skill_id: String, fallback_label: String) -> String:
+	if not catalog.has(skill_id):
+		return fallback_label
+	return str(catalog.get_record(skill_id).get("displayName", fallback_label)).to_upper()
+
+func on_captain_command(skill_id: String) -> void:
+	if animation_director.playing:
+		return
+	if command_selects_another_actor(skill_id):
+		begin_skill_targeting(skill_id)
+	else:
+		submit_skill(skill_id, [])
+
+## The authored record decides whether a command points at another actor.
+## Reposition is `targetRule: self` and Hold Position is the universal verb with
+## no record; neither opens a targeting session.
+func command_selects_another_actor(skill_id: String) -> bool:
+	if not catalog.has(skill_id):
+		return false
+	return str(catalog.get_record(skill_id).get("targetRule", "")) != "self"
+
+func accent_for(actor: Dictionary) -> Color:
+	if str(actor.get("id", "")) == CAPTAIN_ID:
+		return Color("536c79")
+	return DANGER if str(actor.get("faction", "")) == "hostile" else Color("2d7770")
+
+func portrait_kind_for(actor: Dictionary) -> String:
+	if str(actor.get("id", "")) == CAPTAIN_ID:
+		return "captain"
+	return "hostile" if str(actor.get("faction", "")) == "hostile" else "heroine"
+
+func actor_is_shaken(actor: Dictionary) -> bool:
+	for status in actor.get("statuses", []):
+		if status is Dictionary and str(status.get("kind", "")) == "shaken":
+			return true
+	return false
+
+## The band name the bridge gave for a stored band index, learned from the
+## actors in the snapshots it sends. The screen never derives a name from the
+## integer itself.
+func band_name_for_index(band: int) -> String:
+	if band_names_by_index.has(band):
+		return str(band_names_by_index[band])
+	push_error("The simulation has not named band %d; the screen does not invent band names." % band)
+	return ""
+
+func card_band_name(actor_id: String) -> String:
+	var portrait := card_portraits.get(actor_id) as PaperCard
+	return "" if portrait == null else portrait.band_label
+
+func drawn_card_ids() -> Array:
+	return card_buttons.keys()
 
 func make_command_box(background: Color, border: Color) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
@@ -364,6 +514,7 @@ func accept_target(actor_id: String) -> void:
 func submit_skill(skill_id: String, targets: Array) -> void:
 	target_label.text = "RESOLVING %s" % skill_id.to_upper()
 	set_commands_enabled(false)
+	set_captain_commands_enabled(false)
 	var command := {
 		"command_id": "command.debug.%s" % Time.get_ticks_msec(),
 		"battle_id": "battle.prototype.returning_names",
@@ -398,8 +549,10 @@ func project_command_events(events: Array[Dictionary], run_followups := true) ->
 	if run_followups:
 		await run_automatic_turns()
 
+## Play out every turn the player does not own. Betty and Captain Michael both
+## stop the cycle: an actor with a command grid is not held automatically.
 func run_automatic_turns() -> void:
-	while active_actor_id != "character.heroine.betty":
+	while not PLAYER_COMMANDED_ACTOR_IDS.has(active_actor_id):
 		var command_id := "command.prototype.auto.%s" % Time.get_ticks_usec()
 		var automatic_command := {
 			"command_id": command_id,
@@ -426,7 +579,8 @@ func project_snapshot(snapshot: Dictionary) -> void:
 	description_label.text = "[color=#b78a4b]OBSERVED[/color] %s" % snapshot.get("description", "No description supplied.")
 	snapshot_actors = snapshot.get("actors", []).duplicate(true)
 	for actor in snapshot_actors:
-		update_actor_status(actor)
+		band_names_by_index[int(actor.get("band", -1))] = str(actor.get("band_name", ""))
+	rebuild_band_rail()
 
 func project_event(event: Dictionary) -> void:
 	var narration := text_renderer.render(event)
@@ -438,7 +592,7 @@ func project_event(event: Dictionary) -> void:
 			active_actor_id = actor_id
 			round_label.text = "DAY 18  •  16:40  •  ROUND %d" % event.payload.round
 			set_card_state(actor_id, "FOCUSED")
-			set_commands_enabled(actor_id == "character.heroine.betty")
+			refresh_command_availability()
 		"command_accepted": pass
 		"actor_focused": set_card_state(event.subjects[0], "ACTIVE")
 		"enemy_intent_declared":
@@ -447,12 +601,14 @@ func project_event(event: Dictionary) -> void:
 			var target_id: String = event.subjects[-1]
 			update_status_values(target_id, event.payload.remaining_vitality)
 		"guard_changed": update_guard_values(event.subjects[0], event.payload.total)
+		"actor_moved": update_actor_band(event.subjects[0], int(event.payload.to_band))
 		"vitality_changed":
 			update_status_values(event.subjects[0], event.payload.total)
 		"actor_revived":
 			update_status_values(event.subjects[0], event.payload.vitality)
 		"battle_ended":
 			set_commands_enabled(false)
+			set_captain_commands_enabled(false)
 			command_dock.visible = false
 			action_cue_label.visible = false
 			intent_label.add_theme_color_override("font_color", TEAL if event.payload.victory else DANGER)
@@ -469,7 +625,7 @@ func apply_narration(narration: Dictionary) -> void:
 
 func on_animation_beat(skill_id: String, _beat_index: int, beat: Dictionary) -> void:
 	var readable_name := str(beat.get("name", "unnamed_beat")).replace("_", " ").to_upper()
-	target_label.text = "%s  •  %s" % [skill_id.trim_prefix("skill.betty.").replace("_", " ").to_upper(), readable_name]
+	target_label.text = "%s  •  %s" % [skill_id.trim_prefix("skill.").replace(".", " ").replace("_", " ").to_upper(), readable_name]
 
 func on_animation_event_cued(_skill_id: String, _beat_name: String, event: Dictionary) -> void:
 	project_event(event)
@@ -486,12 +642,24 @@ func on_animation_finished(_skill_id: String) -> void:
 	placeholder_presenter.reset()
 
 func update_actor_status(actor: Dictionary) -> void:
-	var id: String = actor.id
-	if status_labels.has(id):
-		var status := status_labels[id] as Label
-		var name: String = actor_display_names.get(id, actor.display_name.to_upper())
-		var state := "DEFEATED" if actor.vitality <= 0 else "READY"
-		status.text = "VIT %d/%d  •  GRD %d\n%s" % [actor.vitality, actor.max_vitality, actor.guard, state]
+	var id := str(actor.get("id", ""))
+	if not status_labels.has(id):
+		return
+	var status := status_labels[id] as Label
+	var state := "DEFEATED" if int(actor.get("vitality", 0)) <= 0 else "READY"
+	status.text = "VIT %d/%d  •  GRD %d\n%s" % [int(actor.get("vitality", 0)), int(actor.get("max_vitality", 0)), int(actor.get("guard", 0)), state]
+
+## An actor changed band. The destination's name is the one the bridge gave for
+## that stored index, so the card carries the simulation's own word for it.
+func update_actor_band(id: String, band: int) -> void:
+	var destination := band_name_for_index(band)
+	for actor in snapshot_actors:
+		if str(actor.get("id", "")) == id:
+			actor.band = band
+			actor.band_name = destination
+			break
+	rebuild_band_rail()
+	set_card_state(active_actor_id, "ACTIVE")
 
 func update_status_values(id: String, vitality: int) -> void:
 	for actor in snapshot_actors:
@@ -514,6 +682,10 @@ func set_card_state(id: String, state: String) -> void:
 		if card_id == id:
 			card.tooltip_text = "Card state: %s. Stable actor ID: %s" % [state, id]
 
+func refresh_command_availability() -> void:
+	set_commands_enabled(active_actor_id == BETTY_ID)
+	set_captain_commands_enabled(active_actor_id == CAPTAIN_ID)
+
 func set_commands_enabled(enabled: bool) -> void:
 	for skill_id in command_buttons:
 		var button := command_buttons[skill_id] as PaperSkillDiamond
@@ -523,7 +695,26 @@ func set_commands_enabled(enabled: bool) -> void:
 		if enabled and not has_legal_targets:
 			button.tooltip_text = "Unavailable in the current authoritative encounter: no legal target exists. Stable skill ID: %s" % skill_id
 
+## Michael's grid unfolds on his turn and is folded away and disabled on anyone
+## else's. Legality is not decided here: a command that points at another actor
+## is offered when the authored target rule has a legal target, exactly as
+## Betty's are, and the simulation may still reject the submitted command.
+func set_captain_commands_enabled(enabled: bool) -> void:
+	if captain_command_grid != null:
+		captain_command_grid.visible = enabled
+	for skill_id in captain_command_buttons:
+		var button := captain_command_buttons[skill_id] as Button
+		var has_legal_targets := true
+		if command_selects_another_actor(skill_id):
+			has_legal_targets = targeting.has_legal_targets(catalog.get_record(skill_id), snapshot_actors)
+		button.disabled = not (enabled and has_legal_targets)
+		if enabled and not has_legal_targets:
+			button.tooltip_text = "Unavailable in the current authoritative encounter: no legal target exists. Stable skill ID: %s" % skill_id
+
 func is_command_enabled(skill_id: String) -> bool:
+	if captain_command_buttons.has(skill_id):
+		var captain_button := captain_command_buttons[skill_id] as Button
+		return captain_button != null and not captain_button.disabled
 	var diamond := command_buttons.get(skill_id) as PaperSkillDiamond
 	return diamond != null and diamond.command_button != null and not diamond.command_button.disabled
 
