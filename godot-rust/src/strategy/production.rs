@@ -776,11 +776,12 @@ pub enum ProductionSkipReason {
     /// leaves the resource list Open -- and this lane names none of them.
     InsufficientResource { key: String, held: u32, needed: u32 },
     /// The rule's `output_key` names a `machine.<...>` record the registry
-    /// handed to the tick does not carry. Expected today and said plainly:
-    /// C10's `building.machine_shop` names the Open placeholder resource key
-    /// in its machine rule, C14 is the card that authors `content/machines/`,
-    /// and the bridge hands the tick an empty machine registry until a later
-    /// lane forwards those records through the port.
+    /// handed to the tick does not carry. Expected in a Godot session today
+    /// and said plainly: C10's `building.machine_shop` names C14's
+    /// `machine.mechanical_dog`, but the port does not forward
+    /// `content/machines/` yet -- B19 is that card -- so the bridge hands the
+    /// tick an empty machine registry and a shop that comes due through it
+    /// journals this rather than inventing a machine.
     UnknownMachineRecord { def_id: String },
     /// Anything else [`ExpeditionState::produce_machine`] refused, in its own
     /// vocabulary. A rule whose family disagrees with the record it names, a

@@ -1530,10 +1530,11 @@ impl ExpeditionState {
         // authored records hold.
         // S16: and the machine registry beside it, because the hour now runs
         // production timers and a machine rule names a `machine.<...>` record.
-        // The bridge hands an empty one down today -- `content/machines/` is
-        // C14's card and forwarding those records through the port is a later
-        // B card -- so a machine rule that comes due journals a skip naming the
-        // record it could not find rather than pretending to have built one.
+        // C14 authored those records; forwarding them through the port is B19,
+        // so the bridge hands an empty registry down until it lands and a
+        // machine rule that comes due journals a skip naming the record it
+        // could not find rather than pretending to have built one. The harness
+        // reads `content/machines/` off disk and proves the loaded path.
         for _ in 0..HOURS_PER_DAY {
             self.strategic_tick(geography, factions, buildings, machines);
         }

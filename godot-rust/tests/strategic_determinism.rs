@@ -253,21 +253,19 @@ fn run_hours(state: &mut ExpeditionState, hours: u64, factions: &FactionDefiniti
         hours,
         factions,
         &the_authored_buildings(),
-        &MachineDefinitions::new(),
+        &the_authored_machines(),
     );
 }
 
 /// The same, with the registries named explicitly. Every hash claim in this
 /// file goes through `run_hours` and therefore through the authored buildings
-/// and an empty machine registry; this exists so the probes below can say which
+/// and the authored machines; this exists so the probes below can say which
 /// registries the hour was handed.
 ///
-/// S16: the machine registry is empty in every hash claim because this file's
-/// campaign raises no buildings, so no production timer exists to name a
-/// machine record. `content/machines/` is C14's card; the probe below supplies
-/// the record its own building rule names, exactly as
-/// `the_authored_registry_with_one_weighted_record` supplies the faction weight
-/// C9's neutral records do not carry yet.
+/// S16: the hash claims carry the real machine registry and produce nothing out
+/// of it, because this file's campaign raises no buildings and a production
+/// timer belongs to a building. The probe below is where a yard is raised and
+/// the same authored records make a machine.
 fn run_hours_with(
     state: &mut ExpeditionState,
     hours: u64,
@@ -724,52 +722,62 @@ fn the_authored_building_registry_reaches_the_hourly_sweep() {
     );
 }
 
-/// The probe machine record this file's production probe builds, and the open
-/// resource key its rule costs.
+/// The machine C10's machine shop rule names, and the open resource key the
+/// probe makes one run of it cost.
 ///
-/// Both are the *test* namespace's. `content/machines/` is C14's card and did
-/// not exist when this was written, and brief section 20 leaves the resource
-/// list Open -- so the fuel key is a string a fixture's rule names, exactly as
-/// S13's unit tests name one, and no resource category is invented here.
-const PROBE_DOG: &str = "machine.s16.probe_dog";
+/// The machine ID is content's: C14 authors `content/machines/mechanical_dog.json`
+/// and C10's `production.machine_shop.automaton_frames` names it, so this
+/// constant is here to be *asserted against the record*, not to stand in for
+/// one. The fuel key is the probe's own: brief section 20 leaves the resource
+/// list Open, C10 authors no `cost` on the rule, and a harness that needs an
+/// unaffordable run has to name a key to be short of. `resource.open.` is the
+/// namespace content already uses for exactly that -- the placeholder the
+/// validator admits -- and no resource category is decided here.
+const AUTHORED_DOG: &str = "machine.mechanical_dog";
 const PROBE_FUEL: &str = "resource.open.fuel";
 /// One run of the probe's rule. Two runs' worth is never stocked, which is what
 /// makes the second interval a skip.
 const ONE_RUN_OF_FUEL: u32 = 3;
 
-/// The machine registry the probe's building rule names.
+/// `content/machines/`, loaded the way this file loads `content/buildings/`:
+/// every record deserialized and inserted through the registry the simulation
+/// uses, with no fixture standing in for one.
 ///
-/// Supplied by the harness for the same reason
-/// `the_authored_registry_with_one_weighted_record` supplies a weighted faction
-/// record: the authored thing is deliberately neutral and cannot move the
-/// simulation yet. C10's `building.machine_shop` authors a machine rule at
-/// `interval_hours: 24`, `minimum_tier: 2` -- the interval and the tier this
-/// probe runs on, read off the record rather than restated -- but its
-/// `output_key` is the Open placeholder `resource.open.needs_decision`, because
-/// no `machine.<...>` record existed to name. C14 authors those records; this
-/// is what one will look like when it does.
-fn a_probe_machine_registry() -> MachineDefinitions {
-    let mut machines = MachineDefinitions::new();
-    machines
-        .insert(MachineDefinition {
-            id: PROBE_DOG.into(),
-            family: MachineFamily::MechanicalDog,
-            fuel_requirement: 4,
-            water_requirement: 2,
-            ..MachineDefinition::default()
-        })
-        .expect("a `machine.` record with a stable ID loads");
-    machines
+/// C14's `every_authored_machine_record_loads` is the owner of *whether these
+/// records are well formed*; this is the harness carrying them to the tick, so
+/// that the machine the probe watches come out of a yard is the authored dog
+/// and not a shape this file invented.
+fn the_authored_machines() -> MachineDefinitions {
+    let directory = concat!(env!("CARGO_MANIFEST_DIR"), "/../content/machines/");
+    let mut definitions = MachineDefinitions::new();
+    for entry in std::fs::read_dir(directory).expect("content/machines/ is readable") {
+        let path = entry.expect("a readable directory entry").path();
+        if path.extension().and_then(|name| name.to_str()) != Some("json") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).expect("the machine record is readable");
+        let record: MachineDefinition = serde_json::from_str(&text)
+            .unwrap_or_else(|error| panic!("{} is a MachineDefinition: {error}", path.display()));
+        definitions
+            .insert(record)
+            .unwrap_or_else(|error| panic!("{} does not load: {error:?}", path.display()));
+    }
+    assert!(
+        definitions.get(AUTHORED_DOG).is_some(),
+        "content/machines/ must author {AUTHORED_DOG}; C14 is what fills it"
+    );
+    definitions
 }
 
-/// C10's buildings, with the machine shop's machine rule pointed at the probe
-/// record above and given a cost.
+/// C10's buildings, with a cost put on the machine shop's machine rule.
 ///
-/// Everything else about the record is the authored one: the same interval, the
-/// same minimum tier, the same construction hours, the same envelope. Only the
-/// two things content cannot state yet are filled in -- which machine the rule
-/// makes, and what one run costs.
-fn the_authored_buildings_with_a_machine_rule_that_names_a_record() -> BuildingDefinitions {
+/// Everything else about the record is the authored one, the machine it names
+/// included: the same interval, the same minimum tier, the same construction
+/// hours, the same envelope. The one thing content cannot state yet is what a
+/// run costs -- brief section 20 leaves the resource list Open and C10 authors
+/// an empty `cost` -- and a probe for "an unstocked yard skips" needs a rule
+/// that can be short of something.
+fn the_authored_buildings_with_a_cost_on_the_machine_rule() -> BuildingDefinitions {
     let authored = the_authored_buildings();
     let mut definitions = BuildingDefinitions::new();
     for id in authored.ids().map(str::to_owned).collect::<Vec<String>>() {
@@ -784,9 +792,16 @@ fn the_authored_buildings_with_a_machine_rule_that_names_a_record() -> BuildingD
                 .expect("C10 authors the machine rule first");
             assert!(
                 matches!(rule.output, ProductionOutput::Machine { .. }),
-                "the probe rewrites C10's machine rule, not one of its standing capabilities"
+                "the probe prices C10's machine rule, not one of its standing capabilities"
             );
-            rule.output_key = PROBE_DOG.into();
+            assert_eq!(
+                rule.output_key, AUTHORED_DOG,
+                "the probe watches the machine content names, and content changed it"
+            );
+            assert!(
+                rule.cost.is_empty(),
+                "C10 authors no cost; if it starts to, the probe must stock that instead"
+            );
             rule.cost = BTreeMap::from([(PROBE_FUEL.to_owned(), ONE_RUN_OF_FUEL)]);
         }
         definitions
@@ -881,8 +896,8 @@ fn a_stocked_machine_shop_turns_out_a_machine_on_the_authored_interval() {
 
     let (geography, _habitats) = island();
     let factions = the_authored_registry();
-    let buildings = the_authored_buildings_with_a_machine_rule_that_names_a_record();
-    let machines = a_probe_machine_registry();
+    let buildings = the_authored_buildings_with_a_cost_on_the_machine_rule();
+    let machines = the_authored_machines();
     let michael = ConceptKey::Michael.faction_id();
     let interval = buildings
         .get("building.machine_shop")
@@ -937,7 +952,7 @@ fn a_stocked_machine_shop_turns_out_a_machine_on_the_authored_interval() {
     );
     let standing = state.machines_of(&michael);
     assert_eq!(standing.len(), 1, "one machine, once");
-    assert_eq!(standing[0].def_id, PROBE_DOG);
+    assert_eq!(standing[0].def_id, AUTHORED_DOG);
     assert_eq!(standing[0].built_by_building_instance_id, SHOP);
     assert_eq!(state.buildings[SHOP].machines_produced, 1);
     // Claim 2: it was paid for.
