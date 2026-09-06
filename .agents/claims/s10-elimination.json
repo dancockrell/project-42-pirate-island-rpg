@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "task_id": "s10-elimination",
+  "agent": "claude-opus-5-lane-s10",
+  "summary": "S10: the recovery chain over brief section 16, elimination only when every link is exhausted, and no respawn",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/elimination.rs",
+    "godot-rust/src/strategy/tick.rs",
+    "godot-rust/src/strategy/faction.rs",
+    "godot-rust/src/expedition.rs"
+  ],
+  "symbols": [
+    "RecoveryLink",
+    "recovery_chain",
+    "ExpeditionState::eliminate_if_exhausted",
+    "ExpeditionState::eliminate_faction",
+    "ExpeditionState::eliminate_exhausted_factions",
+    "StrategicEvent::FactionEliminated",
+    "StrategicEvent::RecoveryLinkLost",
+    "FactionState::has_ever_held",
+    "FactionState::recovery_links_held"
+  ],
+  "coordination": {
+    "depends_on": [
+      "S1",
+      "S2",
+      "S3",
+      "S5",
+      "S7",
+      "S11"
+    ],
+    "conflicts_with": [
+      "S11"
+    ],
+    "notes": "tick.rs: variants appended at the end of StrategicEvent only, a separate hunk from any other lane's. faction.rs: two fields appended to FactionState, both serde(default), because elimination needs the history that distinguishes 'never held anything' from 'lost everything'. expedition.rs: one line in strategic_tick after advance_forces. building.rs and force.rs are read and called, never edited."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
