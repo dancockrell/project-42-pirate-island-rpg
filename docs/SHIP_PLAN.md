@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 (S16, S17 and S18 are additions outside the bracket; S18 made the M3 100-day elimination pass for a faction that does not act; an autonomous faction still cannot fall while its stockpile never lowers) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `cca20f2`. If this line is older than
+- Last updated 2026-09-06 against trunk `106e25a`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -501,7 +501,7 @@ captured by P1's gate, and no card claims a look it has not captured.
 | P7 | RTS controls on the board (B18 resumed): select, then order a move by tile, words or hotkey; the drawn markers go | B14 | shipped 1a03dd7 2026-09-06 |
 | P8 | The shell: title, new game, continue, settings, pause, save slots, loading; one scene flow shell → expedition → battle and back | B8, B9 | shipped `5375229` 2026-09-06 |
 | P9 | Audio: buses, ambience by region, time and weather, cues keyed to battle events, a music state machine; procedural placeholders until assets | P3 | shipped 174f029 2026-09-06 |
-| P10 | The expedition screen is the board: P7's RTS controls on P4's isometric board, the 2D route board retired, one owner of travel on screen | P4, P7 | open |
+| P10 | The expedition screen is the board: P7's RTS controls on P4's isometric board, the 2D route board retired, one owner of travel on screen | P4, P7 | shipped `106e25a` 2026-09-06 |
 | P11 | One palette owner, adopted: battle, shell, settings and review scenes take colour and type from the Theme; the restated hexes deleted | P5, P6, P8 | open |
 | P12 | Blockout kits for buildings and machines (D9 + D10): procedural envelopes from the C10 and C14 records in the library's riveted iron and clay, reviewed at gameplay distance | P2, C10, C14 | shipped `76f09ac` 2026-09-06 |
 
@@ -3024,7 +3024,7 @@ Lanes exist so several agents can work at once without meeting in a file.
 The rules below are what make that safe. They are short on purpose.
 
 ### P10 · The expedition screen is the board
-Status: open · Depends on: P4, P7
+Status: shipped `106e25a` 2026-09-06 · Depends on: P4, P7
 Touches: `game/scripts/world/expedition_prototype.gd` (host), `game/scripts/world/expedition_route_board.gd`
 (deleted), `game/scripts/board/**` and `game/scenes/board/**` (P4's, now
 yours), `game/tests/expedition_prototype_test.gd`, `game/tests/isometric_board_test.gd`,
@@ -3050,6 +3050,30 @@ travel across three cells on the 3D board through the live bridge and
 asserts the miniature's cell and the same `legal_commands` the 2D board
 gave; `grep -rn ExpeditionRouteBoard game/` is empty; captures of the
 screen at each distance with the party selected and an order refused.
+**Shipped:** `ExpeditionPrototype` hosts `isometric_board.tscn` through
+`board_surface.gd`, the one seam (SubViewport, mouse, the three hooks the
+2D board answered); `expedition_route_board.gd` deleted and its caller
+repaired; `grep -rn ExpeditionRouteBoard game/` is empty. P7's controls
+unchanged in meaning: left-click selects (a ring) or inspects, right-click
+orders, words and digits 1–9 issue the same order, every path
+`order_move_along` → `request_travel`, refusal in the status line with no
+bridge call; `portal_from_active_cell_to` walks the snapshot's
+`legal_route_commands` in authored portal order so tile and digit name the
+same road. Picking is an exact camera ray against each room's top face.
+F1/F2/F3 are the three distances, asserted to leave the miniature and the
+snapshot byte-identical. `BoardPalette` declares no colour literal: every
+value is a `ThemeTokens` read or a named mix, faction washes are the Theme's
+teal turned by a fixed hue per concept key, and the screen wears the Theme
+`InformationSurface` owns, so high contrast and text scale reach the
+island. Bites: dropping the legality guard fails two checks by name (the
+suite was strengthened first, since the original refusals never exercised
+it); `apply_party` as `pass` fails three crossings. Captures
+`P10-41b3b6c-{world,route,room,selected,refused}.png`, six rounds. Not
+done: the shell documents no camera hotkeys, so the board's legend does;
+O1, O3 and the framing constants stay named `needs decision`. Integration:
+P12's kits moved to the Theme-backed palette API; a column with no progress
+stands at the road mouth (`FORCE_STAND_OFFSET_METRES`) so it never stands
+on the party (S18's verbs made that case real).
 
 ### P11 · One palette owner, adopted
 Status: open · Depends on: P5, P6, P8
