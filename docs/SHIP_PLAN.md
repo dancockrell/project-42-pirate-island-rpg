@@ -355,8 +355,8 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
-- **M3** shipped 3/16 — **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
-- Last updated 2026-09-06 against trunk `3598628`. If this line is older than
+- **M3** shipped 5/16 — **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
+- Last updated 2026-09-06 against trunk `fefed40`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -383,7 +383,7 @@ top of the document is never stale:
 | S1 | `FactionDefinition` and faction resources | — | shipped 3614c34 2026-09-06 |
 | S2 | Ownership and influence on `Geography` nodes | A2 | shipped 27d777b 2026-09-06 — contested road = authored base + 2 |
 | S3 | Buildings: envelopes, sockets, tiers, capture and ruin | S1, S2 | open |
-| S4 | Strategic tick, pause semantics, determinism | S1 | open |
+| S4 | Strategic tick, pause semantics, determinism | S1 | shipped fefed40 2026-09-06 — the draw sequence is under the save hash |
 | S5 | Utility AI and strategic states | S4 | open |
 | S6 | `StrategicDirective` vocabulary and plain-language explanation | S5 | open |
 | S7 | Offscreen forces and materialisation through routes and sockets | S4, S2 | open |
@@ -925,7 +925,7 @@ rejected at load.
 Done when: overlap rejection test; production-rule test; tier upgrade test.
 
 ### S4 · Strategic tick, pause semantics, determinism
-Status: open · Depends on: S1
+Status: shipped `fefed40` 2026-09-06 · Depends on: S1
 `pub fn strategic_tick(&mut self, geography, factions: &FactionDefinitions) -> Vec<StrategicEvent>`
 advances one in-world hour of faction activity; `resolve_midnight_in` calls
 it 24 times before the character-scale Midnight Return so the two clocks
@@ -935,6 +935,24 @@ does not call `tick` — a test proves that N ticks with any interleaving of
 Determinism: every choice draws from `mix_seed(rng_seed, day, hour, faction_id, purpose)`.
 Done when: 2,400 ticks from seed 7 hash identically twice; a save at tick
 1,200 and reload reproduces the same hash at 2,400.
+
+**Shipped.** 2,400 hours from seed 7 through real midnights hash identically
+twice; a save at hour 1,200 reloads into the same hour 2,400; pause is a
+round trip between arbitrary ticks and is byte-identical to no pause; the
+strategic hour and the campaign day agree after every midnight. **Why it can
+bite before S5:** no faction acts yet, so a harness over the clock alone
+passes a wall-clock seed and a `HashMap` order. `StrategicClock::draw_digest`
+folds every draw ever made into the save hash; both sabotages then fail four
+of seven tests. **The draw sequence S5 inherits**, per faction in `BTreeMap`
+order (eliminated factions included, so removing one never shifts another),
+per hour, from `tick::PURPOSES`: `board_position` (S5), `goal` (S5),
+`directive` (S6), `economy` (S3/S13), `force` (S7), `relationship` (S6),
+`recovery` (S10); `hour_draws(...)` is the accessor. The draw is `mix_seed`
+composed twice, not a new mixer. **No journal field** — S11 owns it. **The
+registry is unread and `resolve_midnight_in` passes an empty one**, because
+the bridge has none; `the_registry_cannot_change_a_tick_yet` is written to be
+deleted, and its failure the day S5 scores a record is the instruction to a
+B card to load `content/factions/` and hand it down.
 
 ### S5 · Utility AI and strategic states
 Status: open · Depends on: S4
