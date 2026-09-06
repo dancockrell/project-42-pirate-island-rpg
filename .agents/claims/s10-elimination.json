@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "task_id": "s10-elimination",
+  "agent": "claude-opus-5-lane-s10",
+  "summary": "S10: the recovery chain over brief section 16, elimination only when every link is exhausted, and no respawn",
+  "status": "completed",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/elimination.rs",
+    "godot-rust/src/strategy/tick.rs",
+    "godot-rust/src/strategy/faction.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/strategy/utility.rs"
+  ],
+  "symbols": [
+    "RecoveryLink",
+    "recovery_chain",
+    "ExpeditionState::eliminate_if_exhausted",
+    "ExpeditionState::eliminate_faction",
+    "ExpeditionState::eliminate_exhausted_factions",
+    "StrategicEvent::FactionEliminated",
+    "StrategicEvent::RecoveryLinkLost",
+    "FactionState::has_ever_held",
+    "FactionState::recovery_links_held"
+  ],
+  "coordination": {
+    "depends_on": [
+      "S1",
+      "S2",
+      "S3",
+      "S5",
+      "S7",
+      "S11"
+    ],
+    "conflicts_with": [
+      "S11"
+    ],
+    "notes": "tick.rs: variants appended at the end of StrategicEvent only, a separate hunk from any other lane's. faction.rs: two fields appended to FactionState, both serde(default), because elimination needs the history that distinguishes 'never held anything' from 'lost everything'. expedition.rs: one line in strategic_tick after advance_forces. building.rs and force.rs are read and called, never edited. utility.rs: one existing assertion widened -- a_faction_state_serializes_no_score enumerates FactionState's keys on purpose, so S10's two appended fields are added to its expected set with a note that neither is a score; the assertion still fails the moment one becomes one."
+  },
+  "completion": {
+    "commit": "c5b7a19",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml -- 282 lib (11 new in strategy::elimination) + 5 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice: passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs -- 210 stable IDs: passed",
+      "node tools/src/check-claims.mjs -- 36 claims, 86 ship-plan rows, 80 cards: passed",
+      "bite proof: deleted the AlliedRefuge push in recovery_chain so a refuge counts as exhausted; one_allied_refuge_is_the_whole_chain_and_the_faction_survives failed on its chain assertion, and an_eliminated_neighbour_shelters_nobody and every_link_is_exhausted_one_at_a_time also failed; restored and green: passed",
+      "2,400-hour determinism harness unchanged and green -- its six factions hold nothing on hour one and none is eliminated: passed"
+    ]
+  }
+}

@@ -1526,6 +1526,13 @@ impl ExpeditionState {
         // S7: the hour's marching, after the hour's draws are made and before
         // the hour is journalled, so a hop is recorded in the hour it happened.
         events.extend(self.advance_forces(geography));
+        // S10: and the hour notices any faction whose recovery chain has just
+        // run out. After the marching, because a force reaching or leaving a
+        // cell is one of the things that empties a chain.
+        events.extend(self.eliminate_exhausted_factions(
+            geography,
+            &crate::strategy::building::BuildingDefinitions::new(),
+        ));
         for event in &events {
             self.strategic_journal
                 .push(JournalEntry::new(day, hour, event.clone()));
