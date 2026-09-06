@@ -27,12 +27,6 @@ name: Nightly
 # in game/, not here.
 
 on:
-  # TEMPORARY (E10 proof): GitHub only registers workflow_dispatch from the
-  # default branch, so this branch-scoped push trigger is the only way to run
-  # this file as it stands. Removed before the completion commit.
-  push:
-    branches:
-      - lane/E10-macos-nightly
   schedule:
     # 06:17 UTC daily. Off the hour deliberately: GitHub's scheduler queues the
     # top of the hour heavily, and a nightly that starts twenty minutes late is
