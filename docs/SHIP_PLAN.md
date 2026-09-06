@@ -356,7 +356,7 @@ top of the document is never stale:
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
 - **M3** shipped 0/16 · **M4** not started
-- Last updated 2026-09-05 against trunk `3c85451`. If this line is older than
+- Last updated 2026-09-06 against trunk `d06f604`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -401,7 +401,7 @@ top of the document is never stale:
 | ID | Task | Depends on | Status |
 |---|---|---|---|
 | B1 | Rewire the campaign bridge from `RouteGraph` to `Geography` | A1 | shipped 6b9d275 2026-09-04 |
-| B2 | `native_expedition_port.gd` sends cells and portal costs | B1, C2 | open |
+| B2 | `native_expedition_port.gd` sends cells and portal costs | B1, C2 | shipped 3c85451 2026-09-05 — landed inside C13, which found the port dropping every cost and gate |
 | B3 | Expose midnight, anchors, inspect and full legal commands | B1, A3 | open — **wire shipped under C13** (`use_anchor` through bridge, session and scene; cells and anchors forwarded); B3 owes the drawn control |
 | B4 | Route board shows anchor and estate commands | B3 | open |
 | B5 | Battle screen: Michael's card unfolds; bands and Composure drawn | A5, A6 | open — the mock/bridge actor-dict divergence A5 opened is closed (`band_name`, `composure`); B5 draws them |
@@ -454,7 +454,7 @@ top of the document is never stale:
 | ID | Task | Depends on | Status |
 |---|---|---|---|
 | E1 | GitHub Actions: Rust and content checks | — | shipped e0b4051 2026-09-05 |
-| E2 | Godot headless suites in CI | E1, E3 | shipped 7b8f698 2026-09-05 — **executed and green**, run 33976015461: 3 review scenes, 17 suites, godot-rust initialised against runtime v4.7.2 in each, anti-mock check passed on a live log |
+| E2 | Godot headless suites in CI | E1, E3 | shipped 7b8f698 2026-09-05 — executed and green; **hardened 5107113 2026-09-06**: the gate now fails any step that prints an ERROR line, after a suite's exit-code hole let a missing scene anchor through a green run |
 | E3 | Shell equivalents of the two PowerShell gates | — | shipped 5344b7b 2026-09-05 |
 | E4 | Desktop export presets for Windows, Linux, macOS | — | shipped 838824e 2026-09-05 |
 | E5 | Nightly build artifacts per platform | E2, E4 | open — **must build the native library before exporting**, see its card |
@@ -1231,6 +1231,34 @@ was cross-checked against the `.gdextension` — but the first real
 `--export-debug` is the actual proof. Expect Godot to rewrite the file and
 drop its comments the first time the Export dialog saves; the preset *rename*
 is the durable half of the warning.
+
+### E2 · Godot headless suites in CI — what "cannot pass by accident" cost
+Status: shipped `7b8f698`, hardened `5107113` 2026-09-06 · Depends on: E1, E3
+The job's original proof was three-fold: the built `.so` at the declared
+path, none of five fallback markers in the gate log, all three live-bridge
+lines present. Still true, still necessary. It was not sufficient.
+
+Run `826eb5a` was green with two `ERROR:` lines in its log: the reception
+terrace scene had no node for the `entry.reception_terrace.tidal_cut` anchor
+A4 authored, `world_cell_test.gd` said so, and the gate reported 17 suites
+passed. The suite called `quit(1)` on the failed check and then reached an
+unconditional `quit(0)`; `SceneTree.quit()` sets the exit code and returns,
+so the last call wins. **Fifteen of the seventeen suites had that shape.**
+
+Fixed at two levels, deliberately redundant. Both `tools/verify-godot.sh`
+and its declared twin `verify-godot.ps1` now fail any step whose output
+contains `ERROR:`, `SCRIPT ERROR:` or a GDScript backtrace, whatever the
+exit code — legitimate runs print none; checked against the green logs
+first. And the seven suites with the `push_error`-then-`quit(1)` shape now
+count failures and decide once at the end.
+
+Rule for whoever adds a suite: end with `quit(1 if failures > 0 else 0)`, or
+use a `finish()` gate. Never a bare trailing `quit(0)` after checks.
+
+Two lessons this card exists to keep. A green run is a claim; the log is the
+evidence — twice in one day, reading a green log found something the tick
+did not. And the shape of the *first* failing suite decided whether the gate
+could see at all.
 
 ### E5 · Nightly build artifacts
 Status: open · Depends on: E2, E4
