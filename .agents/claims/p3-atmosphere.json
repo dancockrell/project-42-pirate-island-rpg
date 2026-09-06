@@ -3,11 +3,13 @@
   "task_id": "p3-atmosphere",
   "agent": "claude-code (lane P3)",
   "summary": "The sky is the simulation's, not a clock's: the snapshot grows six read-only presentation keys (weather per region, corruption per cell as S9's band, the heat band, hour of day, the active region and night), an Atmosphere autoload maps them to sun, fog, wind, grade and night lights through a small AtmosphereTarget interface, and content/atmosphere/ owns every number.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T12:00:00Z",
-  "updated_at": "2026-09-06T12:00:00Z",
+  "updated_at": "2026-09-06T14:30:00Z",
   "paths": [
     "godot-rust/src/godot_bridge.rs",
+    "godot-rust/src/strategy/dungeon.rs",
+    "godot-rust/src/strategy/clocks.rs",
     "content/atmosphere/",
     "tools/src/validate.mjs",
     "tools/src/build-content-bundle.mjs",
@@ -20,21 +22,54 @@
   ],
   "symbols": [
     "godot_bridge::expedition_state_dictionary",
-    "godot_bridge::corruption_band_name",
-    "godot_bridge::heat_band_name",
-    "Atmosphere.apply",
+    "strategy::dungeon::CorruptionBand::as_str",
+    "strategy::dungeon::CorruptionBand::ALL",
+    "strategy::dungeon::HeatBand::as_str",
+    "strategy::dungeon::HeatBand::ALL",
+    "strategy::clocks::WeatherCondition::ALL",
     "Atmosphere.resolve",
+    "Atmosphere.apply",
+    "Atmosphere.apply_immediately",
+    "Atmosphere.durations",
     "AtmosphereTarget",
     "EnvironmentAtmosphereTarget",
-    "AtmosphereReviewSnapshots"
+    "AtmosphereReviewSnapshots",
+    "AtmosphereReviewBoard"
   ],
   "coordination": {
-    "depends_on": ["s8-dual-clocks", "s9-dungeon-context", "b9-pause-and-settings"],
+    "depends_on": [
+      "s8-dual-clocks",
+      "s9-dungeon-context",
+      "b9-pause-and-settings"
+    ],
     "conflicts_with": [],
-    "notes": "Branched from origin/backend/b0-expedition-state at f5d26d1. Lane P2 (render foundation) runs in parallel and owns game/render/** and game/scripts/render/**; this lane touches neither. origin/lane/P2-render-foundation did not exist when the adapter was written, so EnvironmentAtmosphereTarget drives Godot's Environment and DirectionalLight3D directly and the AtmosphereTarget contract is duck-typed by method name -- P2's WorldEnvironment script implements set_sun/set_fog/set_wind/set_grade and Atmosphere prefers it over the fallback the moment it is in the tree, with no second code path to retire. game/tools/capture_review_scene.gd is EXTENDED, not copied: it takes an optional third user argument naming an authored atmosphere snapshot, so there is one capture tool. The godot_bridge.rs change is one appended block of read-only keys in the state dictionary plus its band-name helpers and tests; no ExpeditionState field is added, so EXPECTED_CURRENT_KEYS is untouched."
+    "notes": "Branched from origin/backend/b0-expedition-state at f5d26d1. Lane P2 (render foundation) runs in parallel and owns game/render/** and game/scripts/render/**; this lane touches neither. origin/lane/P2-render-foundation did not exist when the adapter was written, so EnvironmentAtmosphereTarget drives Godot's Environment and DirectionalLight3D directly and the AtmosphereTarget contract is duck-typed by method name -- P2's WorldEnvironment script implements set_sun/set_fog/set_wind/set_grade and Atmosphere prefers it over the fallback the moment it is in the tree, with no second code path to retire. game/tools/capture_review_scene.gd is EXTENDED, not copied: it takes an optional third user argument naming an authored atmosphere snapshot, so there is one capture tool. The godot_bridge.rs change is one appended block of read-only keys in the state dictionary plus its band-name helpers and tests; no ExpeditionState field is added, so EXPECTED_CURRENT_KEYS is untouched. Shipped: the band ladders were given as_str/ALL in dungeon.rs and clocks.rs rather than a private name table in the bridge, because WeatherCondition::as_str already existed and a second spelling would be the fork; the bridge calls them. The Rust half of the content/Rust equality check lives in strategy::dungeon::authored_atmosphere rather than in godot_bridge.rs, because godot_bridge.rs compiles only under the godot-ext feature and building a VarDictionary needs a running engine -- so `cargo test` could never reach a test written there. The six projected keys are therefore proved by `cargo check --features godot-ext` plus the full Godot gate running against the real GDExtension, and the band NAMES the keys carry are proved by the Rust tests. AtmosphereReviewBoard is review-only and wired only by the capture tool; the game has no board yet, so night lamps resolve and report unplaced."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "4a1e1dc",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (351 lib incl. 4 new strategy::dungeon::authored_atmosphere, 6 authored_world, 5 save_migration, 8 strategic_determinism, 1 vertical_slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext (the new read-only block in expedition_state_dictionary compiles): passed",
+      "node tools/src/validate.mjs (305 stable IDs; 5 atmosphere tables carrying 22 rows): passed",
+      "node tools/src/check-claims.mjs: passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/ on the committed tree (98 records, sha256:e457852624cfb572a193c73d18eeda406695e5b99330daec725c3424c5a8d480): passed",
+      "tools/verify-godot.sh against a locally built GDExtension: 3 review scenes, 22 suites, exit 0, no ERROR line -- and zero of CI's five fallback markers in the log, with all three live-bridge proof lines present beside 'Atmosphere tests passed.': passed",
+      "game/tests/atmosphere_test.gd -- four authored snapshots map to the named values (dawn clear/clean_light/settled, dusk overcast/verdigris_creep/listing, night midnight/moonlit with one lamp per held building, storm storm/drowned_violet/capsized): passed",
+      "game/tests/atmosphere_test.gd -- a corrupted cell tints and desaturates, a clean one does not, and corruption in another cell does not grade this one: passed",
+      "game/tests/atmosphere_test.gd -- reduced motion stills the weather without deleting it and shortens every named duration without removing one: passed",
+      "game/tests/atmosphere_test.gd -- the hour refines its segment: the sun climbs and the light cools across dawn: passed",
+      "game/tests/atmosphere_test.gd -- no authored snapshot carries cthulhu_heat and no resolved grade carries a pressure number: passed",
+      "strategy::dungeon::authored_atmosphere -- the authored corruption palette, heat shift, weather table and segment table name exactly CorruptionBand::ALL, HeatBand::ALL, WeatherCondition::ALL and the four TimeSegments: passed",
+      "Bite (GDScript): _corruption_band forced to 'untouched'; the suite FAILED on nine assertions naming the right ones -- 'a corrupted cell must tint', 'a touched cell takes the verdigris_creep grade', 'the tint must be the band's colour, not the clean one's'; restored: failed",
+      "Bite, restored: game/tests/atmosphere_test.gd green ('Atmosphere tests passed.'): passed",
+      "Bite (Rust): the palette's 'consumed' band renamed 'devoured'; the_authored_corruption_palette_names_exactly_the_four_bands FAILED with left {devoured, spreading, touched, untouched} against right {consumed, spreading, touched, untouched}; restored and all four green: failed",
+      "Four captures on the terrace review scene at 1280x720, offscreen on the compatibility path, all four rendered in ONE engine run, read and iterated on until each reads as its time and weather at a glance -- docs/verification/captures/P3-4a1e1dc-{dawn,dusk,night,storm}.png, committed in 8b8d737: passed",
+      "Forward+ was not captured: no Vulkan driver in this container (the preamble's own note). The compatibility path is what is committed; CI's Forward+ capture is P1's and P2's to add: not_run",
+      "Night lamps are resolved and reported but nothing is spawned in the game: lane P4's board is what will answer where a building stands, and Atmosphere.board_anchor_provider is the documented hook it fills. The committed night capture stands the lamps on the review scene's own entry markers through the review-only AtmosphereReviewBoard: not_run",
+      "Lane P2 had pushed no branch when the adapter was written (git ls-remote showed no lane/P2-*), so EnvironmentAtmosphereTarget drives Godot's Environment, DirectionalLight3D and a procedural emitter directly. The AtmosphereTarget contract is duck-typed by method name and Atmosphere prefers any node implementing it, so P2's WorldEnvironment script displaces the fallback with no second code path to retire: not_run",
+      "Wind strength is resolved and handed to the target; the fallback target spends it on the weather emitter only. There is no foliage shader to move yet -- that is P2's material library -- so 'wind into the foliage shader' is carried as a named value and not yet consumed: not_run",
+      "Every number in content/atmosphere/ is art direction, not a brief-Open decision: nothing in section 20 fixes a sun angle, a fog density or a grade. No provisional constant is marked 'needs decision' in this lane because none of its numbers answers an Open question: not_run"
+    ]
   }
 }
