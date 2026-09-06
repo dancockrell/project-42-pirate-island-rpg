@@ -354,8 +354,8 @@ top of the document is never stale:
 - **M2** shipped 9/9 (E8 is listed for the record but sits outside the bracket) — **E5** (nightly Linux and Windows builds that refuse to ship hollow; macOS honestly absent), **B8** (save slots and continue through the bridge; newest by in-world time), **B9** (pause is one Godot fact; settings persist), **E7** (a crash log on the player's disk; nothing leaves the machine, proven), **E8** (both ledgers a CI gate), **E1** (CI live and green on GitHub), **E2** (Godot
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
-- **M3** shipped 15/16 (S16 and S17 are additions outside the bracket; S17 shipped with the M3 100-day elimination `failed` until a tick writes ownership, B11/O3) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `76f09ac`. If this line is older than
+- **M3** shipped 15/16 (S16, S17 and S18 are additions outside the bracket; S18 made the M3 100-day elimination pass for a faction that does not act; an autonomous faction still cannot fall while its stockpile never lowers) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
+- Last updated 2026-09-06 against trunk `cca20f2`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -396,7 +396,7 @@ top of the document is never stale:
 | S15 | Two Provisional doctrines approved and encoded | S1, human | blocked: needs approval of brief §6.x doctrines |
 | S16 | Production runs in the tick: interval rules produce on the economy draw | S13, B16 | shipped 7a715f7 2026-09-06 |
 | S17 | Goals become actions: Develop places a building, Supply gathers, Expand and Pressure dispatch a force | S16, S5, S7, B16 | shipped `24b1332` 2026-09-06 |
-| S18 | Arrival resolves control: an arriving force takes an unheld or undefended cell, stands contested against a defender; the player's own forces raised and dispatched through the bridge | S17, S7, S2 | open |
+| S18 | Arrival resolves control: an arriving force takes an unheld or undefended cell, stands contested against a defender; the player's own forces raised and dispatched through the bridge | S17, S7, S2 | shipped `cca20f2` 2026-09-06 |
 
 ### Lane B — Bridge, board and Godot
 
@@ -1424,7 +1424,7 @@ placed building stands `UnderConstruction`. Integration `24b1332`: the
 three events given prose and a level at the bridge.
 
 ### S18 · Arrival resolves control, and the player's forces through the bridge
-Status: open · Depends on: S17, S7, S2
+Status: shipped `cca20f2` 2026-09-06 · Depends on: S17, S7, S2
 Touches: `godot-rust/src/strategy/force.rs` (arrival resolution),
 `godot-rust/src/strategy/tick.rs` (one call after `advance_forces`; new
 `StrategicEvent` variants at the END), `godot-rust/src/godot_bridge.rs` (two
@@ -1456,6 +1456,31 @@ opening, byte-identical twice); the 2,400-hour hash contract still holds
 or its expected hash is updated in the same commit with the reason;
 `board_verification_campaign.gd`'s save round-trip force is replaced by
 the verb and the file's own note honoured.
+**Shipped:** `resolve_arrivals` in `force.rs`, called from
+`strategic_tick` between `advance_forces` and the elimination sweep, applies
+the three rules through `set_control`, the one writer of `ownership`:
+unheld ground taken (`ControlTaken { from: None }`); ground another faction
+holds with no defender changes hands and `from` names the loser; a standing
+defender keeps it and `ArrivalContested` names the holder and every
+defending body. `CONTESTED_ARRIVAL_RESOLVES_CONTROL = false` is the named
+`needs decision`. Buildings stand as they were with their IDs on the event.
+Three variants at the enum's end (`ControlTaken`, `ArrivalContested`,
+`ForceRaised`), no new `PURPOSES` entry, no new state field, the 2,400-hour
+hash unchanged. Bridge: `raise_force` and `dispatch_force` at the impl's
+end with an exhaustive `force_error_code`; the session refuses both while
+paused (pause has one owner); the surface treats a control change and a
+contested arrival as Notable and as arrivals. **M3's done-when now
+passes:** `the_m3_opening_eliminates_a_faction_with_its_recovery_chain_exhausted`
+(a rival column takes the undefended cell, both links fall,
+`FactionEliminated` once, 100 days byte-identical twice); bite: skipping
+held ground fails it by name. Said plainly: the eliminated faction is
+Michael's, the one that holds ground and does nothing in a harness; an
+autonomous faction still cannot be eliminated because
+`RecoveryLink::ResourceReserve` never falls — nothing in the crate lowers a
+stockpile and a taken cell hands nothing over (capture-vs-destruction is
+Open); claim 2 of the same test asserts exactly that (`needs decision`).
+P4's `blocked: needs a bridge verb` is closed and its save round-trip helper
+deleted.
 
 ### B19 · The bridge loads the machine records and hands the registry to the tick
 Status: shipped `1fca984` 2026-09-06 · Depends on: C14, S16
