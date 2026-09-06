@@ -55,7 +55,7 @@ func test_save_reset_and_continue() -> void:
 	check(str(saved.get("slot", "")) == "continue_proof", "a saved slot must name itself")
 	check(FileAccess.file_exists("user://saves/continue_proof.json"), "a saved slot must exist under user://saves")
 
-	var listed := campaign_session.list_slots()
+	var listed: Array = campaign_session.list_slots()
 	check(listed.size() == 1, "one save must list as one slot, not %d" % listed.size())
 	var entry: Dictionary = listed[0] if listed.size() > 0 else {}
 	check(bool(entry.get("readable", false)), "a slot just written by the bridge must read back")
@@ -67,7 +67,7 @@ func test_save_reset_and_continue() -> void:
 	# the slot.
 	campaign_session.reset_for_test()
 	campaign_session.begin_if_needed(catalog)
-	var fresh := campaign_session.snapshot()
+	var fresh: Dictionary = campaign_session.snapshot()
 	check(str(fresh.get("active_location_id", "")) == "world.cell.black_beach", "a reset session must begin a new campaign on the beach")
 	check(legal_commands(fresh) != expected_commands, "a new campaign must not already offer the saved campaign's actions, or this proves nothing")
 
@@ -118,7 +118,7 @@ func test_a_slot_of_nonsense_is_refused_and_the_campaign_stands() -> void:
 	var standing_commands := legal_commands(standing)
 	write_slot("broken", "{ this was never a save")
 
-	var listed := campaign_session.list_slots()
+	var listed: Array = campaign_session.list_slots()
 	check(listed.size() == 1, "an unreadable slot must still be listed rather than hidden")
 	check(not bool((listed[0] as Dictionary).get("readable", true)), "a slot that does not parse must be listed unreadable")
 	check(str((listed[0] as Dictionary).get("error", "")) == "malformed_json", "an unreadable slot must name why")
@@ -141,11 +141,12 @@ func test_a_slot_from_a_future_build_is_refused_and_the_campaign_stands() -> voi
 	# only thing that can refuse it is the version gate itself.
 	var document: String = campaign_session.expedition.save_json()
 	check(document.begins_with("{\"save_version\":"), "the canonical save must open with its version")
-	var from_the_future := document.replace("{\"save_version\":%d," % int(standing.get("save_version", 1)), "{\"save_version\":9999,")
+	var stamped := "{\"save_version\":%d," % int(standing.get("save_version", 1))
+	var from_the_future := document.replace(stamped, "{\"save_version\":9999,")
 	check(from_the_future != document, "the fixture must actually have changed the save version")
 	write_slot("future", from_the_future)
 
-	var listed := campaign_session.list_slots()
+	var listed: Array = campaign_session.list_slots()
 	check(listed.size() == 1, "a version-bumped slot is still a readable file and must list")
 	check(int((listed[0] as Dictionary).get("save_version", 0)) == 9999, "a slot must report the save version it actually carries")
 
