@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "task_id": "b17-battle-from-the-campaign",
+  "agent": "claude-code lane B17",
+  "summary": "A battle built for a campaign copies its actors' bond ranks from ExpeditionState::bond_ranks, so Betty's rank C command is refused in a fresh campaign's fight and opens once the authored burial scene's milestone is recorded.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/battle.rs",
+    "godot-rust/src/godot_bridge.rs",
+    "godot-rust/src/expedition.rs",
+    "game/tests/native_simulation_port_test.gd",
+    "game/tests/campaign_encounter_port_test.gd"
+  ],
+  "symbols": [
+    "battle::Battle::apply_bond_ranks",
+    "battle::Battle::prototype_vertical_slice_from_bond_ranks",
+    "battle::is_woman_actor_id",
+    "godot_bridge::Project42ExpeditionBridge::begin_pending_battle"
+  ],
+  "coordination": {
+    "depends_on": [
+      "a10-bond-rank-gate"
+    ],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at 2f51e77. Lane B8 appends save_json/load_json and lane B16 edits configure/resolve_midnight in godot_bridge.rs; this lane touches only begin_pending_battle there, so the hunks do not meet."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
