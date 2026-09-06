@@ -7,6 +7,7 @@ use crate::battle::{
 use crate::expedition::{EncounterOutcome, ExpeditionError, ExpeditionState, TimeSegment};
 use crate::geography::{
     AuthoredCell, CellDefinition, EncounterTriggerDefinition, Geography, PortalDefinition,
+    RouteKind,
 };
 use crate::habitat::Habitats;
 use crate::protocol::{CommandEnvelope, CommandKind, PROTOCOL_VERSION};
@@ -293,6 +294,70 @@ impl Project42ExpeditionBridge {
         result
     }
 
+    /// S2's control model, projected. Hands a cell to a faction, or releases
+    /// it when `faction_id` is empty -- releasing drops the override rather
+    /// than forcing the cell unheld, so a cell the graph gives an owner goes
+    /// back to that owner. The snapshot comes back with an `events` array of
+    /// the `ControlChanged` events the change produced; setting the control a
+    /// cell already has is a legal no-op with an empty array. Refusals
+    /// (`unknown_cell`, `invalid_stable_id`) come back as the same error
+    /// dictionaries travel uses.
+    ///
+    /// Nothing about risk is written by this call. Every road touching the
+    /// cell simply answers `effective_risk` differently from here on, which is
+    /// why the route projection recomputes it every snapshot.
+    #[func]
+    fn set_control(&mut self, cell_id: GString, faction_id: GString) -> VarDictionary {
+        let Some(state) = self.state.as_mut() else {
+            return expedition_error_dictionary("expedition_not_configured");
+        };
+        let faction_id = faction_id.to_string();
+        let faction_id = if faction_id.is_empty() {
+            None
+        } else {
+            Some(faction_id)
+        };
+        let events = match state.set_control(&cell_id.to_string(), faction_id, &self.geography) {
+            Ok(events) => events,
+            Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
+        };
+        let mut projected = Array::<VarDictionary>::new();
+        for event in &events {
+            projected.push(&world_event_dictionary(event));
+        }
+        let mut result = expedition_state_dictionary(state, &self.geography);
+        result.set("events", &projected);
+        result
+    }
+
+    /// Who effectively holds a cell: the campaign's `ownership` override where
+    /// it names one, the graph's authored owner otherwise, and `""` for
+    /// unheld. Godot never reads `ownership` raw -- this is the only answer,
+    /// so the screen and the simulation cannot disagree about who holds a road.
+    #[func]
+    fn controller_of(&self, cell_id: GString) -> GString {
+        let Some(state) = self.state.as_ref() else {
+            return GString::new();
+        };
+        GString::from(effective_controller(state, &self.geography, &cell_id.to_string()).as_str())
+    }
+
+    /// One road's live danger, from `Geography::effective_risk` and nowhere
+    /// else: the authored base plus `CONTESTED_RISK_MODIFIER` while the two
+    /// endpoints are held by different parties. Returns the integer, or the
+    /// `illegal_route` error dictionary when no portal carries this ID.
+    #[func]
+    fn effective_risk(&self, portal_id: GString) -> Variant {
+        let Some(state) = self.state.as_ref() else {
+            return expedition_error_dictionary("expedition_not_configured").to_variant();
+        };
+        let portal_id = portal_id.to_string();
+        let Some(route) = self.geography.route(&portal_id) else {
+            return expedition_error_dictionary("illegal_route").to_variant();
+        };
+        i64::from(self.geography.effective_risk(route, &state.ownership)).to_variant()
+    }
+
     /// Starts only the battle declared by the current pending expedition
     /// encounter. Godot may display the returned snapshot; it cannot name a
     /// different battle or synthesize one when no encounter is pending.
@@ -554,6 +619,33 @@ fn expedition_state_dictionary(state: &ExpeditionState, geography: &Geography) -
         let value = GString::from(command.as_str());
         legal_commands.push(&value);
     }
+    // B14: the routes the screen actually draws, each carrying the risk the
+    // party would run *right now*. `risk_level` is `Geography::effective_risk`
+    // -- the authored base plus S2's contested modifier while the endpoints are
+    // held by different parties -- and the authored base is deliberately not
+    // projected beside it: two numbers for one road's danger is the fork, and
+    // GDScript that stored either would be a third. `contested` is the same
+    // comparison Rust already made, said in a word the screen can mark.
+    // Empty while an encounter is pending, for the same reason
+    // `legal_route_commands` is: no road is legal until the fight resolves,
+    // and a road drawn with a risk on it is a road the screen offers.
+    let mut route_options = Array::<VarDictionary>::new();
+    for route in if error.is_none() {
+        state.legal_routes(geography)
+    } else {
+        Vec::new()
+    } {
+        let risk_level = geography.effective_risk(route, &state.ownership);
+        route_options.push(&vdict! {
+            "portal_id" => route.id.as_str(),
+            "to_location_id" => route.to_location_id.as_str(),
+            "travel_mode" => route_kind_name(&route.kind),
+            "time_cost_minutes" => i64::from(route.time_cost_minutes),
+            "supply_cost" => i64::from(route.supply_cost),
+            "risk_level" => i64::from(risk_level),
+            "contested" => risk_level != route.risk_level,
+        });
+    }
     let mut discoveries = Array::<GString>::new();
     for discovery_id in &state.discoveries {
         discoveries.push(&GString::from(discovery_id.as_str()));
@@ -588,6 +680,7 @@ fn expedition_state_dictionary(state: &ExpeditionState, geography: &Geography) -
         "route_history" => &route_history,
         "legal_route_commands" => &legal_route_commands,
         "legal_commands" => &legal_commands,
+        "route_options" => &route_options,
         "discoveries" => &discoveries,
         "travel_blocked_reason" => error.map(|value| expedition_error_code(&value)).unwrap_or(""),
         "pending_encounter" => &pending_encounter,
@@ -668,6 +761,33 @@ fn expedition_error_dictionary(reason: &str) -> VarDictionary {
     let mut result = vdict! { "configured" => false, "error" => reason };
     result.set("metadata", &metadata);
     result
+}
+
+/// The authored `travelMode` vocabulary, back the way content wrote it, so a
+/// projected route names its mode in the same words
+/// `RouteKind::from_travel_mode` read. Exhaustive on purpose: a new kind
+/// cannot be added without this boundary being told what to call it.
+fn route_kind_name(value: &RouteKind) -> &'static str {
+    match value {
+        RouteKind::Direct => "on_foot",
+        RouteKind::SafeRoad => "safe_road",
+        RouteKind::JungleEdge => "jungle_edge",
+    }
+}
+
+/// Who effectively holds a cell: the campaign's `ownership` override where it
+/// names one, the graph's authored owner otherwise. The rule is
+/// `Geography::effective_risk`'s, and that method stays its owner for risk;
+/// this composes the same two public queries so `controller_of` can answer the
+/// question on its own, and Godot never reads `ownership` raw.
+fn effective_controller(state: &ExpeditionState, geography: &Geography, cell_id: &str) -> String {
+    state
+        .ownership
+        .get(cell_id)
+        .map(String::as_str)
+        .or_else(|| geography.controller(cell_id))
+        .unwrap_or_default()
+        .to_owned()
 }
 
 fn time_segment_name(value: &TimeSegment) -> &'static str {
