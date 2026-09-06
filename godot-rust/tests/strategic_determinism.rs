@@ -43,11 +43,14 @@ use std::collections::BTreeMap;
 
 use project42_sim::habitat::Habitats;
 use project42_sim::strategy::building::{
-    BuildingDefinition, BuildingDefinitions, CELL_CAPACITY_CELLS,
+    BuildingDefinition, BuildingDefinitions, CELL_CAPACITY_CELLS, ProductionOutput,
 };
 use project42_sim::strategy::elimination::RecoveryLink;
 use project42_sim::strategy::faction::{
     ConceptKey, FactionDefinition, FactionDefinitions, FactionState, Relationship,
+};
+use project42_sim::strategy::production::{
+    MachineDefinition, MachineDefinitions, MachineFamily, ProductionSkipReason,
 };
 use project42_sim::strategy::tick::{HOURS_PER_DAY, PURPOSES, StrategicEvent, hour_draws};
 use project42_sim::{ExpeditionState, Geography};
@@ -245,18 +248,32 @@ fn island() -> (Geography, Habitats) {
 /// itself ever advances the strategic clock, so the harness measures the real
 /// path rather than a test-only one.
 fn run_hours(state: &mut ExpeditionState, hours: u64, factions: &FactionDefinitions) {
-    run_hours_with(state, hours, factions, &the_authored_buildings());
+    run_hours_with(
+        state,
+        hours,
+        factions,
+        &the_authored_buildings(),
+        &MachineDefinitions::new(),
+    );
 }
 
-/// The same, with the building registry named explicitly. Every hash claim in
-/// this file goes through `run_hours` and therefore through the authored
-/// buildings; this exists so the probe below can say which registry the sweep
-/// was handed.
+/// The same, with the registries named explicitly. Every hash claim in this
+/// file goes through `run_hours` and therefore through the authored buildings
+/// and an empty machine registry; this exists so the probes below can say which
+/// registries the hour was handed.
+///
+/// S16: the machine registry is empty in every hash claim because this file's
+/// campaign raises no buildings, so no production timer exists to name a
+/// machine record. `content/machines/` is C14's card; the probe below supplies
+/// the record its own building rule names, exactly as
+/// `the_authored_registry_with_one_weighted_record` supplies the faction weight
+/// C9's neutral records do not carry yet.
 fn run_hours_with(
     state: &mut ExpeditionState,
     hours: u64,
     factions: &FactionDefinitions,
     buildings: &BuildingDefinitions,
+    machines: &MachineDefinitions,
 ) {
     let (geography, habitats) = island();
     assert_eq!(
@@ -266,7 +283,7 @@ fn run_hours_with(
     );
     for _ in 0..(hours / u64::from(HOURS_PER_DAY)) {
         state
-            .resolve_midnight_in(&geography, &habitats, factions, buildings)
+            .resolve_midnight_in(&geography, &habitats, factions, buildings, machines)
             .expect("nothing in this harness blocks midnight");
     }
 }
@@ -334,7 +351,12 @@ fn pausing_at_any_hour_produces_a_byte_identical_save() {
 
     let mut uninterrupted = a_campaign();
     for _ in 0..HOURS {
-        uninterrupted.strategic_tick(&geography, &definitions, &buildings);
+        uninterrupted.strategic_tick(
+            &geography,
+            &definitions,
+            &buildings,
+            &MachineDefinitions::new(),
+        );
     }
 
     // "Pause" after each of these hour counts: serialize, drop the state, load
@@ -349,7 +371,12 @@ fn pausing_at_any_hour_produces_a_byte_identical_save() {
             interrupted = ExpeditionState::from_json(&json).expect("a paused save reloads");
             assert_eq!(interrupted.to_json(), json);
         }
-        interrupted.strategic_tick(&geography, &definitions, &buildings);
+        interrupted.strategic_tick(
+            &geography,
+            &definitions,
+            &buildings,
+            &MachineDefinitions::new(),
+        );
     }
 
     assert_eq!(
@@ -373,7 +400,13 @@ fn the_strategic_hour_and_the_campaign_day_agree_after_every_midnight() {
     for day in 1..=10u32 {
         assert_eq!(state.campaign_day, day);
         state
-            .resolve_midnight_in(&geography, &habitats, &factions, &the_authored_buildings())
+            .resolve_midnight_in(
+                &geography,
+                &habitats,
+                &factions,
+                &the_authored_buildings(),
+                &MachineDefinitions::new(),
+            )
             .expect("midnight resolves");
         assert_eq!(state.campaign_day, day + 1);
         assert_eq!(
@@ -406,7 +439,12 @@ fn midnights_hours_are_drawn_under_the_day_that_is_ending() {
     let events: Vec<StrategicEvent> = (0..HOURS_PER_DAY)
         .map(|_| {
             state
-                .strategic_tick(&geography, &definitions, &buildings)
+                .strategic_tick(
+                    &geography,
+                    &definitions,
+                    &buildings,
+                    &MachineDefinitions::new(),
+                )
                 .into_iter()
                 .next()
                 .expect("an hour always reports itself")
@@ -619,7 +657,12 @@ fn the_authored_building_registry_reaches_the_hourly_sweep() {
     assert_eq!(finished.len(), SHOPS.len(), "both shops finish");
 
     // One hour, through the one entry point. The sweep runs inside it.
-    state.strategic_tick(&geography, &factions, &buildings);
+    state.strategic_tick(
+        &geography,
+        &factions,
+        &buildings,
+        &MachineDefinitions::new(),
+    );
     let held = &state.factions[&michael].recovery_links_held;
     assert!(
         held.contains(&RecoveryLink::OperationalCoreBuilding)
@@ -639,7 +682,12 @@ fn the_authored_building_registry_reaches_the_hourly_sweep() {
             .ruin_building(instance_id)
             .expect("a standing building can be brought down");
     }
-    let events = state.strategic_tick(&geography, &factions, &buildings);
+    let events = state.strategic_tick(
+        &geography,
+        &factions,
+        &buildings,
+        &MachineDefinitions::new(),
+    );
     let lost: Vec<&RecoveryLink> = events
         .iter()
         .filter_map(|event| match event {
@@ -674,4 +722,275 @@ fn the_authored_building_registry_reaches_the_hourly_sweep() {
             .contains(&RecoveryLink::ValidConstructionSite),
         "clearing the shops leaves room to build again"
     );
+}
+
+/// The probe machine record this file's production probe builds, and the open
+/// resource key its rule costs.
+///
+/// Both are the *test* namespace's. `content/machines/` is C14's card and did
+/// not exist when this was written, and brief section 20 leaves the resource
+/// list Open -- so the fuel key is a string a fixture's rule names, exactly as
+/// S13's unit tests name one, and no resource category is invented here.
+const PROBE_DOG: &str = "machine.s16.probe_dog";
+const PROBE_FUEL: &str = "resource.open.fuel";
+/// One run of the probe's rule. Two runs' worth is never stocked, which is what
+/// makes the second interval a skip.
+const ONE_RUN_OF_FUEL: u32 = 3;
+
+/// The machine registry the probe's building rule names.
+///
+/// Supplied by the harness for the same reason
+/// `the_authored_registry_with_one_weighted_record` supplies a weighted faction
+/// record: the authored thing is deliberately neutral and cannot move the
+/// simulation yet. C10's `building.machine_shop` authors a machine rule at
+/// `interval_hours: 24`, `minimum_tier: 2` -- the interval and the tier this
+/// probe runs on, read off the record rather than restated -- but its
+/// `output_key` is the Open placeholder `resource.open.needs_decision`, because
+/// no `machine.<...>` record existed to name. C14 authors those records; this
+/// is what one will look like when it does.
+fn a_probe_machine_registry() -> MachineDefinitions {
+    let mut machines = MachineDefinitions::new();
+    machines
+        .insert(MachineDefinition {
+            id: PROBE_DOG.into(),
+            family: MachineFamily::MechanicalDog,
+            fuel_requirement: 4,
+            water_requirement: 2,
+            ..MachineDefinition::default()
+        })
+        .expect("a `machine.` record with a stable ID loads");
+    machines
+}
+
+/// C10's buildings, with the machine shop's machine rule pointed at the probe
+/// record above and given a cost.
+///
+/// Everything else about the record is the authored one: the same interval, the
+/// same minimum tier, the same construction hours, the same envelope. Only the
+/// two things content cannot state yet are filled in -- which machine the rule
+/// makes, and what one run costs.
+fn the_authored_buildings_with_a_machine_rule_that_names_a_record() -> BuildingDefinitions {
+    let authored = the_authored_buildings();
+    let mut definitions = BuildingDefinitions::new();
+    for id in authored.ids().map(str::to_owned).collect::<Vec<String>>() {
+        let mut record = authored
+            .get(&id)
+            .expect("the ID came from this registry")
+            .clone();
+        if record.id == "building.machine_shop" {
+            let rule = record
+                .production
+                .get_mut(0)
+                .expect("C10 authors the machine rule first");
+            assert!(
+                matches!(rule.output, ProductionOutput::Machine { .. }),
+                "the probe rewrites C10's machine rule, not one of its standing capabilities"
+            );
+            rule.output_key = PROBE_DOG.into();
+            rule.cost = BTreeMap::from([(PROBE_FUEL.to_owned(), ONE_RUN_OF_FUEL)]);
+        }
+        definitions
+            .insert(record)
+            .expect("a record that loaded once loads again");
+    }
+    definitions
+}
+
+/// Raise C10's machine shop on ground Michael holds and bring it up to the tier
+/// its machine rule needs, through the same methods the game uses.
+///
+/// Construction is not the hour's work -- S16 gave the hour production, not
+/// building -- so the probe spends the authored hours itself, exactly as B16's
+/// probe does.
+fn a_finished_machine_shop_at_the_rule_s_tier(
+    state: &mut ExpeditionState,
+    geography: &Geography,
+    buildings: &BuildingDefinitions,
+    instance_id: &str,
+) {
+    const BEACH: &str = "world.cell.black_beach";
+    let michael = ConceptKey::Michael.faction_id();
+    let shop = buildings
+        .get("building.machine_shop")
+        .expect("C10 authored building.machine_shop");
+
+    state
+        .set_control(BEACH, Some(michael.clone()), geography)
+        .expect("the beach is a real cell");
+    state
+        .place_building(
+            instance_id,
+            "building.machine_shop",
+            BEACH,
+            &michael,
+            geography,
+            buildings,
+        )
+        .expect("Michael may raise a machine shop on ground Michael holds");
+    state.advance_construction(
+        shop.tier(1)
+            .expect("the record authors a first tier")
+            .construction_hours,
+    );
+
+    let rule = &shop.production[0];
+    let wanted = shop
+        .tier(rule.minimum_tier)
+        .expect("the machine rule's minimum tier is one the record authors");
+    state
+        .upgrade_building(
+            instance_id,
+            &wanted.construction_requirements.clone(),
+            buildings,
+        )
+        .expect("the probe supplies exactly the flags the authored tier asks for");
+    state.advance_construction(wanted.construction_hours);
+    assert_eq!(
+        state.buildings[instance_id].tier, rule.minimum_tier,
+        "the shop stands at the tier its machine rule needs"
+    );
+}
+
+/// S16's probe: a stocked yard turns out a machine on the authored interval,
+/// and an unstocked one skips and says so.
+///
+/// The whole card, measured through the one entry point the game uses.
+/// `ExpeditionState::strategic_tick` is called one hour at a time, so the hour
+/// the machine appears is a fact this test can name rather than infer.
+///
+/// 1. **The interval is the record's.** C10 authors `interval_hours: 24` on the
+///    machine shop's machine rule, and the probe reads it off the record. For
+///    twenty-three hours nothing comes out; on the twenty-fourth a machine
+///    stands in `ExpeditionState::machines` and the hour reports
+///    `MachineProduced`. This is the assertion the countdown owns: with no
+///    countdown a rule either fires every hour or never fires, and both fail
+///    here.
+/// 2. **It was paid for.** The faction was stocked with exactly one run's fuel
+///    and holds none afterwards.
+/// 3. **An unstocked yard skips, and never goes negative.** The second interval
+///    comes due against an empty stockpile: one `ProductionSkipped` carrying
+///    `InsufficientResource`, journalled by S11 like every other hour's event,
+///    no second machine, and the stockpile still exactly zero -- `u32` cannot go
+///    negative, and the check-then-spend means it is not even asked to.
+/// 4. **Nothing refills it.** Sixty more hours -- two and a half more intervals
+///    -- add no machine and no resource. Until a lane owns income, this is what
+///    a working yard with an empty yard does, and the journal says so.
+#[test]
+fn a_stocked_machine_shop_turns_out_a_machine_on_the_authored_interval() {
+    const SHOP: &str = "building_instance.s16.machine_shop";
+
+    let (geography, _habitats) = island();
+    let factions = the_authored_registry();
+    let buildings = the_authored_buildings_with_a_machine_rule_that_names_a_record();
+    let machines = a_probe_machine_registry();
+    let michael = ConceptKey::Michael.faction_id();
+    let interval = buildings
+        .get("building.machine_shop")
+        .expect("C10 authored building.machine_shop")
+        .production[0]
+        .interval_hours;
+
+    let mut state = a_campaign();
+    a_finished_machine_shop_at_the_rule_s_tier(&mut state, &geography, &buildings, SHOP);
+    state
+        .factions
+        .get_mut(&michael)
+        .expect("the campaign carries Michael")
+        .resources
+        .insert(PROBE_FUEL.into(), ONE_RUN_OF_FUEL);
+
+    // Claim 1: nothing comes out before the interval is up.
+    for hour in 1..interval {
+        let events = state.strategic_tick(&geography, &factions, &buildings, &machines);
+        assert!(
+            state.machines_of(&michael).is_empty(),
+            "hour {hour} of {interval} produced a machine early: {events:?}"
+        );
+        assert_eq!(
+            state.buildings[SHOP].production_countdown[&0],
+            interval - hour,
+            "the rule's countdown is the authored interval less the hours run"
+        );
+    }
+
+    let events = state.strategic_tick(&geography, &factions, &buildings, &machines);
+    let produced: Vec<&StrategicEvent> = events
+        .iter()
+        .filter(|event| matches!(event, StrategicEvent::MachineProduced { .. }))
+        .collect();
+    assert_eq!(
+        produced.len(),
+        1,
+        "the authored interval came up and the yard made exactly one machine: {events:?}"
+    );
+    assert!(
+        matches!(
+            produced[0],
+            StrategicEvent::MachineProduced { faction_id, family, building_instance_id, day }
+                if *faction_id == michael
+                    && *family == MachineFamily::MechanicalDog
+                    && building_instance_id == SHOP
+                    && *day == state.campaign_day
+        ),
+        "the hour reports whose yard made what: {:?}",
+        produced[0]
+    );
+    let standing = state.machines_of(&michael);
+    assert_eq!(standing.len(), 1, "one machine, once");
+    assert_eq!(standing[0].def_id, PROBE_DOG);
+    assert_eq!(standing[0].built_by_building_instance_id, SHOP);
+    assert_eq!(state.buildings[SHOP].machines_produced, 1);
+    // Claim 2: it was paid for.
+    assert_eq!(
+        state.factions[&michael].resources[PROBE_FUEL], 0,
+        "one run of fuel went into the machine"
+    );
+    // And the countdown started over at the authored interval.
+    assert_eq!(state.buildings[SHOP].production_countdown[&0], interval);
+
+    // Claim 3: the next interval comes due against an empty stockpile.
+    let mut skips = Vec::new();
+    for _ in 0..interval {
+        skips.extend(
+            state
+                .strategic_tick(&geography, &factions, &buildings, &machines)
+                .into_iter()
+                .filter(|event| matches!(event, StrategicEvent::ProductionSkipped { .. })),
+        );
+    }
+    assert_eq!(
+        skips,
+        vec![StrategicEvent::ProductionSkipped {
+            faction_id: michael.clone(),
+            building_instance_id: SHOP.into(),
+            rule_id: "production.machine_shop.automaton_frames".into(),
+            reason: ProductionSkipReason::InsufficientResource {
+                key: PROBE_FUEL.into(),
+                held: 0,
+                needed: ONE_RUN_OF_FUEL,
+            },
+            day: state.campaign_day,
+        }],
+        "an unstocked yard skips once per interval, naming what it is short of"
+    );
+    assert!(
+        state
+            .strategic_journal
+            .recent()
+            .iter()
+            .any(|entry| matches!(entry.event, StrategicEvent::ProductionSkipped { .. })),
+        "S11 journals the skip like every other hour's event"
+    );
+    assert_eq!(state.machines_of(&michael).len(), 1, "and made nothing");
+    assert_eq!(
+        state.factions[&michael].resources[PROBE_FUEL], 0,
+        "a refused run spends nothing, so the stockpile is still exactly zero"
+    );
+
+    // Claim 4: nothing refills a stockpile, and the yard goes on skipping.
+    for _ in 0..(interval * 2 + interval / 2) {
+        state.strategic_tick(&geography, &factions, &buildings, &machines);
+    }
+    assert_eq!(state.machines_of(&michael).len(), 1);
+    assert_eq!(state.factions[&michael].resources[PROBE_FUEL], 0);
 }

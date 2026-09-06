@@ -794,6 +794,36 @@ pub struct BuildingInstance {
     /// a save written before S13 loads with a yard that has made nothing yet.
     #[serde(default)]
     pub machines_produced: u32,
+    /// **S16.** Hours left before each timer-driven production rule of this
+    /// building's definition yields again, keyed by the rule's index in
+    /// [`BuildingDefinition::production`].
+    ///
+    /// Written only by
+    /// [`advance_production`](crate::strategy::production::advance_production),
+    /// which is the hour's production step: a rule with `interval_hours > 0`
+    /// whose `minimum_tier` this building has reached counts one hour off here
+    /// every strategic hour, and at zero it fires and resets to the authored
+    /// interval. An absent key means "this rule has not started its first
+    /// interval yet" and is read as the full `interval_hours`, so a yard that
+    /// was raised, saved and reloaded owes the same wait it owed before.
+    ///
+    /// **A map rather than a `Vec`, and the reason is content.** Production
+    /// rules get appended to a definition as content grows, and a positional
+    /// `Vec` in the *save* would have to be kept the same length as the
+    /// *definition*: a save written against a two-rule record and loaded
+    /// against a three-rule one would carry a countdown list that disagrees
+    /// with the rules it indexes, and repairing it on load would put a
+    /// definition's shape into save data. A map has no length to disagree
+    /// about -- a key that is not there is a rule that has not started, which
+    /// is exactly what an appended rule is -- and a key for a rule that no
+    /// longer exists is read by nothing. It is sparse too: only timer-driven
+    /// rules ever get a key, so a building whose rules are all standing
+    /// capabilities at `interval_hours: 0` saves an empty map.
+    ///
+    /// `serde(default)` so a save written before S16 loads with every rule at
+    /// the start of its first interval.
+    #[serde(default)]
+    pub production_countdown: BTreeMap<usize, u32>,
 }
 
 impl BuildingInstance {
@@ -911,6 +941,12 @@ impl ExpeditionState {
                 stored_value: 0,
                 // S13: a new yard has made nothing.
                 machines_produced: 0,
+                // S16: and none of its timers has started. Empty rather than
+                // seeded from the definition, because "no key" already means
+                // "the full interval still to run" -- seeding here would be a
+                // copy of `interval_hours` in save data, free to disagree with
+                // the record after content changes it.
+                production_countdown: BTreeMap::new(),
             },
         );
         Ok(())

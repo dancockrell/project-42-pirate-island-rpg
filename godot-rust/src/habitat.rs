@@ -577,6 +577,7 @@ mod tests {
                 &habitats,
                 &crate::strategy::faction::FactionDefinitions::new(),
                 &crate::strategy::building::BuildingDefinitions::new(),
+                &crate::strategy::production::MachineDefinitions::new(),
             )
             .expect("resolves");
 
@@ -620,6 +621,7 @@ mod tests {
                 &habitats,
                 &crate::strategy::faction::FactionDefinitions::new(),
                 &crate::strategy::building::BuildingDefinitions::new(),
+                &crate::strategy::production::MachineDefinitions::new(),
             )
             .expect("resolves");
 
@@ -756,6 +758,7 @@ mod tests {
                 &habitats,
                 &crate::strategy::faction::FactionDefinitions::new(),
                 &crate::strategy::building::BuildingDefinitions::new(),
+                &crate::strategy::production::MachineDefinitions::new(),
             )
             .expect("resolves");
 

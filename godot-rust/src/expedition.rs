@@ -25,7 +25,7 @@ use crate::strategy::directive::StrategicDirective;
 use crate::strategy::faction::FactionDefinitions;
 use crate::strategy::force::ForceRecord;
 use crate::strategy::journal::{JournalEntry, StrategicJournal};
-use crate::strategy::production::MachineInstance;
+use crate::strategy::production::{MachineDefinitions, MachineInstance};
 use crate::strategy::recruitment::{RecruitmentStage, RecruitmentState};
 use crate::strategy::tick::{self, HOURS_PER_DAY, StrategicClock, StrategicEvent};
 use crate::world::{
@@ -1474,6 +1474,7 @@ impl ExpeditionState {
         habitats: &Habitats,
         factions: &FactionDefinitions,
         buildings: &BuildingDefinitions,
+        machines: &MachineDefinitions,
     ) -> Result<Vec<WorldEvent>, ExpeditionError> {
         // S4: the day that is ending is twenty-four strategic hours long, and
         // they run *before* the character-scale Midnight Return so that the
@@ -1493,8 +1494,14 @@ impl ExpeditionState {
         // and two of the ways back it reads -- what a building makes, and
         // whether a cell has room to raise another -- are answers only the
         // authored records hold.
+        // S16: and the machine registry beside it, because the hour now runs
+        // production timers and a machine rule names a `machine.<...>` record.
+        // The bridge hands an empty one down today -- `content/machines/` is
+        // C14's card and forwarding those records through the port is a later
+        // B card -- so a machine rule that comes due journals a skip naming the
+        // record it could not find rather than pretending to have built one.
         for _ in 0..HOURS_PER_DAY {
-            self.strategic_tick(geography, factions, buildings);
+            self.strategic_tick(geography, factions, buildings, machines);
         }
 
         // S8: the day's weather, one draw per region, before the
@@ -1553,18 +1560,24 @@ impl ExpeditionState {
     /// The logic lives in [`crate::strategy::tick`] with the rest of the
     /// strategic layer; this is the method on the state that owns the data.
     /// `geography` and `factions` are the board and the authored records the
-    /// utility AI will score against (S5), and `buildings` is the authored
-    /// building registry S10's hourly elimination sweep reads (B16); an hour
-    /// today advances the clock, makes each present faction's fixed sequence of
-    /// draws, notices any faction that has run out of ways back, and reports
-    /// the hour that ran. **The hour does not build.** Nothing here places a
-    /// building or runs a production timer -- S13 owns who spends hours on what
-    /// -- so the registry is read and never written through.
+    /// utility AI will score against (S5), `buildings` is the authored building
+    /// registry S10's hourly elimination sweep reads (B16), and `machines` is
+    /// the authored machine registry a production rule's `output_key` names
+    /// (S13). An hour advances the clock, makes each present faction's fixed
+    /// sequence of draws, **runs that faction's production timers on its
+    /// `strategic.economy` draw** (S16), marches its forces, notices any faction
+    /// that has run out of ways back, and reports the hour that ran.
+    ///
+    /// **The hour still does not build.** S16 gave the hour production, not
+    /// construction: nothing here places a building, raises a tier or spends a
+    /// construction hour. Both registries are read and never written through --
+    /// the only things an hour writes are save data.
     pub fn strategic_tick(
         &mut self,
         geography: &Geography,
         factions: &FactionDefinitions,
         buildings: &BuildingDefinitions,
+        machines: &MachineDefinitions,
     ) -> Vec<StrategicEvent> {
         // S11: the hour's events are recorded before they are handed back, so
         // the save's history does not depend on what the caller does with the
@@ -1579,7 +1592,7 @@ impl ExpeditionState {
         // no change in this method to be journalled correctly.
         let day = self.campaign_day;
         let hour = self.strategic_clock.hour_of_day;
-        let mut events = tick::run_hour(self, geography, factions);
+        let mut events = tick::run_hour(self, geography, factions, buildings, machines);
         // S7: the hour's marching, after the hour's draws are made and before
         // the hour is journalled, so a hop is recorded in the hour it happened.
         events.extend(self.advance_forces(geography));
@@ -2977,6 +2990,7 @@ mod tests {
                 &habitats,
                 &FactionDefinitions::new(),
                 &BuildingDefinitions::new(),
+                &MachineDefinitions::new(),
             )
             .expect("resolves");
         state.active_location_id = "world.cell.reception_terrace".into();
@@ -3043,6 +3057,7 @@ mod tests {
                 &habitats,
                 &FactionDefinitions::new(),
                 &BuildingDefinitions::new(),
+                &MachineDefinitions::new(),
             )
             .expect("resolves");
         assert!(state.begin_encounter(&geography, &habitats).is_some());
@@ -3203,6 +3218,7 @@ mod tests {
                     &habitats,
                     &FactionDefinitions::new(),
                     &BuildingDefinitions::new(),
+                    &MachineDefinitions::new(),
                 )
                 .expect("resolves");
             if state
@@ -3274,6 +3290,7 @@ mod tests {
                     &habitats,
                     &FactionDefinitions::new(),
                     &BuildingDefinitions::new(),
+                    &MachineDefinitions::new(),
                 )
                 .expect("resolves");
         }
@@ -3407,6 +3424,7 @@ mod tests {
                 &habitats,
                 &FactionDefinitions::new(),
                 &BuildingDefinitions::new(),
+                &MachineDefinitions::new(),
             )
             .expect("resolves");
         assert!(!state.hunters[0].is_defeated_today());
@@ -3526,6 +3544,7 @@ mod tests {
                     &habitats,
                     &FactionDefinitions::new(),
                     &BuildingDefinitions::new(),
+                    &MachineDefinitions::new(),
                 )
                 .expect("a midnight resolves");
         }
@@ -3590,6 +3609,7 @@ mod tests {
                 &habitats,
                 &FactionDefinitions::new(),
                 &BuildingDefinitions::new(),
+                &MachineDefinitions::new(),
             )
             .expect("a midnight resolves");
         again
@@ -3598,6 +3618,7 @@ mod tests {
                 &habitats,
                 &FactionDefinitions::new(),
                 &BuildingDefinitions::new(),
+                &MachineDefinitions::new(),
             )
             .expect("a midnight resolves");
 
@@ -3624,6 +3645,7 @@ mod tests {
                 &habitats,
                 &FactionDefinitions::new(),
                 &BuildingDefinitions::new(),
+                &MachineDefinitions::new(),
             )
             .expect("a midnight resolves");
 
@@ -3771,6 +3793,7 @@ mod tests {
                 &habitats,
                 &FactionDefinitions::new(),
                 &BuildingDefinitions::new(),
+                &MachineDefinitions::new(),
             )
             .expect("a midnight resolves");
 

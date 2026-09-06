@@ -932,6 +932,7 @@ mod tests {
     use super::*;
     use crate::strategy::building::BuildingDefinitions;
     use crate::strategy::faction::{ConceptKey, FactionState};
+    use crate::strategy::production::MachineDefinitions;
 
     /// A board the tests state directly, so that a scoring test is about
     /// scoring rather than about the vertical slice's map. `BoardView::of` is
@@ -1648,7 +1649,12 @@ mod tests {
             assert!(faction.current_goals.is_empty());
         }
 
-        state.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
+        state.strategic_tick(
+            &geography,
+            &definitions,
+            &BuildingDefinitions::new(),
+            &MachineDefinitions::new(),
+        );
 
         let ascendant = state
             .factions
@@ -1668,9 +1674,19 @@ mod tests {
         // reaches the same verdict rather than drifting.
         let after_one = state.to_json();
         let mut twin = ExpeditionState::from_json(&after_one).expect("the save reloads");
-        twin.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
+        twin.strategic_tick(
+            &geography,
+            &definitions,
+            &BuildingDefinitions::new(),
+            &MachineDefinitions::new(),
+        );
         let mut again = ExpeditionState::from_json(&after_one).expect("the save reloads");
-        again.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
+        again.strategic_tick(
+            &geography,
+            &definitions,
+            &BuildingDefinitions::new(),
+            &MachineDefinitions::new(),
+        );
         assert_eq!(twin.to_json(), again.to_json());
     }
 

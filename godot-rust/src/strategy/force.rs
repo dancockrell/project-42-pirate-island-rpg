@@ -586,6 +586,7 @@ mod tests {
     use super::*;
     use crate::strategy::building::BuildingDefinitions;
     use crate::strategy::faction::ConceptKey;
+    use crate::strategy::production::MachineDefinitions;
 
     const BEACH: &str = "world.cell.black_beach";
     const ESTATE: &str = "world.cell.damaged_estate";
@@ -798,6 +799,7 @@ mod tests {
                 &geography,
                 &definitions,
                 &BuildingDefinitions::new(),
+                &MachineDefinitions::new(),
             ));
             if seen
                 .iter()
@@ -876,11 +878,13 @@ mod tests {
                 &geography,
                 &definitions,
                 &BuildingDefinitions::new(),
+                &MachineDefinitions::new(),
             ));
             tripped_events.extend(round_tripped.strategic_tick(
                 &geography,
                 &definitions,
                 &BuildingDefinitions::new(),
+                &MachineDefinitions::new(),
             ));
             round_tripped = ExpeditionState::from_json(&round_tripped.to_json())
                 .expect("the save reloads between every hop");
@@ -913,6 +917,7 @@ mod tests {
                 &geography,
                 &definitions,
                 &BuildingDefinitions::new(),
+                &MachineDefinitions::new(),
             ));
         }
 
@@ -948,7 +953,12 @@ mod tests {
         state
             .dispatch_force("force.test.column", ESTATE, &geography)
             .expect("the estate is one road from the beach");
-        state.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
+        state.strategic_tick(
+            &geography,
+            &definitions,
+            &BuildingDefinitions::new(),
+            &MachineDefinitions::new(),
+        );
 
         let force = &state.forces["force.test.column"];
         assert_eq!(force.position_cell_id, ESTATE);
@@ -972,7 +982,12 @@ mod tests {
         raise(&mut state, &geography, BEACH);
         let before = state.forces["force.test.column"].clone();
 
-        let events = state.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
+        let events = state.strategic_tick(
+            &geography,
+            &definitions,
+            &BuildingDefinitions::new(),
+            &MachineDefinitions::new(),
+        );
         assert_eq!(state.forces["force.test.column"], before);
         assert!(
             !events
@@ -997,7 +1012,12 @@ mod tests {
         // Beach to estate is fifteen minutes, estate to landing is thirty: an
         // hour buys both, with fifteen minutes left over and nowhere to spend
         // them, so arrival clears them.
-        let events = state.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
+        let events = state.strategic_tick(
+            &geography,
+            &definitions,
+            &BuildingDefinitions::new(),
+            &MachineDefinitions::new(),
+        );
         let moves = events
             .iter()
             .filter(|event| matches!(event, StrategicEvent::ForceMoved { .. }))
