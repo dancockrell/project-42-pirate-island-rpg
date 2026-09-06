@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "task_id": "b5-michael-card-bands-composure",
+  "agent": "claude-opus-5-lane-b5",
+  "summary": "B5: Captain Michael stands in the prototype vertical slice; the battle screen groups cards by the bridge's band_name, draws Composure and Shaken, and unfolds Michael's command grid on his turn",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "game/scripts/battle/battle_prototype.gd",
+    "game/scripts/battle/paper_card.gd",
+    "game/scripts/simulation/mock_simulation_port.gd",
+    "game/tests/prototype_turn_cycle_test.gd",
+    "game/tests/native_simulation_port_test.gd",
+    "godot-rust/src/battle.rs"
+  ],
+  "symbols": [
+    "Battle::prototype_vertical_slice",
+    "BattlePrototype.rebuild_band_rail",
+    "PaperCard.configure"
+  ],
+  "coordination": {
+    "depends_on": [
+      "A5",
+      "A6"
+    ],
+    "conflicts_with": [],
+    "notes": "Only one addition in godot-rust/src/battle.rs (Michael in the slice) plus the tests that read the fixture. No other file under game/ is touched."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
