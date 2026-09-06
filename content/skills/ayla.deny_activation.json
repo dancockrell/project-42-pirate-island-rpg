@@ -1,0 +1,121 @@
+{
+  "id": "skill.ayla.deny_activation",
+  "displayName": "Deny Activation",
+  "ownerId": "character.heroine.ayla",
+  "bondRank": "SS",
+  "activation": "normal_action",
+  "targetRule": "one_hostile",
+  "rules": {
+    "scope": "once_per_site",
+    "usesPerSite": 1,
+    "site": "the_cells_dungeon_or_the_cell_itself_when_it_has_none",
+    "appliesStatus": "stunned",
+    "statusRounds": 1,
+    "cancelsDeclaredActionForTheTurn": true,
+    "chargeSurvivesSaveAndReload": true
+  },
+  "animation": {
+    "cardId": "animation.ayla.deny_activation",
+    "durationMs": 820,
+    "beats": [
+      {
+        "atMs": 0,
+        "name": "read_the_mechanism"
+      },
+      {
+        "atMs": 240,
+        "name": "set_the_counter_mark"
+      },
+      {
+        "atMs": 560,
+        "name": "strike_the_seal"
+      },
+      {
+        "atMs": 820,
+        "name": "hold_it_shut"
+      }
+    ],
+    "eventBindings": {
+      "actor_focused": "read_the_mechanism",
+      "activation_denied": "strike_the_seal",
+      "status_applied": "hold_it_shut",
+      "turn_ended": "hold_it_shut"
+    },
+    "presentationCues": [
+      {
+        "beat": "read_the_mechanism",
+        "pose": "reading_the_working_parts",
+        "motion": "step_in_and_sight_the_mechanism",
+        "audio": "mechanism_ticking",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "mechanism",
+          "target"
+        ],
+        "cameraId": "presentation.camera.ayla_mechanism_close",
+        "vfxId": "presentation.vfx.none"
+      },
+      {
+        "beat": "set_the_counter_mark",
+        "pose": "drawing_the_counter_mark",
+        "motion": "measured_two_stroke_mark",
+        "audio": "chalk_on_stone",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "mechanism",
+          "denial_seal"
+        ],
+        "cameraId": "presentation.camera.ayla_mechanism_close",
+        "vfxId": "presentation.vfx.ayla.denial_seal"
+      },
+      {
+        "beat": "strike_the_seal",
+        "pose": "haft_driven_into_the_join",
+        "motion": "single_hard_strike",
+        "audio": "seal_closes",
+        "hitStopMs": 50,
+        "shake": 0.12,
+        "frameSubjects": [
+          "ayla",
+          "spear",
+          "mechanism",
+          "denial_seal"
+        ],
+        "cameraId": "presentation.camera.ayla_counter_punch",
+        "vfxId": "presentation.vfx.ayla.denial_seal"
+      },
+      {
+        "beat": "hold_it_shut",
+        "pose": "braced_against_the_stopped_mechanism",
+        "motion": "brace_and_hold",
+        "audio": "mechanism_silent",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "mechanism",
+          "target"
+        ],
+        "cameraId": "presentation.camera.ayla_mechanism_close",
+        "vfxId": "presentation.vfx.ayla.recall_fade"
+      }
+    ],
+    "framing": "Ayla, her recurved bronze spear, every named subject and the complete effect remain inside the safe frame.",
+    "replacementAssetIds": [
+      "art.placeholder.ayla.active_actor"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "maturity": "executable-core",
+    "notes": [
+      "The bible's 'cancel one understood machine, ritual or phase activation'. The engine's one declared action is a hostile's turn, so the denial is a one-round Stunned: the hostile's turn opens, the stun is spent, the turn ends and it never acts.",
+      "Once per site, and the site is the cell's dungeon where it has one -- the whole tomb is one site, so walking into the next room does not refresh the charge. ExpeditionState.site_denial_charges keeps the count and it survives a save."
+    ]
+  }
+}

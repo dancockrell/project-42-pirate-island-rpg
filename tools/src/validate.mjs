@@ -6,8 +6,14 @@ const repo = resolve(import.meta.dirname, "../..");
 const failures = [];
 const ids = new Map();
 const references = [];
-const supportedTargetRules = new Set(["self", "one_hostile", "one_living_hostile", "one_living_party_member", "ordered_pair_threatened_ally_then_hostile", "automatic_reaction_to_other_party_member_lethal_hit", "all_living_party_members", "one_defeated_party_member_other_than_betty"]);
-const bindableBattleEvents = new Set(["actor_focused", "actor_moved", "damage_applied", "guard_changed", "vitality_changed", "status_removed", "interception_set", "interception_triggered", "reaction_window_opened", "reaction_triggered", "defeat_prevented", "actor_revived", "bonus_turn_granted", "battlefield_effect_created", "battlefield_effect_pulse", "battlefield_effect_removed", "recovery_opening_created", "recovery_opening_consumed", "recovery_opening_expired", "actor_defeated", "turn_ended", "battle_ended"]);
+// Every rule here has real behaviour in `game/scripts/battle/targeting_session.gd`.
+// A7 added `automatic_reaction_to_hostile_attack_in_shared_band` for Ayla's
+// Reach Counter: a reaction the player never targets, like Fatal Intercept's,
+// but on a different trigger -- Fatal Intercept's names a lethal hit and Reach
+// Counter's does not, so reusing that rule would have been a false statement
+// about when the skill fires.
+const supportedTargetRules = new Set(["self", "one_hostile", "one_living_hostile", "one_living_party_member", "ordered_pair_threatened_ally_then_hostile", "automatic_reaction_to_other_party_member_lethal_hit", "automatic_reaction_to_hostile_attack_in_shared_band", "all_living_party_members", "one_defeated_party_member_other_than_betty"]);
+const bindableBattleEvents = new Set(["actor_focused", "actor_moved", "damage_applied", "guard_changed", "vitality_changed", "status_removed", "interception_set", "interception_triggered", "reaction_window_opened", "reaction_triggered", "defeat_prevented", "actor_revived", "bonus_turn_granted", "battlefield_effect_created", "battlefield_effect_pulse", "battlefield_effect_removed", "recovery_opening_created", "recovery_opening_consumed", "recovery_opening_expired", "actor_defeated", "turn_ended", "battle_ended", "target_inspected", "status_applied", "ward_line_placed", "ward_line_triggered", "activation_denied", "site_rule_overridden"]);
 let skillCount = 0;
 let presentationCueCount = 0;
 
@@ -538,11 +544,6 @@ const inclinations = ["AwarenessOfMichael", "AttractionToMichael", "RomanticInte
 // Brief section 20 leaves the other two women Open. Only these two exist, and a
 // record naming a third is authoring a woman nobody has designed.
 const establishedWomenIds = ["character.heroine.betty", "character.heroine.ayla"];
-// C3 owns `content/characters/ayla.json` and has not shipped it, so Ayla's
-// stable ID is registered nowhere yet. That is the single exception to
-// resolving `womanId` against the ID registry, and naming it here is what stops
-// the exception from quietly becoming "unregistered women are fine".
-const womanWithoutACharacterRecordYet = "character.heroine.ayla";
 // The base game is fade-to-black, full stop. C8's presentation pack is a
 // separate artifact that overrides this field; nothing in this repository may
 // carry another level, so this is an equality and not a set membership.
@@ -556,7 +557,7 @@ for (const { file, value } of await readJsonDirectory("relationships")) {
   requireString(value, "displayName", file);
   if (!establishedWomenIds.includes(value.womanId)) {
     fail(file, `womanId ${value.womanId} is not one of the two women who exist (${establishedWomenIds.join(", ")}); the other two are Open, brief section 20`);
-  } else if (!ids.has(value.womanId) && value.womanId !== womanWithoutACharacterRecordYet) {
+  } else if (!ids.has(value.womanId)) {
     fail(file, `womanId references missing stable ID ${value.womanId}`);
   }
   const womanKey = typeof value.womanId === "string" ? value.womanId.split(".").pop() : null;
@@ -677,12 +678,47 @@ for (const { file, value } of await readJsonDirectory("encounters")) {
 // `select_site_rules` in `godot-rust/src/strategy/dungeon_content.rs`; this
 // block refuses a record that reader could not honour.
 //
-// Site-rule IDs are opaque on purpose. A7 owns what a site rule *does*, and
-// no registry of rules exists yet, so `site_rule.<...>` IDs are registered
-// here (uniquely, once, from this record) and referenced from the cells --
-// exactly the treatment `condition.<...>` already gets, one prefix over.
-const dungeonSpaceIdPrefix = "dungeon.";
+// A7: a site rule is no longer opaque. C5 registered twenty-six
+// `site_rule.<...>` IDs from the dungeon record itself and said plainly that
+// what they *do* was A7's to decide; this block is that decision's content
+// half. `content/site_rules/<slug>.json` is now the owner of every one of
+// those IDs -- it registers them, and the dungeon record and the tomb cells
+// reference them like any other stable ID.
+//
+// The effect vocabulary is closed and is `SiteRuleEffect` in
+// `godot-rust/src/strategy/site_rule.rs`. Exactly two shapes are legal, and a
+// record carrying neither is refused here in the same words the Rust loader
+// refuses it in. There is no catch-all: a vocabulary that accepts anything is
+// not a vocabulary, and a rule whose mechanics are Open says so in its own
+// `effect` rather than defaulting to a mechanic nobody chose.
 const siteRuleIdPrefix = "site_rule.";
+const authoredSiteRuleIds = new Set();
+let siteRuleCount = 0;
+for (const { file, value } of await readJsonDirectory("site_rules")) {
+  siteRuleCount += 1;
+  if (typeof value.id !== "string" || !value.id.startsWith(siteRuleIdPrefix)) fail(file, `id ${value.id} must use the site_rule. prefix`);
+  else authoredSiteRuleIds.add(value.id);
+  requireString(value, "displayName", file);
+  const effect = value.effect;
+  if (!effect || typeof effect !== "object" || Array.isArray(effect)) {
+    fail(file, "effect must be an object naming exactly one of the closed vocabulary's two shapes");
+  } else {
+    const keys = Object.keys(effect);
+    if (keys.length !== 1 || !["guard_regen_per_round", "needs_decision"].includes(keys[0])) {
+      fail(file, `effect must be exactly one of {"guard_regen_per_round": <positive integer>} or {"needs_decision": true}; found ${JSON.stringify(keys)}`);
+    } else if (keys[0] === "guard_regen_per_round") {
+      if (!Number.isInteger(effect.guard_regen_per_round) || effect.guard_regen_per_round <= 0) fail(file, "effect.guard_regen_per_round must be a positive integer; a rule that regenerates nothing should have said needs_decision");
+    } else if (effect.needs_decision !== true) {
+      fail(file, "effect.needs_decision must be true; false would claim the decision is made and then name no mechanic");
+    }
+  }
+  requireString(value.metadata ?? {}, "implementationOwner", file);
+  requireString(value.metadata ?? {}, "maturity", file);
+  if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "site rule metadata.notes must say what the rule does or that the decision is Open");
+}
+
+const dungeonSpaceIdPrefix = "dungeon.";
+const selectedSiteRuleIds = new Set();
 const dungeonSpacesByDungeon = new Map();
 const dungeonRecordsById = new Map();
 let dungeonSpaceCount = 0;
@@ -717,7 +753,10 @@ for (const { file, value } of await readJsonDirectory("dungeons")) {
       if (!Array.isArray(rules) || rules.length === 0) fail(file, `${where}.${field} must name at least one site rule`);
       else for (const [ruleIndex, ruleId] of rules.entries()) {
         if (typeof ruleId !== "string" || !ruleId.startsWith(siteRuleIdPrefix)) fail(file, `${where}.${field}[${ruleIndex}] must be a site_rule.<...> stable ID`);
-        else if (!ids.has(ruleId)) registerId(ruleId, file);
+        else {
+          reference(ruleId, file, `${where}.${field}[${ruleIndex}]`);
+          selectedSiteRuleIds.add(ruleId);
+        }
       }
     }
     // The card's whole point: a different owner is a different dungeon. A
@@ -731,6 +770,14 @@ for (const { file, value } of await readJsonDirectory("dungeons")) {
   requireString(value.metadata ?? {}, "maturity", file);
   if (typeof value.metadata?.releaseLegal !== "boolean") fail(file, "dungeon metadata.releaseLegal must be boolean");
   if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "dungeon metadata.notes must record which spaces are unrealised and what stays Open");
+}
+
+// Both directions, the way `content/skills/` and `battle::skill_rank` are held
+// equal: an authored rule no dungeon selects is a noodle to nowhere, and a
+// selected rule with no record is a mechanic nobody wrote. The Rust twin is
+// `every_site_rule_the_tomb_selects_has_a_record_and_the_other_way_round`.
+for (const ruleId of authoredSiteRuleIds) {
+  if (!selectedSiteRuleIds.has(ruleId)) fail(resolve(repo, `content/site_rules`), `${ruleId} has a record that no dungeon space selects`);
 }
 
 const worldRecords = await readJsonDirectory("world");
@@ -1219,4 +1266,4 @@ if (failures.length) {
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
-console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${buildingCount} building records, ${machineCount} machine records, ${dungeonSpaceCount} authored dungeon spaces, ${relationshipSceneCount} relationship scenes, ${packCount} presentation packs carrying ${packOverrideCount} scene overrides, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
+console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${buildingCount} building records, ${machineCount} machine records, ${dungeonSpaceCount} authored dungeon spaces, ${siteRuleCount} site rules, ${relationshipSceneCount} relationship scenes, ${packCount} presentation packs carrying ${packOverrideCount} scene overrides, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);

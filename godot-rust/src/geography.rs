@@ -112,6 +112,20 @@ pub struct LocationRecord {
     /// function of *control*, so influence cannot quietly become a second
     /// answer to "who holds this road".
     pub influence: BTreeMap<String, u16>,
+    /// A7: the site rules in force in this place, as `site_rule.*` IDs in the
+    /// authored order, read from the cell's `dungeonContext.siteRuleIds` (C5).
+    /// Empty for a cell that stands in no dungeon.
+    ///
+    /// The IDs are what is carried, never a meaning: what a rule *does* is one
+    /// authored record in `content/site_rules/`, read through
+    /// `strategy::site_rule::SiteRules`, and a second copy of that here would
+    /// be free to drift from it.
+    pub site_rule_ids: Vec<String>,
+    /// A7: the `dungeon.*` this place belongs to, from the same
+    /// `dungeonContext` block, or `None` for a cell outside every dungeon.
+    /// It is what [`LocationRecord::site_id`] answers with -- the scope Ayla's
+    /// once-per-site Deny Activation is counted against.
+    pub dungeon_id: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -155,7 +169,20 @@ impl LocationRecord {
             encounter_eligible: false,
             owner_faction_id: None,
             influence: BTreeMap::new(),
+            site_rule_ids: Vec::new(),
+            dungeon_id: None,
         }
+    }
+
+    /// A7: the *site* this place belongs to, for the purpose of Ayla's
+    /// once-per-site Deny Activation.
+    ///
+    /// The dungeon when the cell declares one (C5's `dungeonContext.dungeonId`
+    /// -- the whole tomb is one site, so the charge does not refresh by walking
+    /// into the next room), and the cell itself when it declares none. There is
+    /// no third answer and no "unknown site": every cell is somewhere.
+    pub fn site_id(&self) -> &str {
+        self.dungeon_id.as_deref().unwrap_or(&self.id)
     }
 }
 
@@ -284,6 +311,23 @@ pub struct AuthoredCell {
     /// GDScript.
     #[serde(default, alias = "battleEntries")]
     pub battle_entries: Vec<AuthoredBattleEntry>,
+    /// C5's block, as the cell authors it. A7 reads two fields out of it: the
+    /// site rules in force here and the dungeon this room belongs to. The rest
+    /// of the block (the space slug, the owner concept keys) is
+    /// `dungeon_content.rs`'s business and serde ignores it here.
+    #[serde(default, alias = "dungeonContext")]
+    pub dungeon_context: Option<AuthoredDungeonContext>,
+}
+
+/// The two fields of a cell's `dungeonContext` the simulation reads. C5 owns
+/// the block; this is not a second copy of it, it is the subset `Geography`
+/// needs, exactly as [`AuthoredBattleEntry`] is the subset of a battle entry.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize)]
+pub struct AuthoredDungeonContext {
+    #[serde(default, alias = "dungeonId")]
+    pub dungeon_id: Option<String>,
+    #[serde(default, alias = "siteRuleIds")]
+    pub site_rule_ids: Vec<String>,
 }
 
 impl AuthoredCell {
@@ -319,6 +363,14 @@ impl TryFrom<AuthoredCell> for CellDefinition {
             return_policy: ReturnPolicy::default(),
             persistence_policy: PersistencePolicy::default(),
             encounter_eligible,
+            site_rule_ids: authored
+                .dungeon_context
+                .as_ref()
+                .map(|context| context.site_rule_ids.clone())
+                .unwrap_or_default(),
+            dungeon_id: authored
+                .dungeon_context
+                .and_then(|context| context.dungeon_id),
         })
     }
 }
@@ -349,6 +401,12 @@ pub struct CellDefinition {
     pub persistence_policy: PersistencePolicy,
     #[serde(default)]
     pub encounter_eligible: bool,
+    /// A7: the site rules in force here, from `dungeonContext.siteRuleIds`.
+    #[serde(default)]
+    pub site_rule_ids: Vec<String>,
+    /// A7: the dungeon this cell belongs to, from `dungeonContext.dungeonId`.
+    #[serde(default)]
+    pub dungeon_id: Option<String>,
 }
 
 /// The authored wire format for one route, as Godot supplies it through the
@@ -435,6 +493,17 @@ impl Geography {
             return_policy: ReturnPolicy::CanRetreatToPrevious,
             persistence_policy,
             encounter_eligible,
+            site_rule_ids: Vec::new(),
+            dungeon_id: None,
+        };
+        // A7: the four tomb interior cells stand inside C5's dungeon and carry
+        // its rules. `fixture_matches_the_authored_world_cells` holds these
+        // against each cell's own `dungeonContext`, so they are written once
+        // here and proven against content rather than restated.
+        let in_the_tomb = |cell: CellDefinition, site_rule_ids: &[&str]| CellDefinition {
+            site_rule_ids: site_rule_ids.iter().map(|id| (*id).to_owned()).collect(),
+            dungeon_id: Some("dungeon.tomb_of_returning_names".into()),
+            ..cell
         };
         let cells = vec![
             // The wreck of the Handsome Jack is the party's first and only
@@ -559,29 +628,47 @@ impl Geography {
             // cells are authored under `content/world/` by B6, and
             // `fixture_matches_the_authored_world_cells` holds them equal like
             // every other cell.
-            cell(
-                "world.cell.tomb_threshold",
-                "Threshold of Returning Names",
-                &["observation.tomb_threshold.sealed_names"],
-                &[],
-                PersistencePolicy::ResetsOnMidnight,
-                false,
+            in_the_tomb(
+                cell(
+                    "world.cell.tomb_threshold",
+                    "Threshold of Returning Names",
+                    &["observation.tomb_threshold.sealed_names"],
+                    &[],
+                    PersistencePolicy::ResetsOnMidnight,
+                    false,
+                ),
+                &[
+                    "site_rule.tomb.grave_watch",
+                    "site_rule.tomb.registry_order",
+                ],
             ),
-            cell(
-                "world.cell.tomb_reception",
-                "Reception of Returning Names",
-                &["observation.tomb_reception.true_name"],
-                &[],
-                PersistencePolicy::ResetsOnMidnight,
-                false,
+            in_the_tomb(
+                cell(
+                    "world.cell.tomb_reception",
+                    "Reception of Returning Names",
+                    &["observation.tomb_reception.true_name"],
+                    &[],
+                    PersistencePolicy::ResetsOnMidnight,
+                    false,
+                ),
+                &[
+                    "site_rule.tomb.grave_watch",
+                    "site_rule.tomb.petition_heard",
+                ],
             ),
-            cell(
-                "world.cell.tomb_archive_core",
-                "Archive Core of Returning Names",
-                &["observation.tomb_archive_core.the_returning_names"],
-                &["interact.tomb_archive_core.name_ledger"],
-                PersistencePolicy::ResetsOnMidnight,
-                false,
+            in_the_tomb(
+                cell(
+                    "world.cell.tomb_archive_core",
+                    "Archive Core of Returning Names",
+                    &["observation.tomb_archive_core.the_returning_names"],
+                    &["interact.tomb_archive_core.name_ledger"],
+                    PersistencePolicy::ResetsOnMidnight,
+                    false,
+                ),
+                &[
+                    "site_rule.tomb.grave_watch",
+                    "site_rule.tomb.archive_silence",
+                ],
             ),
             // The wrong turn pays for itself: the disturbed grave goods the
             // passage already describes are a real cache, which is what makes
@@ -597,13 +684,19 @@ impl Geography {
                     },
                     once_per_day: true,
                 }],
-                ..cell(
-                    "world.cell.tomb_service_passage",
-                    "Service Passage of Returning Names",
-                    &["observation.tomb_service_passage.disturbed_grave_goods"],
-                    &[],
-                    PersistencePolicy::ResetsOnMidnight,
-                    true,
+                ..in_the_tomb(
+                    cell(
+                        "world.cell.tomb_service_passage",
+                        "Service Passage of Returning Names",
+                        &["observation.tomb_service_passage.disturbed_grave_goods"],
+                        &[],
+                        PersistencePolicy::ResetsOnMidnight,
+                        true,
+                    ),
+                    &[
+                        "site_rule.tomb.grave_watch",
+                        "site_rule.tomb.service_right_of_passage",
+                    ],
                 )
             },
         ];
@@ -864,6 +957,8 @@ impl Geography {
                     // carries who holds it now.
                     owner_faction_id: None,
                     influence: BTreeMap::new(),
+                    site_rule_ids: cell.site_rule_ids,
+                    dungeon_id: cell.dungeon_id,
                 },
             );
         }
@@ -1478,6 +1573,12 @@ mod tests {
         // cannot pass on a reading of content the game does not share.
         let mut authored_encounter_eligible: BTreeMap<String, bool> = BTreeMap::new();
         let mut authored_habitat_bindings: Vec<(String, String)> = Vec::new();
+        // A7: the site rules and the dungeon a cell declares, read through
+        // `AuthoredDungeonContext` -- the same struct the bridge reads off the
+        // wire, so this test cannot pass on a reading of content the game does
+        // not share.
+        let mut authored_dungeon_context: BTreeMap<String, AuthoredDungeonContext> =
+            BTreeMap::new();
         #[allow(clippy::type_complexity)]
         let mut authored_portals: Vec<(
             String,
@@ -1586,6 +1687,9 @@ mod tests {
                 cell_id.clone(),
                 battle_entries.iter().any(AuthoredBattleEntry::is_live),
             );
+            let dungeon_context: AuthoredDungeonContext =
+                serde_json::from_value(cell["dungeonContext"].clone()).unwrap_or_default();
+            authored_dungeon_context.insert(cell_id.clone(), dungeon_context);
             authored_cell_ids.insert(cell_id);
         }
         assert!(
@@ -1741,6 +1845,37 @@ mod tests {
             assert_eq!(
                 location.encounter_eligible, *encounter_eligible,
                 "{cell_id} is encounter-eligible in the fixture but not in content/world/, or the other way round"
+            );
+        }
+
+        // A7: and the site rules. A cell's `dungeonContext.siteRuleIds` is what
+        // `Battle` stands under when the party fights there, so the fixture
+        // carrying its own copy of them would be the loot-table drift with a
+        // tomb around it. Held in both directions and in order -- the order is
+        // load-bearing, because Override Tomb Rule takes the first rule still
+        // in force.
+        assert!(
+            authored_dungeon_context
+                .values()
+                .any(|context| !context.site_rule_ids.is_empty()),
+            "content/world/ must declare at least one cell's site rules for this check to mean anything"
+        );
+        for (cell_id, context) in &authored_dungeon_context {
+            let location = geography
+                .location(cell_id)
+                .unwrap_or_else(|| panic!("authored cell {cell_id} is missing from the fixture"));
+            assert_eq!(
+                location.site_rule_ids, context.site_rule_ids,
+                "{cell_id} stands under different site rules in the fixture than content/world/ declares"
+            );
+            assert_eq!(
+                location.dungeon_id, context.dungeon_id,
+                "{cell_id} belongs to a different dungeon in the fixture than content/world/ declares"
+            );
+            assert_eq!(
+                location.site_id(),
+                context.dungeon_id.as_deref().unwrap_or(cell_id),
+                "{cell_id} resolves to a different site than its authored dungeonContext"
             );
         }
 

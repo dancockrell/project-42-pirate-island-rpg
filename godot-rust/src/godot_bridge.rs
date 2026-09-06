@@ -15,6 +15,7 @@ use crate::strategy::building::{BuildingDefinition, BuildingDefinitions, Buildin
 use crate::strategy::faction::{
     FactionDefinition, FactionDefinitions, FactionError, StrategicState,
 };
+use crate::strategy::site_rule::{AuthoredSiteRule, AuthoredSiteRuleError, SiteRules};
 use crate::strategy::utility::Goal;
 use crate::world::WorldEvent;
 use serde::Deserialize;
@@ -60,6 +61,16 @@ struct Project42ExpeditionBridge {
     /// exactly as it did before.
     #[init(val = BuildingDefinitions::new())]
     buildings: BuildingDefinitions,
+    /// A7: `content/site_rules/*.json`, as Godot forwards them. Loaded by
+    /// `configure` beside the faction and building registries, for the same
+    /// reason both of those are: `Battle` stands under the rules a cell
+    /// declares, and a registry that never reached Godot would leave the
+    /// engine fighting under no rules while the harness fought under the
+    /// tomb's. Empty until a configuration supplies records -- a payload
+    /// authored before this card still loads, and every battle then stands
+    /// under nothing, exactly as it did before.
+    #[init(val = SiteRules::new())]
+    site_rules: SiteRules,
     #[init(val = None)]
     battle: Option<Battle>,
     #[init(val = 0)]
@@ -97,6 +108,11 @@ struct ExpeditionConfiguration {
     /// configure.
     #[serde(default)]
     buildings: Vec<BuildingDefinition>,
+    /// The authored site-rule records, in the field names
+    /// [`AuthoredSiteRule`] already reads. `serde(default)` for the same
+    /// reason `factions` and `buildings` carry it.
+    #[serde(default)]
+    site_rules: Vec<AuthoredSiteRule>,
 }
 
 #[godot_api]
@@ -252,6 +268,23 @@ impl Project42ExpeditionBridge {
             }
         }
         self.buildings = buildings;
+        // A7: and the site-rule registry, on the same terms.
+        // `SiteRules::insert` runs `AuthoredSiteRule::validate` -- a stable ID
+        // under the `site_rule.` prefix, a display name, and an `effect` that
+        // is one of the two shapes the closed vocabulary admits -- and refuses
+        // a duplicate, so a record with an effect nobody decided refuses the
+        // whole configuration here rather than becoming a silent no-op in a
+        // fight.
+        let mut site_rules = SiteRules::new();
+        for definition in configuration.site_rules {
+            if let Err(error) = site_rules.insert(definition) {
+                return expedition_error_dictionary(&format!(
+                    "expedition_configuration_invalid:{}",
+                    site_rule_error_code(&error)
+                ));
+            }
+        }
+        self.site_rules = site_rules;
         self.state = match ExpeditionState::new(
             configuration.seed,
             configuration.party_ids,
@@ -470,7 +503,15 @@ impl Project42ExpeditionBridge {
         // battle it arms carries `ExpeditionState::bond_ranks` and not the
         // review fixture's letters. A fresh campaign's Betty fights with her
         // rank D Guarded Strike alone until an authored scene raises her.
-        let battle = Battle::prototype_vertical_slice_from_bond_ranks(&state.bond_ranks);
+        //
+        // A7: and the campaign is what says which site rules hold here -- the
+        // encounter's own location's `site_rule_ids`, minus the ones this
+        // expedition has already overridden -- and whether Ayla's two
+        // site-scoped commands still have their charge. `ExpeditionState`
+        // decides all of it (`battle_setup`); this only carries the answer.
+        let battle = Battle::prototype_vertical_slice_from_campaign(
+            &state.battle_setup(&self.geography, &self.site_rules),
+        );
         self.battle_sequence = 0;
         self.battle = Some(battle);
         snapshot_dictionary(&self.battle.as_ref().expect("battle assigned").snapshot())
@@ -539,6 +580,12 @@ impl Project42ExpeditionBridge {
                 );
             }
         };
+        // A7: an overridden site rule and a spent Deny Activation outlive the
+        // fight, so they are written back into the campaign before the
+        // encounter's own outcome is resolved.
+        if let Some(state) = self.state.as_mut() {
+            state.record_battle_site_events(&self.geography, &events);
+        }
         let snapshot = battle.snapshot();
         let outcome = match snapshot.phase {
             BattlePhase::Victory => Some(EncounterOutcome::Victory),
@@ -976,6 +1023,20 @@ fn faction_error_code(value: &FactionError) -> &'static str {
 /// added without this boundary being told what to call it. Godot reads the name
 /// after the `expedition_configuration_invalid:` prefix, so a content author
 /// sees which of `BuildingDefinition::validate`'s rules their record broke.
+/// A7: an authored site rule the bridge refuses, as one wire code.
+fn site_rule_error_code(value: &AuthoredSiteRuleError) -> &'static str {
+    match value {
+        AuthoredSiteRuleError::MalformedId { .. } => "malformed_site_rule_id",
+        AuthoredSiteRuleError::WrongIdPrefix { .. } => "wrong_id_prefix",
+        AuthoredSiteRuleError::NoDisplayName { .. } => "site_rule_without_display_name",
+        AuthoredSiteRuleError::GuardRegenNotPositive { .. } => "site_rule_guard_regen_not_positive",
+        AuthoredSiteRuleError::NeedsDecisionMustBeTrue { .. } => {
+            "site_rule_needs_decision_must_be_true"
+        }
+        AuthoredSiteRuleError::DuplicateSiteRule { .. } => "duplicate_site_rule",
+    }
+}
+
 fn building_error_code(value: &BuildingError) -> &'static str {
     match value {
         BuildingError::MalformedId(error) => expedition_error_code(error),
@@ -1466,6 +1527,78 @@ fn event_dictionary(
             command!(id);
             subject!(actor_id);
         }
+        // A7: Ayla's seven, on the wire. Every kind here is bound by at least
+        // one authored `animation.eventBindings` entry in
+        // `content/skills/ayla.*.json`, and `tools/src/validate.mjs` refuses a
+        // binding to any kind this match does not name.
+        BattleEvent::TargetInspected {
+            command_id: id,
+            actor_id,
+            target_id,
+            guard_revealed,
+            counter_tag,
+        } => {
+            kind = "target_inspected";
+            command!(id);
+            subject!(actor_id);
+            subject!(target_id);
+            payload.set("guard_revealed", i64::from(guard_revealed));
+            payload.set("counter_tag", counter_tag);
+        }
+        BattleEvent::StatusApplied {
+            command_id: id,
+            actor_id,
+            status_id,
+            status_kind,
+            source_id,
+        } => {
+            kind = "status_applied";
+            command!(id);
+            subject!(actor_id);
+            subject!(source_id);
+            payload.set("status_id", status_id);
+            payload.set("status_kind", status_name(&status_kind));
+        }
+        BattleEvent::WardLinePlaced {
+            command_id: id,
+            actor_id,
+            band,
+        } => {
+            kind = "ward_line_placed";
+            command!(id);
+            subject!(actor_id);
+            payload.set("band", i64::from(band));
+        }
+        BattleEvent::WardLineTriggered {
+            command_id: id,
+            attacker_id,
+            protected_id,
+        } => {
+            kind = "ward_line_triggered";
+            command!(id);
+            subject!(attacker_id);
+            subject!(protected_id);
+        }
+        BattleEvent::ActivationDenied {
+            command_id: id,
+            actor_id,
+            target_id,
+        } => {
+            kind = "activation_denied";
+            command!(id);
+            subject!(actor_id);
+            subject!(target_id);
+        }
+        BattleEvent::SiteRuleOverridden {
+            command_id: id,
+            actor_id,
+            rule_id,
+        } => {
+            kind = "site_rule_overridden";
+            command!(id);
+            subject!(actor_id);
+            payload.set("rule_id", rule_id);
+        }
     }
     vdict! { "event_id" => format!("event.native.{sequence:06}"), "command_id" => command_id, "sequence" => sequence as i64, "kind" => kind, "subjects" => &subjects, "payload" => &payload }
 }
@@ -1493,6 +1626,7 @@ fn status_name(value: &StatusKind) -> &'static str {
         StatusKind::Burning => "burning",
         StatusKind::Stunned => "stunned",
         StatusKind::Shaken => "shaken",
+        StatusKind::Staggered => "staggered",
     }
 }
 

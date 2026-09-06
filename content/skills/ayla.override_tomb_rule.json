@@ -1,0 +1,138 @@
+{
+  "id": "skill.ayla.override_tomb_rule",
+  "displayName": "Override Tomb Rule",
+  "ownerId": "character.heroine.ayla",
+  "bondRank": "SSS",
+  "activation": "normal_action",
+  "targetRule": "self",
+  "rules": {
+    "scope": "once_per_expedition",
+    "usesPerExpedition": 1,
+    "selects": "the_first_site_rule_still_in_force_in_the_cells_authored_order",
+    "suppressionPersists": "for_the_rest_of_the_expedition",
+    "suppressionSurvivesSaveAndReload": true,
+    "takesEffectImmediatelyInThisBattle": true
+  },
+  "animation": {
+    "cardId": "animation.ayla.override_tomb_rule",
+    "durationMs": 1140,
+    "beats": [
+      {
+        "atMs": 0,
+        "name": "find_the_rule_cut"
+      },
+      {
+        "atMs": 280,
+        "name": "read_it_aloud"
+      },
+      {
+        "atMs": 620,
+        "name": "strike_it_through"
+      },
+      {
+        "atMs": 900,
+        "name": "cut_the_alternate"
+      },
+      {
+        "atMs": 1140,
+        "name": "stand_away"
+      }
+    ],
+    "eventBindings": {
+      "actor_focused": "find_the_rule_cut",
+      "site_rule_overridden": "strike_it_through",
+      "turn_ended": "stand_away"
+    },
+    "presentationCues": [
+      {
+        "beat": "find_the_rule_cut",
+        "pose": "hand_flat_on_the_rule_stone",
+        "motion": "cross_to_the_stone_and_set_the_hand",
+        "audio": "stone_contact",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "rule_stone"
+        ],
+        "cameraId": "presentation.camera.ayla_rule_stone_push",
+        "vfxId": "presentation.vfx.none"
+      },
+      {
+        "beat": "read_it_aloud",
+        "pose": "reading_the_cut_line",
+        "motion": "trace_the_cut_and_speak",
+        "audio": "spoken_rule",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "rule_stone",
+          "site_marks"
+        ],
+        "cameraId": "presentation.camera.ayla_rule_stone_push",
+        "vfxId": "presentation.vfx.ayla.rule_struck_through"
+      },
+      {
+        "beat": "strike_it_through",
+        "pose": "spearhead_drawn_across_the_line",
+        "motion": "one_long_horizontal_draw",
+        "audio": "stone_cut",
+        "hitStopMs": 45,
+        "shake": 0.1,
+        "frameSubjects": [
+          "ayla",
+          "spear",
+          "rule_stone"
+        ],
+        "cameraId": "presentation.camera.ayla_rule_stone_push",
+        "vfxId": "presentation.vfx.ayla.rule_struck_through"
+      },
+      {
+        "beat": "cut_the_alternate",
+        "pose": "cutting_the_replacement_below",
+        "motion": "short_repeated_cuts",
+        "audio": "stone_cut_short",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "spear",
+          "rule_stone",
+          "site_marks"
+        ],
+        "cameraId": "presentation.camera.ayla_rule_stone_push",
+        "vfxId": "presentation.vfx.ayla.rule_struck_through"
+      },
+      {
+        "beat": "stand_away",
+        "pose": "spear_grounded_beside_the_stone",
+        "motion": "step_back_and_ground_the_spear",
+        "audio": "haft_settle",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "spear",
+          "rule_stone"
+        ],
+        "cameraId": "presentation.camera.ayla_party_wide",
+        "vfxId": "presentation.vfx.ayla.recall_fade"
+      }
+    ],
+    "framing": "Ayla, her recurved bronze spear, every named subject and the complete effect remain inside the safe frame.",
+    "replacementAssetIds": [
+      "art.placeholder.ayla.active_actor"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "maturity": "executable-core",
+    "notes": [
+      "The bible's 'replace one discovered tomb rule with an approved alternate rule until the party leaves the site'. The engine's half of that is the removal: the rule stops applying, here and for the rest of the expedition (ExpeditionState.suppressed_site_rules). The alternate rule the custodial school would cut in its place is authored fiction and no mechanic; nothing here claims it is one.",
+      "Which rule: the first still in force, in the cell's authored order. blocked: needs decision -- there is no screen for the player to choose one from, and a deterministic order is the honest stand-in rather than a choice nobody can make.",
+      "Once per expedition, and suppressed_site_rules being non-empty is the record of it. One fact, one owner."
+    ]
+  }
+}

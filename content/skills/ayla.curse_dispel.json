@@ -1,0 +1,116 @@
+{
+  "id": "skill.ayla.curse_dispel",
+  "displayName": "Curse Dispel",
+  "ownerId": "character.heroine.ayla",
+  "bondRank": "S",
+  "activation": "normal_action",
+  "targetRule": "one_living_party_member",
+  "rules": {
+    "removeNegativeStatuses": "all",
+    "removalOrder": "condition_cleanse_priority_then_status_id",
+    "heal": 0,
+    "leavesComposureStatus": "shaken",
+    "cannotTargetHostiles": true
+  },
+  "animation": {
+    "cardId": "animation.ayla.curse_dispel",
+    "durationMs": 760,
+    "beats": [
+      {
+        "atMs": 0,
+        "name": "take_the_ally_wrist"
+      },
+      {
+        "atMs": 200,
+        "name": "find_the_binding"
+      },
+      {
+        "atMs": 500,
+        "name": "cut_the_binding"
+      },
+      {
+        "atMs": 760,
+        "name": "release_the_wrist"
+      }
+    ],
+    "eventBindings": {
+      "actor_focused": "take_the_ally_wrist",
+      "status_removed": "cut_the_binding",
+      "turn_ended": "release_the_wrist"
+    },
+    "presentationCues": [
+      {
+        "beat": "take_the_ally_wrist",
+        "pose": "kneeling_holding_the_ally_wrist",
+        "motion": "step_in_and_kneel",
+        "audio": "cloth_shift",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "ally"
+        ],
+        "cameraId": "presentation.camera.ayla_ally_close",
+        "vfxId": "presentation.vfx.none"
+      },
+      {
+        "beat": "find_the_binding",
+        "pose": "tracing_the_bound_thread",
+        "motion": "slow_hand_trace_along_the_arm",
+        "audio": "low_stone_hum",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "ally",
+          "spear"
+        ],
+        "cameraId": "presentation.camera.ayla_ally_close",
+        "vfxId": "presentation.vfx.ayla.dispel_unbinding"
+      },
+      {
+        "beat": "cut_the_binding",
+        "pose": "two_fingers_parting_the_thread",
+        "motion": "single_decisive_part",
+        "audio": "binding_parts",
+        "hitStopMs": 30,
+        "shake": 0.06,
+        "frameSubjects": [
+          "ayla",
+          "ally",
+          "unbinding"
+        ],
+        "cameraId": "presentation.camera.ayla_ally_close",
+        "vfxId": "presentation.vfx.ayla.dispel_unbinding"
+      },
+      {
+        "beat": "release_the_wrist",
+        "pose": "rising_spear_recovered",
+        "motion": "stand_and_reset_stance",
+        "audio": "haft_settle",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "ally",
+          "spear"
+        ],
+        "cameraId": "presentation.camera.ayla_party_wide",
+        "vfxId": "presentation.vfx.ayla.recall_fade"
+      }
+    ],
+    "framing": "Ayla, her recurved bronze spear, every named subject and the complete effect remain inside the safe frame.",
+    "replacementAssetIds": [
+      "art.placeholder.ayla.active_actor"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "maturity": "executable-core",
+    "notes": [
+      "The bible's 'one identified curse, funerary status or imposed authority effect' is fictional framing over the engine's status pool. This removes every one of them, and heals nothing -- which is what distinguishes it from Betty's rank C Condition Cleanse, two statuses and eight Vitality.",
+      "Shaken is deliberately left standing: Composure at zero is A5's status, restored by Composure and not lifted by a dispel."
+    ]
+  }
+}

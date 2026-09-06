@@ -1,0 +1,15 @@
+{
+  "id": "site_rule.tomb.mourning_truce",
+  "displayName": "Mourning Truce (placeholder: no site rule is named for players yet)",
+  "effect": {
+    "needs_decision": true
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "maturity": "shape-only",
+    "notes": [
+      "blocked: needs decision. C5 registered this rule ID and A7 gives it a record; what it does has not been decided, and the record says so rather than defaulting to a mechanic nobody chose.",
+      "displayName is an explicit placeholder derived from the ID's own slug."
+    ]
+  }
+}

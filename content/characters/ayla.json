@@ -1,0 +1,38 @@
+{
+  "$schema": "../schemas/character.schema.json",
+  "id": "character.heroine.ayla",
+  "displayName": "Ayla",
+  "kind": "heroine",
+  "implementationOwner": "rust-simulation",
+  "presentationOwner": "godot-gdscript",
+  "tags": ["adult", "jungle-elf", "tomb-warden", "kesh-river", "spear-fighter", "prototype"],
+  "signatureWeaponId": "weapon.ayla.recurved_bronze_spear",
+  "skillIds": [
+    "skill.ayla.reach_counter",
+    "skill.ayla.structural_scan",
+    "skill.ayla.safe_passage",
+    "skill.ayla.ward_line",
+    "skill.ayla.curse_dispel",
+    "skill.ayla.deny_activation",
+    "skill.ayla.override_tomb_rule"
+  ],
+  "art": {
+    "activeActorAssetId": "art.placeholder.ayla.active_actor",
+    "cardPortraitAssetId": "art.placeholder.ayla.card_portrait",
+    "status": "placeholder",
+    "identityLock": "not_yet_performed",
+    "accessibilityDescription": "PLACEHOLDER, NOT A DESCRIPTION OF THE CHARACTER: an adult jungle-elf tomb warden of the Kesh River community carrying a recurved bronze spear and a warden's tool roll. Her build, skin, hair and eye colour and her palette are unestablished and are deliberately not described here; docs/HEROINE_AYLA_DESIGN.md names the identity-lock process that must produce them, as content/art/betty.reference_ledger.json did for Betty."
+  },
+  "metadata": {
+    "source": "design-bible-2026-09",
+    "maturity": "prototype",
+    "releaseLegal": false,
+    "notes": [
+      "Canonical role: jungle-elf tomb warden from the Kesh River community, trained to maintain funeral roads, water seals and lineage doors around Veyra Tidehouse.",
+      "Canonical backstory: she broke a prohibited seal to rescue three children during a flood and exposed a concealed containment channel. The council kept her in service and removed her authority to train apprentices. She wants a living custodial school that can question a rule before inheriting it.",
+      "Canonical signature weapon: recurved bronze spear.",
+      "blocked: needs decision -- her exact build, skin, hair and eye colour and her palette are NOT established. Betty's identity was locked in content/art/betty.reference_ledger.json by a dedicated process before any of her art was authored; the same has not happened for Ayla, so this record's art block carries the two placeholders and nothing else, and no palette is invented anywhere in her seven skill records or their VFX entries.",
+      "Her seven skills are executable in godot-rust/src/battle.rs. Two of them, Deny Activation and Override Tomb Rule, rest on the site-rule seam A7 built; docs/HEROINE_AYLA_DESIGN.md is the specification."
+    ]
+  }
+}

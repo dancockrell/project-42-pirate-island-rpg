@@ -30,7 +30,13 @@ const repo = resolve(import.meta.dirname, "../..");
 // registry discovers it at runtime under `user://packs/` or `res://packs/`.
 // Folding a pack into the base bundle would ship the override with the base
 // game, which is the one thing the pack seam exists to prevent.
-const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships", "buildings", "machines", "dungeons"];
+// `site_rules` joined with A7, for the half of C5's seam that card names: a
+// `Battle` stands under the rules the cell it is fought in declares, and the
+// bridge builds `strategy::site_rule::SiteRules` from this bundle exactly as it
+// builds the faction and building registries. A site-rule record that never
+// reached Godot would leave the engine fighting under no rules while the Rust
+// harness fought under the tomb's.
+const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships", "buildings", "machines", "dungeons", "site_rules"];
 const records = [];
 
 for (const domain of domains) {

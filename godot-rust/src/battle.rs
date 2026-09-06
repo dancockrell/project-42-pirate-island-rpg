@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use crate::strategy::site_rule::{ActiveSiteRule, SiteRuleEffect};
+
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct ActorId(pub String);
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -78,6 +80,16 @@ pub fn skill_rank(skill_id: &str) -> Option<&'static str> {
         "skill.betty.fatal_intercept" => Some("S"),
         "skill.betty.mobile_infirmary" => Some("SS"),
         "skill.betty.combat_revival" => Some("SSS"),
+        // A7: Ayla's seven, in the design bible's own order. The five PR #2
+        // implemented and the two it could not, on the site-rule seam this
+        // card built for them.
+        "skill.ayla.reach_counter" => Some("D"),
+        "skill.ayla.structural_scan" => Some("C"),
+        "skill.ayla.safe_passage" => Some("B"),
+        "skill.ayla.ward_line" => Some("A"),
+        "skill.ayla.curse_dispel" => Some("S"),
+        "skill.ayla.deny_activation" => Some("SS"),
+        "skill.ayla.override_tomb_rule" => Some("SSS"),
         _ => None,
     }
 }
@@ -107,6 +119,19 @@ pub fn rank_index(rank: &str) -> Option<u8> {
 /// The rank at which the Composure gate closes a command to a Shaken actor.
 const SHAKEN_CLOSES_AT_RANK: &str = "SS";
 
+/// A7: Reach Counter's raw counter damage, before Ayla's level. Authored to
+/// fit the simulation, as Betty's 12 and 24 were -- the design bible gives
+/// fiction and function for a skill, never battle-math constants.
+/// `content/skills/ayla.reach_counter.json` owns it and
+/// `reach_counter_deals_its_authored_damage` holds the two equal.
+const REACH_COUNTER_RAW_DAMAGE: i32 = 10;
+
+/// A7: Ward Line's raw damage on trigger, before Ayla's level. A separate
+/// number from Reach Counter's because the two reactions cost differently:
+/// Reach Counter is free and unlimited, Ward Line costs a whole turn to place
+/// and is spent after one hit.
+const WARD_LINE_RAW_DAMAGE: i32 = 8;
+
 /// The prefix every established woman's actor ID carries
 /// (`character.heroine.<name>`). B17: it is what tells a battle actor whose
 /// bond rank the campaign owns from one it does not -- Captain Michael, an
@@ -135,6 +160,10 @@ pub enum StatusKind {
     /// Composure has hit zero. The actor keeps acting, but SS and SSS commands
     /// (and, once it exists, Echo) are closed to them until it is restored.
     Shaken,
+    /// A7: Ayla's Ward Line has caught this actor crossing it. Applied
+    /// mid-battle by [`Battle::apply_status`] -- the first status in the engine
+    /// that is neither set at actor construction nor only ever removed.
+    Staggered,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -390,6 +419,50 @@ pub enum BattleEvent {
         command_id: String,
         actor_id: ActorId,
     },
+    /// A7 / Structural Scan: what the scan read off a target. The resolver only
+    /// reads state; nothing in this event is a mutation.
+    TargetInspected {
+        command_id: String,
+        actor_id: ActorId,
+        target_id: ActorId,
+        guard_revealed: i32,
+        counter_tag: String,
+    },
+    /// A7: a status applied to a living actor after the battle has started.
+    /// Every status before this was set at construction or removed by a skill;
+    /// [`Battle::apply_status`] is the one writer of this event.
+    StatusApplied {
+        command_id: String,
+        actor_id: ActorId,
+        status_id: String,
+        status_kind: StatusKind,
+        source_id: ActorId,
+    },
+    WardLinePlaced {
+        command_id: String,
+        actor_id: ActorId,
+        band: i8,
+    },
+    WardLineTriggered {
+        command_id: String,
+        attacker_id: ActorId,
+        protected_id: ActorId,
+    },
+    /// A7 / Deny Activation: the hostile's declared action for this turn is
+    /// cancelled. The bridge reads this to spend the site's one charge.
+    ActivationDenied {
+        command_id: String,
+        actor_id: ActorId,
+        target_id: ActorId,
+    },
+    /// A7 / Override Tomb Rule: this rule stops applying, here and for the rest
+    /// of the expedition. The bridge reads this and writes `rule_id` into
+    /// `ExpeditionState::suppressed_site_rules`.
+    SiteRuleOverridden {
+        command_id: String,
+        actor_id: ActorId,
+        rule_id: String,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -495,6 +568,49 @@ pub struct Battle {
     forced_turn_resume: Option<(usize, u32)>,
     retreat_allowed: bool,
     resolved_commands: BTreeMap<String, Vec<BattleEvent>>,
+    /// A7: the site rules in force in this fight, in the cell's authored order.
+    /// The campaign decides the list (the cell's `site_rule_ids` minus
+    /// `ExpeditionState::suppressed_site_rules`); the battle only applies it.
+    site_rules: Vec<ActiveSiteRule>,
+    /// A7 / Ward Line: the single active ward, or `None`.
+    active_ward: Option<WardLine>,
+}
+
+/// A7 / Ward Line: "place a ward between two adjacent bands; the first enemy
+/// crossing it takes damage and becomes Staggered."
+///
+/// No hostile in this engine ever moves bands, so "crossing" is translated the
+/// same way Reach Counter translates "entering the Contested band": the first
+/// hostile attack targeting a party member who stands in the warded band. The
+/// ward is spent on that first trigger.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct WardLine {
+    source_actor_id: ActorId,
+    band: i8,
+}
+
+/// A7 / B17: everything the campaign says about a battle it is arming.
+///
+/// B17 built `prototype_vertical_slice_from_bond_ranks`, which took the one
+/// campaign fact a battle then needed. A7 adds three more -- the site rules in
+/// force and Ayla's two site-scoped charges -- and a four-argument constructor
+/// with three of them positional would be a trap, so the parameter is this
+/// struct and the constructor is its successor. There is still exactly one
+/// campaign-shaped constructor; nothing was forked beside the old one.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct CampaignBattleSetup {
+    /// `ExpeditionState::bond_ranks`, the sole owner of where each woman's
+    /// bond stands (A10).
+    pub bond_ranks: BTreeMap<String, String>,
+    /// The cell's `site_rule_ids` minus `ExpeditionState::suppressed_site_rules`,
+    /// resolved against the authored registry.
+    pub site_rules: Vec<ActiveSiteRule>,
+    /// Whether this site still has its one Deny Activation. Once per site: the
+    /// count lives in `ExpeditionState::site_denial_charges`, keyed by site.
+    pub deny_activation_charges: u8,
+    /// Whether this expedition still has its one Override Tomb Rule. Once per
+    /// expedition: it is spent when `suppressed_site_rules` stops being empty.
+    pub override_tomb_rule_charges: u8,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -564,6 +680,12 @@ impl Battle {
             9,
         );
         ayla.band = Band::PartyRear.index();
+        // A7: Reach Counter is unlimited-use, so this entry is a presence gate
+        // -- "Ayla has this skill" -- and is never decremented, unlike Fatal
+        // Intercept's charge. She is down in the slice, and a defeated Ayla
+        // never reacts, so the slice plays exactly as it did before.
+        ayla.skill_uses_remaining
+            .insert("skill.ayla.reach_counter".into(), 1);
         ayla.vitality = 0;
         ayla.statuses.push(StatusInstance {
             id: "status.ayla.bleeding.prototype".into(),
@@ -616,17 +738,46 @@ impl Battle {
         )
     }
 
-    /// B17: the same fixture encounter, built for a campaign rather than for a
-    /// review scene.
+    /// B17, extended by A7: the same fixture encounter, built for a campaign
+    /// rather than for a review scene.
     ///
     /// There is one actor list -- [`Battle::prototype_vertical_slice`] above --
-    /// and this delegates to it, then copies the campaign's ranks over the
-    /// fixture's. A caller with an `ExpeditionState` uses this; the debug
-    /// battle, which has no campaign at all, keeps the fixture.
-    pub fn prototype_vertical_slice_from_bond_ranks(ranks: &BTreeMap<String, String>) -> Self {
+    /// and this delegates to it, then copies the campaign's facts over the
+    /// fixture's: where each woman's bond stands, which site rules are in
+    /// force here, and whether Ayla's two site-scoped commands still have their
+    /// charge. A caller with an `ExpeditionState` uses this; the debug battle,
+    /// which has no campaign at all, keeps the fixture and stands under no site
+    /// rules.
+    pub fn prototype_vertical_slice_from_campaign(setup: &CampaignBattleSetup) -> Self {
         let mut battle = Self::prototype_vertical_slice();
-        battle.apply_bond_ranks(ranks);
+        battle.apply_bond_ranks(&setup.bond_ranks);
+        battle.site_rules = setup.site_rules.clone();
+        if let Some(ayla) = battle
+            .actors
+            .get_mut(&ActorId("character.heroine.ayla".into()))
+        {
+            ayla.skill_uses_remaining.insert(
+                "skill.ayla.deny_activation".into(),
+                setup.deny_activation_charges,
+            );
+            ayla.skill_uses_remaining.insert(
+                "skill.ayla.override_tomb_rule".into(),
+                setup.override_tomb_rule_charges,
+            );
+        }
         battle
+    }
+
+    /// The site rules in force in this fight, in the cell's authored order.
+    pub fn site_rules(&self) -> &[ActiveSiteRule] {
+        &self.site_rules
+    }
+
+    /// A7: the rules this battle stands under. Used by the tests and by any
+    /// caller building a battle that is not the campaign's fixture encounter.
+    pub fn with_site_rules(mut self, rules: Vec<ActiveSiteRule>) -> Self {
+        self.site_rules = rules;
+        self
     }
 
     /// B17: makes every woman in this battle stand where her bond actually
@@ -678,6 +829,8 @@ impl Battle {
             forced_turn_resume: None,
             retreat_allowed: true,
             resolved_commands: BTreeMap::new(),
+            site_rules: Vec::new(),
+            active_ward: None,
         }
     }
 
@@ -913,6 +1066,12 @@ impl Battle {
                 | "skill.betty.healing_impact"
                 | "skill.betty.mobile_infirmary"
                 | "skill.betty.combat_revival"
+                | "skill.ayla.structural_scan"
+                | "skill.ayla.safe_passage"
+                | "skill.ayla.ward_line"
+                | "skill.ayla.curse_dispel"
+                | "skill.ayla.deny_activation"
+                | "skill.ayla.override_tomb_rule"
                 | "skill.enemy.razorbeak.rushing_bite"
                 | "skill.enemy.razorbeak.guard_breaking_kick"
                 | "skill.enemy.undead.grasping_strike"
@@ -926,6 +1085,8 @@ impl Battle {
             Some(ActorId("character.protagonist.captain".into()))
         } else if command.skill_id.starts_with("skill.betty.") {
             Some(ActorId("character.heroine.betty".into()))
+        } else if command.skill_id.starts_with("skill.ayla.") {
+            Some(ActorId("character.heroine.ayla".into()))
         } else if command.skill_id.starts_with("skill.enemy.razorbeak.") {
             Some(ActorId("enemy.raptor.razorbeak.prototype".into()))
         } else {
@@ -953,13 +1114,23 @@ impl Battle {
                 actor_id: command.actor_id,
             });
         }
-        if command.skill_id == "skill.betty.combat_revival"
-            && actor
-                .skill_uses_remaining
-                .get(&command.skill_id)
-                .copied()
-                .unwrap_or(0)
-                == 0
+        // A charge-gated command. Combat Revival is once per battle; Ayla's
+        // Deny Activation is once per *site* and her Override Tomb Rule once
+        // per *expedition*, and both arrive already spent or unspent from the
+        // campaign (`CampaignBattleSetup`) -- inside one battle the gate is the
+        // same one Combat Revival established, so there is one gate and not
+        // three.
+        if matches!(
+            command.skill_id.as_str(),
+            "skill.betty.combat_revival"
+                | "skill.ayla.deny_activation"
+                | "skill.ayla.override_tomb_rule"
+        ) && actor
+            .skill_uses_remaining
+            .get(&command.skill_id)
+            .copied()
+            .unwrap_or(0)
+            == 0
         {
             return Err(BattleError::SkillUnavailable {
                 actor_id: command.actor_id,
@@ -970,6 +1141,9 @@ impl Battle {
             "skill.betty.rescue_charge" => 2,
             "skill.captain.reposition"
             | "skill.betty.mobile_infirmary"
+            | "skill.ayla.safe_passage"
+            | "skill.ayla.ward_line"
+            | "skill.ayla.override_tomb_rule"
             | "skill.system.hold_position"
             | "skill.system.retreat" => 0,
             _ => 1,
@@ -1025,6 +1199,9 @@ impl Battle {
             command.skill_id.as_str(),
             "skill.captain.reposition"
                 | "skill.betty.mobile_infirmary"
+                | "skill.ayla.safe_passage"
+                | "skill.ayla.ward_line"
+                | "skill.ayla.override_tomb_rule"
                 | "skill.system.hold_position"
         ) {
             self.phase = BattlePhase::Resolving;
@@ -1056,6 +1233,7 @@ impl Battle {
             "skill.betty.condition_cleanse"
             | "skill.betty.rescue_charge"
             | "skill.betty.combat_revival"
+            | "skill.ayla.curse_dispel"
                 if actor.faction != target.faction =>
             {
                 return Err(BattleError::FriendlyFire {
@@ -1066,6 +1244,8 @@ impl Battle {
             "skill.captain.weapon_attack"
             | "skill.betty.guarded_strike"
             | "skill.betty.healing_impact"
+            | "skill.ayla.structural_scan"
+            | "skill.ayla.deny_activation"
             | "skill.enemy.razorbeak.rushing_bite"
             | "skill.enemy.razorbeak.guard_breaking_kick"
             | "skill.enemy.undead.grasping_strike"
@@ -1136,6 +1316,24 @@ impl Battle {
             }
             "skill.betty.combat_revival" => {
                 self.resolve_combat_revival(command, events);
+                return Ok(());
+            }
+            "skill.ayla.curse_dispel" => return self.resolve_curse_dispel(command, events),
+            "skill.ayla.structural_scan" => return self.resolve_structural_scan(command, events),
+            "skill.ayla.safe_passage" => {
+                self.resolve_safe_passage(command, events);
+                return Ok(());
+            }
+            "skill.ayla.ward_line" => {
+                self.resolve_ward_line(command, events);
+                return Ok(());
+            }
+            "skill.ayla.deny_activation" => {
+                self.resolve_deny_activation(command, events);
+                return Ok(());
+            }
+            "skill.ayla.override_tomb_rule" => {
+                self.resolve_override_tomb_rule(command, events);
                 return Ok(());
             }
             "skill.system.hold_position" => {
@@ -1295,6 +1493,259 @@ impl Battle {
             total: target.vitality,
         });
         Ok(())
+    }
+
+    // ---- A7: Ayla's seven --------------------------------------------------
+
+    /// **S Curse Dispel.** Removes every negative status the target is
+    /// carrying, and heals nothing -- which is what distinguishes it from
+    /// Betty's rank C Condition Cleanse (two statuses and eight Vitality).
+    ///
+    /// `Shaken` is not a curse. It is Composure at zero (A5), restored by
+    /// Composure and not by a dispel, so it is the one status this leaves
+    /// standing -- the same status `cleanse_priority` already refuses to
+    /// remove, read through that same table rather than a second one.
+    fn resolve_curse_dispel(
+        &mut self,
+        command: &SkillCommand,
+        events: &mut Vec<BattleEvent>,
+    ) -> Result<(), BattleError> {
+        let target_id = &command.target_ids[0];
+        let target = self.actors.get_mut(target_id).expect("target checked");
+        target.statuses.sort_by(|left, right| {
+            cleanse_priority(&left.kind)
+                .unwrap_or(u8::MAX)
+                .cmp(&cleanse_priority(&right.kind).unwrap_or(u8::MAX))
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        let removed: Vec<StatusInstance> = {
+            let (removable, kept) = target
+                .statuses
+                .drain(..)
+                .partition(|status| status.kind != StatusKind::Shaken);
+            target.statuses = kept;
+            removable
+        };
+        for status in removed {
+            events.push(BattleEvent::StatusRemoved {
+                command_id: command.command_id.clone(),
+                actor_id: target_id.clone(),
+                status_id: status.id,
+                status_kind: status.kind,
+            });
+        }
+        Ok(())
+    }
+
+    /// **C Structural Scan.** Reads Guard and one valid counter off a hostile
+    /// and mutates nothing. A turn-consuming normal action: a free-action turn
+    /// economy does not exist anywhere in this engine and was not invented for
+    /// one skill.
+    fn resolve_structural_scan(
+        &mut self,
+        command: &SkillCommand,
+        events: &mut Vec<BattleEvent>,
+    ) -> Result<(), BattleError> {
+        let target_id = &command.target_ids[0];
+        let target = self.actors.get(target_id).expect("target checked");
+        let guard_revealed = target.guard;
+        let counter_tag = if guard_revealed > 0 {
+            "break_guard_before_striking"
+        } else {
+            "exploit_open_guard"
+        };
+        events.push(BattleEvent::TargetInspected {
+            command_id: command.command_id.clone(),
+            actor_id: command.actor_id.clone(),
+            target_id: target_id.clone(),
+            guard_revealed,
+            counter_tag: counter_tag.to_owned(),
+        });
+        Ok(())
+    }
+
+    /// **B Safe Passage.** Brings every living ally standing one band away into
+    /// Ayla's band, in stable actor-ID order, without triggering a movement
+    /// reaction -- there are none in this engine, so the "safe" half is free
+    /// and the passage is the whole of it. Zero-selection, like Mobile
+    /// Infirmary.
+    fn resolve_safe_passage(&mut self, command: &SkillCommand, events: &mut Vec<BattleEvent>) {
+        let ayla_id = command.actor_id.clone();
+        let ayla_band = self.actors.get(&ayla_id).expect("actor checked").band;
+        let movers: Vec<ActorId> = self
+            .actors
+            .values()
+            .filter(|actor| {
+                actor.faction == Faction::Party
+                    && actor.is_alive()
+                    && actor.id != ayla_id
+                    && actor.band != ayla_band
+                    && (actor.band - ayla_band).abs() == 1
+            })
+            .map(|actor| actor.id.clone())
+            .collect();
+        for actor_id in movers {
+            self.move_actor_to_band(&command.command_id, &actor_id, ayla_band, events);
+        }
+    }
+
+    /// **A Ward Line.** Places (or replaces) the single ward at Ayla's own
+    /// band. The trigger lives in [`Battle::apply_damage`], beside Reach
+    /// Counter's structurally identical check; see [`WardLine`] for why
+    /// "crossing" is spelled that way.
+    fn resolve_ward_line(&mut self, command: &SkillCommand, events: &mut Vec<BattleEvent>) {
+        let band = self
+            .actors
+            .get(&command.actor_id)
+            .expect("actor checked")
+            .band;
+        self.active_ward = Some(WardLine {
+            source_actor_id: command.actor_id.clone(),
+            band,
+        });
+        events.push(BattleEvent::WardLinePlaced {
+            command_id: command.command_id.clone(),
+            actor_id: command.actor_id.clone(),
+            band,
+        });
+    }
+
+    /// **SS Deny Activation.** Cancels one hostile's declared action for the
+    /// turn: the target is `Stunned` for one round, which is exactly what
+    /// `submit_uncached` already refuses a command from
+    /// ([`BattleError::ActorIncapacitated`]). The bible's "one understood
+    /// machine, ritual or phase activation" is that refusal; the engine has no
+    /// other declared action to cancel.
+    ///
+    /// Once per *site*: the charge arrives from
+    /// `ExpeditionState::site_denial_charges` through [`CampaignBattleSetup`],
+    /// is spent here, and the bridge writes the site's count down when it sees
+    /// [`BattleEvent::ActivationDenied`].
+    fn resolve_deny_activation(&mut self, command: &SkillCommand, events: &mut Vec<BattleEvent>) {
+        let target_id = command.target_ids[0].clone();
+        let ayla = self
+            .actors
+            .get_mut(&command.actor_id)
+            .expect("acting Ayla checked");
+        *ayla
+            .skill_uses_remaining
+            .get_mut(&command.skill_id)
+            .expect("availability checked") -= 1;
+        events.push(BattleEvent::ActivationDenied {
+            command_id: command.command_id.clone(),
+            actor_id: command.actor_id.clone(),
+            target_id: target_id.clone(),
+        });
+        self.apply_status(
+            &command.command_id,
+            &target_id,
+            StatusInstance {
+                id: format!("status.deny_activation.stunned.{}", command.command_id),
+                kind: StatusKind::Stunned,
+                remaining_rounds: 1,
+                source_id: command.actor_id.clone(),
+            },
+            events,
+        );
+    }
+
+    /// **SSS Override Tomb Rule.** Takes the first site rule still in force out
+    /// of this fight and emits [`BattleEvent::SiteRuleOverridden`]; the bridge
+    /// writes that ID into `ExpeditionState::suppressed_site_rules`, which is
+    /// what makes it hold "until the party leaves the site" and beyond.
+    ///
+    /// *First* in the cell's authored order, not chosen: the player picks no
+    /// rule because no screen exists to pick one from, and a deterministic
+    /// order is the honest stand-in for a choice nobody can make yet. Once per
+    /// expedition; standing under no rules at all, the command spends its
+    /// charge and overrides nothing, which is the truthful outcome rather than
+    /// a refusal invented here.
+    fn resolve_override_tomb_rule(
+        &mut self,
+        command: &SkillCommand,
+        events: &mut Vec<BattleEvent>,
+    ) {
+        let ayla = self
+            .actors
+            .get_mut(&command.actor_id)
+            .expect("acting Ayla checked");
+        *ayla
+            .skill_uses_remaining
+            .get_mut(&command.skill_id)
+            .expect("availability checked") -= 1;
+        if self.site_rules.is_empty() {
+            return;
+        }
+        let overridden = self.site_rules.remove(0);
+        events.push(BattleEvent::SiteRuleOverridden {
+            command_id: command.command_id.clone(),
+            actor_id: command.actor_id.clone(),
+            rule_id: overridden.id,
+        });
+    }
+
+    /// A7: the engine's one writer of a status onto a living actor after the
+    /// battle has started. Every status before this was set at construction or
+    /// only ever removed.
+    fn apply_status(
+        &mut self,
+        command_id: &str,
+        target_id: &ActorId,
+        status: StatusInstance,
+        events: &mut Vec<BattleEvent>,
+    ) {
+        events.push(BattleEvent::StatusApplied {
+            command_id: command_id.to_owned(),
+            actor_id: target_id.clone(),
+            status_id: status.id.clone(),
+            status_kind: status.kind.clone(),
+            source_id: status.source_id.clone(),
+        });
+        if let Some(target) = self.actors.get_mut(target_id) {
+            target.statuses.push(status);
+        }
+    }
+
+    /// A7: the site rules in force, applied at the round boundary.
+    ///
+    /// `guard_regen_per_round` is the only effect that acts today;
+    /// `needs_decision` is a decision nobody has made and does nothing, loudly
+    /// (`strategy/site_rule.rs`). Guard arrives through the same
+    /// `GuardChanged` event the presentation layer already binds, so a site
+    /// rule needs no new spelling on the Godot side.
+    fn apply_site_rules_at_round_boundary(&mut self, events: &mut Vec<BattleEvent>) {
+        let regen: i32 = self
+            .site_rules
+            .iter()
+            .map(|rule| match rule.effect {
+                SiteRuleEffect::GuardRegenPerRound(amount) => amount,
+                SiteRuleEffect::NeedsDecision(_) => 0,
+            })
+            .sum();
+        if regen == 0 {
+            return;
+        }
+        let command_id = format!("site_rule.round.{}", self.round);
+        for actor in self
+            .actors
+            .values_mut()
+            .filter(|actor| actor.faction == Faction::Hostile && actor.is_alive())
+        {
+            actor.guard += regen;
+            events.push(BattleEvent::GuardChanged {
+                command_id: command_id.clone(),
+                actor_id: actor.id.clone(),
+                delta: regen,
+                total: actor.guard,
+            });
+        }
+    }
+
+    /// A7: a round turns. One place, so a site rule cannot be applied on one
+    /// path through [`Battle::advance_turn`] and skipped on the other.
+    fn begin_round(&mut self, events: &mut Vec<BattleEvent>) {
+        events.push(BattleEvent::RoundStarted { round: self.round });
+        self.apply_site_rules_at_round_boundary(events);
     }
 
     fn resolve_rescue_charge(
@@ -1638,15 +2089,121 @@ impl Battle {
         let absorbed = target.guard.min(raw_damage);
         let predicted_damage = (raw_damage - absorbed).min(target.vitality);
         let would_defeat = predicted_damage >= target.vitality;
+        let target_faction = target.faction.clone();
+        let target_band = target.band;
         let source_is_hostile = self
             .actors
             .get(source_id)
             .is_some_and(|source| source.faction == Faction::Hostile);
+
+        // A7 / **D Reach Counter.** The bible's "attack an enemy that enters
+        // the Contested band" translated with the concept the engine actually
+        // has: no hostile in this engine ever moves bands, and a shared band
+        // *is* contested, so the trigger is a hostile's attack on a party
+        // member standing where Ayla stands. Unlimited-use: the
+        // `skill_uses_remaining` entry is a presence gate and is never
+        // decremented, unlike Fatal Intercept's charge, so an Ayla without the
+        // entry -- every fixture written before this card -- stays inert.
+        let ayla_id = ActorId("character.heroine.ayla".into());
+        let reach_counter_eligible = allow_reactions
+            && !self.resolving_reaction
+            && source_is_hostile
+            && target_faction == Faction::Party
+            && self.actors.get(&ayla_id).is_some_and(|ayla| {
+                ayla.is_alive()
+                    && !ayla
+                        .statuses
+                        .iter()
+                        .any(|status| status.kind == StatusKind::Stunned)
+                    && ayla.band == target_band
+                    && ayla
+                        .skill_uses_remaining
+                        .get("skill.ayla.reach_counter")
+                        .copied()
+                        .unwrap_or(0)
+                        > 0
+            });
+        if reach_counter_eligible {
+            let ayla_level = self
+                .actors
+                .get(&ayla_id)
+                .expect("eligible Ayla exists")
+                .level;
+            events.push(BattleEvent::ReactionWindowOpened {
+                command_id: command_id.into(),
+                trigger: "hostile_attack_in_aylas_band".into(),
+                threatened_actor_id: target_id.clone(),
+            });
+            events.push(BattleEvent::ReactionTriggered {
+                command_id: command_id.into(),
+                reactor_id: ayla_id.clone(),
+                skill_id: "skill.ayla.reach_counter".into(),
+                protected_id: target_id.clone(),
+            });
+            self.resolving_reaction = true;
+            self.apply_damage(
+                command_id,
+                &ayla_id,
+                source_id,
+                REACH_COUNTER_RAW_DAMAGE + i32::from(ayla_level),
+                false,
+                events,
+            );
+            self.resolving_reaction = false;
+        }
+
+        // A7 / **A Ward Line.** The same translation of "crossing", one skill
+        // up: the first hostile attack on a party member in the warded band.
+        // The ward spends itself on that trigger and does not fire again until
+        // it is re-placed.
+        let ward_triggered = allow_reactions
+            && !self.resolving_reaction
+            && source_is_hostile
+            && target_faction == Faction::Party
+            && self
+                .active_ward
+                .as_ref()
+                .is_some_and(|ward| ward.band == target_band);
+        if ward_triggered {
+            let ward = self.active_ward.take().expect("checked above");
+            let ayla_level = self
+                .actors
+                .get(&ward.source_actor_id)
+                .map(|ayla| ayla.level)
+                .unwrap_or(0);
+            events.push(BattleEvent::WardLineTriggered {
+                command_id: command_id.into(),
+                attacker_id: source_id.clone(),
+                protected_id: target_id.clone(),
+            });
+            self.resolving_reaction = true;
+            self.apply_damage(
+                command_id,
+                &ward.source_actor_id,
+                source_id,
+                WARD_LINE_RAW_DAMAGE + i32::from(ayla_level),
+                false,
+                events,
+            );
+            self.apply_status(
+                command_id,
+                source_id,
+                StatusInstance {
+                    id: format!("status.ward_line.staggered.{command_id}"),
+                    kind: StatusKind::Staggered,
+                    remaining_rounds: 1,
+                    source_id: ward.source_actor_id,
+                },
+                events,
+            );
+            self.resolving_reaction = false;
+        }
+
         let opens_reaction = allow_reactions
             && !self.resolving_reaction
             && would_defeat
             && source_is_hostile
-            && target.faction == Faction::Party
+            && target_faction == Faction::Party
             && target_id.0 != "character.heroine.betty";
         if opens_reaction {
             events.push(BattleEvent::ReactionWindowOpened {
@@ -1730,7 +2287,31 @@ impl Battle {
         }
     }
 
+    /// A7: an actor who cannot act does not hold the fight up.
+    ///
+    /// Before this, `Stunned` was only ever set at actor construction and no
+    /// live battle ever produced one, so a stunned actor's turn simply arrived
+    /// and every command for it was refused with
+    /// [`BattleError::ActorIncapacitated`] -- a fight nobody could continue.
+    /// Ayla's Deny Activation is the first thing in the game that stuns a
+    /// living actor mid-fight, so the turn cycle has to answer for it: the turn
+    /// starts, the stun is spent, the turn ends, and play moves on. That *is*
+    /// "cancel one hostile's declared action for the turn".
+    ///
+    /// The loop is bounded by the turn order, so a battle in which every actor
+    /// is stunned stops rather than spinning.
     fn advance_turn(&mut self, events: &mut Vec<BattleEvent>) {
+        for _ in 0..=self.turn_order.len() {
+            if !self.step_to_next_actor(events) {
+                return;
+            }
+        }
+    }
+
+    /// One step of [`Battle::advance_turn`]. `true` when the turn it opened was
+    /// skipped and the caller must step again; `false` when the battle has
+    /// ended or the new active actor may act.
+    fn step_to_next_actor(&mut self, events: &mut Vec<BattleEvent>) -> bool {
         let party_alive = self
             .actors
             .values()
@@ -1742,12 +2323,12 @@ impl Battle {
         if !hostiles_alive {
             self.phase = BattlePhase::Victory;
             events.push(BattleEvent::BattleEnded { victory: true });
-            return;
+            return false;
         }
         if !party_alive {
             self.phase = BattlePhase::Defeat;
             events.push(BattleEvent::BattleEnded { victory: false });
-            return;
+            return false;
         }
         if let Some(forced_actor_id) = self.forced_next_actor.take() {
             let mut resume_index = self.turn_index + 1;
@@ -1766,14 +2347,14 @@ impl Battle {
             self.turn_index = resume_index;
             if resume_round > self.round {
                 self.round = resume_round;
-                events.push(BattleEvent::RoundStarted { round: self.round });
+                self.begin_round(events);
             }
         } else {
             self.turn_index += 1;
             if self.turn_index >= self.turn_order.len() {
                 self.turn_index = 0;
                 self.round += 1;
-                events.push(BattleEvent::RoundStarted { round: self.round });
+                self.begin_round(events);
             }
         }
         self.skip_defeated_actors();
@@ -1789,9 +2370,45 @@ impl Battle {
             actor_id: actor_id.clone(),
         });
         self.pulse_effects_for_source(&actor_id, events);
+        if self.spend_incapacitation(&actor_id, events) {
+            events.push(BattleEvent::TurnEnded {
+                round: self.round,
+                actor_id,
+            });
+            return true;
+        }
         if self.actor(&actor_id).expect("actor exists").faction == Faction::Hostile {
             events.push(self.enemy_intent(&actor_id));
         }
+        false
+    }
+
+    /// A7: whether this actor's turn is cancelled, spending one round of the
+    /// `Stunned` that cancels it. The status is removed once it is used up, so
+    /// a one-round stun costs exactly one turn.
+    fn spend_incapacitation(&mut self, actor_id: &ActorId, events: &mut Vec<BattleEvent>) -> bool {
+        let Some(actor) = self.actors.get_mut(actor_id) else {
+            return false;
+        };
+        let Some(index) = actor
+            .statuses
+            .iter()
+            .position(|status| status.kind == StatusKind::Stunned)
+        else {
+            return false;
+        };
+        actor.statuses[index].remaining_rounds =
+            actor.statuses[index].remaining_rounds.saturating_sub(1);
+        if actor.statuses[index].remaining_rounds == 0 {
+            let status = actor.statuses.remove(index);
+            events.push(BattleEvent::StatusRemoved {
+                command_id: format!("stun.spent.{}", actor_id.0),
+                actor_id: actor_id.clone(),
+                status_id: status.id,
+                status_kind: status.kind,
+            });
+        }
+        true
     }
 
     fn skip_defeated_actors(&mut self) {
@@ -1840,7 +2457,10 @@ fn cleanse_priority(kind: &StatusKind) -> Option<u8> {
         StatusKind::Burning => Some(1),
         StatusKind::Poisoned => Some(2),
         StatusKind::Bleeding => Some(3),
-        StatusKind::Shaken => None,
+        // Neither is one of Condition Cleanse's four authored statuses.
+        // `Staggered` sorts last and is left standing by the rank C cleanse;
+        // Ayla's rank S Curse Dispel is what takes it off.
+        StatusKind::Staggered | StatusKind::Shaken => None,
     }
 }
 
@@ -4172,7 +4792,10 @@ mod tests {
             ("character.heroine.betty".to_owned(), "C".to_owned()),
             ("character.heroine.ayla".to_owned(), "D".to_owned()),
         ]);
-        let campaign = Battle::prototype_vertical_slice_from_bond_ranks(&ranks);
+        let campaign = Battle::prototype_vertical_slice_from_campaign(&CampaignBattleSetup {
+            bond_ranks: ranks.clone(),
+            ..CampaignBattleSetup::default()
+        });
         let rank_of = |id: &str| {
             campaign
                 .actor(&ActorId(id.into()))
@@ -4209,7 +4832,10 @@ mod tests {
                 "SSS".to_owned(),
             ),
         ]);
-        let campaign = Battle::prototype_vertical_slice_from_bond_ranks(&ranks);
+        let campaign = Battle::prototype_vertical_slice_from_campaign(&CampaignBattleSetup {
+            bond_ranks: ranks.clone(),
+            ..CampaignBattleSetup::default()
+        });
         for id in [
             "character.protagonist.captain",
             "enemy.raptor.razorbeak.prototype",
@@ -4219,6 +4845,810 @@ mod tests {
                 STARTING_BOND_RANK,
                 "{id} is not a woman: the campaign's map has no say over him"
             );
+        }
+    }
+    // ---- A7: Ayla's seven ---------------------------------------------------
+    //
+    // PR #2 (`feature/ayla-bridge-art`) implemented five of these on a battle
+    // engine that A5 (bands, Composure), A6 (Michael) and A10 (bond ranks) have
+    // since rewritten, so the branch cannot merge and its diff is the
+    // specification instead. These are its eight tests, re-landed on the current
+    // engine against the current fixture, plus the tests for the two skills it
+    // had to leave blocked and for the site-rule seam that unblocked them.
+
+    fn ayla(band: i8, vitality: i32) -> Actor {
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, vitality, 0, 30);
+        ayla.band = band;
+        ayla
+    }
+
+    fn razorbeak(vitality: i32, guard: i32) -> Actor {
+        let mut enemy = actor(
+            "enemy.raptor.razorbeak.prototype",
+            Faction::Hostile,
+            4,
+            vitality,
+            guard,
+            20,
+        );
+        enemy.band = Band::EnemyFront.index();
+        enemy
+    }
+
+    fn ayla_command(command_id: &str, skill_id: &str, targets: Vec<&str>) -> SkillCommand {
+        SkillCommand {
+            command_id: command_id.into(),
+            actor_id: ActorId("character.heroine.ayla".into()),
+            skill_id: skill_id.into(),
+            target_ids: targets.into_iter().map(|id| ActorId(id.into())).collect(),
+        }
+    }
+
+    fn grave_watch() -> Vec<ActiveSiteRule> {
+        vec![ActiveSiteRule {
+            id: crate::strategy::site_rule::GRAVE_WATCH.into(),
+            effect: SiteRuleEffect::GuardRegenPerRound(2),
+        }]
+    }
+
+    // ---- S Curse Dispel ------------------------------------------------------
+
+    #[test]
+    fn curse_dispel_removes_every_negative_status_without_healing() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty.vitality = 60;
+        for (slug, kind, rounds) in [
+            ("stunned", StatusKind::Stunned, 1),
+            ("poisoned", StatusKind::Poisoned, 3),
+            ("bleeding", StatusKind::Bleeding, 2),
+        ] {
+            betty.statuses.push(StatusInstance {
+                id: format!("status.betty.{slug}"),
+                kind,
+                remaining_rounds: rounds,
+                source_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+            });
+        }
+        let mut battle = Battle::new(
+            "battle.curse_dispel",
+            [betty, ayla(0, 60), razorbeak(70, 3)],
+        );
+        battle.start();
+        let events = battle
+            .submit(ayla_command(
+                "ayla.curse_dispel",
+                "skill.ayla.curse_dispel",
+                vec!["character.heroine.betty"],
+            ))
+            .expect("Ayla dispels her ally's curses");
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(event, BattleEvent::StatusRemoved { .. }))
+                .count(),
+            3
+        );
+        let betty = battle
+            .actor(&ActorId("character.heroine.betty".into()))
+            .expect("Betty stands in this fight");
+        assert!(betty.statuses.is_empty());
+        assert_eq!(
+            betty.vitality, 60,
+            "a dispel is not a heal; Betty's own Condition Cleanse is the one that heals"
+        );
+    }
+
+    /// Composure is not a curse. `Shaken` is A5's Composure-at-zero status, and
+    /// it is restored by Composure rather than lifted by a rank S dispel -- the
+    /// same status `cleanse_priority` already refuses to remove.
+    #[test]
+    fn curse_dispel_lifts_a_stagger_and_leaves_shaken_standing() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty.statuses.push(StatusInstance {
+            id: "status.betty.staggered".into(),
+            kind: StatusKind::Staggered,
+            remaining_rounds: 1,
+            source_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+        });
+        betty.spend_composure(10);
+        assert!(
+            betty.is_shaken(),
+            "the fixture Betty is Shaken to begin with"
+        );
+        let mut battle = Battle::new(
+            "battle.curse_dispel_shaken",
+            [betty, ayla(0, 60), razorbeak(70, 3)],
+        );
+        battle.start();
+        battle
+            .submit(ayla_command(
+                "ayla.curse_dispel",
+                "skill.ayla.curse_dispel",
+                vec!["character.heroine.betty"],
+            ))
+            .expect("Ayla dispels what a dispel can reach");
+        let betty = battle
+            .actor(&ActorId("character.heroine.betty".into()))
+            .expect("Betty stands in this fight");
+        assert_eq!(
+            betty
+                .statuses
+                .iter()
+                .map(|status| status.kind.clone())
+                .collect::<Vec<_>>(),
+            vec![StatusKind::Shaken]
+        );
+    }
+
+    // ---- C Structural Scan ---------------------------------------------------
+
+    #[test]
+    fn structural_scan_reveals_guard_without_mutating_the_target() {
+        let mut battle = Battle::new("battle.structural_scan", [ayla(0, 60), razorbeak(70, 5)]);
+        battle.start();
+        let events = battle
+            .submit(ayla_command(
+                "ayla.scan",
+                "skill.ayla.structural_scan",
+                vec!["enemy.raptor.razorbeak.prototype"],
+            ))
+            .expect("Ayla reads the construct");
+        assert!(events.iter().any(|event| matches!(
+            event,
+            BattleEvent::TargetInspected {
+                guard_revealed: 5,
+                counter_tag,
+                ..
+            } if counter_tag == "break_guard_before_striking"
+        )));
+        let enemy = battle
+            .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+            .expect("the razorbeak stands in this fight");
+        assert_eq!(enemy.guard, 5);
+        assert_eq!(enemy.vitality, 70);
+        assert!(enemy.statuses.is_empty());
+    }
+
+    #[test]
+    fn structural_scan_on_an_open_guard_names_the_other_counter() {
+        let mut battle = Battle::new(
+            "battle.structural_scan_open",
+            [ayla(0, 60), razorbeak(70, 0)],
+        );
+        battle.start();
+        let events = battle
+            .submit(ayla_command(
+                "ayla.scan",
+                "skill.ayla.structural_scan",
+                vec!["enemy.raptor.razorbeak.prototype"],
+            ))
+            .expect("Ayla reads the construct");
+        assert!(events.iter().any(|event| matches!(
+            event,
+            BattleEvent::TargetInspected {
+                guard_revealed: 0,
+                counter_tag,
+                ..
+            } if counter_tag == "exploit_open_guard"
+        )));
+    }
+
+    // ---- B Safe Passage ------------------------------------------------------
+
+    #[test]
+    fn safe_passage_moves_adjacent_living_allies_into_aylas_band_in_stable_order() {
+        let mut near_ally = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        near_ally.band = 0;
+        let mut far_ally = actor("character.heroine.vix", Faction::Party, 3, 80, 0, 10);
+        far_ally.band = 2;
+        let mut already_there = actor("character.heroine.grisha", Faction::Party, 3, 80, 0, 9);
+        already_there.band = 1;
+        let mut defeated_ally = actor("character.heroine.nara", Faction::Party, 3, 0, 0, 8);
+        defeated_ally.band = 0;
+        let mut battle = Battle::new(
+            "battle.safe_passage",
+            [
+                ayla(1, 60),
+                near_ally,
+                far_ally,
+                already_there,
+                defeated_ally,
+                razorbeak(70, 3),
+            ],
+        );
+        battle.start();
+        let events = battle
+            .submit(ayla_command(
+                "ayla.safe_passage",
+                "skill.ayla.safe_passage",
+                vec![],
+            ))
+            .expect("Ayla walks the party through");
+        let moved: Vec<String> = events
+            .iter()
+            .filter_map(|event| match event {
+                BattleEvent::ActorMoved { actor_id, .. } => Some(actor_id.0.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            moved,
+            vec!["character.heroine.betty", "character.heroine.vix"],
+            "stable actor-ID order; the ally already in her band and the ally two bands away do not move"
+        );
+        let band_of = |id: &str| {
+            battle
+                .actor(&ActorId(id.into()))
+                .unwrap_or_else(|| panic!("{id} stands in this fight"))
+                .band
+        };
+        assert_eq!(band_of("character.heroine.betty"), 1);
+        assert_eq!(band_of("character.heroine.vix"), 1);
+        assert_eq!(band_of("character.heroine.grisha"), 1);
+        assert_eq!(
+            band_of("character.heroine.nara"),
+            0,
+            "a defeated ally is not carried anywhere"
+        );
+    }
+
+    #[test]
+    fn safe_passage_with_nobody_adjacent_moves_nobody_and_still_ends_the_turn() {
+        let mut far_ally = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        far_ally.band = 3;
+        let mut battle = Battle::new(
+            "battle.safe_passage_alone",
+            [ayla(1, 60), far_ally, razorbeak(70, 3)],
+        );
+        battle.start();
+        let events = battle
+            .submit(ayla_command(
+                "ayla.safe_passage",
+                "skill.ayla.safe_passage",
+                vec![],
+            ))
+            .expect("the command is legal with nobody to carry");
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::ActorMoved { .. }))
+        );
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::TurnEnded { .. }))
+        );
+    }
+
+    // ---- D Reach Counter -----------------------------------------------------
+
+    #[test]
+    fn reach_counter_strikes_a_hostile_that_attacks_an_ally_sharing_aylas_band() {
+        let mut ayla = ayla(2, 60);
+        ayla.skill_uses_remaining
+            .insert("skill.ayla.reach_counter".into(), 1);
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty.band = 2;
+        let mut enemy = razorbeak(50, 0);
+        enemy.initiative = 40;
+        let mut battle = Battle::new("battle.reach_counter", [ayla, betty, enemy]);
+        battle.start();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "enemy.bite".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .expect("the razorbeak bites");
+        assert!(events.iter().any(|event| matches!(
+            event,
+            BattleEvent::ReactionTriggered { skill_id, .. }
+                if skill_id == "skill.ayla.reach_counter"
+        )));
+        let enemy = battle
+            .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+            .expect("the razorbeak stands in this fight");
+        assert_eq!(
+            enemy.vitality,
+            50 - (REACH_COUNTER_RAW_DAMAGE + 3),
+            "ten raw damage plus Ayla's level, through no Guard"
+        );
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.ayla".into()))
+                .expect("Ayla stands in this fight")
+                .skill_uses_remaining["skill.ayla.reach_counter"],
+            1,
+            "the entry is a presence gate, not a charge; it is never spent"
+        );
+    }
+
+    #[test]
+    fn reach_counter_does_not_trigger_when_ayla_does_not_share_the_targets_band() {
+        let mut ayla = ayla(0, 60);
+        ayla.skill_uses_remaining
+            .insert("skill.ayla.reach_counter".into(), 1);
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty.band = 2;
+        let mut enemy = razorbeak(50, 0);
+        enemy.initiative = 40;
+        let mut battle = Battle::new("battle.reach_counter_out_of_band", [ayla, betty, enemy]);
+        battle.start();
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "enemy.bite".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .expect("the razorbeak bites");
+        assert!(!events.iter().any(|event| matches!(
+            event,
+            BattleEvent::ReactionTriggered { skill_id, .. }
+                if skill_id == "skill.ayla.reach_counter"
+        )));
+        assert_eq!(
+            battle
+                .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+                .expect("the razorbeak stands in this fight")
+                .vitality,
+            50
+        );
+    }
+
+    // ---- A Ward Line ---------------------------------------------------------
+
+    #[test]
+    fn ward_line_damages_and_staggers_the_first_hostile_attacking_the_warded_band() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 1);
+        betty.band = 1;
+        let mut battle = Battle::new("battle.ward_line", [ayla(1, 60), betty, razorbeak(50, 0)]);
+        battle.start();
+        let placed = battle
+            .submit(ayla_command("place_ward", "skill.ayla.ward_line", vec![]))
+            .expect("Ayla places the ward at her own band");
+        assert!(
+            placed
+                .iter()
+                .any(|event| matches!(event, BattleEvent::WardLinePlaced { band: 1, .. }))
+        );
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "enemy.bite".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .expect("the razorbeak crosses the ward");
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::WardLineTriggered { .. }))
+        );
+        assert!(events.iter().any(|event| matches!(
+            event,
+            BattleEvent::StatusApplied {
+                status_kind: StatusKind::Staggered,
+                ..
+            }
+        )));
+        let enemy = battle
+            .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+            .expect("the razorbeak stands in this fight");
+        assert_eq!(enemy.vitality, 50 - (WARD_LINE_RAW_DAMAGE + 3));
+        assert!(
+            enemy
+                .statuses
+                .iter()
+                .any(|status| status.kind == StatusKind::Staggered)
+        );
+    }
+
+    #[test]
+    fn ward_line_is_spent_after_its_first_trigger_and_does_not_retrigger() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 1);
+        betty.band = 1;
+        let mut battle = Battle::new(
+            "battle.ward_line_spent",
+            [ayla(1, 60), betty, razorbeak(50, 0)],
+        );
+        battle.start();
+        battle
+            .submit(ayla_command("place_ward", "skill.ayla.ward_line", vec![]))
+            .expect("the ward is placed");
+        battle
+            .submit(SkillCommand {
+                command_id: "first_bite".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .expect("the first crossing");
+        let after_first = battle
+            .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+            .expect("the razorbeak stands in this fight")
+            .clone();
+        battle
+            .submit(SkillCommand {
+                command_id: "betty_holds".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.system.hold_position".into(),
+                target_ids: vec![],
+            })
+            .expect("Betty holds");
+        battle
+            .submit(ayla_command(
+                "ayla_holds",
+                "skill.system.hold_position",
+                vec![],
+            ))
+            .expect("Ayla holds");
+        let second = battle
+            .submit(SkillCommand {
+                command_id: "second_bite".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .expect("the second crossing");
+        assert!(
+            !second
+                .iter()
+                .any(|event| matches!(event, BattleEvent::WardLineTriggered { .. }))
+        );
+        let after_second = battle
+            .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+            .expect("the razorbeak stands in this fight");
+        assert_eq!(after_second.vitality, after_first.vitality);
+        assert_eq!(after_second.statuses.len(), after_first.statuses.len());
+    }
+
+    #[test]
+    fn ward_line_does_not_trigger_when_no_ward_is_active() {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 1);
+        betty.band = 1;
+        let mut battle = Battle::new("battle.no_ward", [ayla(1, 60), betty, razorbeak(50, 0)]);
+        battle.start();
+        battle
+            .submit(ayla_command(
+                "ayla_holds",
+                "skill.system.hold_position",
+                vec![],
+            ))
+            .expect("Ayla holds instead of warding");
+        let events = battle
+            .submit(SkillCommand {
+                command_id: "bite".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.betty".into())],
+            })
+            .expect("the razorbeak bites");
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::WardLineTriggered { .. }))
+        );
+    }
+
+    // ---- SS Deny Activation --------------------------------------------------
+
+    fn deny_activation_battle() -> Battle {
+        let mut ayla = ayla(1, 60);
+        ayla.skill_uses_remaining
+            .insert("skill.ayla.deny_activation".into(), 1);
+        Battle::new("battle.deny_activation", [ayla, razorbeak(50, 0)])
+    }
+
+    #[test]
+    fn deny_activation_cancels_the_hostiles_declared_action_for_the_turn() {
+        let mut battle = deny_activation_battle();
+        battle.start();
+        let events = battle
+            .submit(ayla_command(
+                "ayla.deny",
+                "skill.ayla.deny_activation",
+                vec!["enemy.raptor.razorbeak.prototype"],
+            ))
+            .expect("Ayla denies the activation");
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, BattleEvent::ActivationDenied { .. })),
+            "the bridge reads this event to spend the site's one charge"
+        );
+        assert!(events.iter().any(|event| matches!(
+            event,
+            BattleEvent::StatusApplied {
+                status_kind: StatusKind::Stunned,
+                ..
+            }
+        )));
+        // The razorbeak's turn came and went without it acting, and the stun is
+        // spent: the fight is on round two with Ayla to move again.
+        assert_eq!(
+            battle.active_actor_id(),
+            Some(&ActorId("character.heroine.ayla".into()))
+        );
+        assert_eq!(battle.snapshot().round, 2);
+        assert!(
+            battle
+                .actor(&ActorId("enemy.raptor.razorbeak.prototype".into()))
+                .expect("the razorbeak stands in this fight")
+                .statuses
+                .is_empty(),
+            "one turn, and no longer"
+        );
+    }
+
+    #[test]
+    fn deny_activation_is_once_per_site_and_the_second_is_refused() {
+        let mut battle = deny_activation_battle();
+        battle.start();
+        battle
+            .submit(ayla_command(
+                "ayla.deny",
+                "skill.ayla.deny_activation",
+                vec!["enemy.raptor.razorbeak.prototype"],
+            ))
+            .expect("the site's one denial");
+        let before = battle.snapshot();
+        let error = battle
+            .submit(ayla_command(
+                "ayla.deny.again",
+                "skill.ayla.deny_activation",
+                vec!["enemy.raptor.razorbeak.prototype"],
+            ))
+            .expect_err("the charge is spent");
+        assert!(matches!(error, BattleError::SkillUnavailable { .. }));
+        assert_eq!(battle.snapshot(), before, "a refusal mutates nothing");
+    }
+
+    // ---- SSS Override Tomb Rule ----------------------------------------------
+
+    fn override_battle() -> Battle {
+        let mut ayla = ayla(1, 60);
+        ayla.skill_uses_remaining
+            .insert("skill.ayla.override_tomb_rule".into(), 1);
+        Battle::new("battle.override", [ayla, razorbeak(50, 0)]).with_site_rules(grave_watch())
+    }
+
+    #[test]
+    fn override_tomb_rule_names_a_rule_in_force_and_takes_it_out_of_the_fight() {
+        let mut battle = override_battle();
+        battle.start();
+        let events = battle
+            .submit(ayla_command(
+                "ayla.override",
+                "skill.ayla.override_tomb_rule",
+                vec![],
+            ))
+            .expect("Ayla overrides the tomb's rule");
+        assert!(events.iter().any(|event| matches!(
+            event,
+            BattleEvent::SiteRuleOverridden { rule_id, .. }
+                if rule_id == crate::strategy::site_rule::GRAVE_WATCH
+        )));
+        assert!(
+            battle.site_rules().is_empty(),
+            "the rule stops applying here and now; the bridge makes it stick"
+        );
+    }
+
+    #[test]
+    fn override_tomb_rule_is_once_per_expedition_and_the_second_is_refused() {
+        let mut battle = override_battle();
+        battle.start();
+        battle
+            .submit(ayla_command(
+                "ayla.override",
+                "skill.ayla.override_tomb_rule",
+                vec![],
+            ))
+            .expect("the expedition's one override");
+        battle
+            .submit(SkillCommand {
+                command_id: "enemy_bite".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.ayla".into())],
+            })
+            .expect("the razorbeak answers");
+        let error = battle
+            .submit(ayla_command(
+                "ayla.override.again",
+                "skill.ayla.override_tomb_rule",
+                vec![],
+            ))
+            .expect_err("the charge is spent");
+        assert!(matches!(error, BattleError::SkillUnavailable { .. }));
+    }
+
+    // ---- The site-rule seam --------------------------------------------------
+
+    /// A7's card in one assertion: `site_rule.tomb.grave_watch` gives every
+    /// living hostile two Guard at the round boundary. Remove the regen from
+    /// `apply_site_rules_at_round_boundary` and this is what fails.
+    #[test]
+    fn grave_watch_regenerates_two_guard_on_every_hostile_at_the_round_boundary() {
+        let mut battle = Battle::new("battle.grave_watch", [ayla(1, 60), razorbeak(50, 0)])
+            .with_site_rules(grave_watch());
+        battle.start();
+        assert_eq!(guard_of(&battle, "enemy.raptor.razorbeak.prototype"), 0);
+        play_one_round(&mut battle);
+        assert_eq!(battle.snapshot().round, 2);
+        assert_eq!(
+            guard_of(&battle, "enemy.raptor.razorbeak.prototype"),
+            2,
+            "the tomb watches its own dead: two Guard back at every round boundary"
+        );
+        play_one_round(&mut battle);
+        assert_eq!(guard_of(&battle, "enemy.raptor.razorbeak.prototype"), 4);
+    }
+
+    #[test]
+    fn a_battle_under_no_site_rules_regenerates_nothing() {
+        let mut battle = Battle::new("battle.no_rules", [ayla(1, 60), razorbeak(50, 0)]);
+        battle.start();
+        play_one_round(&mut battle);
+        assert_eq!(battle.snapshot().round, 2);
+        assert_eq!(guard_of(&battle, "enemy.raptor.razorbeak.prototype"), 0);
+    }
+
+    /// The other half of the suppression seam, inside the battle: a rule the
+    /// campaign has overridden is not in the list the battle is built with, so
+    /// it regenerates nothing. `a_suppressed_site_rule_survives_a_save_and_is_still_not_in_force`
+    /// in `expedition.rs` is the campaign-side half.
+    #[test]
+    fn an_overridden_rule_stops_regenerating_guard_for_the_rest_of_the_fight() {
+        let mut ayla = ayla(1, 60);
+        ayla.skill_uses_remaining
+            .insert("skill.ayla.override_tomb_rule".into(), 1);
+        let mut battle = Battle::new("battle.override_regen", [ayla, razorbeak(50, 0)])
+            .with_site_rules(grave_watch());
+        battle.start();
+        battle
+            .submit(ayla_command(
+                "ayla.override",
+                "skill.ayla.override_tomb_rule",
+                vec![],
+            ))
+            .expect("Ayla overrides the tomb's rule");
+        battle
+            .submit(SkillCommand {
+                command_id: "enemy_bite".into(),
+                actor_id: ActorId("enemy.raptor.razorbeak.prototype".into()),
+                skill_id: "skill.enemy.razorbeak.rushing_bite".into(),
+                target_ids: vec![ActorId("character.heroine.ayla".into())],
+            })
+            .expect("the razorbeak answers, and the round turns");
+        assert_eq!(battle.snapshot().round, 2);
+        assert_eq!(
+            guard_of(&battle, "enemy.raptor.razorbeak.prototype"),
+            0,
+            "the rule was overridden before the boundary, so nothing regenerated"
+        );
+    }
+
+    /// A10's gate applies to Ayla exactly as it applies to Betty: her rank C
+    /// Structural Scan is not hers at bond rank D.
+    #[test]
+    fn ayla_at_bond_rank_d_cannot_spend_her_rank_c_structural_scan() {
+        let mut ayla = ayla(1, 60);
+        STARTING_BOND_RANK.clone_into(&mut ayla.bond_rank);
+        let mut battle = Battle::new("battle.ayla_bond_gate", [ayla, razorbeak(50, 5)]);
+        battle.start();
+        let before = battle.snapshot();
+        let error = battle
+            .submit(ayla_command(
+                "ayla.scan",
+                "skill.ayla.structural_scan",
+                vec!["enemy.raptor.razorbeak.prototype"],
+            ))
+            .expect_err("her bond has not reached C");
+        assert_eq!(
+            error,
+            BattleError::BondRankTooLow {
+                skill_id: "skill.ayla.structural_scan".into(),
+                required: "C".into(),
+                current: "D".into(),
+            }
+        );
+        assert_eq!(battle.snapshot(), before);
+    }
+
+    fn guard_of(battle: &Battle, id: &str) -> i32 {
+        battle
+            .actor(&ActorId(id.into()))
+            .unwrap_or_else(|| panic!("{id} stands in this fight"))
+            .guard
+    }
+
+    /// One full round: the party holds position, the hostiles take the command
+    /// the engine recommends. Nobody's Guard moves except by the site rule --
+    /// holding position grants Guard, which is why the hostiles attack instead.
+    fn play_one_round(battle: &mut Battle) {
+        let round = battle.snapshot().round;
+        let mut step = 0;
+        while battle.snapshot().round == round {
+            step += 1;
+            assert!(step < 16, "the round did not turn");
+            let actor_id = battle
+                .active_actor_id()
+                .expect("an actor is active")
+                .clone();
+            let command_id = format!("round.{round}.step.{step}");
+            let command = battle
+                .recommended_enemy_command(&command_id)
+                .unwrap_or(SkillCommand {
+                    command_id,
+                    actor_id,
+                    skill_id: "skill.system.hold_position".into(),
+                    target_ids: vec![],
+                });
+            battle.submit(command).expect("the command is legal");
+        }
+    }
+    /// `content/skills/` owns every number Ayla's two reactions use; the Rust
+    /// constants are copies of it. Held equal here, exactly as
+    /// `captain_weapon_attack_deals_its_authored_damage` holds Michael's.
+    #[test]
+    fn reach_counter_and_ward_line_deal_their_authored_damage() {
+        let reach = authored_skill("skill.ayla.reach_counter");
+        assert_eq!(
+            reach["rules"]["counterRawDamage"].as_i64(),
+            Some(i64::from(REACH_COUNTER_RAW_DAMAGE))
+        );
+        assert_eq!(reach["rules"]["counterDamageLevelScale"].as_i64(), Some(1));
+        let ward = authored_skill("skill.ayla.ward_line");
+        assert_eq!(
+            ward["rules"]["triggerRawDamage"].as_i64(),
+            Some(i64::from(WARD_LINE_RAW_DAMAGE))
+        );
+        assert_eq!(ward["rules"]["triggerDamageLevelScale"].as_i64(), Some(1));
+        assert_eq!(ward["rules"]["appliesStatus"].as_str(), Some("staggered"));
+        assert_eq!(ward["rules"]["statusRounds"].as_i64(), Some(1));
+    }
+
+    /// Her seven records name her, in the design bible's own rank order, and
+    /// `content/characters/ayla.json` lists exactly them. Delete one record and
+    /// this says which.
+    #[test]
+    fn aylas_authored_deck_is_her_seven_skills_in_rank_order() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../content/characters/ayla.json"
+        );
+        let text = std::fs::read_to_string(path).expect("Ayla's record is readable");
+        let ayla: serde_json::Value = serde_json::from_str(&text).expect("her record is JSON");
+        let declared: Vec<&str> = ayla["skillIds"]
+            .as_array()
+            .expect("she declares a skill list")
+            .iter()
+            .map(|id| id.as_str().expect("a string skill id"))
+            .collect();
+        assert_eq!(
+            declared,
+            vec![
+                "skill.ayla.reach_counter",
+                "skill.ayla.structural_scan",
+                "skill.ayla.safe_passage",
+                "skill.ayla.ward_line",
+                "skill.ayla.curse_dispel",
+                "skill.ayla.deny_activation",
+                "skill.ayla.override_tomb_rule",
+            ]
+        );
+        for (skill_id, rank) in declared.iter().zip(["D", "C", "B", "A", "S", "SS", "SSS"]) {
+            let record = authored_skill(skill_id);
+            assert_eq!(record["ownerId"].as_str(), Some("character.heroine.ayla"));
+            assert_eq!(
+                record["bondRank"].as_str(),
+                Some(rank),
+                "{skill_id} is her rank {rank} command"
+            );
+            assert_eq!(skill_rank(skill_id), Some(rank));
         }
     }
 }
