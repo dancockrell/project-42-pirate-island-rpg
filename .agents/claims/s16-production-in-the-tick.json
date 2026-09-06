@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "task_id": "s16-production-in-the-tick",
+  "agent": "claude-code (lane S16)",
+  "summary": "S16: an operational building's interval production rules count down every strategic hour and fire on the economy draw -- machines through produce_machine, capacity and services journalled, the rule's cost paid from the faction stockpile or skipped with a journalled reason and never a negative number.",
+  "status": "active",
+  "claimed_at": "2026-09-06T09:00:00Z",
+  "updated_at": "2026-09-06T09:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/production.rs",
+    "godot-rust/src/strategy/tick.rs",
+    "godot-rust/src/strategy/building.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/godot_bridge.rs",
+    "godot-rust/src/habitat.rs",
+    "godot-rust/src/strategy/elimination.rs",
+    "godot-rust/src/strategy/faction.rs",
+    "godot-rust/src/strategy/force.rs",
+    "godot-rust/src/strategy/utility.rs",
+    "godot-rust/tests/strategic_determinism.rs",
+    "godot-rust/tests/authored_world.rs",
+    "godot-rust/tests/vertical_slice.rs"
+  ],
+  "symbols": [
+    "BuildingInstance.production_countdown",
+    "advance_production",
+    "ProductionSkipReason",
+    "StrategicEvent::ProductionYielded",
+    "StrategicEvent::ProductionSkipped",
+    "ExpeditionState::strategic_tick",
+    "ExpeditionState::resolve_midnight_in",
+    "tick::run_hour"
+  ],
+  "coordination": {
+    "depends_on": [
+      "s13-machines-not-people",
+      "b16-buildings-through-the-tick",
+      "s3-buildings",
+      "s4-strategic-tick"
+    ],
+    "conflicts_with": [
+      "c14"
+    ],
+    "notes": "C14 is authoring content/machines/ and may add MachineDefinition::validate rules and tests at the tail of production.rs's test module; this lane's unit tests are in a separate `mod tick_tests` so both append without meeting. building.rs takes one appended serde(default) field on BuildingInstance and nothing else. tick.rs takes two appended StrategicEvent variants at the end of the enum plus the production call inside run_hour's existing per-faction loop. expedition.rs, godot_bridge.rs, habitat.rs, strategy/{elimination,faction,force,utility}.rs and tests/{authored_world,vertical_slice}.rs are touched only to pass the new &MachineDefinitions argument at existing strategic_tick / resolve_midnight_in call sites, the B16 way; no behaviour in those files changes. The bridge hands the tick an empty registry: C14 authors the records and a later B card forwards them through the port, and this lane does not forward machine content itself."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
