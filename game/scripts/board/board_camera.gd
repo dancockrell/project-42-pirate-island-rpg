@@ -58,6 +58,45 @@ static func size_for(distance: String) -> float:
 			return WORLD_SIZE_METRES
 
 
+## **needs decision.** How much air is left around the island at the world
+## distance, as a multiple of the frame that just contains it. A framing choice;
+## P2's director owns the final number.
+const WORLD_FIT_MARGIN := 1.12
+
+
+## Widen the frame until every one of `points` is inside it, and never narrow it
+## below the named distance size.
+##
+## The world distance has to hold an island whose width is content -- nine
+## authored rooms at authored positions, and a tenth tomorrow -- so a single
+## constant frame height can only ever be right for the island that existed the
+## day it was written. This measures instead: each point is taken into the
+## camera's own space, and the frame is the larger of what the height needs and
+## what the width needs at this viewport's aspect. Nothing here reads the
+## simulation; a footprint is content and a viewport is a window.
+func fit(points: PackedVector3Array) -> void:
+	if points.is_empty():
+		return
+	var into_camera := global_transform.affine_inverse()
+	var lowest := Vector2(INF, INF)
+	var highest := Vector2(-INF, -INF)
+	for point in points:
+		var local := into_camera * point
+		lowest = Vector2(minf(lowest.x, local.x), minf(lowest.y, local.y))
+		highest = Vector2(maxf(highest.x, local.x), maxf(highest.y, local.y))
+	var span := highest - lowest
+	var viewport_size := get_viewport().get_visible_rect().size
+	var aspect := viewport_size.x / maxf(viewport_size.y, 1.0)
+	size = maxf(size, maxf(span.y, span.x / maxf(aspect, 0.0001)) * WORLD_FIT_MARGIN)
+	# And then centred on what it is holding. Framing the middle of the island's
+	# ground-plane rectangle is not the same as framing the middle of the picture
+	# once the rooms are at nine different elevations, so the camera slides in its
+	# own plane to put the measured middle in the middle. It slides; it never
+	# turns -- the view stays the fixed one the brief asks for.
+	var middle := (lowest + highest) * 0.5
+	position += global_transform.basis * Vector3(middle.x, middle.y, 0.0)
+
+
 ## The unit vector the fixed camera looks along.
 static func view_direction() -> Vector3:
 	var basis_value := Basis.from_euler(Vector3(deg_to_rad(PITCH_DEGREES), deg_to_rad(YAW_DEGREES), 0.0))

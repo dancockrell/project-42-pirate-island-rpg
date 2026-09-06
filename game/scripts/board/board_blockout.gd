@@ -29,10 +29,6 @@ const ROUTE_WIDTH_METRES := 3.6
 ## **needs decision.** How tall one miniature stands, in metres. Big enough to
 ## read at the world distance, small enough not to hide the cell it stands on.
 const MINIATURE_HEIGHT_METRES := 10.0
-## The island's rock, under every room's ground. One colour: P5's Theme owns it.
-const ROCK := Color("32403a")
-## The island's own ground between the rooms -- jungle over volcanic soil.
-const LAND := Color("4a5b48")
 
 ## **needs decision.** The radius of a spawn socket's marker, in metres.
 const SOCKET_RADIUS_METRES := 1.15
@@ -80,7 +76,7 @@ static func tile(parent: Node3D, cell: Dictionary, tint: Color) -> MeshInstance3
 		"Plinth_%s" % slug,
 		Vector3(width * 0.94, maxf(plinth_height, 0.5), depth * 0.94),
 		Vector3(centre.x, elevation - TILE_THICKNESS_METRES - maxf(plinth_height, 0.5) * 0.5, centre.z),
-		clay(ROCK)
+		clay(BoardPalette.rock())
 	)
 	mark(plinth, "the island's baked terrain under %s" % cell.get("cell_id", ""))
 	# The room's own ground: the face the player reads, and the one that carries
@@ -154,6 +150,25 @@ static func miniature(parent: Node3D, node_name: String, tint: Color, scale_valu
 	SetpieceMeshFactory.sphere(pawn, "Head", Vector3.ONE * height * 0.2, Vector3(0.0, height * 0.84, 0.0), surface)
 	mark(pawn, "the actor's rigged model, through the character asset contract in brief section 18")
 	return pawn
+
+
+## A ring lying flat on the ground: the selection ring an RTS puts under the
+## unit the player has picked, and the fainter one a look leaves on a place. It
+## is the same torus the encounter space is made of, at the room's own size --
+## one ring shape on the board, drawn three times, rather than three shapes.
+static func ring(parent: Node3D, ring_name: String, radius: float, thickness: float, tint: Color) -> MeshInstance3D:
+	var mesh := TorusMesh.new()
+	mesh.inner_radius = maxf(radius - thickness, 0.05)
+	mesh.outer_radius = maxf(radius, 0.1)
+	mesh.rings = 48
+	mesh.ring_segments = 6
+	mesh.material = clay(tint, 0.5)
+	var torus := MeshInstance3D.new()
+	torus.name = ring_name
+	torus.mesh = mesh
+	parent.add_child(torus)
+	mark(torus, "no model: a selection ring is interface drawn in the world and stays procedural")
+	return torus
 
 
 ## One spawn socket, marked by role.

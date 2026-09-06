@@ -17,14 +17,33 @@ extends Node3D
 ## The party miniature snaps to `active_location_id` on every snapshot and moves
 ## on nothing else. There is no click-to-move here: a click cannot move the
 ## party, because a click is not a confirmed travel and the simulation is the
-## only thing that says the party has gone anywhere. B18/P7 owns selection and
-## orders; when it lands it issues travel through `CampaignSession` and this
-## board hears about it through the next snapshot, exactly as it hears about
-## everything else.
+## only thing that says the party has gone anywhere.
 ##
-## This board does not replace `expedition_route_board.gd` in this pass. That
-## 2D board is still the one the expedition screen draws; a later card retires
-## it against this one rather than leaving two boards drawing the island.
+## ## P10: this is the expedition screen's board
+##
+## P4 said the 2D route board under `scripts/world/` would stay the one the
+## expedition screen drew until a later card retired it. This is that card: that
+## board is deleted, this one is what the screen hosts, and P7's control grammar
+## moved onto it unchanged in meaning --
+##
+##   left-click   -> `tile_selected`  (the party's own tile selects it, any
+##                   other tile is a look, never a move)
+##   right-click  -> `move_ordered`   (the screen turns it into the one
+##                   `request_travel` call, or refuses it in the status line)
+##
+## The board still never calls the bridge and never judges legality a second
+## time: `portal_from_active_cell_to` is a lookup inside the snapshot's own
+## `legal_route_commands`, exactly as it was on the 2D board, and the three
+## states a tile can be in -- the party stands here, a legal road reaches here,
+## no road reaches here -- are that list read out loud in clay.
+
+## Left-click on a tile. The screen decides whether that is "select the party"
+## or "look at that place"; the board only says which tile was clicked.
+signal tile_selected(cell_id: String)
+
+## Right-click on a tile: the move order, in board terms. The screen resolves it
+## to a portal and to the single native travel call.
+signal move_ordered(cell_id: String)
 
 const DISTANCE_WORLD := "world"
 const DISTANCE_ROUTE := "route"
@@ -33,6 +52,10 @@ const DISTANCES := [DISTANCE_WORLD, DISTANCE_ROUTE, DISTANCE_ROOM]
 
 ## The region whose cells this board draws. One region is authored.
 const REGION_ID := "world.region.black_beach"
+
+## P2's one lighting kit: the island's environment, its key sun and its sea
+## fill. The board instances it rather than declaring a second one.
+const LIGHTING_KIT_PATH := "res://render/world_environment.tscn"
 
 ## **needs decision.** How much smaller a force miniature stands than the party's.
 ## A framing choice: the party is the one the player follows.
@@ -58,6 +81,20 @@ const SHELF_TOP_METRES := -1.5
 ## as a multiple of it, and how wide the shelf is along a road, in metres.
 const SHELF_MARGIN := 2.1
 const SHELF_STRIP_WIDTH_METRES := 46.0
+## **needs decision.** How far past a room's footprint the selection ring stands,
+## as a multiple of the footprint's smaller side, and how thick the ring is drawn
+## in metres. Framing choices: the ring must read as a ring around the room at
+## the world distance without swallowing the road that leaves it.
+const RING_FOOTPRINT_MARGIN := 0.62
+const RING_THICKNESS_METRES := 1.6
+## **needs decision.** How far above a room's floor a ring is drawn, in metres.
+const RING_LIFT_METRES := 0.9
+
+## The selection ring's gentle breath, carried over from the 2D board unchanged:
+## the amplitude is a fraction of the ring's radius and the period is in seconds.
+## Both are switched off under reduced motion, where the ring stands at rest.
+const RING_PULSE_AMPLITUDE := 0.055
+const RING_PULSE_SECONDS := 2.6
 
 var catalog: ContentCatalog
 ## The autoloaded campaign owner, when one is in the tree. The board asks it for
@@ -82,6 +119,32 @@ var party_miniature: Node3D
 var force_miniatures: Dictionary = {}
 ## The port used purely as the catalog's board reader when no campaign is live.
 var reader: NativeExpeditionPort
+
+# -- P7's grammar, on this board ---------------------------------------------
+
+## The portals the snapshot currently calls legal, as a set. Read from
+## `legal_route_commands` and from nothing else.
+var legal_portal_ids: Dictionary = {}
+
+## Whether the party is currently selected. It starts selected because the party
+## is the only unit on this board and an RTS that opens with nothing selected
+## just costs the player a click; a left-click on the party's tile or on its
+## card re-states it, and looking at another tile never takes it away.
+var party_selected := true
+
+## The tile the player last looked at, or "" for none. A look is not a
+## selection: it rings one tile and writes one status line, nothing else.
+var inspected_cell_id := ""
+
+var hovered_cell_id := ""
+
+var party_ring: MeshInstance3D
+var inspect_ring: MeshInstance3D
+
+## Seconds of engine time accumulated while the ring is breathing. Presentation
+## only: nothing on this board is read by the simulation, and the accumulator is
+## frozen (and the ring drawn at rest) whenever reduced motion is on.
+var ring_phase := 0.0
 
 
 func _ready() -> void:
@@ -108,9 +171,7 @@ func build_scene_graph() -> void:
 	camera = BoardCamera.new()
 	camera.name = "BoardCamera"
 	add_child(camera)
-	add_child(make_environment())
-	add_child(make_key_light())
-	add_child(make_fill_light())
+	add_child(make_lighting_kit())
 	terrain_root = make_layer("Terrain")
 	route_root = make_layer("Routes")
 	room_root = make_layer("Room")
@@ -118,12 +179,16 @@ func build_scene_graph() -> void:
 	load_cells()
 	build_sea()
 	for cell_id in sorted_cell_ids():
-		BoardBlockout.tile(terrain_root, cells[cell_id], BoardPalette.CLAY)
+		BoardBlockout.tile(terrain_root, cells[cell_id], BoardPalette.clay())
 	build_tethers()
 	build_shelf()
 	space_parallel_tethers()
 	build_causeways()
-	party_miniature = BoardBlockout.miniature(miniature_root, "PartyMiniature", BoardPalette.CREAM)
+	party_miniature = BoardBlockout.miniature(miniature_root, "PartyMiniature", BoardPalette.cream())
+	party_ring = BoardBlockout.ring(miniature_root, "PartySelectionRing", RING_THICKNESS_METRES, RING_THICKNESS_METRES, BoardPalette.teal())
+	inspect_ring = BoardBlockout.ring(miniature_root, "InspectedCellRing", RING_THICKNESS_METRES, RING_THICKNESS_METRES * 0.6, BoardPalette.cream())
+	inspect_ring.visible = false
+	set_process(true)
 
 
 func make_layer(layer_name: String) -> Node3D:
@@ -259,7 +324,7 @@ func build_sea() -> void:
 	var bounds := island_bounds()
 	var mesh := PlaneMesh.new()
 	mesh.size = bounds.size * 7.0
-	mesh.material = BoardBlockout.clay(BoardPalette.SEA, 0.08)
+	mesh.material = BoardBlockout.clay(BoardPalette.sea(), 0.08)
 	var plane := MeshInstance3D.new()
 	plane.name = "Sea"
 	plane.mesh = mesh
@@ -285,7 +350,7 @@ func build_shelf() -> void:
 			BoardBlockout.node_name("Apron_", cell_id, "world.cell."),
 			Vector3(float(footprint.get("width_metres", 1.0)) * SHELF_MARGIN, height, float(footprint.get("depth_metres", 1.0)) * SHELF_MARGIN),
 			Vector3(centre.x, top - height * 0.5, centre.z),
-			BoardBlockout.clay(BoardBlockout.LAND)
+			BoardBlockout.clay(BoardPalette.land())
 		)
 		BoardBlockout.mark(apron, "the island's baked terrain and coastline around %s" % cell_id)
 	var portal_ids := tethers.keys()
@@ -302,7 +367,7 @@ func build_shelf() -> void:
 			BoardBlockout.node_name("Shelf_", str(portal_id), "world.portal."),
 			Vector3(SHELF_STRIP_WIDTH_METRES, height, span),
 			Vector3.ZERO,
-			BoardBlockout.clay(BoardBlockout.LAND)
+			BoardBlockout.clay(BoardPalette.land())
 		)
 		strip.position = flat_from.lerp(flat_to, 0.5) - Vector3(0.0, height * 0.5, 0.0)
 		strip.look_at(Vector3(flat_to.x, strip.global_position.y, flat_to.z), Vector3.UP)
@@ -324,7 +389,22 @@ func build_causeways() -> void:
 		if drawn.has(key):
 			continue
 		drawn[key] = true
-		BoardBlockout.causeway(terrain_root, BoardBlockout.node_name("Causeway_", str(portal_id), "world.portal."), tether["from_point"], tether["to_point"], BoardBlockout.ROCK)
+		BoardBlockout.causeway(terrain_root, BoardBlockout.node_name("Causeway_", str(portal_id), "world.portal."), tether["from_point"], tether["to_point"], BoardPalette.rock())
+
+
+## Every corner of every room's footprint, at the room's own elevation. What the
+## world distance has to hold in frame.
+func island_corners() -> PackedVector3Array:
+	var corners := PackedVector3Array()
+	for cell_id in sorted_cell_ids():
+		var cell: Dictionary = cells[cell_id]
+		var centre := BoardBlockout.centre_of(cell)
+		var footprint: Dictionary = cell.get("footprint", {})
+		var half_width := float(footprint.get("width_metres", 0.0)) * 0.5
+		var half_depth := float(footprint.get("depth_metres", 0.0)) * 0.5
+		for corner in [Vector2(-1.0, -1.0), Vector2(1.0, -1.0), Vector2(1.0, 1.0), Vector2(-1.0, 1.0)]:
+			corners.append(centre + Vector3(corner.x * half_width, 0.0, corner.y * half_depth))
+	return corners
 
 
 ## The rectangle every room's footprint fits inside, on the ground plane.
@@ -345,22 +425,77 @@ func island_bounds() -> Rect2:
 ## One snapshot, drawn. Called on every snapshot the campaign produces.
 func project_snapshot(next_snapshot: Dictionary) -> void:
 	snapshot = next_snapshot.duplicate(true)
-	apply_ownership()
+	read_legal_routes()
+	apply_cells()
 	apply_routes()
 	apply_party()
 	apply_forces()
+	apply_rings()
 	apply_distance()
 
 
-## S2's control, drawn. `controller_of` is the only answer to who holds a cell;
-## the board never reads a raw ownership map and never derives a controller.
-func apply_ownership() -> void:
+## The one door the screen projects a snapshot through, kept to the signature
+## the 2D board carried so the expedition screen's call site did not have to
+## learn a second shape when the board underneath it changed. The catalog is
+## content and is taken once; everything else is the snapshot.
+func configure(next_catalog: ContentCatalog, next_snapshot: Dictionary) -> void:
+	if next_catalog != null and catalog != next_catalog:
+		catalog = next_catalog
+	project_snapshot(next_snapshot)
+
+
+## The portals the snapshot calls legal right now. This is a read of
+## `legal_route_commands` and nothing more: the board holds no opinion about
+## which road is open, and a road the simulation stopped naming stops being
+## reachable here on the very next projection.
+func read_legal_routes() -> void:
+	legal_portal_ids.clear()
+	for command in snapshot.get("legal_route_commands", []):
+		var command_text := str(command)
+		if command_text.begins_with("travel:"):
+			legal_portal_ids[command_text.trim_prefix("travel:")] = true
+	if inspected_cell_id == party_cell_id():
+		inspected_cell_id = ""
+
+
+## S2's control and P7's reachability, drawn on the one surface a cell has.
+##
+## `controller_of` is the only answer to who holds a cell; the board never reads
+## a raw ownership map and never derives a controller. `cell_state` is the only
+## answer to whether the party can go there, and it is a lookup inside the
+## snapshot's legal list. `BoardPalette.cell_tint` puts the two together, so a
+## cell that changes hands changes colour whether it is reachable or not, and a
+## road opening lights the place it reaches without repainting who holds it.
+func apply_cells() -> void:
 	for cell_id in sorted_cell_ids():
 		var tile := terrain_root.get_node_or_null(BoardBlockout.node_name("Tile_", cell_id, "world.cell."))
 		if tile == null:
 			continue
-		var controller := "" if port == null else port.controller_of(cell_id)
-		(tile as MeshInstance3D).mesh.material = BoardBlockout.clay(BoardPalette.controller_tint(controller))
+		var live_port := current_port()
+		var controller := "" if live_port == null else live_port.controller_of(cell_id)
+		(tile as MeshInstance3D).mesh.material = BoardBlockout.clay(BoardPalette.cell_tint(controller, cell_state(cell_id)))
+
+
+## Where one cell stands to the party: the tile it is on, a tile a legal road
+## reaches, or a tile no road reaches. P7's whole legality vocabulary.
+## The port the live campaign is holding right now. `CampaignSession` is the one
+## owner of that, and it replaces the port it holds whenever a campaign is
+## discarded and begun again -- a reset, a new game, a loaded slot. So this asks
+## the session each time rather than keeping the port it was handed when the
+## scene graph was built, which after any of those would answer for a campaign
+## that no longer exists.
+func current_port() -> NativeExpeditionPort:
+	if campaign_session != null and campaign_session.expedition != null:
+		port = campaign_session.expedition
+	return port
+
+
+func cell_state(cell_id: String) -> String:
+	if cell_id == party_cell_id():
+		return BoardPalette.CELL_ACTIVE
+	if is_reachable(cell_id):
+		return BoardPalette.CELL_REACHABLE
+	return BoardPalette.CELL_DISTANT
 
 
 ## Every known road drawn, and the legal ones drawn by the danger the snapshot
@@ -379,7 +514,7 @@ func apply_routes() -> void:
 	for portal_id in portal_ids:
 		var tether: Dictionary = tethers[portal_id]
 		var legal: bool = risk_by_portal.has(portal_id)
-		var tint: Color = BoardPalette.risk_tint(int(risk_by_portal.get(portal_id, 0))) if legal else BoardPalette.MUTED
+		var tint: Color = BoardPalette.risk_tint(int(risk_by_portal.get(portal_id, 0))) if legal else BoardPalette.faint_structure()
 		var from: Vector3 = (tether["from_point"] as Vector3) + Vector3(0.0, ROUTE_LIFT_METRES, 0.0) + (tether["parallel_offset"] as Vector3)
 		var to: Vector3 = (tether["to_point"] as Vector3) + Vector3(0.0, ROUTE_LIFT_METRES, 0.0) + (tether["parallel_offset"] as Vector3)
 		BoardBlockout.route(route_root, BoardBlockout.node_name("Route_", str(portal_id), "world.portal."), from, to, tint, 2.4 if legal else 1.0)
@@ -461,6 +596,12 @@ func apply_distance() -> void:
 		_:
 			var bounds := island_bounds()
 			camera.frame(distance, Vector3(bounds.get_center().x, 12.0, bounds.get_center().y))
+			# The world distance must hold the whole island, and how wide the
+			# island is is content: nine authored rooms at authored positions.
+			# So the constant frame height is a floor and the actual frame is
+			# measured off the rooms, which is why adding a tenth room does not
+			# crop the board.
+			camera.fit(island_corners())
 
 
 ## The room distance: one cell's footprint, its spawn sockets by role, the gates
@@ -478,7 +619,7 @@ func build_room(cell_id: String) -> void:
 	var footprint: Dictionary = cell.get("footprint", {})
 	var width := float(footprint.get("width_metres", 1.0))
 	var depth := float(footprint.get("depth_metres", 1.0))
-	var floor_slab := SetpieceMeshFactory.box(room_root, "RoomFloor", Vector3(width, BoardBlockout.TILE_THICKNESS_METRES, depth), centre, BoardBlockout.clay(BoardPalette.CLAY))
+	var floor_slab := SetpieceMeshFactory.box(room_root, "RoomFloor", Vector3(width, BoardBlockout.TILE_THICKNESS_METRES, depth), centre, BoardBlockout.clay(BoardPalette.clay()))
 	BoardBlockout.mark(floor_slab, "the cell's baked visual shell (%s)" % cell_id)
 	# The footprint's own edge, so the declared box is visible as a box rather
 	# than implied. Nothing essential may extend outside it (brief section 18).
@@ -489,12 +630,12 @@ func build_room(cell_id: String) -> void:
 			"RoomEdge%d_%d" % [int(edge.x), int(edge.z)],
 			Vector3(width if along_x else 1.1, 2.4, 1.1 if along_x else depth),
 			centre + edge + Vector3(0.0, 1.5, 0.0),
-			BoardBlockout.clay(BoardPalette.MUTED)
+			BoardBlockout.clay(BoardPalette.faint_structure())
 		)
 		BoardBlockout.mark(kerb, "the room's authored boundary geometry")
 	for spawn in cell.get("spawn_points", []):
 		var role := str((spawn as Dictionary).get("role", ""))
-		var tint: Color = BoardPalette.ROLE_TINT.get(role, BoardPalette.MUTED)
+		var tint: Color = BoardPalette.role_tint(role)
 		BoardBlockout.socket(room_root, BoardBlockout.node_name("Socket_", str((spawn as Dictionary).get("id", "")), "spawn."), centre + ((spawn as Dictionary).get("position_metres", Vector3.ZERO) as Vector3) + Vector3(0.0, BoardBlockout.TILE_THICKNESS_METRES * 0.5, 0.0), tint, float(BoardPalette.ROLE_POST_HEIGHT.get(role, 0.0)))
 	for tether in cell.get("tethers", []):
 		var portal_id := str((tether as Dictionary).get("portal_id", ""))
@@ -508,7 +649,7 @@ func build_room(cell_id: String) -> void:
 			BoardBlockout.node_name("Exit_", portal_id, "world.portal."),
 			Vector3(2.6, 3.8, 2.6),
 			centre + anchor + offset + Vector3(0.0, 1.9 + BoardBlockout.TILE_THICKNESS_METRES * 0.5, 0.0),
-			BoardBlockout.clay(BoardPalette.BRONZE, 0.28)
+			BoardBlockout.clay(BoardPalette.bronze(), 0.28)
 		)
 		BoardBlockout.mark(gate, "the authored exit's baked gate geometry")
 	# The encounter space: where the cell's battle entry says a fight stands. The
@@ -522,47 +663,216 @@ func build_room(cell_id: String) -> void:
 			BoardBlockout.node_name("EncounterSpace_", str((battle_entry as Dictionary).get("id", "")), "battle_entry."),
 			centre + position + Vector3(0.0, BoardBlockout.TILE_THICKNESS_METRES * 0.5 + 0.4, 0.0),
 			ENCOUNTER_SPACE_RADIUS_METRES,
-			BoardPalette.DANGER
+			BoardPalette.danger()
 		)
 		ring.set_meta("encounter_lens", EncounterLens.OPEN_DECISION)
 
 
-## The board's environment. **P2 owns `world_environment.tres`**; this is the
-## local stand-in until that lane lands, and it is the same shape as the
-## terrace setpiece's lighting kit so the two can be replaced together.
-func make_environment() -> WorldEnvironment:
-	var environment := Environment.new()
-	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = BoardPalette.DEEP
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color("4c6f74")
-	environment.ambient_light_energy = 0.7
-	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	environment.tonemap_exposure = 1.05
-	environment.fog_enabled = true
-	environment.fog_light_color = Color("32545a")
-	environment.fog_light_energy = 0.4
-	environment.fog_density = 0.0016
-	var world_environment := WorldEnvironment.new()
-	world_environment.name = "BoardEnvironment"
-	world_environment.environment = environment
-	return world_environment
+## The board's light. **P2 owns it**, and this instances P2's kit rather than
+## keeping the local stand-in P4 wrote while that lane was in flight: the same
+## `world_environment.tscn` the terrace and the port town instance, so the island
+## is lit by the one environment the project declares and a change to it reaches
+## every screen at once. Three hand-written nodes -- an Environment, a key light
+## and a fill -- came out of this file to put it there.
+## The kit's root is a `WorldEnvironment`, which is a `Node` and not a `Node3D`
+## -- the lights are its children -- so this returns a `Node`.
+func make_lighting_kit() -> Node:
+	var packed := load(LIGHTING_KIT_PATH) as PackedScene
+	if packed == null:
+		push_error("The board cannot load the project's lighting kit at %s." % LIGHTING_KIT_PATH)
+		return Node.new()
+	var kit := packed.instantiate()
+	kit.name = "BoardLight"
+	return kit
 
 
-func make_key_light() -> DirectionalLight3D:
-	var sun := DirectionalLight3D.new()
-	sun.name = "BoardKey"
-	sun.rotation_degrees = Vector3(-52.0, -34.0, 0.0)
-	sun.light_color = Color("ffd9a3")
-	sun.light_energy = 1.45
-	sun.shadow_enabled = true
-	return sun
+# ---------------------------------------------------------------------------
+# P7's grammar, on the 3D board
+#
+# The three hooks the 2D board offered the screen, on this one, with the same
+# meanings: `portal_from_active_cell_to` is the lookup, `set_party_selected` and
+# `set_inspected_cell` are what a click leaves behind. The screen is unchanged
+# in what it asks for; only what answers has changed.
+#
+# The board still emits rather than acts: `tile_selected` and `move_ordered`
+# carry a cell id out, and every order that follows goes through the screen's
+# one `request_travel`. No line below calls the bridge.
+# ---------------------------------------------------------------------------
+
+## The authored portal that leaves the active cell for `cell_id` and that the
+## native snapshot currently calls legal, or "" when there is no such road.
+##
+## Two roads can join the same pair of rooms -- the river landing's safe road
+## and its jungle edge both reach the terrace -- so the order this walks in
+## decides which one a right-click orders. It walks the active cell's portals in
+## the order the content authors them, which is the order the departure list
+## draws them in, so the tile and the first digit give the same road. The 2D
+## board resolved it the same way and this keeps that meaning.
+func portal_from_active_cell_to(cell_id: String) -> String:
+	var active := party_cell_id()
+	# Before the first snapshot there is no active cell, and asking the catalog
+	# for the record named "" is a content error rather than a question.
+	if catalog == null or active.is_empty() or cell_id.is_empty():
+		return ""
+	for portal in catalog.get_record(active).get("portals", []):
+		if not portal is Dictionary:
+			continue
+		if str((portal as Dictionary).get("targetCellId", "")) != cell_id:
+			continue
+		var portal_id := str((portal as Dictionary).get("id", ""))
+		if legal_portal_ids.has(portal_id):
+			return portal_id
+	return ""
 
 
-func make_fill_light() -> DirectionalLight3D:
-	var fill := DirectionalLight3D.new()
-	fill.name = "BoardFill"
-	fill.rotation_degrees = Vector3(-26.0, 146.0, 0.0)
-	fill.light_color = Color("6fc8bd")
-	fill.light_energy = 0.5
-	return fill
+func is_reachable(cell_id: String) -> bool:
+	return not portal_from_active_cell_to(cell_id).is_empty()
+
+
+## A cell's authored name, for a status line. The board never invents a place
+## name; a cell the catalog does not carry reads as its own id.
+func display_name_of(cell_id: String) -> String:
+	if catalog == null:
+		return cell_id
+	var record := catalog.get_record(cell_id)
+	var display := str(record.get("displayName", ""))
+	return display if not display.is_empty() else cell_id
+
+
+## The cell under a point in the board viewport's own pixels, or "" for open
+## water. The camera is orthographic and fixed, so this is an exact ray against
+## each room's top face rather than a hit test against drawn pixels: the answer
+## does not depend on what happens to be drawn over the tile.
+##
+## At the room distance the island is not on screen at all, so nothing is
+## pickable there -- a place the player cannot see is not a place they can order
+## a march to, and the words and the digits still can.
+func cell_at_viewport_point(point: Vector2) -> String:
+	if camera == null or not terrain_root.visible:
+		return ""
+	var origin := camera.project_ray_origin(point)
+	var direction := camera.project_ray_normal(point)
+	var best_cell := ""
+	var best_distance := INF
+	for cell_id in sorted_cell_ids():
+		var cell: Dictionary = cells[cell_id]
+		var top := float(cell.get("elevation_metres", 0.0))
+		if absf(direction.y) < 0.00001:
+			continue
+		var travel := (top - origin.y) / direction.y
+		if travel <= 0.0:
+			continue
+		var hit := origin + direction * travel
+		var centre := BoardBlockout.centre_of(cell)
+		var footprint: Dictionary = cell.get("footprint", {})
+		if absf(hit.x - centre.x) > float(footprint.get("width_metres", 0.0)) * 0.5:
+			continue
+		if absf(hit.z - centre.z) > float(footprint.get("depth_metres", 0.0)) * 0.5:
+			continue
+		if travel < best_distance:
+			best_distance = travel
+			best_cell = cell_id
+	return best_cell
+
+
+## Left-click, in board terms. The board reports which tile; the screen decides
+## whether that was a selection or a look.
+func click_at(point: Vector2) -> String:
+	var cell_id := cell_at_viewport_point(point)
+	if not cell_id.is_empty():
+		tile_selected.emit(cell_id)
+	return cell_id
+
+
+## Right-click, in board terms: the move order. The screen resolves it to a
+## portal and to the one native travel call, or refuses it.
+func order_at(point: Vector2) -> String:
+	var cell_id := cell_at_viewport_point(point)
+	if not cell_id.is_empty():
+		move_ordered.emit(cell_id)
+	return cell_id
+
+
+## The tile the pointer is over, kept so the board can say so. Returns true when
+## the answer changed, which is what a caller redraws on.
+func hover_at(point: Vector2) -> bool:
+	var hovered := cell_at_viewport_point(point)
+	if hovered == hovered_cell_id:
+		return false
+	hovered_cell_id = hovered
+	return true
+
+
+## Called by the screen when the party is selected, from a click on its tile or
+## on its card in the interface. The ring restarts at rest so the breath begins
+## where the player's eye lands.
+func set_party_selected(selected: bool) -> void:
+	party_selected = selected
+	ring_phase = 0.0
+	apply_rings()
+
+
+func set_inspected_cell(cell_id: String) -> void:
+	inspected_cell_id = "" if cell_id == party_cell_id() else cell_id
+	apply_rings()
+
+
+## How wide a ring stands on one room: half the room's shorter side, plus the
+## named margin. A ring is drawn around the *place* the party is in, so it is
+## the size of that place -- one radius for every room on the island would have
+## to be the biggest room's, and the biggest room here is wide enough that the
+## ring reached across three of its neighbours.
+func ring_radius_for(cell: Dictionary) -> float:
+	var footprint: Dictionary = cell.get("footprint", {})
+	var shorter := minf(float(footprint.get("width_metres", 2.0)), float(footprint.get("depth_metres", 2.0)))
+	return maxf(shorter, 1.0) * 0.5 * (1.0 + RING_FOOTPRINT_MARGIN)
+
+
+## Put a ring on one cell: its size and its place, in one call, because a ring
+## that moved without resizing would be the wrong ring on the right room.
+func place_ring(torus: MeshInstance3D, cell: Dictionary, thickness: float) -> void:
+	var radius := ring_radius_for(cell)
+	var mesh := torus.mesh as TorusMesh
+	mesh.outer_radius = radius
+	mesh.inner_radius = maxf(radius - thickness, 0.05)
+	torus.position = ring_point(cell)
+
+
+## The two rings put where the snapshot and the player's last click say they go.
+## Neither ring moves the party and neither is read by anything: they are the
+## board saying what is selected and what was looked at.
+func apply_rings() -> void:
+	if party_ring == null or inspect_ring == null:
+		return
+	var party_cell := party_cell_id()
+	party_ring.visible = party_selected and cells.has(party_cell)
+	if party_ring.visible:
+		place_ring(party_ring, cells[party_cell], RING_THICKNESS_METRES)
+	inspect_ring.visible = not inspected_cell_id.is_empty() and cells.has(inspected_cell_id) and inspected_cell_id != party_cell
+	if inspect_ring.visible:
+		place_ring(inspect_ring, cells[inspected_cell_id], RING_THICKNESS_METRES * 0.6)
+	apply_ring_breath()
+
+
+func ring_point(cell: Dictionary) -> Vector3:
+	return BoardBlockout.centre_of(cell) + Vector3(0.0, RING_LIFT_METRES, 0.0)
+
+
+## The breath, and the reduced-motion substitute for it. B9's setting reaches
+## the board through the Theme the screen built, which is the same door every
+## other surface asks through; under reduced motion the ring is drawn at rest
+## rather than removed, because the ring is what says the party is selected.
+func apply_ring_breath() -> void:
+	if party_ring == null:
+		return
+	var breath := 0.0
+	if not BoardPalette.reduced_motion():
+		breath = sin(ring_phase / RING_PULSE_SECONDS * TAU) * RING_PULSE_AMPLITUDE
+	party_ring.scale = Vector3.ONE * (1.0 + breath)
+
+
+func _process(delta: float) -> void:
+	if not party_selected or party_ring == null or not party_ring.visible or BoardPalette.reduced_motion():
+		return
+	ring_phase = fmod(ring_phase + delta, RING_PULSE_SECONDS)
+	apply_ring_breath()

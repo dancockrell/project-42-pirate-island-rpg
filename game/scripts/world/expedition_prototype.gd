@@ -19,16 +19,26 @@ extends Control
 ## status line and no call is made. While `GamePause` holds the game, every one
 ## of these is ignored.
 
-const RouteBoardScript = preload("res://scripts/world/expedition_route_board.gd")
+## P10: the board this screen draws is `isometric_board.tscn`, hosted through
+## `BoardSurface`. The 2D route board this screen used to build is deleted --
+## not hidden, not kept beside it -- and the three hooks below
+## (`portal_from_active_cell_to`, `set_party_selected`, `set_inspected_cell`)
+## are asked of the 3D board instead. Not one line of the control code changed
+## meaning; only what answers changed. The three distances the board draws at
+## are this screen's camera modes, on F1, F2 and F3.
+##
+## Colour: every value on this screen comes from P5's Theme through
+## `ThemeTokens`. The seven hexes this file used to declare are gone, and the
+## board is handed the same Theme through `BoardPalette.use_theme`, so B9's
+## high contrast reaches the island's clay as surely as it reaches a button.
 
-const DEEP := Color("081211")
-const PANEL := Color("132321")
-const BRONZE := Color("b78a4b")
-const TEAL := Color("55c9ac")
-const CREAM := Color("eadfca")
-const MUTED := Color("9eb0a7")
-const DANGER := Color("c24e45")
 const SEED := 42
+
+## How far the two danger boxes are darkened from the Theme's `danger` token to
+## become a fill a warning still reads against. Two named steps rather than two
+## hexes: the fill follows the token, and the token has one owner.
+const BOX_DARKEN := 0.72
+const BOX_HOVER_DARKEN := 0.58
 
 ## Departures are numbered from one in the order the list draws them, and only
 ## the first nine can carry a digit. A tenth road would still be clickable and
@@ -46,7 +56,7 @@ var route_list: VBoxContainer
 var action_list: VBoxContainer
 var status_label: Label
 var party_card: Button
-var route_board: ExpeditionRouteBoard
+var board: BoardSurface
 var game_pause: Node
 
 
@@ -56,6 +66,7 @@ func _ready() -> void:
 		show_startup_failure("The validated content bundle is unavailable. Rebuild content before running the expedition.")
 		return
 	game_pause = get_node_or_null("/root/GamePause")
+	adopt_theme()
 	campaign_session = get_node_or_null("/root/CampaignSession")
 	if campaign_session == null:
 		show_startup_failure("Campaign session is unavailable. This screen refuses to create a scene-local campaign state.")
@@ -68,8 +79,31 @@ func _ready() -> void:
 	project_snapshot(latest_snapshot, initial_status_message(latest_snapshot))
 
 
+## P5's grammar, worn by this screen and by the board inside it.
+##
+## `InformationSurface` is the one owner of the live Theme -- it holds B9's three
+## settings and rebuilds the Theme when they change -- so this asks it rather
+## than reading the settings file a second time, and listens for the rebuild so
+## a change made in the pause menu reaches the island without a scene reload.
+## `BoardPalette.use_theme` is how the same Theme reaches the 3D board, which
+## has no Control ancestor to inherit one from.
+func adopt_theme() -> void:
+	var information_surface := get_node_or_null("/root/InformationSurface")
+	if information_surface == null:
+		wear_theme(ThemeTokens.build())
+		return
+	wear_theme(information_surface.current_theme())
+	if not information_surface.theme_rebuilt.is_connected(wear_theme):
+		information_surface.theme_rebuilt.connect(wear_theme)
+
+
+func wear_theme(next_theme: Theme) -> void:
+	theme = next_theme
+	BoardPalette.use_theme(next_theme)
+
+
 func build_screen() -> void:
-	add_child(make_rect(DEEP))
+	add_child(make_rect(token("deep")))
 	var frame := MarginContainer.new()
 	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	frame.add_theme_constant_override("margin_left", 40)
@@ -85,13 +119,13 @@ func build_screen() -> void:
 	content_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content_row.add_theme_constant_override("separation", 22)
 	page.add_child(content_row)
-	route_board = RouteBoardScript.new()
-	route_board.name = "ExpeditionRouteBoard"
-	route_board.custom_minimum_size = Vector2(1060, 700)
-	route_board.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	route_board.tile_selected.connect(select_tile)
-	route_board.move_ordered.connect(order_move_to_tile)
-	content_row.add_child(route_board)
+	board = BoardSurface.new()
+	board.name = "BoardSurface"
+	board.custom_minimum_size = Vector2(1060, 700)
+	board.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	board.tile_selected.connect(select_tile)
+	board.move_ordered.connect(order_move_to_tile)
+	content_row.add_child(board)
 	content_row.add_child(build_location_panel())
 	page.add_child(build_footer())
 
@@ -99,10 +133,10 @@ func build_screen() -> void:
 func build_header() -> Control:
 	var header := HBoxContainer.new()
 	header.custom_minimum_size.y = 62
-	title_label = make_label("MICHAEL CORRIGAN  /  BLACK BEACH EXPEDITION", 23, BRONZE)
+	title_label = make_label("MICHAEL CORRIGAN  /  BLACK BEACH EXPEDITION", "title", token("bronze"))
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title_label)
-	day_label = make_label("DAY 1  •  DAWN", 16, CREAM)
+	day_label = make_label("DAY 1  •  DAWN", "body", token("cream"))
 	day_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	day_label.custom_minimum_size.x = 230
 	header.add_child(day_label)
@@ -123,24 +157,24 @@ func build_location_panel() -> Control:
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 14)
 	padding.add_child(stack)
-	location_label = make_label("", 28, CREAM)
+	location_label = make_label("", "display", token("cream"))
 	stack.add_child(location_label)
 	description_label = RichTextLabel.new()
 	description_label.name = "LocationDescription"
 	description_label.bbcode_enabled = true
 	description_label.fit_content = false
 	description_label.custom_minimum_size.y = 205
-	description_label.add_theme_font_size_override("normal_font_size", 17)
-	description_label.add_theme_color_override("default_color", CREAM)
+	description_label.add_theme_font_size_override("normal_font_size", step("body"))
+	description_label.add_theme_color_override("default_color", token("cream"))
 	description_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stack.add_child(description_label)
-	var route_heading := make_label("LEGAL DEPARTURES", 14, BRONZE)
+	var route_heading := make_label("LEGAL DEPARTURES", "caption", token("bronze"))
 	stack.add_child(route_heading)
 	route_list = VBoxContainer.new()
 	route_list.name = "LegalRouteList"
 	route_list.add_theme_constant_override("separation", 9)
 	stack.add_child(route_list)
-	var action_heading := make_label("LEGAL ACTIONS HERE", 14, BRONZE)
+	var action_heading := make_label("LEGAL ACTIONS HERE", "caption", token("bronze"))
 	stack.add_child(action_heading)
 	action_list = VBoxContainer.new()
 	action_list.name = "LegalActionList"
@@ -153,7 +187,7 @@ func build_location_panel() -> Control:
 	slack.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	slack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stack.add_child(slack)
-	status_label = make_label("", 14, MUTED)
+	status_label = make_label("", "caption", token("muted"))
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(status_label)
 	return panel
@@ -171,13 +205,13 @@ func build_footer() -> Control:
 	party_card.tooltip_text = "Selects the party. Right-click a tile, click a departure, or press its number to march."
 	party_card.flat = true
 	party_card.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	party_card.add_theme_font_size_override("font_size", 14)
-	party_card.add_theme_color_override("font_color", CREAM)
-	party_card.add_theme_color_override("font_hover_color", TEAL)
+	party_card.add_theme_font_size_override("font_size", step("caption"))
+	party_card.add_theme_color_override("font_color", token("cream"))
+	party_card.add_theme_color_override("font_hover_color", token("teal"))
 	party_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	party_card.pressed.connect(func() -> void: select_tile(str(latest_snapshot.get("active_location_id", ""))))
 	footer.add_child(party_card)
-	var authority := make_label("RUST EXPEDITION STATE  •  ARRIVAL SAVE BOUNDARY", 13, TEAL)
+	var authority := make_label("RUST EXPEDITION STATE  •  ARRIVAL SAVE BOUNDARY", "caption", token("teal"))
 	authority.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	footer.add_child(authority)
 	return footer
@@ -191,7 +225,7 @@ func project_snapshot(snapshot: Dictionary, message: String) -> void:
 	day_label.text = "DAY %d  •  %s" % [day, segment]
 	location_label.text = str(cell.get("displayName", "UNKNOWN LOCATION")).to_upper()
 	description_label.text = make_description(cell, snapshot)
-	route_board.configure(catalog, snapshot)
+	board.configure(catalog, snapshot)
 	populate_routes(cell, snapshot)
 	populate_actions(cell, snapshot)
 	status_label.text = message
@@ -200,12 +234,12 @@ func project_snapshot(snapshot: Dictionary, message: String) -> void:
 func make_description(cell: Dictionary, snapshot: Dictionary) -> String:
 	var descriptions: Array = cell.get("readableDescriptions", [])
 	if descriptions.is_empty():
-		return "[color=#c24e45]AUTHORED OBSERVATION MISSING[/color]"
+		return "[color=#%s]AUTHORED OBSERVATION MISSING[/color]" % token("danger").to_html(false)
 	var primary: Dictionary = descriptions[0]
 	var secondary: Dictionary = descriptions[1] if descriptions.size() > 1 else {}
-	var text := "[color=#b78a4b]OBSERVATION[/color]\n%s" % str(primary.get("text", ""))
+	var text := "[color=#%s]OBSERVATION[/color]\n%s" % [token("bronze").to_html(false), str(primary.get("text", ""))]
 	if not secondary.is_empty():
-		text += "\n\n[color=#9eb0a7]%s[/color]" % str(secondary.get("text", ""))
+		text += "\n\n[color=#%s]%s[/color]" % [token("muted").to_html(false), str(secondary.get("text", ""))]
 	for entry in cell.get("battleEntries", []):
 		if not entry is Dictionary:
 			continue
@@ -213,7 +247,7 @@ func make_description(cell: Dictionary, snapshot: Dictionary) -> String:
 		if resolved_encounter_ids(snapshot).has(encounter_id):
 			var aftermath := str(entry.get("aftermathDescription", ""))
 			if not aftermath.is_empty():
-				text += "\n\n[color=#55c9ac]AFTERMATH[/color]\n%s" % aftermath
+				text += "\n\n[color=#%s]AFTERMATH[/color]\n%s" % [token("teal").to_html(false), aftermath]
 	for response in cell.get("estateConsequenceResponses", []):
 		if not response is Dictionary:
 			continue
@@ -221,7 +255,7 @@ func make_description(cell: Dictionary, snapshot: Dictionary) -> String:
 		if estate_upgrades(snapshot).has(estate_upgrade_id):
 			var response_text := str(response.get("text", ""))
 			if not response_text.is_empty():
-				text += "\n\n[color=#55c9ac]HOUSEHOLD RESULT[/color]\n%s" % response_text
+				text += "\n\n[color=#%s]HOUSEHOLD RESULT[/color]\n%s" % [token("teal").to_html(false), response_text]
 	return text
 
 
@@ -272,7 +306,7 @@ func populate_routes(cell: Dictionary, snapshot: Dictionary) -> void:
 	if not pending_encounter.is_empty():
 		var encounter_id := str(pending_encounter.get("encounter_id", ""))
 		var battle_id := str(pending_encounter.get("battle_id", ""))
-		var pending := make_label("ENCOUNTER PENDING\n%s\n%s" % [encounter_id.to_upper(), battle_id.to_upper()], 14, DANGER)
+		var pending := make_label("ENCOUNTER PENDING\n%s\n%s" % [encounter_id.to_upper(), battle_id.to_upper()], "caption", token("danger"))
 		pending.name = "PendingEncounter"
 		pending.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		pending.custom_minimum_size.y = 78
@@ -283,9 +317,9 @@ func populate_routes(cell: Dictionary, snapshot: Dictionary) -> void:
 		engage.custom_minimum_size.y = 62
 		engage.text = "ENGAGE  •  %s" % encounter_id.trim_prefix("encounter.").replace("_", " ").to_upper()
 		engage.tooltip_text = "Enter the authored battle declared by this native campaign state.\nEncounter: %s\nBattle: %s" % [encounter_id, battle_id]
-		engage.add_theme_font_size_override("font_size", 14)
-		engage.add_theme_stylebox_override("normal", make_route_box(Color("41251f"), DANGER))
-		engage.add_theme_stylebox_override("hover", make_route_box(Color("61332a"), BRONZE))
+		engage.add_theme_font_size_override("font_size", step("caption"))
+		engage.add_theme_stylebox_override("normal", make_route_box(token("danger").darkened(BOX_DARKEN), token("danger")))
+		engage.add_theme_stylebox_override("hover", make_route_box(token("danger").darkened(BOX_HOVER_DARKEN), token("bronze")))
 		engage.pressed.connect(enter_pending_battle)
 		route_list.add_child(engage)
 		return
@@ -327,13 +361,13 @@ func populate_routes(cell: Dictionary, snapshot: Dictionary) -> void:
 		button.text = "%s%s\n%s  •  %s  •  ARRIVAL SAVE" % [key_prefix, str(target.get("displayName", "UNKNOWN DESTINATION")).to_upper(), travel_mode, risk_text]
 		var contested_note := "  (contested: the endpoints are held by different parties)" if contested else ""
 		button.tooltip_text = "Authoritative portal: %s\nFrom: %s\nTo: %s\nTravel mode: %s\nRisk now: %d%s" % [portal_id, str(cell.get("id", "")), str(target.get("id", "")), travel_mode, risk_level, contested_note]
-		button.add_theme_font_size_override("font_size", 14)
-		button.add_theme_stylebox_override("normal", make_route_box(Color("1a322e"), BRONZE))
-		button.add_theme_stylebox_override("hover", make_route_box(Color("22443d"), TEAL))
+		button.add_theme_font_size_override("font_size", step("caption"))
+		button.add_theme_stylebox_override("normal", make_route_box(token("panel_raised"), token("bronze")))
+		button.add_theme_stylebox_override("hover", make_route_box(token("panel_hover"), token("teal")))
 		button.pressed.connect(func() -> void: order_move_along(portal_id))
 		route_list.add_child(button)
 	if visible_count == 0:
-		route_list.add_child(make_label("No road leaves this place right now. Something here has to be settled first.", 14, DANGER))
+		route_list.add_child(make_label("No road leaves this place right now. Something here has to be settled first.", "caption", token("danger")))
 
 
 ## B4: every "do something here" control, drawn from the native legal-command
@@ -384,9 +418,9 @@ func make_action_button(node_name: String, command: String, text: String, toolti
 	button.custom_minimum_size.y = 54
 	button.text = text
 	button.tooltip_text = tooltip
-	button.add_theme_font_size_override("font_size", 14)
-	button.add_theme_stylebox_override("normal", make_route_box(Color("1d2a24"), BRONZE))
-	button.add_theme_stylebox_override("hover", make_route_box(Color("2a3d33"), TEAL))
+	button.add_theme_font_size_override("font_size", step("caption"))
+	button.add_theme_stylebox_override("normal", make_route_box(token("panel"), token("bronze")))
+	button.add_theme_stylebox_override("hover", make_route_box(token("panel_hover"), token("teal")))
 	return button
 
 
@@ -493,14 +527,14 @@ func controls_are_held() -> bool:
 ## Left-click. The party's own tile (or its card in the footer) selects the
 ## party; any other tile is a look at that place and never a move.
 func select_tile(cell_id: String) -> void:
-	if controls_are_held() or route_board == null or cell_id.is_empty():
+	if controls_are_held() or board == null or cell_id.is_empty():
 		return
 	if cell_id == str(latest_snapshot.get("active_location_id", "")):
-		route_board.set_party_selected(true)
-		route_board.set_inspected_cell("")
+		board.set_party_selected(true)
+		board.set_inspected_cell("")
 		status_label.text = "Michael and Betty stand ready at %s. Right-click a place to march, or press its number." % place_name(cell_id)
 		return
-	route_board.set_inspected_cell(cell_id)
+	board.set_inspected_cell(cell_id)
 	status_label.text = describe_tile(cell_id)
 
 
@@ -511,7 +545,7 @@ func select_tile(cell_id: String) -> void:
 func describe_tile(cell_id: String) -> String:
 	var here := place_name(str(latest_snapshot.get("active_location_id", "")))
 	var there := place_name(cell_id)
-	var portal_id := route_board.portal_from_active_cell_to(cell_id)
+	var portal_id := board.portal_from_active_cell_to(cell_id)
 	if portal_id.is_empty():
 		return "%s. No road runs there from %s." % [there, here]
 	var option: Dictionary = route_options(latest_snapshot).get(portal_id, {})
@@ -527,9 +561,9 @@ func describe_tile(cell_id: String) -> String:
 func order_move_to_tile(cell_id: String) -> Dictionary:
 	if controls_are_held():
 		return refused_order("game_paused")
-	if route_board == null or cell_id.is_empty():
+	if board == null or cell_id.is_empty():
 		return refused_order("no_such_tile")
-	var portal_id := route_board.portal_from_active_cell_to(cell_id)
+	var portal_id := board.portal_from_active_cell_to(cell_id)
 	if portal_id.is_empty():
 		status_label.text = "No road runs from %s to %s." % [place_name(str(latest_snapshot.get("active_location_id", ""))), place_name(cell_id)]
 		return refused_order("no_legal_route")
@@ -585,6 +619,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
 	if key == null or not key.pressed or key.echo or controls_are_held():
 		return
+	# The camera keys first, because they are the only ones that are not an
+	# order: F1, F2 and F3 change how far away the island is drawn and do not
+	# touch the party, the snapshot or the bridge.
+	if press_camera_hotkey(key.keycode):
+		get_viewport().set_input_as_handled()
+		return
 	var index := route_hotkey_index(key.keycode)
 	if index == 0:
 		return
@@ -593,6 +633,36 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	# surface is holding it.
 	get_viewport().set_input_as_handled()
 	press_route_hotkey(index)
+
+
+## The three distances the board draws at, as this screen's camera modes. B12's
+## world / route / room, on the keys the board's own legend draws. Returns true
+## when the key was one of the three, so the caller can swallow it.
+##
+## A camera mode is not an order: it is allowed while a road is refused, it
+## changes nothing the simulation can see, and it does not move the party. What
+## it does change is what a click can reach -- the room distance draws one place
+## and no island, so there is no tile to right-click there and the words and the
+## digits are the way to march from it.
+func press_camera_hotkey(keycode: Key) -> bool:
+	var next_distance := BoardSurface.distance_for_key(keycode)
+	if next_distance.is_empty() or board == null:
+		return false
+	board.set_distance(next_distance)
+	status_label.text = camera_mode_message(next_distance)
+	return true
+
+
+## What the status line says when the player pulls the camera back or pushes it
+## in. The party's voice, as every other line on this screen is.
+func camera_mode_message(next_distance: String) -> String:
+	match next_distance:
+		IsometricBoard.DISTANCE_ROOM:
+			return "%s, close enough to see the ground the party stands on." % place_name(str(latest_snapshot.get("active_location_id", "")))
+		IsometricBoard.DISTANCE_ROUTE:
+			return "The roads out of %s, and who is on them." % place_name(str(latest_snapshot.get("active_location_id", "")))
+		_:
+			return "The whole island, and every road the party knows."
 
 
 ## Digits one to nine, from the number row or the keypad, as a one-based
@@ -683,8 +753,8 @@ func get_legal_route_count() -> int:
 
 
 func show_startup_failure(reason: String) -> void:
-	add_child(make_rect(DEEP))
-	var label := make_label("EXPEDITION STARTUP BLOCKED\n\n%s" % reason, 20, DANGER)
+	add_child(make_rect(token("deep")))
+	var label := make_label("EXPEDITION STARTUP BLOCKED\n\n%s" % reason, "title", token("danger"))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -702,16 +772,27 @@ func make_rect(color: Color) -> ColorRect:
 	return rect
 
 
-func make_label(text: String, font_size: int, color: Color) -> Label:
+func make_label(text: String, step_name: String, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text
-	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_font_size_override("font_size", step(step_name))
 	label.add_theme_color_override("font_color", color)
 	return label
 
 
+## One palette token, and one step of the type scale, both out of the Theme this
+## screen is wearing. Every colour and every size on this screen goes through
+## these two, so B9's text scale and high contrast reach all of them.
+func token(token_name: String) -> Color:
+	return ThemeTokens.color(theme, token_name)
+
+
+func step(step_name: String) -> int:
+	return ThemeTokens.font_size(theme, step_name)
+
+
 func make_panel_box() -> StyleBoxFlat:
-	return make_route_box(PANEL, BRONZE)
+	return make_route_box(token("panel"), token("bronze"))
 
 
 func make_route_box(background: Color, border: Color) -> StyleBoxFlat:
