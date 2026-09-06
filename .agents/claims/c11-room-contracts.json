@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "task_id": "c11-room-contracts",
+  "agent": "claude-code (lane C11)",
+  "summary": "Brief section 3's room contract as a required `contract` block on all nine world cells -- function, dimensions (the board block's footprint ID, never metres), circulation, slots (the building and machine records compatible with the room, by ID), landmarks, encounter space, material language and the avoid-list -- every value drawn from what the repository already says about that room with its source named and its evidence quoted verbatim, and one appended validator block that requires every field, resolves every ID, quotes the evidence back against its source and holds the derived fields equal to the record they are derived from.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "content/world/black_beach.world_cell.json",
+    "content/world/damaged_estate.world_cell.json",
+    "content/world/processional_ramp.world_cell.json",
+    "content/world/reception_terrace.world_cell.json",
+    "content/world/river_landing.world_cell.json",
+    "content/world/tomb_archive_core.world_cell.json",
+    "content/world/tomb_reception.world_cell.json",
+    "content/world/tomb_service_passage.world_cell.json",
+    "content/world/tomb_threshold.world_cell.json",
+    "tools/src/validate.mjs",
+    "game/generated/content_bundle.json"
+  ],
+  "symbols": [],
+  "coordination": {
+    "depends_on": [
+      "p4-isometric-board",
+      "c10-c8-buildings-and-pack-manifest",
+      "c14-machine-records",
+      "a7-c3-ayla-lands",
+      "c15-habitats-as-content"
+    ],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at dc22d75. The validator change is one block appended after P4's board block and nothing else; the nine content edits insert one `contract` object between `board` and `admission` and touch no existing field. No Rust reads a contract field, so godot-rust/tests/authored_world.rs is not touched; no GDScript reads one either. The avoid-list is NOT copied into the contract: `visualShell.prohibitedFeatures` stays its one owner and `contract.avoid` points at it, because two lists of what must not be placed in a room would drift."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
