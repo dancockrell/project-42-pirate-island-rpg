@@ -1,4 +1,4 @@
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import { resolve, relative } from "node:path";
 import process from "node:process";
 
@@ -196,6 +196,174 @@ for (const { file, value } of await readJsonDirectory("factions")) {
 }
 for (const key of factionConceptKeys) {
   if (!authoredConceptKeys.has(key)) failures.push(`content/factions/: no record authors concept_key ${key}; the brief accepts exactly six factions`);
+}
+
+// C10: building records. S3 shipped `BuildingDefinition` and refuses at load
+// every record this block refuses here; the two refusals are deliberately the
+// same set, stated once in `godot-rust/src/strategy/building.rs` and mirrored
+// once here, so a bad record dies at `node tools/src/validate.mjs` instead of
+// only in `cargo test`. Read that file, not this one, for why each rule exists.
+//
+// The vocabularies below are the serde spellings of S3's enums, verbatim:
+// `SocketKind`, `ProductionOutput`, `CaptureRules` and `RuinState` all carry
+// `#[serde(rename_all = "snake_case")]`, so a record writes `entrance`,
+// `machine`, `capturable`, `clears_completely`. `human_role` and
+// `leaves_rubble` carry data, so they are authored as single-key objects.
+// `every_authored_building_record_loads_and_validates` is what keeps these
+// lists honest: it puts every file in this directory through the real Rust
+// `validate`, so a spelling that drifts fails there.
+const TIER_CAP = 3; // mirrors building.rs's TIER_CAP -- brief section 20, still needs decision
+// Which of brief section 19's four socket fields each of section 8's socket
+// kinds is authored in. This is `SocketKind::field()`, mirrored.
+const socketFieldForKind = {
+  entrance: "entrance_sockets",
+  road: "road_sockets",
+  worker: "actor_sockets",
+  vendor: "actor_sockets",
+  defender: "actor_sockets",
+  spawn: "actor_sockets",
+  delivery: "delivery_sockets",
+  storage: "delivery_sockets"
+};
+const socketFields = ["entrance_sockets", "road_sockets", "actor_sockets", "delivery_sockets"];
+const simpleProductionOutputs = new Set(["machine", "capacity", "service"]);
+let buildingCount = 0;
+for (const { file, value } of await readJsonDirectory("buildings")) {
+  buildingCount += 1;
+  if (typeof value.id !== "string" || !value.id.startsWith("building.")) fail(file, `id ${value.id} must be building.<slug>`);
+  requireString(value, "function", file);
+  for (const field of ["dungeon_relationship", "loot_relationship"]) {
+    if (typeof value[field] !== "string") fail(file, `${field} must be a string note, empty when the decision is still Open`);
+  }
+
+  // Concept keys, never proper names -- the same closed list C9 authors
+  // against, because `ConceptKey` is closed in Rust for the same reason.
+  if (!Array.isArray(value.faction_compatibility) || value.faction_compatibility.length === 0) fail(file, "faction_compatibility must name at least one faction concept key");
+  else for (const key of value.faction_compatibility) {
+    if (!factionConceptKeys.includes(key)) fail(file, `faction_compatibility ${key} is not one of the six concept keys the brief accepts: ${factionConceptKeys.join(", ")}`);
+  }
+  const buildsForMichael = Array.isArray(value.faction_compatibility) && value.faction_compatibility.includes("michael");
+
+  // The envelope. Brief section 8: nothing essential outside it, so it is
+  // counted, and every count is an integer share of a cell's capacity rather
+  // than a measurement (brief section 20 leaves real dimensions Open).
+  for (const field of ["footprint_cells", "clearance_cells"]) {
+    if (!Number.isInteger(value[field]) || value[field] < 0) fail(file, `${field} must be a non-negative integer count of envelope cells`);
+  }
+  if (Number.isInteger(value.footprint_cells) && value.footprint_cells < 1) fail(file, "footprint_cells must be at least 1; a building with no footprint occupies no ground and cannot hold a socket");
+  if (!Number.isInteger(value.maximum_slope) || value.maximum_slope < 0 || value.maximum_slope > 255) fail(file, "maximum_slope must be an integer from 0 through 255 (a u8 downstream)");
+  // Deliberately inverted, as C9 does for displayName: the validator enforces
+  // that a height band has NOT been invented. Brief section 20, "exact
+  // standard building dimensions".
+  requireString(value, "height_class", file);
+  if (typeof value.height_class === "string" && !value.height_class.includes("needs decision")) fail(file, "height_class must stay a placeholder containing \"needs decision\" until standard building dimensions are decided (brief section 20)");
+
+  const socketIds = new Set();
+  for (const field of socketFields) {
+    if (!Array.isArray(value[field])) { fail(file, `${field} must be an array of sockets, empty when the building declares none`); continue; }
+    for (const [index, socket] of value[field].entries()) {
+      const where = `${field}[${index}]`;
+      if (typeof socket?.id !== "string" || socket.id.trim() === "") fail(file, `${where}.id must be a non-empty string`);
+      else if (socketIds.has(socket.id)) fail(file, `${where}.id ${socket.id} is used twice in this record`);
+      else socketIds.add(socket.id);
+      const expectedField = socketFieldForKind[socket?.kind];
+      if (!expectedField) fail(file, `${where}.kind ${socket?.kind} is not a SocketKind: ${Object.keys(socketFieldForKind).join(", ")}`);
+      else if (expectedField !== field) fail(file, `${where} is a ${socket.kind} socket, which is authored in ${expectedField}, not ${field}`);
+      if (!Number.isInteger(socket?.offset_cells) || socket.offset_cells < 0) fail(file, `${where}.offset_cells must be a non-negative integer`);
+      else if (Number.isInteger(value.footprint_cells) && socket.offset_cells >= value.footprint_cells) fail(file, `${where}.offset_cells ${socket.offset_cells} sits outside the declared footprint of ${value.footprint_cells}; brief section 8 puts nothing essential outside the envelope`);
+    }
+  }
+
+  // Ascending from 1, no gaps, no more than the cap allows -- fewer is fine.
+  if (!Array.isArray(value.tier_states) || value.tier_states.length === 0) fail(file, "tier_states must author at least one tier");
+  else {
+    if (value.tier_states.length > TIER_CAP) fail(file, `tier_states authors ${value.tier_states.length} tiers; TIER_CAP is ${TIER_CAP} (brief section 20, still needs decision)`);
+    for (const [index, tier] of value.tier_states.entries()) {
+      if (tier?.tier !== index + 1) fail(file, `tier_states[${index}].tier must be ${index + 1}; tiers ascend from 1 with no gaps and no repeats`);
+      for (const field of ["construction_hours", "hit_points"]) {
+        if (!Number.isInteger(tier?.[field]) || tier[field] < 0) fail(file, `tier_states[${index}].${field} must be a non-negative integer`);
+      }
+      if (!Array.isArray(tier?.construction_requirements) || tier.construction_requirements.some(entry => typeof entry !== "string")) fail(file, `tier_states[${index}].construction_requirements must be an array of authored flag strings`);
+      if (typeof tier?.notes !== "string") fail(file, `tier_states[${index}].notes must be a string`);
+    }
+  }
+  const topTier = Array.isArray(value.tier_states) ? value.tier_states.length : 0;
+
+  for (const field of ["services", "recruitment_support", "allowed_terrain", "construction_requirements"]) {
+    if (!Array.isArray(value[field]) || value[field].some(entry => typeof entry !== "string")) fail(file, `${field} must be an array of authored strings`);
+  }
+  const supportsRecruitment = Array.isArray(value.recruitment_support) && value.recruitment_support.length > 0;
+
+  // Brief section 20 leaves the exact resource list Open, so construction cost
+  // may only be keyed by an obvious placeholder -- the rule C9 set for
+  // `resource_priorities`, applied to the other side of the economy.
+  if (!value.construction_cost || typeof value.construction_cost !== "object" || Array.isArray(value.construction_cost)) fail(file, "construction_cost must be an object keyed by authored resource strings");
+  else for (const [key, amount] of Object.entries(value.construction_cost)) {
+    if (!key.startsWith("resource.open.")) fail(file, `construction_cost key ${key} invents a resource category; brief section 20 leaves the resource list Open, so keys stay under resource.open.`);
+    if (!Number.isInteger(amount) || amount < 0) fail(file, `construction_cost.${key} must be a non-negative integer`);
+  }
+
+  if (!Array.isArray(value.production)) fail(file, "production must be an array, empty when the building makes nothing");
+  else {
+    const ruleIds = new Set();
+    for (const [index, rule] of value.production.entries()) {
+      const where = `production[${index}]`;
+      if (typeof rule?.id !== "string" || rule.id.trim() === "") fail(file, `${where}.id must be a non-empty string`);
+      else if (ruleIds.has(rule.id)) fail(file, `${where}.id ${rule.id} is used twice in this record`);
+      else ruleIds.add(rule.id);
+      for (const field of ["amount", "interval_hours", "minimum_tier"]) {
+        if (!Number.isInteger(rule?.[field]) || rule[field] < 0) fail(file, `${where}.${field} must be a non-negative integer`);
+      }
+      if (Number.isInteger(rule?.minimum_tier) && topTier > 0 && rule.minimum_tier > topTier) fail(file, `${where}.minimum_tier ${rule.minimum_tier} is above this record's top tier ${topTier}`);
+      if (typeof rule?.output_key !== "string") fail(file, `${where}.output_key must be a string`);
+      else if (rule.output_key !== "" && !rule.output_key.startsWith("resource.open.")) fail(file, `${where}.output_key ${rule.output_key} invents a resource category; brief section 20 leaves the resource list Open, so keys stay under resource.open.`);
+
+      const output = rule?.output;
+      const isHumanRole = output !== null && typeof output === "object" && !Array.isArray(output) && Object.keys(output).length === 1 && Object.keys(output)[0] === "human_role";
+      if (typeof output === "string") {
+        if (!simpleProductionOutputs.has(output)) fail(file, `${where}.output ${output} is not a ProductionOutput: ${[...simpleProductionOutputs].join(", ")}, or { "human_role": { "role": "..." } }`);
+      } else if (isHumanRole) {
+        if (typeof output.human_role?.role !== "string" || output.human_role.role.trim() === "") fail(file, `${where}.output.human_role.role must name the role, as a non-empty string`);
+        // Brief section 5.6, and section 20's rejected list. Michael's faction
+        // grows by recruitment, migration, relationships, rescue and factional
+        // change -- never because a timer completed. For the other five a
+        // human role may be *supported*, never *produced*: a non-zero interval
+        // is a manufacturing timer whoever owns it, and a record that claims
+        // the support without describing it is refused rather than assumed.
+        if (buildsForMichael) fail(file, `${where} produces a human role on a record compatible with concept key michael; Michael's buildings make machines, capacity and services, never people (brief section 5.6, brief section 20)`);
+        else {
+          if (rule.interval_hours !== 0) fail(file, `${where} produces a human role every ${rule.interval_hours} hours; a human-role rule must have interval_hours 0, because it is recruitment support and never a manufacturing timer (brief section 20)`);
+          if (!supportsRecruitment) fail(file, `${where} produces a human role on a record whose recruitment_support is empty; the only reading under which the rule is legal is that this building helps recruitment happen, so the record must say what the support is`);
+        }
+      } else {
+        fail(file, `${where}.output must be one of ${[...simpleProductionOutputs].join(", ")}, or { "human_role": { "role": "..." } }`);
+      }
+    }
+  }
+
+  // Brief section 20, "capture versus destruction rules by building type", is
+  // Open. S3 made `NeedsDecision` the default for both fields and refuses it at
+  // load, so the decision lands on each authored record. This mirrors that
+  // refusal, and also refuses the field being absent -- an omitted field
+  // deserializes to the default, which is the same refusal one step later.
+  if (value.capture_rules === undefined) fail(file, "capture_rules is missing; brief section 20 leaves capture versus destruction Open per building type, so every record chooses capturable or destroy_only explicitly");
+  else if (value.capture_rules === "needs_decision") fail(file, "capture_rules must not be needs_decision; the decision belongs on this record (brief section 20)");
+  else if (!new Set(["capturable", "destroy_only"]).has(value.capture_rules)) fail(file, `capture_rules ${JSON.stringify(value.capture_rules)} must be capturable or destroy_only`);
+  if (value.ruin_state === undefined) fail(file, "ruin_state is missing; brief section 20 leaves capture versus destruction Open per building type, so every record chooses clears_completely or leaves_rubble explicitly");
+  else if (value.ruin_state === "needs_decision") fail(file, "ruin_state must not be needs_decision; the decision belongs on this record (brief section 20)");
+  else if (value.ruin_state === "clears_completely") { /* decided */ }
+  else if (value.ruin_state !== null && typeof value.ruin_state === "object" && !Array.isArray(value.ruin_state) && Object.keys(value.ruin_state).length === 1 && Object.keys(value.ruin_state)[0] === "leaves_rubble") {
+    const rubble = value.ruin_state.leaves_rubble?.footprint_cells;
+    if (!Number.isInteger(rubble) || rubble < 0) fail(file, "ruin_state.leaves_rubble.footprint_cells must be a non-negative integer");
+    else if (Number.isInteger(value.footprint_cells) && rubble > value.footprint_cells) fail(file, `ruin_state.leaves_rubble.footprint_cells ${rubble} is larger than the standing footprint ${value.footprint_cells}; a wreck does not grow`);
+  } else {
+    fail(file, `ruin_state ${JSON.stringify(value.ruin_state)} must be "clears_completely" or { "leaves_rubble": { "footprint_cells": <integer> } }`);
+  }
+
+  requireString(value.metadata ?? {}, "implementationOwner", file);
+  requireString(value.metadata ?? {}, "maturity", file);
+  if (typeof value.metadata?.releaseLegal !== "boolean") fail(file, "building metadata.releaseLegal must be boolean");
+  if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "building metadata.notes must list what stays Provisional or Open");
 }
 
 // C6: relationship scene records. S12 left `RecruitmentState.milestone_rules` a
@@ -650,6 +818,108 @@ for (const [index, collection] of (sharedSourceCollections.sourceCollections ?? 
   if (!Array.isArray(collection?.styleTags) || collection.styleTags.length < 2) fail(sharedSourceCollectionsFile, `${field}.styleTags needs at least two tags`);
 }
 
+// C8: presentation-override packs. A pack is the adult presentation layer's
+// only shape: it replaces a scene's beats, it never adds a scene, and it never
+// carries simulation data. B10's `ContentPackRegistry` merges packs by scene ID
+// at runtime and E9 builds each one into its own `.pck`, so a pack is a
+// separate artifact -- validated here, and deliberately NOT bundled by
+// `tools/src/build-content-bundle.mjs`.
+//
+// This block runs after `content/relationships/`, because "every override
+// targets an existing scene" is resolved against the stable IDs that directory
+// registered.
+//
+// Asset resolution is closed inside the pack on purpose: an override's
+// `assetIds` may only name IDs the pack itself declares in its top-level
+// `assets` array, and each declared asset's `path` must be a pack-relative
+// path to a file that is actually there. A pack that could reach a base-game
+// asset ID would break the day the base game moved one, and B10 merges packs
+// without the base tree's ID map in hand. Pack asset IDs are therefore never
+// registered as repository stable IDs either -- a base-game record must not be
+// able to reference something that may not be installed.
+const packTargetLevels = new Set(["fade_to_black", "explicit"]);
+// A pack is presentation. These are the record kinds it may not carry, by key
+// and by ID namespace: rules, skills, characters, factions and buildings are
+// the simulation, and the simulation never reads presentation.
+const forbiddenPackKeys = ["rules", "skill", "skills", "character", "characters", "faction", "factions", "building", "buildings"];
+const forbiddenPackIdPrefixes = ["skill.", "character.", "faction.", "building.", "building_instance."];
+const packsDirectory = resolve(repo, "packs");
+let packCount = 0;
+let packOverrideCount = 0;
+const packDirectoryNames = await readdir(packsDirectory, { withFileTypes: true })
+  .then(entries => entries.filter(entry => entry.isDirectory()).map(entry => entry.name).sort())
+  .catch(() => []);
+for (const directoryName of packDirectoryNames) {
+  const file = resolve(packsDirectory, directoryName, "pack.json");
+  let value;
+  try { value = JSON.parse(await readFile(file, "utf8")); }
+  catch (error) { fail(file, `every directory under packs/ must carry a readable pack.json: ${error.message}`); continue; }
+  packCount += 1;
+
+  registerId(value.id, file);
+  if (typeof value.id !== "string" || !value.id.startsWith("pack.")) fail(file, `id ${value.id} must be pack.<slug>`);
+  else if (value.id !== directoryName) fail(file, `id ${value.id} must equal its directory name ${directoryName}; B10 loads packs by directory`);
+  if (value.kind !== "presentation_override") fail(file, `kind ${value.kind} must be presentation_override; a pack is presentation and nothing else`);
+  if (!packTargetLevels.has(value.targetLevel)) fail(file, `targetLevel ${value.targetLevel} must be one of ${[...packTargetLevels].join(", ")}`);
+  requireString(value, "displayName", file);
+
+  for (const key of forbiddenPackKeys) {
+    if (value[key] !== undefined) fail(file, `a presentation pack may not carry a ${key} key; rules, skill, character, faction and building records are the simulation, and a pack overrides presentation only (C8, B10)`);
+  }
+
+  const declaredAssetIds = new Set();
+  if (!Array.isArray(value.assets)) fail(file, "assets must be an array declaring every asset this pack carries");
+  else for (const [index, asset] of value.assets.entries()) {
+    const where = `assets[${index}]`;
+    if (typeof asset?.id !== "string" || !asset.id.startsWith("asset.")) fail(file, `${where}.id must be an asset.<...> ID local to this pack`);
+    else if (declaredAssetIds.has(asset.id)) fail(file, `${where}.id ${asset.id} is declared twice`);
+    else if (ids.has(asset.id)) fail(file, `${where}.id ${asset.id} collides with a base-game stable ID; a pack's assets live in their own namespace because a pack may not be installed`);
+    else declaredAssetIds.add(asset.id);
+    if (typeof asset?.path !== "string" || asset.path.trim() === "" || asset.path.startsWith("/") || asset.path.split("/").includes("..")) fail(file, `${where}.path must be a relative path inside the pack, with no leading slash and no ..`);
+    else {
+      const assetPath = resolve(packsDirectory, directoryName, asset.path);
+      const exists = await stat(assetPath).then(entry => entry.isFile()).catch(() => false);
+      if (!exists) fail(file, `${where}.path ${asset.path} does not resolve to a file inside the pack`);
+    }
+  }
+
+  if (!value.overrides || typeof value.overrides !== "object" || Array.isArray(value.overrides)) fail(file, "overrides must be an object keyed by the scene IDs this pack replaces");
+  else for (const [sceneId, override] of Object.entries(value.overrides)) {
+    packOverrideCount += 1;
+    if (!sceneId.startsWith("scene.")) fail(file, `overrides key ${sceneId} must be a scene.<...> ID; a pack overrides scenes and adds nothing`);
+    else if (!ids.has(sceneId)) fail(file, `overrides targets ${sceneId}, which no record in content/relationships/ declares`);
+    if (!override || typeof override !== "object" || Array.isArray(override)) { fail(file, `overrides.${sceneId} must be an object`); continue; }
+    for (const key of forbiddenPackKeys) {
+      if (override[key] !== undefined) fail(file, `overrides.${sceneId} may not carry a ${key} key; a pack overrides presentation only (C8)`);
+    }
+    // The same beat shape a scene carries, checked the same way, because the
+    // pack's beats replace the scene's and B10 hands them to the same player.
+    if (!Array.isArray(override.beats) || override.beats.length === 0) fail(file, `overrides.${sceneId}.beats must contain at least one beat`);
+    else {
+      const beatIds = new Set();
+      for (const [index, beat] of override.beats.entries()) {
+        const where = `overrides.${sceneId}.beats[${index}]`;
+        if (typeof beat?.id !== "string" || !beat.id.startsWith("beat.")) fail(file, `${where}.id must be a beat.<...> ID`);
+        else if (beatIds.has(beat.id)) fail(file, `${where}.id ${beat.id} is duplicated`);
+        else beatIds.add(beat.id);
+        if (!sceneBeatKinds.has(beat?.kind)) fail(file, `${where}.kind ${beat?.kind} must be one of ${[...sceneBeatKinds].join(", ")}`);
+        if (beat?.kind === "fade" && index !== override.beats.length - 1) fail(file, `${where} is a fade beat with beats after it; a fade closes the scene`);
+        if (typeof beat?.text !== "string" || beat.text.trim().length < 20) fail(file, `${where}.text must carry the authored line`);
+      }
+    }
+    if (!Array.isArray(override.assetIds) || override.assetIds.length === 0) fail(file, `overrides.${sceneId}.assetIds must name at least one asset this pack declares`);
+    else for (const [index, assetId] of override.assetIds.entries()) {
+      if (forbiddenPackIdPrefixes.some(prefix => typeof assetId === "string" && assetId.startsWith(prefix))) fail(file, `overrides.${sceneId}.assetIds[${index}] ${assetId} names a simulation record, not an asset`);
+      else if (!declaredAssetIds.has(assetId)) fail(file, `overrides.${sceneId}.assetIds[${index}] ${assetId} does not resolve inside this pack; an override may only name an asset the pack's own assets array declares`);
+    }
+  }
+
+  requireString(value.metadata ?? {}, "implementationOwner", file);
+  requireString(value.metadata ?? {}, "maturity", file);
+  if (typeof value.metadata?.releaseLegal !== "boolean") fail(file, "pack metadata.releaseLegal must be boolean");
+  if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "pack metadata.notes must record what the pack is and what it deliberately does not carry");
+}
+
 const intentionallyExternalPrefixes = ["skill.enemy."];
 for (const item of references) {
   if (!ids.has(item.id) && !intentionallyExternalPrefixes.some(prefix => item.id.startsWith(prefix))) {
@@ -662,4 +932,4 @@ if (failures.length) {
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
-console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${relationshipSceneCount} relationship scenes, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
+console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${buildingCount} building records, ${relationshipSceneCount} relationship scenes, ${packCount} presentation packs carrying ${packOverrideCount} scene overrides, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);

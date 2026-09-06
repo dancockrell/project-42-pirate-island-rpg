@@ -11,7 +11,17 @@ const repo = resolve(import.meta.dirname, "../..");
 // scene records carry both the milestone rules the simulation adopts and the
 // beats the scene player shows, and B10's pack registry resolves a scene's
 // presentation level by the scene IDs that only reach Godot through here.
-const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships"];
+// `buildings` joined with C10: S3's `BuildingDefinitions` is the registry the
+// strategic tick reads, and the bridge builds it from this bundle exactly as it
+// builds the faction registry, so a building record that never reached Godot
+// would make the engine's island differ from the harness's.
+//
+// `packs/` is deliberately absent and is not a domain. A presentation-override
+// pack is a separate artifact: E9 builds each one into its own `.pck` and B10's
+// registry discovers it at runtime under `user://packs/` or `res://packs/`.
+// Folding a pack into the base bundle would ship the override with the base
+// game, which is the one thing the pack seam exists to prevent.
+const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships", "buildings"];
 const records = [];
 
 for (const domain of domains) {

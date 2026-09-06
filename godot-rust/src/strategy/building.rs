@@ -1881,4 +1881,108 @@ mod tests {
             .expect("a save predating buildings still loads");
         assert!(older.buildings.is_empty());
     }
+    /// C10: the authored records are the contract, and this holds Rust to
+    /// them. `content/buildings/` is read through the same `validate` and the
+    /// same `BuildingDefinitions::insert` the simulation uses -- the shape
+    /// `every_authored_faction_record_loads_and_validates` set in `faction.rs`
+    /// and C6 repeated for scenes. Content owns; Rust carries; a test holds
+    /// them equal.
+    ///
+    /// Two failures it exists to catch. A record that stops deserializing --
+    /// a socket kind renamed, `ruin_state` written as a bare string when it
+    /// carries data -- fails at `serde_json::from_str`, before any rule runs.
+    /// A record that deserializes but breaks a rule -- a Michael building that
+    /// produces a person, a missing `capture_rules`, a socket outside the
+    /// footprint -- fails at `validate`, with the same verdict
+    /// `tools/src/validate.mjs` gives it.
+    #[test]
+    fn every_authored_building_record_loads_and_validates() {
+        let building_directory = concat!(env!("CARGO_MANIFEST_DIR"), "/../content/buildings/");
+        let mut definitions = BuildingDefinitions::new();
+        let mut from_filenames: BTreeSet<String> = BTreeSet::new();
+        for entry in std::fs::read_dir(building_directory).expect("content/buildings/ is readable")
+        {
+            let path = entry.expect("a readable directory entry").path();
+            if path.extension().and_then(|name| name.to_str()) != Some("json") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).expect("the building file is readable");
+            let record: BuildingDefinition = serde_json::from_str(&text).unwrap_or_else(|error| {
+                panic!("{} is a BuildingDefinition: {error}", path.display())
+            });
+            record
+                .validate()
+                .unwrap_or_else(|error| panic!("{} fails validate: {error:?}", path.display()));
+            let stem = path
+                .file_stem()
+                .and_then(|name| name.to_str())
+                .expect("a UTF-8 filename");
+            assert_eq!(
+                record.id,
+                format!("{BUILDING_ID_PREFIX}{stem}"),
+                "{} must be named after the record it carries",
+                path.display()
+            );
+            assert!(
+                from_filenames.insert(record.id.clone()),
+                "{} is a second record for {}",
+                path.display(),
+                record.id
+            );
+            definitions
+                .insert(record)
+                .unwrap_or_else(|error| panic!("{} does not load: {error:?}", path.display()));
+        }
+
+        assert!(
+            !from_filenames.is_empty(),
+            "content/buildings/ must author at least one record; C10 is what fills it"
+        );
+        assert_eq!(
+            definitions
+                .ids()
+                .map(str::to_owned)
+                .collect::<BTreeSet<_>>(),
+            from_filenames,
+            "the registry's IDs must be exactly the directory's"
+        );
+
+        // The two halves of brief section 5.6, both authored on purpose so the
+        // rule is proven by the content and not only by a fixture: at least one
+        // record Michael may raise, and at least one legal human-role rule
+        // standing somewhere else.
+        let michaels: Vec<&BuildingDefinition> = definitions
+            .ids()
+            .filter_map(|id| definitions.get(id))
+            .filter(|record| record.faction_compatibility.contains(&ConceptKey::Michael))
+            .collect();
+        assert!(
+            !michaels.is_empty(),
+            "content/buildings/ must author a building Michael's faction can raise"
+        );
+        for record in michaels {
+            assert!(
+                !record
+                    .production
+                    .iter()
+                    .any(|rule| matches!(rule.output, ProductionOutput::HumanRole { .. })),
+                "{} produces a person for Michael's faction",
+                record.id
+            );
+        }
+        let supported_roles = definitions
+            .ids()
+            .filter_map(|id| definitions.get(id))
+            .filter(|record| {
+                record
+                    .production
+                    .iter()
+                    .any(|rule| matches!(rule.output, ProductionOutput::HumanRole { .. }))
+            })
+            .count();
+        assert_eq!(
+            supported_roles, 1,
+            "exactly one authored record carries the legal human-role case; it is what proves the rule admits recruitment support"
+        );
+    }
 }

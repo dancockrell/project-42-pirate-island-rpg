@@ -1,0 +1,61 @@
+{
+  "id": "building.ritual_anchor",
+  "faction_compatibility": ["cthulhu", "elves"],
+  "function": "A worked stone set into the ground and kept. It does nothing a road can use and holds nobody; it exists so that something else can happen where it stands. Whoever raised it would rather see it broken than taken.",
+  "footprint_cells": 1,
+  "clearance_cells": 2,
+  "height_class": "[needs decision: height class for building.ritual_anchor -- brief section 20, exact standard building dimensions]",
+  "entrance_sockets": [],
+  "road_sockets": [],
+  "actor_sockets": [
+    { "id": "socket.ritual_anchor.attendant", "kind": "worker", "offset_cells": 0 }
+  ],
+  "delivery_sockets": [
+    { "id": "socket.ritual_anchor.offering_shelf", "kind": "storage", "offset_cells": 0 }
+  ],
+  "allowed_terrain": [],
+  "maximum_slope": 0,
+  "construction_cost": {
+    "resource.open.needs_decision": 0
+  },
+  "construction_requirements": ["requirement.open.needs_decision.ritual_anchor_site"],
+  "tier_states": [
+    {
+      "tier": 1,
+      "construction_hours": 12,
+      "construction_requirements": [],
+      "hit_points": 140,
+      "notes": "Cut, set and left. Nothing about it is a building in the ordinary sense; it is on this list because it occupies ground and can be knocked down."
+    }
+  ],
+  "production": [
+    {
+      "id": "production.ritual_anchor.site_service",
+      "output": "service",
+      "output_key": "resource.open.needs_decision",
+      "amount": 1,
+      "interval_hours": 0,
+      "minimum_tier": 1
+    }
+  ],
+  "services": ["service.open.needs_decision.site"],
+  "recruitment_support": [],
+  "capture_rules": "destroy_only",
+  "ruin_state": "clears_completely",
+  "dungeon_relationship": "Provisional: an anchor may be the reason a dungeon exists under it, which is C5's tomb question and S9's signature. Not decided here.",
+  "loot_relationship": "Provisional: nothing portable. S10 owns loot tables.",
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "maturity": "prototype",
+    "releaseLegal": true,
+    "notes": [
+      "The second half of the capture decision, chosen deliberately the other way: destroy_only with clears_completely. An anchor cannot change hands -- taking it would mean the taker inherits what it anchors, and nothing in the design says that -- and breaking one is meant to free the ground rather than deny it. Both fields are this record's choice; brief section 20 leaves the rule Open per building type and S3's validate refuses a record that leaves either to the code.",
+      "One authored tier. Proves that a record may stop below TIER_CAP and that a production rule sitting at the record's own top tier is legal.",
+      "No entrance and no road socket: brief section 8 lists the socket kinds a building may declare, not the kinds it must. This record is the case that proves an empty socket field loads.",
+      "Open (brief section 20, exact resource list): construction_cost and output_key carry the placeholder resource.open.needs_decision.",
+      "Open: the site requirement flag and the service key are *.open.needs_decision.* placeholders; S13 and S9 own what satisfies and reads them.",
+      "Open (brief section 20, exact standard building dimensions): height_class is a needs-decision placeholder; maximum_slope is 0; the envelope is a share of CELL_CAPACITY_CELLS. Clearance is twice the footprint because what the brief counts as essential around this thing is the ground nobody else builds on.",
+      "No doctrine is authored here. faction_compatibility names concept keys only; the two concepts listed are the ones the brief already accepts, and nothing in this file says what either faction believes."
+    ]
+  }
+}

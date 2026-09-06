@@ -1,0 +1,62 @@
+{
+  "id": "pack.presentation.fixture",
+  "kind": "presentation_override",
+  "targetLevel": "fade_to_black",
+  "displayName": "Presentation override fixture pack",
+  "assets": [
+    {
+      "id": "asset.fixture.lamp_room_plate",
+      "path": "assets/lamp_room_plate.txt",
+      "notes": "DUMMY placeholder standing in for a still plate. Resolved by the packFile validator against this pack's own directory."
+    },
+    {
+      "id": "asset.fixture.tomb_reading_plate",
+      "path": "assets/tomb_reading_plate.txt",
+      "notes": "DUMMY placeholder standing in for a still plate."
+    }
+  ],
+  "overrides": {
+    "scene.betty.the_lamp_left_burning": {
+      "beats": [
+        {
+          "id": "beat.betty.the_lamp_left_burning.she_comes_to_him",
+          "kind": "conversation",
+          "text": "FIXTURE PROSE. The pack replaces the base scene's beats by scene ID. This line exists to prove that a pack beat carries the same shape a scene beat does, and it says no more than the base beat said."
+        },
+        {
+          "id": "beat.betty.the_lamp_left_burning.the_lamp",
+          "kind": "fade",
+          "text": "FIXTURE PROSE. The fade closes the scene, exactly as it does in the base tree, because this pack's targetLevel is fade_to_black and it exists to prove the schema rather than to carry content."
+        }
+      ],
+      "assetIds": ["asset.fixture.lamp_room_plate"]
+    },
+    "scene.ayla.what_the_tomb_is_for": {
+      "beats": [
+        {
+          "id": "beat.ayla.what_the_tomb_is_for.the_reading",
+          "kind": "conversation",
+          "text": "FIXTURE PROSE. A second override, so the schema is proven across more than one scene and across both women who exist."
+        },
+        {
+          "id": "beat.ayla.what_the_tomb_is_for.close",
+          "kind": "fade",
+          "text": "FIXTURE PROSE. The fade closes the scene. Nothing follows a fade here for the same reason nothing follows one in the base tree."
+        }
+      ],
+      "assetIds": ["asset.fixture.tomb_reading_plate"]
+    }
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "fixture",
+    "releaseLegal": true,
+    "notes": [
+      "This is a FIXTURE, not the adult pack. It carries targetLevel fade_to_black and fixture prose, and it exists so that the packFile validator block, B10's ContentPackRegistry and E9's build script all have a real pack to run against. The adult pack (targetLevel explicit) is a separate artifact built outside this repository; no explicit content of any kind is authored here, ever.",
+      "Asset resolution design: every asset a pack override names must be declared in this file's top-level `assets` array as { id, path }, and `path` is a pack-relative path to a file that actually exists inside the pack directory. `assetIds` on an override then names declared asset IDs and nothing else. That is what \"resolves inside the pack\" means and what the validator checks -- an override may not reach an asset ID out of the base game's registry, because a pack that could would be a pack that breaks when the base game moves an asset, and B10 merges packs by scene ID without the base tree's ID map in hand.",
+      "Pack asset IDs live in their own asset.<pack>.* namespace and are deliberately NOT registered as repository stable IDs: a pack is a separate artifact that may or may not be installed, so a base-game record must never be able to reference one.",
+      "Packs are validated but not bundled. tools/src/build-content-bundle.mjs builds content/ for Godot; a pack ships as its own .pck (E9) and is discovered at runtime under user://packs/ or res://packs/ (B10).",
+      "The two placeholder asset files under assets/ are DUMMY text markers, not artwork. They exist only so that path resolution is a real check rather than a formality."
+    ]
+  }
+}

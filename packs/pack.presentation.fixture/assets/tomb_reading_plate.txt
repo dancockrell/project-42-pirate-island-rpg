@@ -1,0 +1,4 @@
+DUMMY PLACEHOLDER ASSET -- packs/pack.presentation.fixture/assets/tomb_reading_plate.txt
+
+Not artwork. This file exists so that asset.fixture.tomb_reading_plate resolves
+to a real path inside the pack. See lamp_room_plate.txt for the full note.
