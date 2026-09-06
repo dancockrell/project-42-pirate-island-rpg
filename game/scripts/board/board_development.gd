@@ -215,9 +215,10 @@ static func build_instance(kind: String, instance: Dictionary, record: Dictionar
 	return node
 
 
-## The row of places one cell's things stand on, at the world and route
-## distances: one row along the cell's width, behind its centre, each thing
-## given its own footprint's width and `ROW_GAP_METRES` of clear ground.
+## The places one cell's things stand on, at the world and route distances: one
+## row per kind laid along the cell's width, each thing given its own apron's
+## width and `ROW_GAP_METRES` of clear ground, at the depth `ROW_DEPTH_SHARE`
+## names for its kind.
 ##
 ## `grounds` is each thing's own apron in metres and `kinds` what each of them
 ## is, both in the order they stand, so the rows are measured off the records
@@ -254,9 +255,12 @@ static func row_places(cell: Dictionary, grounds: Array, kinds: Array) -> Array[
 
 ## Where one thing stands at the room distance: on the authored spawn socket its
 ## role names, in the cell's own authored order, wrapping when there are more
-## things than sockets. The socket's own metres are used unchanged -- this is
-## the point of the room distance, that a thing stands where content put it and
-## not where a layout rule put it.
+## things than sockets, skipping a socket something in `taken` is already
+## standing on, and drawn back inside the footprint where what stands on it
+## would otherwise cross the edge. The socket is the intent and content owns it:
+## a thing stands where content put it, not where a layout rule put it, and the
+## only things that move it are the room's own boundary and ground somebody else
+## is already standing on.
 ##
 ## Falls back to the row place when the cell declares no socket of that role,
 ## because a room with no `item` socket is a content shape this file must not
