@@ -3,7 +3,7 @@
   "task_id": "s13-machines-not-people",
   "agent": "claude-code (lane S13)",
   "summary": "Captain Michael's faction produces machines, capacity and services and never people: the eight machine families, brief section 18's per-machine asset fields, an actor kit that admits only machines for his concept key, and produce_machine charging the rule's named resource cost.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -36,10 +36,25 @@
       "s5-utility-ai"
     ],
     "conflicts_with": [],
-    "notes": "Four other lanes run beside this one. building.rs takes end-of-struct field appends and end-of-module test appends only, plus the one unavoidable mid-file change this card requires: ProductionOutput::Machine gains the family it produces, which turns it from a unit variant into Machine { family } and moves ProductionOutput's Default out of the derive. expedition.rs is touched in exactly two hunks (the machines field appended at the end of the struct, its initialiser at the end of new()) plus the use. tick.rs takes one appended StrategicEvent variant at the end of the enum. faction.rs is not edited: the actor kit is resolved from the FactionDefinition.actor_kit S1 already owns rather than given a second list, and the section 5.10 exposure policy is derived from concept_key rather than stored as a second copy of it. content/machines/ is a C card and is not authored here."
+    "notes": "Four other lanes run beside this one. building.rs takes end-of-struct field appends and end-of-module test appends only, plus the one unavoidable mid-file change this card requires: ProductionOutput::Machine gains the family it produces, which turns it from a unit variant into Machine { family } and moves ProductionOutput's Default out of the derive. expedition.rs is touched in exactly two hunks (the machines field appended at the end of the struct, its initialiser at the end of new()) plus the use. tick.rs takes one appended StrategicEvent variant at the end of the enum. faction.rs is not edited: the actor kit is resolved from the FactionDefinition.actor_kit S1 already owns rather than given a second list, and the section 5.10 exposure policy is derived from concept_key rather than stored as a second copy of it. content/machines/ is a C card and is not authored here. Shipped: ProductionOutput::Machine had exactly one use outside its own declaration -- the machine rule in building.rs's test a_michael_building_that_produces_a_person_does_not_load -- and that use was updated in place; the whole crate carried no other. content/machines/ must be authored by a C card to the contract in this claim's checks."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "77c2cc6",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (277 unit incl. 6 new strategy::production, 5 authored_world, 5 save_migration, 7 strategic_determinism, 1 vertical_slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (210 stable IDs): passed",
+      "node tools/src/check-claims.mjs: passed",
+      "Done-when 1: a human role produced by a Michael building is rejected -- S3's a_michael_building_that_produces_a_person_does_not_load, extended in place with the actor-kit refusal (ActorKit::of returns MichaelActorKitNamesANonMachine): passed",
+      "Done-when 2: a mechanical_dog produced from a tier-1 Michael building with fuel deducted and a MachineProduced event asserted -- a_tier_one_michael_building_produces_a_mechanical_dog_and_the_fuel_is_gone: passed",
+      "Bite proof: removing the resource deduction loop from produce_machine failed that test on the resource assertion (left 10, right 7, 'three of ten fuel is spent'); restored and green: passed",
+      "Reject-before-mutation on insufficient fuel, a non-Operational building, a tier below the rule's minimum, a non-machine rule and a family mismatch, each asserted against a whole-state clone -- a_refused_production_leaves_the_stockpile_and_the_board_alone: passed",
+      "A produced machine round-trips a save and copies none of brief section 18's authored fields -- a_produced_machine_survives_a_save_and_copies_no_authored_field: passed",
+      "2,400-hour determinism harness unchanged and green (tests/strategic_determinism.rs, 7 tests): passed",
+      "Brief section 5.10 is RECORDED, NOT WIRED: ExposurePolicy::MachinesFirst is derived from ConceptKey and read by nothing that acts. strategy/utility.rs gained no term and GoalWeights is untouched -- the weights seam is B15's; strategy/force.rs is untouched: not_run",
+      "needs decision: MachineDefinition.maximum_slope (the graph carries no slope, as S3 found), MachineDefinition.local_and_offscreen_representations (authored prose until a materialiser exists), and whether a Captured building inherits a working production line (brief section 20, capture versus destruction rules by building type -- produce_machine refuses rather than assumes): not_run",
+      "content/machines/ is a C card and is not authored here. It must author one record per machine per family with a `machine.<...>` id, an explicit `family` from the eight keys, brief section 18's fields (operational footprint, navigation width, turning clearance, maximum slope, valid route types from the authored travelMode vocabulary, bridge requirements, crew or handler requirement, fuel and water requirements, repair sockets, local and offscreen representations, wreck footprint, salvage value), plus the building records whose production rules name those machine ids in output_key with a cost naming the open fuel key -- and a fixture-versus-records test: not_run"
+    ]
   }
 }
