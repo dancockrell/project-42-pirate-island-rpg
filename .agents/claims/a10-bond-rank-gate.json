@@ -3,7 +3,7 @@
   "task_id": "a10-bond-rank-gate",
   "agent": "claude-code/opus-5 lane A10",
   "summary": "Bond rank becomes a fact of the relationship: ExpeditionState::bond_ranks starts Betty and Ayla at D, an authored scene's raisesBondRankTo raises it when its milestone is recorded, and Battle::submit refuses a command ranked above where a woman's bond stands.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -38,10 +38,30 @@
       "b5-michael-card-bands-composure"
     ],
     "conflicts_with": [],
-    "notes": "Branched from origin/backend/b0-expedition-state at e96e7cb. Four other lanes run beside this one, so the ExpeditionState hunk is the appended field plus its initialiser at the end of new() and nothing else at that tail, and the validate.mjs hunk is the relationships block plus one hoisted constant. AGENTS.md section 0 reconciliation: HouseholdProgress already carried a bond_ranks: BTreeMap<String, String> written by nobody and read by nobody. A second field of the same name beside it would be a fork, so that copy is deleted and ExpeditionState::bond_ranks is the single owner (move 2, replace it); no caller referenced it, only estate_upgrades. The seven-letter ladder is written once in Rust (battle::rank_index, shared by the Composure gate and the bond gate) and once in JS (validate.mjs `bondRanks`, shared by a skill's bondRank and a scene's raisesBondRankTo), and every_authored_scene_rule_loads holds the content tree to it. raises_bond_rank_to lives on MilestoneRule rather than beside it on AuthoredScene, because the rule is what reaches RecruitmentState::milestone_rules and a copy on both types would be two answers to one question. Repaired one caller outside the owned files: godot-rust/tests/vertical_slice.rs constructs Actor literally (three sites) and needed the new field; it submits only rank D commands, so those three stand at the floor. No battle is built from expedition state anywhere -- begin_pending_battle and create_debug_battle both build the static Battle::prototype_vertical_slice() -- so the fixture carries its own ranks (Betty SSS, everyone else D) and the slice plays exactly as it did before the gate existed; the mock port's Betty is SSS to match."
+    "notes": "Branched from origin/backend/b0-expedition-state at e96e7cb. Four other lanes run beside this one, so the ExpeditionState hunk is the appended field plus its initialiser at the end of new() and nothing else at that tail, and the validate.mjs hunk is the relationships block plus one hoisted constant. AGENTS.md section 0 reconciliation: HouseholdProgress already carried a bond_ranks: BTreeMap<String, String> written by nobody and read by nobody. A second field of the same name beside it would be a fork, so that copy is deleted and ExpeditionState::bond_ranks is the single owner (move 2, replace it); no caller referenced it, only estate_upgrades. The seven-letter ladder is written once in Rust (battle::rank_index, shared by the Composure gate and the bond gate) and once in JS (validate.mjs `bondRanks`, shared by a skill's bondRank and a scene's raisesBondRankTo), and every_authored_scene_rule_loads holds the content tree to it. raises_bond_rank_to lives on MilestoneRule rather than beside it on AuthoredScene, because the rule is what reaches RecruitmentState::milestone_rules and a copy on both types would be two answers to one question. Repaired one caller outside the owned files: godot-rust/tests/vertical_slice.rs constructs Actor literally (three sites) and needed the new field; it submits only rank D commands, so those three stand at the floor. No battle is built from expedition state anywhere -- begin_pending_battle and create_debug_battle both build the static Battle::prototype_vertical_slice() -- so the fixture carries its own ranks (Betty SSS, everyone else D) and the slice plays exactly as it did before the gate existed; the mock port's Betty is SSS to match. Rebased onto origin/backend/b0-expedition-state at 24eac6d (C10/C8 and S9 landed mid-lane); the only conflict was the generated bundle, resolved by rerunning the builder, and validate.mjs auto-merged into separate hunks as planned. All six proofs rerun on the rebased tree."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "45b686c",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (286 lib + 5 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice, on the rebased tree): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext (the bridge's exhaustive BattleError match gained its bond_rank_too_low arm): passed",
+      "node tools/src/validate.mjs (214 stable IDs, 5 relationship scenes; raisesBondRankTo accepted only as one of the seven authored letters): passed",
+      "node tools/src/check-claims.mjs (38 claims, 86 ship-plan rows, 80 cards): passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/ (bundle-fresh, 47 records, sha256:ae718239... after rebasing onto 24eac6d): passed",
+      "battle::tests::betty_at_bond_rank_d_cannot_spend_her_rank_c_command -- the refusal, and nothing mutated: passed",
+      "battle::tests::betty_at_bond_rank_c_may_spend_her_rank_c_command -- the same command once her bond stands at C: passed",
+      "battle::tests::the_bond_ladder_is_the_seven_authored_letters -- and an unrecognised letter reads as the floor: passed",
+      "strategy::recruitment::tests::through_the_expedition_state::a_beat_that_says_so_raises_her_bond_rank_and_one_that_does_not_leaves_it: passed",
+      "strategy::recruitment::tests::through_the_expedition_state::a_lower_letter_never_lowers_her_bond_rank: passed",
+      "strategy::recruitment::tests::through_the_expedition_state::the_authored_household_scene_carries_her_to_c -- the authored record, not a fixture rule: passed",
+      "strategy::recruitment::tests::every_authored_scene_rule_loads -- every authored raisesBondRankTo is one of the seven, and exactly one Betty scene carries her D to C: passed",
+      "battle::tests::every_authored_skill_has_its_authored_rank -- A5's twin-table check, unchanged: passed",
+      "save_migration::the_current_save_writes_exactly_the_fields_the_struct_declares -- with bond_ranks appended to EXPECTED_CURRENT_KEYS: passed",
+      "save_migration::the_minimal_v1_save_predates_every_defaulted_field -- v1_minimal.json still loads with no bond_ranks at all: passed",
+      "Bite: the bond gate deleted from submit_uncached, cargo test --lib -- betty_at_bond_rank_d_cannot_spend_her_rank_c_command and the_bond_ladder_is_the_seven_authored_letters both FAILED (284 passed, 2 failed); gate restored: failed",
+      "Bite, restored: cargo test --manifest-path godot-rust/Cargo.toml --lib (286): passed",
+      "Godot suites (game/tests/*.gd) not run in this lane: no Godot binary in the container; the GDScript change is one optional parameter with a default on mock_simulation_port.actor_snapshot: not_run"
+    ]
   }
 }
