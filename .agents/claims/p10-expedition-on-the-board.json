@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "task_id": "p10-expedition-on-the-board",
+  "agent": "claude-code (lane P10)",
+  "summary": "The expedition screen hosts the isometric board: P7's select/order/words/hotkey controls move onto the 3D board with the same meaning and the same request_travel path, the 2D ExpeditionRouteBoard is deleted with its callers repaired, BoardPalette reads the Theme through ThemeTokens, and the three distances become the screen's camera modes.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "game/scripts/world/expedition_prototype.gd",
+    "game/scripts/world/expedition_route_board.gd",
+    "game/scripts/board/",
+    "game/scenes/board/",
+    "game/tests/expedition_prototype_test.gd",
+    "game/tests/isometric_board_test.gd",
+    "game/tests/board_verification_campaign.gd",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "BoardSurface",
+    "IsometricBoard.cell_at_viewport_point",
+    "IsometricBoard.portal_from_active_cell_to",
+    "IsometricBoard.set_party_selected",
+    "IsometricBoard.set_inspected_cell",
+    "IsometricBoard.configure",
+    "BoardPalette.use_theme",
+    "BoardPalette.cell_tint",
+    "ExpeditionPrototype.board",
+    "ExpeditionPrototype.press_camera_hotkey"
+  ],
+  "coordination": {
+    "depends_on": [
+      "p4-isometric-board",
+      "p7-rts-controls-on-the-board",
+      "p5-bronze-vellum-grammar",
+      "p8-the-shell"
+    ],
+    "conflicts_with": [],
+    "notes": "P11 owns palette adoption everywhere except game/scripts/world/ and game/scripts/board/, which are this lane's; nothing under game/scripts/ui/, game/scripts/shell/, game/scripts/battle/, godot-rust/, content/ or tools/ is edited here. S18 owns the bridge and native_expedition_port.gd; this lane needs no port change and makes none. game/themes/bronze_vellum.tres is P5's and gains no token here: BoardPalette derives the board's clay, sea, rock, land and the six faction washes from tokens the Theme already carries rather than adding new ones or keeping its own hex."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
