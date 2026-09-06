@@ -25,6 +25,7 @@ use crate::strategy::directive::StrategicDirective;
 use crate::strategy::faction::FactionDefinitions;
 use crate::strategy::force::ForceRecord;
 use crate::strategy::journal::{JournalEntry, StrategicJournal};
+use crate::strategy::production::MachineInstance;
 use crate::strategy::recruitment::{RecruitmentStage, RecruitmentState};
 use crate::strategy::tick::{self, HOURS_PER_DAY, StrategicClock, StrategicEvent};
 use crate::world::{
@@ -255,6 +256,22 @@ pub struct ExpeditionState {
     /// before buildings existed loads with an empty island.
     #[serde(default)]
     pub buildings: BTreeMap<String, BuildingInstance>,
+    /// S13: the machines Captain Michael's faction has built, keyed by their
+    /// own `machine_instance.*` ID -- brief section 5.4's animal-form
+    /// machinery, section 5.6's "buildings make machines, never people", and
+    /// section 18's per-machine asset fields. Everything that reads or writes
+    /// this map lives in `strategy/production.rs`, including
+    /// [`ExpeditionState::produce_machine`], so the whole of what a machine is
+    /// has one owner.
+    ///
+    /// A record here carries no footprint, route type, crew or salvage value of
+    /// its own: those are read from the `MachineDefinition` its `def_id` names,
+    /// exactly as a building's envelope is. What it keeps is only what has
+    /// changed since it was built -- fuel, water, damage. `serde(default)` so a
+    /// save written before machines existed loads with an island that has built
+    /// none.
+    #[serde(default)]
+    pub machines: BTreeMap<String, MachineInstance>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -496,6 +513,9 @@ impl ExpeditionState {
             forces: BTreeMap::new(),
             // S3: bare ground.
             buildings: BTreeMap::new(),
+            // S13: nothing has been built yet -- and nothing ever builds
+            // itself, so this map stays empty until a yard is asked.
+            machines: BTreeMap::new(),
         };
         state.validate()?;
         Ok(state)
