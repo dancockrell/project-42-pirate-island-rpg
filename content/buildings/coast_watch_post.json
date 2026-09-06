@@ -1,0 +1,84 @@
+{
+  "id": "building.coast_watch_post",
+  "faction_compatibility": ["pirates", "colonial_powers", "fox_people"],
+  "function": "A raised watch over a landing and the road behind it. It sees, it holds a few fighters, and it gives whoever holds it somewhere to bring people in through -- reach, not manufacture.",
+  "footprint_cells": 2,
+  "clearance_cells": 1,
+  "height_class": "[needs decision: height class for building.coast_watch_post -- brief section 20, exact standard building dimensions]",
+  "entrance_sockets": [
+    { "id": "socket.coast_watch_post.ladder", "kind": "entrance", "offset_cells": 0 }
+  ],
+  "road_sockets": [
+    { "id": "socket.coast_watch_post.road_face", "kind": "road", "offset_cells": 1 }
+  ],
+  "actor_sockets": [
+    { "id": "socket.coast_watch_post.lookout", "kind": "worker", "offset_cells": 1 },
+    { "id": "socket.coast_watch_post.parapet", "kind": "defender", "offset_cells": 1 },
+    { "id": "socket.coast_watch_post.muster", "kind": "spawn", "offset_cells": 0 }
+  ],
+  "delivery_sockets": [
+    { "id": "socket.coast_watch_post.supply_hook", "kind": "delivery", "offset_cells": 0 }
+  ],
+  "allowed_terrain": [],
+  "maximum_slope": 0,
+  "construction_cost": {
+    "resource.open.needs_decision": 0
+  },
+  "construction_requirements": [],
+  "tier_states": [
+    {
+      "tier": 1,
+      "construction_hours": 4,
+      "construction_requirements": [],
+      "hit_points": 60,
+      "notes": "A platform and a ladder."
+    },
+    {
+      "tier": 2,
+      "construction_hours": 10,
+      "construction_requirements": ["requirement.open.needs_decision.coast_watch_post_tier_2"],
+      "hit_points": 120,
+      "notes": "Walled, roofed, and worth garrisoning. The requirement flag is an Open placeholder; S13 owns what satisfies it."
+    }
+  ],
+  "production": [
+    {
+      "id": "production.coast_watch_post.watch_service",
+      "output": "service",
+      "output_key": "resource.open.needs_decision",
+      "amount": 1,
+      "interval_hours": 0,
+      "minimum_tier": 1
+    },
+    {
+      "id": "production.coast_watch_post.garrison_posting",
+      "output": { "human_role": { "role": "role.open.needs_decision.garrison" } },
+      "output_key": "resource.open.needs_decision",
+      "amount": 1,
+      "interval_hours": 0,
+      "minimum_tier": 2
+    }
+  ],
+  "services": ["service.open.needs_decision.watch"],
+  "recruitment_support": [
+    "recruitment_support.open.needs_decision.reach",
+    "recruitment_support.open.needs_decision.stability"
+  ],
+  "capture_rules": "capturable",
+  "ruin_state": { "leaves_rubble": { "footprint_cells": 1 } },
+  "dungeon_relationship": "Provisional: too small to be a dungeon. A ruined post is a single space at most. S9 owns the signature.",
+  "loot_relationship": "Provisional: whatever a garrison had on it. S10 owns loot tables.",
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "maturity": "prototype",
+    "releaseLegal": true,
+    "notes": [
+      "This record is the legal half of brief section 5.6's rule, authored on purpose so the refusal has something to be measured against. production.coast_watch_post.garrison_posting names a human_role, and it loads only because three things are true at once: the record does not list michael, interval_hours is 0 (a standing posting, never a timer that manufactures a person), and recruitment_support is non-empty and says what the support is. Change any one of the three and BuildingDefinition::validate and the buildings block in tools/src/validate.mjs both refuse it.",
+      "Open (brief section 20, exact resource list): construction_cost and every output_key carry the placeholder resource.open.needs_decision. No resource category is invented.",
+      "Open: the role key, the service key and both recruitment_support keys are *.open.needs_decision.* placeholders. There is no authored role, service or recruitment-support vocabulary yet, and inventing one here would decide a system this card does not own.",
+      "Open (brief section 20, exact standard building dimensions): height_class is a needs-decision placeholder; maximum_slope is 0 because the graph carries no slope; the envelope is a share of CELL_CAPACITY_CELLS, not metres.",
+      "Open (brief section 20, capture versus destruction rules by building type): chosen here -- a post is taken rather than levelled, and a knocked-down post leaves its platform footings on the ground.",
+      "Only two tiers are authored, below TIER_CAP. A record may author fewer tiers than the cap allows; the top production rule sits at minimum_tier 2, which is this record's top tier."
+    ]
+  }
+}

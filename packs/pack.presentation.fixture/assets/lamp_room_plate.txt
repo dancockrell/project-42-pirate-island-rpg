@@ -1,0 +1,10 @@
+DUMMY PLACEHOLDER ASSET -- packs/pack.presentation.fixture/assets/lamp_room_plate.txt
+
+Not artwork. This file exists so that asset.fixture.lamp_room_plate resolves to
+a real path inside the pack and the packFile validator block has something to
+resolve it against. It is a fixture for the schema, not content: the pack it
+belongs to overrides at targetLevel fade_to_black, and no explicit content of
+any kind exists in this repository.
+
+Replacement gate: the real presentation pack (E9 builds the .pck) supplies its
+own assets directory; this file is never shipped.

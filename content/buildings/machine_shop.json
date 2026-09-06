@@ -1,0 +1,143 @@
+{
+  "id": "building.machine_shop",
+  "faction_compatibility": [
+    "michael"
+  ],
+  "function": "Captain Michael's working core: a covered shop where salvage becomes machines, and where the crew's housing, training and command capacity is measured. Brief section 5.6 -- Michael's buildings make machines, capacity and services, and they never make people.",
+  "footprint_cells": 4,
+  "clearance_cells": 2,
+  "height_class": "[needs decision: height class for building.machine_shop -- brief section 20, exact standard building dimensions]",
+  "entrance_sockets": [
+    {
+      "id": "socket.machine_shop.main_door",
+      "kind": "entrance",
+      "offset_cells": 0
+    }
+  ],
+  "road_sockets": [
+    {
+      "id": "socket.machine_shop.cart_face",
+      "kind": "road",
+      "offset_cells": 1
+    }
+  ],
+  "actor_sockets": [
+    {
+      "id": "socket.machine_shop.bench_a",
+      "kind": "worker",
+      "offset_cells": 2
+    },
+    {
+      "id": "socket.machine_shop.bench_b",
+      "kind": "worker",
+      "offset_cells": 3
+    },
+    {
+      "id": "socket.machine_shop.door_guard",
+      "kind": "defender",
+      "offset_cells": 0
+    },
+    {
+      "id": "socket.machine_shop.yard_arrival",
+      "kind": "spawn",
+      "offset_cells": 1
+    }
+  ],
+  "delivery_sockets": [
+    {
+      "id": "socket.machine_shop.salvage_drop",
+      "kind": "delivery",
+      "offset_cells": 1
+    },
+    {
+      "id": "socket.machine_shop.parts_rack",
+      "kind": "storage",
+      "offset_cells": 3
+    }
+  ],
+  "allowed_terrain": [],
+  "maximum_slope": 0,
+  "construction_cost": {
+    "resource.open.needs_decision": 0
+  },
+  "construction_requirements": [],
+  "tier_states": [
+    {
+      "tier": 1,
+      "construction_hours": 8,
+      "construction_requirements": [],
+      "hit_points": 100,
+      "notes": "A roof, a bench and a door. Enough to repair what the wreck gave up."
+    },
+    {
+      "tier": 2,
+      "construction_hours": 16,
+      "construction_requirements": [
+        "requirement.open.needs_decision.machine_shop_tier_2"
+      ],
+      "hit_points": 180,
+      "notes": "Powered tooling. The first tier that builds a machine rather than mending one. The requirement flag is an Open placeholder; S13 owns what satisfies it."
+    },
+    {
+      "tier": 3,
+      "construction_hours": 32,
+      "construction_requirements": [
+        "requirement.open.needs_decision.machine_shop_tier_3"
+      ],
+      "hit_points": 280,
+      "notes": "The core proper: command space and integration capacity alongside the shop floor."
+    }
+  ],
+  "production": [
+    {
+      "id": "production.machine_shop.automaton_frames",
+      "output": "machine",
+      "output_key": "resource.open.needs_decision",
+      "amount": 1,
+      "interval_hours": 24,
+      "minimum_tier": 2
+    },
+    {
+      "id": "production.machine_shop.integration_capacity",
+      "output": "capacity",
+      "output_key": "resource.open.needs_decision",
+      "amount": 2,
+      "interval_hours": 0,
+      "minimum_tier": 3
+    },
+    {
+      "id": "production.machine_shop.repair_service",
+      "output": "service",
+      "output_key": "resource.open.needs_decision",
+      "amount": 1,
+      "interval_hours": 0,
+      "minimum_tier": 1
+    }
+  ],
+  "services": [
+    "service.open.needs_decision.repair"
+  ],
+  "recruitment_support": [],
+  "capture_rules": "capturable",
+  "ruin_state": {
+    "leaves_rubble": {
+      "footprint_cells": 2
+    }
+  },
+  "dungeon_relationship": "Provisional: a ruined machine shop is a small, shallow site of benches and dead tooling. S9 owns the generation signature; nothing here is a grammar.",
+  "loot_relationship": "Provisional: parts and tools rather than treasure. S10 owns loot tables; this string is prose no code reads.",
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "maturity": "prototype",
+    "releaseLegal": true,
+    "notes": [
+      "Brief section 5.6 and section 20: this record lists concept key michael, so a human_role production rule is refused outright -- by BuildingDefinition::validate and by the buildings block in tools/src/validate.mjs. The three rules here make a machine, capacity and a service. recruitment_support is deliberately empty: Michael's faction grows by recruitment, migration, relationships, rescue and factional change, never because a building said so.",
+      "Open (brief section 20, exact resource list): construction_cost and every production output_key carry the single placeholder resource.open.needs_decision at amount-bearing but meaningless weight 0 for cost. No resource category is invented here, exactly as C9 did for resource_priorities.",
+      "Open (brief section 20, exact standard building dimensions): height_class is a needs-decision placeholder, maximum_slope is 0 because the world graph carries no slope, and footprint_cells / clearance_cells are shares of CELL_CAPACITY_CELLS rather than metres. B11 and O3 own real geometry.",
+      "Open (brief section 20, capture versus destruction rules by building type): capture_rules and ruin_state are chosen here, per record, as S3 required -- a shop is worth taking, and a burnt shop still occupies its floor. The choice is this record's, not the engine's.",
+      "Open: construction_requirements flags are requirement.open.needs_decision.* placeholders. S13 decides what a faction must hold to unlock a tier; nothing reads these strings today.",
+      "Open: allowed_terrain is empty because the authored terrain key space does not exist yet; empty means the placement rules alone decide.",
+      "Provisional: dungeon_relationship and loot_relationship are prose. S9 and S10 own those systems."
+    ]
+  }
+}
