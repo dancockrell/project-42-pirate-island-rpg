@@ -25,6 +25,12 @@ pub mod clocks;
 /// S6: `StrategicDirective` -- the player's high-weight request to a faction,
 /// with its plain-language explanation produced before confirmation.
 pub mod directive;
+/// S9: `DungeonContext` and the generation signature -- the same context
+/// yields the same rooms; a different owner or tier never collides.
+pub mod dungeon;
+/// S10: elimination and the recovery chain -- a faction is gone only when
+/// every link is exhausted, and it never respawns.
+pub mod elimination;
 /// S1: `FactionDefinition`, `FactionState`, `StrategicState`, `Relationship`.
 pub mod faction;
 /// S7: offscreen forces -- aggregate bodies that move along routes and
@@ -32,6 +38,9 @@ pub mod faction;
 pub mod force;
 /// S11: the strategic event journal and its digest -- bounded, saved.
 pub mod journal;
+/// S13: Michael's faction produces machines, capacity and services -- never
+/// people. Actor kits for his faction are machine families only.
+pub mod production;
 /// S12: `RecruitmentState` for the women -- stages, never numbers surfaced.
 pub mod recruitment;
 /// S4: the strategic tick, pause semantics and the determinism harness.
