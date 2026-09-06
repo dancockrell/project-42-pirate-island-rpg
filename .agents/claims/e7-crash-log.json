@@ -3,9 +3,9 @@
   "task_id": "e7-crash-log",
   "agent": "claude-code (lane E7)",
   "summary": "A CrashLog autoload writes user://logs/crash-<day>-<segment>-<n>.json carrying the reason, the last expedition snapshot the campaign session handed it, the content bundle hash and the engine version, and a suite proves the round-trip plus that game/scripts/ contains no HTTP client of any kind.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
-  "updated_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T07:10:00Z",
   "paths": [
     "game/scripts/diagnostics/crash_log.gd",
     "game/project.godot",
@@ -21,10 +21,29 @@
   "coordination": {
     "depends_on": [],
     "conflicts_with": [],
-    "notes": "Branched from origin/backend/b0-expedition-state at 2f51e77. Parallel lanes: the [autoload] block in game/project.godot takes one appended line at the end and nothing else, and campaign_session.gd takes exactly one line inside the existing snapshot() wrapper (B8 is adding save functions to the same file elsewhere). No Rust is touched and docs/SHIP_PLAN.md is not edited."
+    "notes": "Branched from origin/backend/b0-expedition-state at 2f51e77. Parallel lanes: the [autoload] block in game/project.godot takes one appended line at the end and nothing else, and campaign_session.gd takes exactly one line inside the existing snapshot() wrapper (B8 is adding save functions to the same file elsewhere). No Rust is touched and docs/SHIP_PLAN.md is not edited. Shipped: the bridge's expedition snapshot projects campaign_day and time_segment and no hour_of_day (godot_bridge.rs expedition_state_dictionary), so the in-world clock GDScript actually has is day plus segment and the file name is crash-<day>-<segment>-<n>.json; exposing strategic_clock.hour_of_day would have meant editing Rust, which this lane does not own, so the card's <hour> slot is filled by the segment rather than invented. The bundle hash is read through ContentCatalog (content_hash from the bundle's contentHash field), not by a second parser of game/generated/content_bundle.json. No .uid files are committed for the two new scripts: Godot's editor import pass in the gate generates them, and hand-authoring a resource UID would be inventing an identifier."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "89d4141",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (303 lib + 5 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice; no Rust was touched in this lane): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext (Finished dev profile in 43.63s): passed",
+      "node tools/src/validate.mjs (214 stable IDs): passed",
+      "node tools/src/check-claims.mjs (41 claims, 88 ship-plan rows, 82 cards): passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/ -- bundle unchanged, sha256:13655d169f8e6dd9f972df1d7accc39799283b55650bd89a168f99ec9726d901: passed",
+      "CI run 34018081254 on lane/E7-crash-log at 89d4141, job 'Rust and content': passed",
+      "CI run 34018081254 job 'Godot headless suites' -- 'Godot headless verification passed. 3 review scenes, 18 suites.' (17 before this lane, so crash_log_test.gd ran) and then 'Real Rust bridge confirmed: all three native suites reported a pass.': passed",
+      "Done-when 1, the round-trip: crash_log_test.gd records a failure against a handed snapshot and reads user://logs/crash-7-dusk-0.json back -- reason, the snapshot's configured flag, campaign day, time segment, location and party, the sha256: bundle hash, the engine version string and written_at in in-world time only. Comparisons are field by field because JSON writes every number as a float: passed",
+      "Done-when 2, the counter: a second failure in the same in-world hour writes crash-7-dusk-1.json, the first file survives and still holds the first reason: passed",
+      "The notification hooks: crash_log.notification(Node.NOTIFICATION_WM_CLOSE_REQUEST) with nothing in flight writes no file; with pending_failure_reason set it writes crash-7-dusk-2.json and clears the flag: passed",
+      "Done-when 3, the no-telemetry scan: the suite reads all 31 .gd files under res://scripts/ with FileAccess and fails if any contains HTTPRequest or HTTPClient. The whole gate exits non-zero on any ERROR line, and check() reports through push_error, so the green Godot job is the assertion's verdict: passed",
+      "The suite needs no live bridge (no NativeExpeditionPort call, no MockSimulationPort) and prints none of verify.yml's five fallback markers; the 'Prove the real bridge loaded' step passed with it in the run: passed",
+      "Cleanup: purge_test_logs() removes crash-7-dusk-*.json before the assertions (so a leftover file cannot shift the counter) and again at the end, leaving user://logs as found: passed",
+      "Bite, executed on the scan logic rather than in Godot: a scratch game/scripts/diagnostics/scratch_bite.gd whose only mention of the needle was a comment made the identical scan (same root, same two needles, same .gd recursion) report 'HIT game/scripts/diagnostics/scratch_bite.gd HTTPClient' and exit 1 across 32 scripts; removed, it scanned 31 and exited 0. The scratch file was never committed: passed",
+      "Bite, NOT executed inside Godot: there is no Godot binary in this container, so the GDScript form of that failure was not run, and committing the needle to make CI red would have shipped the thing the card forbids: not_run",
+      "The card's crash-<day>-<hour> hour: the bridge's snapshot carries campaign_day and time_segment and no hour_of_day, so the segment fills that slot. Naming a real hour would need a new field in godot_bridge.rs, which this lane does not own: not_run",
+      "NOTIFICATION_CRASH itself is not exercised: Godot delivers it only on a real crash and nothing in the suite can provoke one. It shares one line with the close-request path, which is exercised: not_run"
+    ]
   }
 }
