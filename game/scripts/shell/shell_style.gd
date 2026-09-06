@@ -20,7 +20,7 @@ extends RefCounted
 const ThemeTokensScript := preload("res://scripts/ui/theme_tokens.gd")
 
 ## Theme type variations the shell writes in, so a screen names a role rather
-## than a size and a colour. All seven live in the `.tres`.
+## than a size and a colour. Every one of them lives in the `.tres`.
 const WORDMARK := &"WordmarkLabel"
 const DISPLAY := &"DisplayLabel"
 const TITLE := &"TitleLabel"
