@@ -398,6 +398,7 @@ top of the document is never stale:
 | S17 | Goals become actions: Develop places a building, Supply gathers, Expand and Pressure dispatch a force | S16, S5, S7, B16 | shipped `24b1332` 2026-09-06 |
 | S18 | Arrival resolves control: an arriving force takes an unheld or undefended cell, stands contested against a defender; the player's own forces raised and dispatched through the bridge | S17, S7, S2 | shipped `cca20f2` 2026-09-06 |
 | S19 | Stockpiles are spent: machines burn the fuel and water their records name, construction runs on the clock, a faction that cannot feed its yard says so | S16, S17, S18, C14 | shipped `9322458` 2026-09-06 |
+| S20 | The live island acts: a faction with ground always has a goal, so a bridge campaign raises a building and makes a machine without a seeded harness | S5, S17, S19, P13 | open |
 
 ### Lane B — Bridge, board and Godot
 
@@ -442,6 +443,7 @@ top of the document is never stale:
 | C13 | Content can declare a discovery ID; the tidal cut's gate authored | A4 | shipped 3c85451 2026-09-05 — plus the bridge wire it turned out to need |
 | C14 | Machine records: the eight families with brief §18's fields | S13 | shipped 6d2aa16 2026-09-06 |
 | C15 | Habitats and their creatures as content: the two rostered creatures with no record, then `content/habitats/` | B7 | shipped eba030a 2026-09-06 |
+| C16 | Fuel and water have a source: one authored supply building whose rules yield the machine records' own keys, at Open rates | C10, C14, S19 | open |
 
 ### Lane D — Art (`content/art/`, `work/art/`, `game/assets/`)
 
@@ -508,6 +510,9 @@ captured by P1's gate, and no card claims a look it has not captured.
 | P12 | Blockout kits for buildings and machines (D9 + D10): procedural envelopes from the C10 and C14 records in the library's riveted iron and clay, reviewed at gameplay distance | P2, C10, C14 | shipped `76f09ac` 2026-09-06 |
 | P13 | The island develops on screen: building and machine instances cross the bridge read-only and P12's kits stand on the board where the simulation put them | P10, P12, S17, B19 | shipped `aee3fbd` 2026-09-06 |
 | P14 | The battle at every text scale: card and dock layouts that never clip or overflow at 1.0× and 1.3×; the roster status line and the diamond labels | P6, P11 | shipped `01abece` 2026-09-06 |
+| P15 | The strategic surface on the expedition screen: notices at three levels, the journal readable while paused, a directive confirmed only after its explanation | P5, P10, S6, S11 | open |
+| P16 | The shell at every text scale: title, pause, settings and credits measured from the type scale; the credits' component lines wrap | P8, P11, E13 | open |
+| P17 | Room blockouts from the contracts (D12): the room distance stands each cell's landmarks, materials and sockets from its C11 contract | C11, P10, P12 | open |
 
 ### Lane H — Docs and hygiene
 
@@ -1538,6 +1543,42 @@ probe adds one fixture machine record beside the authored ones to prove
 the drain. `Goal::Recover`'s trickle is untouched (`needs decision` stays
 with S17).
 
+### S20 · The live island acts
+Status: open · Depends on: S5, S17, S19, P13
+Touches: `godot-rust/src/strategy/utility.rs` (goal scoring), `strategy/faction.rs`
+only if a weight shape is missing, `godot-rust/tests/authored_world.rs` (one
+bridge-shaped campaign test), `godot-rust/tests/strategic_determinism.rs`
+(the hash's expected value if it moves, with the reason), then the Godot
+half: `game/tests/board_development_test.gd` and
+`game/tests/board_verification_campaign.gd` (P13's save-round-trip stand-in
+`develop_island` deleted the day the live path raises something, as its
+note demands) and `game/tests/expedition_prototype_test.gd` (one assertion).
+P13 measured it: a campaign begun through `CampaignSession`, four cells
+handed out through `set_control`, 60 in-world days through
+`resolve_midnight` — `current_goals` is empty for all six factions at every
+step, because S5 scores a goal out of stockpiles and relationships and a
+bridge campaign seeds neither; only the harness's `a_campaign()` seeds both.
+That is a scoring gap, not a content gap: a faction that holds ground and
+has nothing else has a goal (Consolidate its ground, or Expand from it),
+and a faction with a construction site it can afford at zero cost has
+Develop. Fix the root: S5's scoring gives every faction with at least one
+held cell at least one goal every hour, from named minimums marked
+`needs decision` where a number is new, without touching `PURPOSES` or the
+draw order. Then prove it through the bridge's own path in Rust: configure
+with the authored registries exactly as `native_expedition_port.gd` does,
+`set_control` four cells, run 60 days, assert at least one
+`BuildingStarted`, one `BuildingFinished` and, since the machine shop's
+authored cost is zero, one `MachineProduced` (fuel and water are C16's;
+this card does not author content and does not seed a stockpile the game
+would not). Then delete P13's stand-in and let `board_development_test.gd`
+drive the live campaign. If the live path cannot make a machine because
+nothing feeds it, say exactly that and leave the machine assertion for
+C16, with the building assertions green.
+Done when: the Rust test and the Godot suite raise a building through the
+live bridge from the authored opening with no seeded stockpile; the stand-in
+is gone; the 2,400-hour hash's expected value updated with the reason if it
+moved.
+
 ### B19 · The bridge loads the machine records and hands the registry to the tick
 Status: shipped `1fca984` 2026-09-06 · Depends on: C14, S16
 Touches: `game/scripts/simulation/native_expedition_port.gd`,
@@ -1558,6 +1599,31 @@ proves the two authored machines reach the bridge whole (route types,
 expedition prototype suite asserts both IDs in the snapshot. Bite: dropping
 `machines` from the bundle domain list fails by name. The determinism
 harness already loaded `content/machines/`, so nothing was added there.
+
+### C16 · Fuel and water have a source
+Status: open · Depends on: C10, C14, S19
+Touches: `content/buildings/supply_store.json` (new; the name is a
+placeholder function word, not a proper name), `tools/src/validate.mjs`
+(only if the existing building rules do not already cover it), the bundle,
+`godot-rust/tests/authored_world.rs` (the registry count and one rule
+assertion), `godot-rust/tests/strategic_determinism.rs` (retire the fixture
+machine record S19 added if the authored source makes it redundant; the
+hash's expected value with the reason).
+S19 shipped with every authored machine starving the hour after it is
+built because nothing on the island produces `resource.open.fuel` or
+`resource.open.water`, the keys C14's records already name. One authored
+building record in C10's exact shape, compatible with Michael's faction
+(brief §5.3: his yard runs on machines), with two timer-driven production
+rules whose `output_key`s are those two keys verbatim and whose `amount`
+and `interval_hours` are Open numbers written as the record's own
+`open_dimensions` entries naming brief §20, the same way C14 marks its
+dimensions; footprint by the O3 registry ID; every other field in C10's
+shape with the same Open marks C10 used. No new resource key: the keys are
+C14's. The validator's existing rules must accept it unchanged or the
+record is wrong, not the validator.
+Done when: the validator and bundle green; the authored-world test proves
+the record reaches the bridge whole; a determinism probe shows a faction
+holding the store feeds a machine from the authored keys.
 
 ### Lane B — new cards
 
@@ -2388,6 +2454,7 @@ pivots/sockets, no animation.
 Status: shipped `c7f0e74` 2026-09-06 as P5 (`card_rail.gd`, `command_grid.gd` in the Theme; see P5) · Depends on: —
 
 ### D12 · Room blockouts for the Demo region — from C11's contracts.
+Status: open · Delivered by P17 when it ships.
 
 ### Lane E — new card
 
@@ -3372,6 +3439,69 @@ label is truncated. Bites: restoring the fixed copy width fails by name
 ("114 at 1.0x and 114 at 1.3x"); restoring the fixed plate size fails
 nineteen named checks. Captures `P14-e6b57ee-{battle-1.0x,battle-1.3x-high-contrast}.png`,
 read. Ayla's colours and `battle_palette.gd` untouched.
+
+### P15 · The strategic surface on the expedition screen
+Status: open · Depends on: P5, P10, S6, S11
+Touches: `game/scripts/world/expedition_prototype.gd` (the screen hosts the
+surface), a new `game/scripts/world/strategic_panel.gd`, `game/scripts/surface/information_surface.gd`
+only if a seam is missing, `game/scripts/ui/*` only additively, one suite,
+captures.
+P5 built the components and the classifier and the bridge's
+`strategic_surface`; P10 built the board screen; nothing yet puts the
+island's events in front of the player. After each midnight the screen
+takes the snapshot's events through `InformationSurface`: Ambient stays
+in the journal; Notable is a `VellumNotice` in the screen's own notice
+rail; Urgent interrupts with the surface's reason shown (the brief's four
+permissions, never widened). The journal is readable in a panel that holds
+a `GamePause` reason while open; a directive (S6) is listed with its
+explanation and cannot be confirmed without it; a confirmed directive goes
+through the bridge verb that exists for it (find it; if none exists, the
+confirm button says so and the claim records `needs a bridge verb`). All
+type and colour through the Theme; no hex.
+Done when: a suite drives a campaign through the live bridge across a
+midnight, asserts the notice rail shows exactly the Notable events and at
+most one Urgent, the journal opens paused and closes unpaused, and an
+unexplained directive cannot be confirmed; captures of the rail with a
+Notable, the journal open, and a directive with its explanation.
+
+### P16 · The shell at every text scale
+Status: open · Depends on: P8, P11, E13
+Touches: `game/scripts/shell/**` layout code, `game/tests/shell_flow_test.gd`
+(layout assertions appended) or a new `game/tests/shell_layout_test.gd`,
+captures.
+P11 squeezed the title's menu to fit 1.3×; E13 found the credits' component
+lines and the STILL OWED line run past the right edge at 1280 wide at any
+scale (single non-wrapping labels inside a ScrollContainer with horizontal
+scrolling off). P14's discipline for the shell: every width derives from
+the Theme's type scale, long lines wrap by one Theme rule, and a suite
+instances the title, the pause menu, the settings panel and the credits at
+1.0× and 1.3× and asserts no Label is wider than its container and every
+menu row is inside the viewport. Ayla's and the settings' semantics untouched.
+Done when: that suite bites (restore one fixed width → fails by name);
+captures of the credits and the pause menu at 1.3× high contrast.
+
+### P17 · Room blockouts from the contracts (D12)
+Status: open · Depends on: C11, P10, P12
+Touches: `game/scripts/rooms/` (new: `room_blockout.gd` building a room
+from its cell's `board` and `contract` blocks), `game/scripts/board/isometric_board.gd`
+(the room distance instances it; keep the hunk small), one review scene
+`game/scenes/review/room_blockout_review.tscn` + script, one suite,
+captures.
+C11 gave every cell its landmarks (quoted, sourced), material language (P2
+library keys), circulation and sockets; P4 gave it a footprint and spawn
+sockets; P10 shows a room distance with a floor, kerb and gate. A room now
+stands as its contract says: the floor in the room's first material, the
+kerb in its second, one marked placeholder prop per landmark (a box or
+cylinder sized by a named constant marked `needs decision`, labelled with
+the landmark's own quoted words in the Theme's caption face at gameplay
+distance), each tether's gate on the footprint edge the board block names,
+each spawn socket as P4 draws it. The terrace, which has a setpiece
+script, keeps its setpiece and gains only what the contract adds. Nothing
+is invented: a room with a null material uses the placeholder material and
+says so on its label.
+Done when: a suite builds all nine rooms and asserts one prop per landmark
+by the landmark's words, materials by contract key, gates by tether;
+captures of three rooms at the room distance.
 
 ### One lane, one clean checkout
 
