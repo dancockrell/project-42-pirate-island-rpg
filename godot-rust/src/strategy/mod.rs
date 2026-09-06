@@ -19,8 +19,14 @@
 /// S8: the dual clocks -- world time against Cthulhu patience and heat --
 /// weather, and corruption. Advancing one clock never advances the other.
 pub mod clocks;
+/// S6: `StrategicDirective` -- the player's high-weight request to a faction,
+/// with its plain-language explanation produced before confirmation.
+pub mod directive;
 /// S1: `FactionDefinition`, `FactionState`, `StrategicState`, `Relationship`.
 pub mod faction;
+/// S7: offscreen forces -- aggregate bodies that move along routes and
+/// materialise through a cell's sockets, never teleporting.
+pub mod force;
 /// S11: the strategic event journal and its digest -- bounded, saved.
 pub mod journal;
 /// S12: `RecruitmentState` for the women -- stages, never numbers surfaced.
