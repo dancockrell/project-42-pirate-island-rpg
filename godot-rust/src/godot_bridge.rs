@@ -12,9 +12,11 @@ use crate::geography::{
 use crate::habitat::Habitats;
 use crate::protocol::{CommandEnvelope, CommandKind, PROTOCOL_VERSION};
 use crate::strategy::building::{BuildingDefinition, BuildingDefinitions, BuildingError};
+use crate::strategy::directive::{DirectiveStatus, Explanation, StrategicDirective};
 use crate::strategy::faction::{
     FactionDefinition, FactionDefinitions, FactionError, StrategicState,
 };
+use crate::strategy::journal::JournalEntry;
 use crate::strategy::site_rule::{AuthoredSiteRule, AuthoredSiteRuleError, SiteRules};
 use crate::strategy::utility::Goal;
 use crate::world::WorldEvent;
@@ -683,6 +685,59 @@ impl Project42ExpeditionBridge {
             &self.factions,
             &self.buildings,
         )
+    }
+
+    /// P5: what the calm information surface reads, and nothing else.
+    ///
+    /// Two things the expedition snapshot does not carry and a screen cannot
+    /// compute for itself:
+    ///
+    /// * **the directives standing right now**, each with the plain-language
+    ///   explanation brief section 5.9 requires the player to be shown *before*
+    ///   they confirm. The stored explanation is preferred, because it is the
+    ///   one the player actually agreed to; a directive that predates the
+    ///   stored field is explained afresh through
+    ///   [`ExpeditionState::explain_directive`], which is pure and mutates
+    ///   nothing.
+    /// * **the tail of S11's journal**, in prose, so the journal a paused
+    ///   player reads says what happened rather than showing a variant name.
+    ///
+    /// Read-only, like `snapshot` and `save_json`: this method takes `&self`,
+    /// so there is no way for a screen to move the island by looking at it.
+    /// Nothing numeric that came out of the utility model crosses here -- brief
+    /// section 9 -- and the words are written beside the facts they describe,
+    /// so the engine never rewords what the simulation said.
+    ///
+    /// `journal_limit` is clamped into `0..=window`, so a screen may ask for
+    /// more lines than exist without special-casing an empty campaign.
+    #[func]
+    fn strategic_surface(&self, journal_limit: i64) -> VarDictionary {
+        let Some(state) = self.state.as_ref() else {
+            return expedition_error_dictionary("expedition_not_configured");
+        };
+        let mut directives = Array::<VarDictionary>::new();
+        for directive in state.directives.values() {
+            if directive.state != DirectiveStatus::Active {
+                continue;
+            }
+            directives.push(&directive_dictionary(state, directive, &self.geography));
+        }
+        let entries = state.strategic_journal.recent();
+        let limit = journal_limit.clamp(0, entries.len() as i64) as usize;
+        let mut journal = Array::<VarDictionary>::new();
+        for entry in &entries[entries.len() - limit..] {
+            journal.push(&journal_entry_dictionary(entry));
+        }
+        let mut result = vdict! {
+            "configured" => true,
+            // A u64 count as decimal text, exactly as `loot_seed` is: Godot
+            // integers are signed and a campaign's total is not this screen's
+            // arithmetic anyway.
+            "journal_total_recorded" => state.strategic_journal.total_recorded().to_string(),
+        };
+        result.set("directives", &directives);
+        result.set("journal", &journal);
+        result
     }
 }
 
@@ -1653,6 +1708,226 @@ fn battle_error_code(value: &crate::battle::BattleError) -> &'static str {
         RetreatNotAllowed => "retreat_not_allowed",
         IllegalRetreatActor(_) => "illegal_retreat_actor",
         BondRankTooLow { .. } => "bond_rank_too_low",
+    }
+}
+
+/// One standing directive, as the confirmation screen and the directive list
+/// read it. Names, words and the player's own stated limits -- never a score.
+fn directive_dictionary(
+    state: &ExpeditionState,
+    directive: &StrategicDirective,
+    geography: &Geography,
+) -> VarDictionary {
+    let explanation = directive
+        .explanation
+        .clone()
+        .unwrap_or_else(|| state.explain_directive(directive, geography));
+    let mut result = vdict! {
+        "id" => directive.id.as_str(),
+        "faction_id" => directive.faction_id.as_str(),
+        "issuing_character_id" => directive.issuing_character_id.as_str(),
+        "intent" => serde_name(&directive.intent),
+        "priority" => serde_name(&directive.priority),
+        "state" => serde_name(&directive.state),
+        "reserve_policy" => serde_name(&directive.reserve_policy),
+        "target_node_id" => directive.target_node_id.as_deref().unwrap_or(""),
+        "target_region_id" => directive.target_region_id.as_deref().unwrap_or(""),
+        "target_faction_id" => directive.target_faction_id.as_deref().unwrap_or(""),
+        "acceptable_risk" => i64::from(directive.acceptable_risk),
+        "completion_condition" => directive.completion_condition.as_str(),
+        "withdrawal_condition" => directive.withdrawal_condition.as_str(),
+    };
+    result.set("explanation", &explanation_dictionary(&explanation));
+    result
+}
+
+/// S6's explanation, field for field. The screen labels these; it does not
+/// write them.
+fn explanation_dictionary(explanation: &Explanation) -> VarDictionary {
+    let mut blockers = Array::<GString>::new();
+    for blocker in &explanation.blockers {
+        blockers.push(&GString::from(blocker.as_str()));
+    }
+    let mut result = vdict! {
+        "goal" => explanation.goal.as_str(),
+        "why_target" => explanation.why_target.as_str(),
+        "resources" => explanation.resources.as_str(),
+        "withdrawal_conditions" => explanation.withdrawal_conditions.as_str(),
+        "party_could_help" => explanation.party_could_help,
+    };
+    result.set("blockers", &blockers);
+    result
+}
+
+/// One journal line: when it happened, what kind of thing it was, the ids it is
+/// about, and one sentence of prose.
+///
+/// `kind` comes from serde rather than from a second list of names written
+/// here, so the word the journal shows is the word the save carries. `cell_id`
+/// is normalised to *the cell the event is about* -- where a force ended up,
+/// not where it started -- because that is the one a map or an alert would
+/// point at. `character_ids` is always empty today: no `StrategicEvent` names a
+/// person yet, and the key is present so the surface's shape does not change on
+/// the day one does.
+fn journal_entry_dictionary(entry: &JournalEntry) -> VarDictionary {
+    use crate::strategy::tick::StrategicEvent::*;
+    let (faction_id, cell_id, route_id, force_id): (String, String, String, String) =
+        match &entry.event {
+            HourPassed { .. } => (String::new(), String::new(), String::new(), String::new()),
+            ForceDeparted {
+                force_id,
+                faction_id,
+                destination_cell_id,
+                ..
+            } => (
+                faction_id.clone(),
+                destination_cell_id.clone(),
+                String::new(),
+                force_id.as_str().to_owned(),
+            ),
+            ForceMoved {
+                force_id,
+                faction_id,
+                route_id,
+                to_cell_id,
+                ..
+            } => (
+                faction_id.clone(),
+                to_cell_id.clone(),
+                route_id.clone(),
+                force_id.as_str().to_owned(),
+            ),
+            ForceArrived {
+                force_id,
+                faction_id,
+                cell_id,
+                ..
+            } => (
+                faction_id.clone(),
+                cell_id.clone(),
+                String::new(),
+                force_id.as_str().to_owned(),
+            ),
+            ForceHalted {
+                force_id,
+                faction_id,
+                cell_id,
+                ..
+            } => (
+                faction_id.clone(),
+                cell_id.clone(),
+                String::new(),
+                force_id.as_str().to_owned(),
+            ),
+            RecoveryLinkLost { faction_id, .. } => (
+                faction_id.clone(),
+                String::new(),
+                String::new(),
+                String::new(),
+            ),
+            FactionEliminated { faction_id, .. } => (
+                faction_id.clone(),
+                String::new(),
+                String::new(),
+                String::new(),
+            ),
+            MachineProduced { faction_id, .. } => (
+                faction_id.clone(),
+                String::new(),
+                String::new(),
+                String::new(),
+            ),
+        };
+    let character_ids = Array::<GString>::new();
+    let mut result = vdict! {
+        "day" => i64::from(entry.day),
+        "hour" => i64::from(entry.hour),
+        "kind" => serde_variant_name(&entry.event),
+        "faction_id" => faction_id.as_str(),
+        "cell_id" => cell_id.as_str(),
+        "route_id" => route_id.as_str(),
+        "force_id" => force_id.as_str(),
+        "prose" => journal_prose(entry).as_str(),
+    };
+    result.set("character_ids", &character_ids);
+    result
+}
+
+/// One sentence for one thing the island did.
+///
+/// The match is exhaustive on purpose, exactly as `world_event_dictionary`'s
+/// is: a new `StrategicEvent` cannot be added without this boundary being told
+/// how to say it, because the crate will not compile until it is. Ids are
+/// quoted rather than prettified -- they are concept keys and stable IDs, and
+/// the surface draws them in the mono face for that reason.
+fn journal_prose(entry: &JournalEntry) -> String {
+    use crate::strategy::tick::StrategicEvent::*;
+    match &entry.event {
+        HourPassed { hour, .. } => format!("Hour {hour} passed on the island."),
+        ForceDeparted {
+            faction_id,
+            from_cell_id,
+            destination_cell_id,
+            steps,
+            ..
+        } => format!(
+            "{faction_id} sent a force out of {from_cell_id} for {destination_cell_id}, {steps} roads away."
+        ),
+        ForceMoved {
+            faction_id,
+            route_id,
+            to_cell_id,
+            ..
+        } => format!("A force of {faction_id} took {route_id} into {to_cell_id}."),
+        ForceArrived {
+            faction_id,
+            cell_id,
+            ..
+        } => format!("A force of {faction_id} reached {cell_id}."),
+        ForceHalted {
+            faction_id,
+            cell_id,
+            reason,
+            ..
+        } => format!(
+            "A force of {faction_id} stopped at {cell_id}: {}.",
+            serde_name(reason)
+        ),
+        RecoveryLinkLost { faction_id, link } => {
+            format!("{faction_id} lost a way back: {}.", serde_name(link))
+        }
+        FactionEliminated { faction_id, day } => {
+            format!("{faction_id} is off the board as of day {day}.")
+        }
+        MachineProduced {
+            faction_id,
+            family,
+            building_instance_id,
+            ..
+        } => format!(
+            "{building_instance_id} turned out a {} for {faction_id}.",
+            serde_name(family)
+        ),
+    }
+}
+
+/// The snake_case name serde already gives a unit-like enum value, so the
+/// engine sees the word the save carries instead of a second list of names
+/// maintained beside it.
+fn serde_name<T: serde::Serialize>(value: &T) -> String {
+    match serde_json::to_value(value) {
+        Ok(serde_json::Value::String(name)) => name,
+        _ => String::new(),
+    }
+}
+
+/// The same idea for an externally tagged enum with struct variants: serde
+/// writes `{"force_arrived": {..}}`, and the single key is the variant name.
+fn serde_variant_name<T: serde::Serialize>(value: &T) -> String {
+    match serde_json::to_value(value) {
+        Ok(serde_json::Value::Object(map)) => map.keys().next().cloned().unwrap_or_default(),
+        Ok(serde_json::Value::String(name)) => name,
+        _ => String::new(),
     }
 }
 
