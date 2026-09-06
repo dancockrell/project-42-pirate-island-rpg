@@ -354,8 +354,8 @@ top of the document is never stale:
 - **M2** shipped 9/9 (E8 is listed for the record but sits outside the bracket) — **E5** (nightly Linux and Windows builds that refuse to ship hollow; macOS honestly absent), **B8** (save slots and continue through the bridge; newest by in-world time), **B9** (pause is one Godot fact; settings persist), **E7** (a crash log on the player's disk; nothing leaves the machine, proven), **E8** (both ledgers a CI gate), **E1** (CI live and green on GitHub), **E2** (Godot
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
-- **M3** shipped 15/16 (S16, S17 and S18 are additions outside the bracket; S18 made the M3 100-day elimination pass for a faction that does not act; an autonomous faction still cannot fall while its stockpile never lowers) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `11d3982`. If this line is older than
+- **M3** shipped 15/16 (S16–S19 are additions outside the bracket; the M3 100-day elimination passes for a faction that does not act (S18) and for an autonomous faction whose machines drain its reserve (S19)) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
+- Last updated 2026-09-06 against trunk `9322458`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -397,7 +397,7 @@ top of the document is never stale:
 | S16 | Production runs in the tick: interval rules produce on the economy draw | S13, B16 | shipped 7a715f7 2026-09-06 |
 | S17 | Goals become actions: Develop places a building, Supply gathers, Expand and Pressure dispatch a force | S16, S5, S7, B16 | shipped `24b1332` 2026-09-06 |
 | S18 | Arrival resolves control: an arriving force takes an unheld or undefended cell, stands contested against a defender; the player's own forces raised and dispatched through the bridge | S17, S7, S2 | shipped `cca20f2` 2026-09-06 |
-| S19 | Stockpiles are spent: machines burn the fuel and water their records name, construction runs on the clock, a faction that cannot feed its yard says so | S16, S17, S18, C14 | open |
+| S19 | Stockpiles are spent: machines burn the fuel and water their records name, construction runs on the clock, a faction that cannot feed its yard says so | S16, S17, S18, C14 | shipped `9322458` 2026-09-06 |
 
 ### Lane B — Bridge, board and Godot
 
@@ -1487,7 +1487,7 @@ P4's `blocked: needs a bridge verb` is closed and its save round-trip helper
 deleted.
 
 ### S19 · Stockpiles are spent
-Status: open · Depends on: S16, S17, S18, C14
+Status: shipped `9322458` 2026-09-06 · Depends on: S16, S17, S18, C14
 Touches: `godot-rust/src/strategy/production.rs` (consumption), `strategy/building.rs`
 (only if `advance_construction` needs a caller-facing change), `strategy/tick.rs`
 (two calls in `run_hour` after `advance_production`; new `StrategicEvent`
@@ -1517,6 +1517,26 @@ whose cell is taken and whose machines drain its reserve is eliminated
 inside 100 days, byte-identical twice; a test proves a fed machine and a
 starved one differ only by the stockpile; the harness shows at least one
 `BuildingFinished`.
+**Shipped:** `consume_machine_upkeep` in `production.rs`, called from
+`run_hour` after `advance_production`: every standing machine draws its
+`fuel_requirement` and `water_requirement` by the record's own keys, every
+key checked before any is spent (`MachineFed`); a machine a stockpile cannot
+cover is `MachineStarved { key, held, needed }` and stops standing for
+production until fed. `STARVATION_TAKES_A_MACHINE_OFF_THE_BOARD = false` is
+the named `needs decision` (a starved machine is not wrecked, salvaged or
+removed). `advance_construction(1)` runs each hour and a finished building
+journals `BuildingFinished`. No new `PURPOSES` entry, no new state field.
+**The M3 second claim flipped:** an autonomous faction whose cell is taken
+and whose machines drink its reserve dry is eliminated inside 100 days,
+byte-identical twice; bites: a no-op upkeep call fails it by name, an
+empty construction call fails the construction probe, and a fed-versus-
+starved test refuses one drop of water or a partial take. Said plainly:
+nothing on the authored island produces `resource.open.fuel` or
+`resource.open.water` (S17's trickle fills one open key), so every authored
+machine starves the hour after it is built and the journal says so; the M3
+probe adds one fixture machine record beside the authored ones to prove
+the drain. `Goal::Recover`'s trickle is untouched (`needs decision` stays
+with S17).
 
 ### B19 · The bridge loads the machine records and hands the registry to the tick
 Status: shipped `1fca984` 2026-09-06 · Depends on: C14, S16
