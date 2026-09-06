@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 (S16 and S17 are additions outside the bracket; S17 shipped with the M3 100-day elimination `failed` until a tick writes ownership, B11/O3) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `24626f3`. If this line is older than
+- Last updated 2026-09-06 against trunk `4f8f5e6`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -493,7 +493,7 @@ captured by P1's gate, and no card claims a look it has not captured.
 | P1 | Screenshot gate: every review scene and screen rendered offscreen in CI and locally; the visual loop | E2 | shipped 1b0c9f4 2026-09-06 |
 | P2 | Render foundation: Forward+ with a compatibility fallback, the world environment, the material and shader library, the camera director | P1 | shipped `24626f3` 2026-09-06 |
 | P3 | Atmosphere from the simulation: time of day, weather, corruption and pressure read from the snapshot, never a clock | P2, S8 | shipped 7abf1cf 2026-09-06 |
-| P4 | The isometric board (B11 + B12): room cells with board metadata, three distances, party miniatures, ownership tint, forces in motion | P2, S2, S7, O3 (provisional) | open |
+| P4 | The isometric board (B11 + B12): room cells with board metadata, three distances, party miniatures, ownership tint, forces in motion | P2, S2, S7, O3 (provisional) | shipped `4f8f5e6` 2026-09-06 |
 | P5 | The bronze-and-vellum grammar (D11) and the calm information surface (B13): one Theme, the card rail, the command grid, journal and directive surfaces, accessibility wired | S6, S11, B9 | shipped `c7f0e74` 2026-09-06 |
 | P6 | Battle presentation: skill VFX and camera beats from the registries, hit-stop, band motion, site-rule ambience, the paper rigs until models | A5, A7, C3 | open |
 | P7 | RTS controls on the board (B18 resumed): select, then order a move by tile, words or hotkey; the drawn markers go | B14 | shipped 1a03dd7 2026-09-06 |
@@ -2659,7 +2659,7 @@ P4's board provides anchors; wind is carried but no foliage shader consumes
 it until P2; Forward+ captures are CI's.
 
 ### P4 · The isometric board (B11 + B12)
-Status: open · Depends on: P2, S2, S7, O3 (provisional)
+Status: shipped `4f8f5e6` 2026-09-06 · Depends on: P2, S2, S7, O3 (provisional)
 Touches: `content/world/*.world_cell.json` (a `board` block),
 `tools/src/validate.mjs`, `game/scripts/board/` (new), `game/scenes/board/`
 (new), `game/scripts/simulation/native_expedition_port.gd` (forwarding),
@@ -2677,6 +2677,30 @@ is Open; this is the stand-in and says so). Blockout geometry is
 procedural and marked.
 Done when: a suite drives travel across three cells and asserts the
 miniature's node each time; three captures, one per distance, committed.
+**Shipped:** every world cell carries a `board` block (footprint by
+registry ID, island position, elevation, at least seven spawn sockets with
+one of every role and each role's rig socket, one tether per portal whose
+kind follows the portal's travel mode); `content/presentation/board.registry.json`
+is the one table of six standard footprints, every entry marked
+`needsDecision: O3` and the validator requires the mark, checks anchors
+and sockets inside the footprint, and refuses overlapping rooms. One scene
+graph (`isometric_board.tscn`) with three distances: world (S2 ownership
+tint, routes by control and risk), route (S7 forces drawn moving along
+tethers from the bridge's new read-only `forces` array: id, faction, cell,
+next cell, progress, nothing about strength), room (setpiece, sockets,
+exits, the encounter space). The party miniature snaps between nodes on
+confirmed travel only; `EncounterLens` opens the existing battle screen and
+says O1 is Open. Bites: the miniature's cell fails three times by name; the
+O3 mark and the socket count fail in the validator. Captures
+`P4-a878ad2-{world,route,room}.png`, iterated five times.
+`blocked: needs a bridge verb` — nothing raises, dispatches or ticks a
+force through the bridge, so a live campaign's `forces` array is empty and
+the route-distance proof drives its force through a save round trip
+(`board_verification_campaign.gd` says it must go when the verb lands).
+The 2D `ExpeditionRouteBoard` stays the owner of the 2D board this round;
+a later card retires it against this one. Integration `4f8f5e6`: the board
+wears P2's clay through `SetpieceMeshFactory.material` as its header
+promised, and the suite reads the tint through the shader parameter.
 
 ### P5 · The bronze-and-vellum grammar and the calm information surface
 Status: shipped `c7f0e74` 2026-09-06 · Depends on: S6, S11, B9
