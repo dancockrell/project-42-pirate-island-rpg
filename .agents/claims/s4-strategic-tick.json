@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "task_id": "s4-strategic-tick",
+  "agent": "claude-code (lane S4)",
+  "summary": "Strategic tick, pause semantics and the determinism harness: one in-world hour of faction activity, driven 24 times per midnight, with a hash harness that proves save/reload and pausing change nothing.",
+  "status": "completed",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/tick.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/tests/strategic_determinism.rs",
+    "godot-rust/tests/save_migration.rs"
+  ],
+  "symbols": [
+    "StrategicClock",
+    "StrategicEvent",
+    "ExpeditionState.strategic_clock",
+    "ExpeditionState.strategic_tick",
+    "ExpeditionState.resolve_midnight_in"
+  ],
+  "coordination": {
+    "depends_on": [
+      "s1-faction-definition"
+    ],
+    "conflicts_with": [],
+    "notes": "expedition.rs: appends one field at the end of ExpeditionState and adds a thin strategic_tick that calls godot-rust/src/strategy/tick.rs, plus the 24 hourly ticks inside resolve_midnight_in. save_migration.rs: EXPECTED_CURRENT_KEYS gains strategic_clock in struct order. S11 owns the full strategic journal; S4 adds no journal field. S5 owns what the fixed per-hour draws decide. Registry unread by S4: resolve_midnight_in passes an empty FactionDefinitions and strategic_determinism.rs::the_registry_cannot_change_a_tick_yet holds that harmless until S5 scores an authored record; that failing test is the instruction for the bridge B card to start loading content/factions/*.json."
+  },
+  "completion": {
+    "commit": "8f7aa9a",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml: passed (191 unit + 3 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice)",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs: passed (194 stable IDs)",
+      "Done-when: 2,400 hours from seed 7 hash identically twice: passed",
+      "Done-when: save at hour 1,200 reloads into the same hour 2,400: passed",
+      "Pause: 200 hours with round trips at eleven irregular offsets are byte-identical: passed",
+      "Harness bite proof: a draw seeded from SystemTime::now() failed the 2,400-hour test; acting factions iterated through a HashMap failed it again; both restored"
+    ]
+  }
+}

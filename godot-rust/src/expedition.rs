@@ -16,7 +16,9 @@ use serde::{Deserialize, Serialize};
 use crate::geography::{AnchorDefinition, AnchorKind, Geography, RouteOption};
 use crate::habitat::{Habitats, LootTable};
 use crate::hunter::{self, Hunter, HunterKind};
+use crate::strategy::faction::FactionDefinitions;
 use crate::strategy::recruitment::{RecruitmentStage, RecruitmentState};
+use crate::strategy::tick::{self, HOURS_PER_DAY, StrategicClock, StrategicEvent};
 use crate::world::{
     DeathMemory, NamedPerson, SpawnRule, SpawnedMonster, WorldClock, WorldEvent, mix_seed,
 };
@@ -143,6 +145,19 @@ pub struct ExpeditionState {
     /// unchanged at the same `save_version`.
     #[serde(default)]
     pub ownership: BTreeMap<String, String>,
+    /// S4: where the strategic simulation stands. The same clock as
+    /// `campaign_day`, read at the hour rather than at the day: after any
+    /// midnight `total_hours == (campaign_day - 1) * 24`, because
+    /// [`ExpeditionState::resolve_midnight_in`] runs twenty-four strategic
+    /// hours before the character-scale Midnight Return.
+    ///
+    /// There is no `paused` beside it, and there never will be: pausing is the
+    /// bridge not calling [`ExpeditionState::strategic_tick`], so a pause has
+    /// nothing here to change (brief section 17, "normal pausing must not
+    /// change simulation outcomes"). `serde(default)` so a save written before
+    /// the strategic clock existed resumes at hour zero of its own day.
+    #[serde(default)]
+    pub strategic_clock: StrategicClock,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -366,6 +381,9 @@ impl ExpeditionState {
             // S2: a fresh campaign starts with the island unclaimed. The static
             // graph carries whatever an authored starting map declares.
             ownership: BTreeMap::new(),
+            // S4: the first hour of the first day. Nothing has been drawn yet,
+            // so the determinism witness is still zero.
+            strategic_clock: StrategicClock::new(),
         };
         state.validate()?;
         Ok(state)
@@ -1174,6 +1192,26 @@ impl ExpeditionState {
         geography: &Geography,
         habitats: &Habitats,
     ) -> Result<Vec<WorldEvent>, ExpeditionError> {
+        // S4: the day that is ending is twenty-four strategic hours long, and
+        // they run *before* the character-scale Midnight Return so that the
+        // hours belong to the day they happened in. After this loop
+        // `strategic_clock.hour_of_day` is back to zero and `total_hours` has
+        // grown by a day; `resolve_midnight` then turns `campaign_day`, and the
+        // two halves of the one clock agree again.
+        //
+        // The registry is empty here because this call site has no faction
+        // content: `content/factions/*.json` is C9's card and the bridge that
+        // would load it is a later B card. That costs nothing today -- a
+        // strategic hour reads only the faction states the save carries, which
+        // is asserted by `the_registry_cannot_change_a_tick_yet` in
+        // `godot-rust/tests/strategic_determinism.rs`. When S5 makes the
+        // records matter, that test fails, and this line is what it is telling
+        // the B card to fix.
+        let definitions = FactionDefinitions::new();
+        for _ in 0..HOURS_PER_DAY {
+            self.strategic_tick(geography, &definitions);
+        }
+
         let rules = habitats.spawn_rules(self.campaign_day + 1);
         let events = self.resolve_midnight(&rules)?;
 
@@ -1203,6 +1241,29 @@ impl ExpeditionState {
         );
 
         Ok(events)
+    }
+
+    /// S4: one in-world hour of faction activity.
+    ///
+    /// The whole strategic simulation is driven by repeating this call, and
+    /// nothing else drives it -- which is what makes pause free. A paused game
+    /// is a game whose bridge is not calling this method; there is no `paused`
+    /// field to get out of step with, and no branch here that could behave
+    /// differently for having been interrupted. Brief section 17: "normal
+    /// pausing must not change simulation outcomes."
+    ///
+    /// The logic lives in [`crate::strategy::tick`] with the rest of the
+    /// strategic layer; this is the method on the state that owns the data.
+    /// `geography` and `factions` are the board and the authored records the
+    /// utility AI will score against (S5); an hour today advances the clock,
+    /// makes each present faction's fixed sequence of draws, and reports the
+    /// hour that ran.
+    pub fn strategic_tick(
+        &mut self,
+        geography: &Geography,
+        factions: &FactionDefinitions,
+    ) -> Vec<StrategicEvent> {
+        tick::run_hour(self, geography, factions)
     }
 
     /// S12: plays one authored recruitment beat for one woman.
