@@ -1,4 +1,9 @@
 extends SceneTree
+## The script rather than the `PlaceholderSynth` class name: a `--script` run
+## compiles an autoload before the SceneTree's global class cache exists, so
+## naming the class here is a parse error there and nowhere else (measured on
+## paper_razorbeak_rig_test.gd in CI). Same reason content_registry records.
+const PlaceholderSynthScript := preload("res://scripts/audio/placeholder_synth.gd")
 
 ## P9: the soundscape's contract, asserted against the authored records and the
 ## live autoload. Nothing here is mocked -- the suite loads the same generated
@@ -142,6 +147,7 @@ func check_ambience(soundscape: Node, catalog: ContentCatalog) -> void:
 
 ## The synth renders every record, and renders it the same way twice.
 func check_synth(soundscape: Node, catalog: ContentCatalog) -> void:
+	soundscape.render_all()
 	check(soundscape.render_failures.is_empty(), "every bed and cue rendered: %s" % str(soundscape.render_failures))
 	var renderable: Array[String] = []
 	renderable.append_array(catalog.ids_with_prefix("audio.bed."))
@@ -157,7 +163,7 @@ func check_synth(soundscape: Node, catalog: ContentCatalog) -> void:
 		check(stream.data.size() > 0, "%s rendered audible data" % id)
 		var looping: bool = bool(record.get("voice", {}).get("loop", false))
 		check((stream.loop_mode == AudioStreamWAV.LOOP_FORWARD) == looping, "%s loop mode matches its record" % id)
-	var again := PlaceholderSynth.render(catalog.get_record("audio.cue.mace_armor_impact").voice)
+	var again := PlaceholderSynthScript.render(catalog.get_record("audio.cue.mace_armor_impact").voice)
 	check(again.data == soundscape.streams_by_id["audio.cue.mace_armor_impact"].data, "the synth is deterministic: the same record renders the same samples")
 
 

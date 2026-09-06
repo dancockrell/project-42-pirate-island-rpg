@@ -56,6 +56,11 @@ extends Node
 ## `asset` block and carries the empty licence, source and author fields that
 ## must be filled before one is. The validator counts them in its summary line.
 
+## The script rather than the `PlaceholderSynth` class name: a `--script` run
+## compiles an autoload before the SceneTree's global class cache exists, so
+## naming the class here is a parse error there and nowhere else (measured on
+## paper_razorbeak_rig_test.gd in CI). Same reason content_registry records.
+const PlaceholderSynthScript := preload("res://scripts/audio/placeholder_synth.gd")
 const CATALOG_AMBIENCE_PREFIX := "audio.ambience."
 const CATALOG_CUE_PREFIX := "audio.cue."
 const CATALOG_BED_PREFIX := "audio.bed."
@@ -133,9 +138,11 @@ func _ready() -> void:
 		return
 	load_bus_volumes()
 	apply_bus_volumes()
-	render_all()
-	build_players()
-	set_music_state(DEFAULT_MUSIC_STATE)
+	# Rendering is deferred to the first sound asked for, not done here. This
+	# autoload boots inside every headless suite, and synthesising 110
+	# placeholders on the main thread at `_ready` stalled the first frames
+	# enough to fail paper_razorbeak_rig_test.gd's timed hit reaction on CI
+	# (run 34031207306). A game that has not yet played a sound pays nothing.
 
 
 # ---------------------------------------------------------------- the records
@@ -147,9 +154,20 @@ func ids_with_prefix(prefix: String) -> Array[String]:
 	return catalog.ids_with_prefix(prefix)
 
 
-## Renders every bed and every cue once, here, at load. `render_failures` names
-## any record the synth could not render; the suite asserts it stays empty.
+var _rendered := false
+
+
+## Renders every bed and every cue once, the first time a sound is asked for.
+## `render_failures` names any record the synth could not render; the suite
+## asserts it stays empty after calling this explicitly.
+func ensure_rendered() -> void:
+	if _rendered:
+		return
+	render_all()
+
+
 func render_all() -> void:
+	_rendered = true
 	render_failures.clear()
 	streams_by_id.clear()
 	if catalog == null:
@@ -159,11 +177,13 @@ func render_all() -> void:
 	renderable.append_array(ids_with_prefix(CATALOG_CUE_PREFIX))
 	for id in renderable:
 		var record := catalog.get_record(id)
-		var stream := PlaceholderSynth.render(record.get("voice", {}))
+		var stream := PlaceholderSynthScript.render(record.get("voice", {}))
 		if stream == null:
 			render_failures.append(id)
 			continue
 		streams_by_id[id] = stream
+	build_players()
+	set_music_state(DEFAULT_MUSIC_STATE)
 
 
 ## Which bus each bed belongs to is a fact about the records that mix it, not a
@@ -235,6 +255,7 @@ func weather_of_snapshot(snapshot: Dictionary, region_id: String) -> String:
 
 ## Chooses and crossfades the ambience for a snapshot. Returns the record ID.
 func apply(snapshot: Dictionary) -> String:
+	ensure_rendered()
 	var region_id := region_of_snapshot(snapshot)
 	var segment := str(snapshot.get("time_segment", DEFAULT_TIME_SEGMENT))
 	var weather := weather_of_snapshot(snapshot, region_id)
@@ -326,6 +347,7 @@ func on_battle_event(event: Dictionary) -> String:
 
 
 func play_cue(cue_id: String) -> bool:
+	ensure_rendered()
 	if not streams_by_id.has(cue_id) or cue_players.is_empty():
 		return false
 	var player := cue_players[cue_cursor]
@@ -341,6 +363,9 @@ func play_cue(cue_id: String) -> bool:
 ## Moves the music machine. The four states are named, never numbered, and a
 ## name outside the four changes nothing.
 func set_music_state(state: String) -> bool:
+	# render_all() sets _rendered before it asks for the default state, so this
+	# recurses at most once and lands on the state that was asked for.
+	ensure_rendered()
 	if not MUSIC_STATES.has(state):
 		return false
 	if state == music_state and music_applied:

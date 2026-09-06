@@ -1,4 +1,9 @@
 extends SceneTree
+## The script rather than the `PlaceholderSynth` class name: a `--script` run
+## compiles an autoload before the SceneTree's global class cache exists, so
+## naming the class here is a parse error there and nowhere else (measured on
+## paper_razorbeak_rig_test.gd in CI). Same reason content_registry records.
+const PlaceholderSynthScript := preload("res://scripts/audio/placeholder_synth.gd")
 
 ## Draws every procedural placeholder this lane generates as a waveform sheet,
 ## so the sounds can be *looked at*. A placeholder that renders to silence, or
@@ -43,7 +48,7 @@ func _init() -> void:
 	var cell_height: int = SHEET_HEIGHT / maxi(rows, 1)
 	var drawn := 0
 	for index in ids.size():
-		var stream := PlaceholderSynth.render(catalog.get_record(ids[index]).get("voice", {}))
+		var stream := PlaceholderSynthScript.render(catalog.get_record(ids[index]).get("voice", {}))
 		if stream == null:
 			continue
 		drawn += 1
