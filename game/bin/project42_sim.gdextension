@@ -19,19 +19,16 @@ linux.debug.x86_64 = "res://bin/linux/project42_sim.linux.expedition_v5_debug.x8
 linux.release.x86_64 = "res://bin/linux/project42_sim.linux.expedition_v5_release.x86_64.so"
 linux.debug.arm64 = "res://bin/linux/project42_sim.linux.expedition_v5_debug.arm64.so"
 linux.release.arm64 = "res://bin/linux/project42_sim.linux.expedition_v5_release.arm64.so"
-; The macOS rows are arm64 first, and the order is load-bearing. Godot takes
-; the FIRST row whose every dot-separated tag is a current feature, and a
-; macOS export with binary_format/architecture="universal" -- the only format
-; the official template archive can satisfy -- reports BOTH x86_64 and arm64
-; as features, so whichever row comes first is the one the exporter copies
-; into the .app. With x86_64 first the exporter looked for a file no Apple
-; Silicon host builds, found nothing, and wrote an .app with no simulation in
-; it and no error (nightly run 34030691308). arm64 leads because that is what
-; every Mac Apple currently ships and what CI builds. At run time only one
-; architecture is a feature, so each Mac takes its own row regardless of this
-; order. On an Intel build host the exporter would pick arm64 and find no
-; file; nightly.yml's post-export check refuses that artifact rather than
-; uploading a hollow build.
+; Both macOS architectures are declared and both are built. A macOS export
+; preset must set binary_format/architecture="universal" -- the official
+; template archive ships no per-architecture macOS template -- and for a
+; universal preset Godot copies the library declared for EVERY architecture
+; into the .app rather than just the host's. With only one of them on disk the
+; export answered "Failed to open ...expedition_v5_release.x86_64.dylib" and
+; wrote an .app with no simulation in it, without failing (nightly run
+; 34031119836). tools/build-native-bridge.sh therefore cross-compiles the
+; second architecture on macOS, which is also what makes the .app honestly
+; universal. At run time each Mac matches its own row.
 macos.debug.arm64 = "res://bin/macos/project42_sim.macos.expedition_v5_debug.arm64.dylib"
 macos.release.arm64 = "res://bin/macos/project42_sim.macos.expedition_v5_release.arm64.dylib"
 macos.debug.x86_64 = "res://bin/macos/project42_sim.macos.expedition_v5_debug.x86_64.dylib"

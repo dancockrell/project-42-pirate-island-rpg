@@ -358,47 +358,45 @@ jobs:
         shell: bash
         run: bash tools/build-native-bridge.sh release
 
-      # E5's assertion, applied to the macOS row of the .gdextension. If the
+      # E5's assertion, applied to the macOS rows of the .gdextension. If a
       # dylib is not at the path Godot resolves, the export would package a
       # game with no simulation in it, so the job stops here rather than ship
-      # a hollow build. The architecture is asked for rather than assumed:
-      # Godot resolves macos.release.<arch of the host it runs on>, and
-      # tools/build-native-bridge.sh names the file it installs after that same
-      # host -- E11's whole point -- so the token is read here the way the
-      # script reads it and the two cannot drift apart.
-      - name: Confirm the GDExtension library is installed where Godot looks
+      # a hollow build.
+      #
+      # BOTH architectures, not just the runner's. The preset is universal --
+      # the only macOS binary format the official template archive can satisfy
+      # -- and a universal export copies the library declared for every
+      # architecture into the .app. When only the host's existed, Godot said
+      # "Failed to open ...expedition_v5_release.x86_64.dylib" at
+      # core/io/dir_access.cpp:426 and still wrote the .app, with no simulation
+      # in it and a zero exit code (run 34031119836). Checking both here is
+      # what turns that silence into a refusal.
+      - name: Confirm the GDExtension libraries are installed where Godot looks
         shell: bash
         run: |
           set -euo pipefail
-          case "$(uname -m)" in
-            x86_64|amd64)   architecture="x86_64" ;;
-            aarch64|arm64)  architecture="arm64" ;;
-            *)
-              echo "Unsupported runner architecture for the native bridge: $(uname -m)" >&2
+          echo "Runner architecture: $(uname -m)"
+          for architecture in arm64 x86_64; do
+            library="game/bin/macos/project42_sim.macos.expedition_v5_release.${architecture}.dylib"
+            declared="res://${library#game/}"
+            if [[ ! -f "$library" ]]; then
+              echo "The macOS export needs $library and it is not there." >&2
+              echo "A universal export copies every declared architecture, so exporting now would package a build with no simulation in it. Refusing." >&2
+              ls -la game/bin/macos >&2 || true
               exit 1
-              ;;
-          esac
-          echo "Runner architecture: $(uname -m) -> Godot token $architecture"
-          library="game/bin/macos/project42_sim.macos.expedition_v5_release.${architecture}.dylib"
-          declared="res://${library#game/}"
-          if [[ ! -f "$library" ]]; then
-            echo "The macOS export needs $library and it is not there." >&2
-            echo "Exporting now would package a build with no simulation in it. Refusing." >&2
-            exit 1
-          fi
-          ls -la "$library"
-          # Reported after the existence check, never before, or a missing
-          # library would be named by lipo instead of by the refusal above.
-          # One runner builds one architecture; the file name now says which.
-          lipo -archs "$library"
-          file "$library"
-          if ! grep -qF "macos.release.${architecture} = \"$declared\"" game/bin/project42_sim.gdextension; then
-            echo "game/bin/project42_sim.gdextension declares no macos.release.${architecture} row." >&2
-            echo "Godot on this runner asks for macos.${architecture} and reports \"No GDExtension library found for current OS and architecture (macos.${architecture})\", so the exported build would carry no simulation. Refusing." >&2
-            grep -n macos game/bin/project42_sim.gdextension >&2
-            exit 1
-          fi
-          echo "DYLIB_ARCHITECTURE=$architecture" >> "$GITHUB_ENV"
+            fi
+            ls -la "$library"
+            # Reported after the existence check, never before, or a missing
+            # library would be named by lipo instead of by the refusal above.
+            lipo -archs "$library"
+            file "$library"
+            if ! grep -qF "macos.release.${architecture} = \"$declared\"" game/bin/project42_sim.gdextension; then
+              echo "game/bin/project42_sim.gdextension declares no macos.release.${architecture} row." >&2
+              echo "Godot resolves macos.<architecture> at run time and copies every one of them at export time, so a missing row means a build that carries no simulation. Refusing." >&2
+              grep -n macos game/bin/project42_sim.gdextension >&2
+              exit 1
+            fi
+          done
 
       - name: Import the project
         shell: bash
@@ -430,8 +428,7 @@ jobs:
         run: |
           set -euo pipefail
           archive="${GITHUB_WORKSPACE}/work/macos-desktop/project42.zip"
-          library="project42_sim.macos.expedition_v5_release.${DYLIB_ARCHITECTURE}.dylib"
-          if ! unzip -l "$archive" | grep -F "$library"; then
+          if ! unzip -l "$archive" | grep -F "project42_sim.macos.expedition_v5_release"; then
             echo "$archive does not contain the macOS GDExtension library." >&2
             unzip -l "$archive" >&2
             exit 1
@@ -481,15 +478,14 @@ jobs:
             echo "is a decision for whoever does it. This is a nightly for testing,"
             echo "not a release."
             echo ""
-            echo "Architecture: the GDExtension library inside was built by"
-            echo "tools/build-native-bridge.sh on this runner, which builds for its"
-            echo "own host, so it carries that host's architecture alone --"
-            echo "${DYLIB_ARCHITECTURE} -- and its file name now says so. The engine"
-            echo "binary from the official template is universal, because that is the"
-            echo "only macOS template the template archive ships; the simulation"
-            echo "library beside it is not. A universal library would need both"
-            echo "architectures built and merged, which one host build cannot do, so"
-            echo "this build runs on ${DYLIB_ARCHITECTURE} Macs and nothing else."
+            echo "Architecture: universal, and meant literally. The engine binary"
+            echo "comes from the official universal template, and"
+            echo "tools/build-native-bridge.sh builds the simulation library for both"
+            echo "arm64 and x86_64 on this runner -- the second by cross-compiling --"
+            echo "because a universal macOS export packages the library declared for"
+            echo "every architecture. What was checked, and what the job log shows, is"
+            echo "that a library is inside the .app; that it runs on both is Godot's"
+            echo "own packaging and this build has been run on neither."
           } > "$output/README.txt"
           cat "$output/README.txt"
 
