@@ -10,6 +10,7 @@ use crate::geography::{
 };
 use crate::habitat::Habitats;
 use crate::protocol::{CommandEnvelope, CommandKind, PROTOCOL_VERSION};
+use crate::world::WorldEvent;
 use serde::Deserialize;
 
 const BATTLE_ID: &str = "battle.prototype.returning_names";
@@ -242,6 +243,50 @@ impl Project42ExpeditionBridge {
         };
         let mut result = expedition_state_dictionary(state, &self.geography);
         result.set("anchor_outcome", &anchor_outcome);
+        result
+    }
+
+    /// Records the observation the player looked at. The named observation must
+    /// be a legal command here -- Godot can only ask for what the projected
+    /// list already offered -- and the recording itself is
+    /// `ExpeditionState::inspect`, which owns what reading a place discovers.
+    #[func]
+    fn inspect(&mut self, observation_id: GString) -> VarDictionary {
+        let Some(state) = self.state.as_mut() else {
+            return expedition_error_dictionary("expedition_not_configured");
+        };
+        let command = format!("inspect:{}", observation_id);
+        if !state
+            .legal_next_commands_with_geography(&self.geography)
+            .iter()
+            .any(|legal| legal == &command)
+        {
+            return expedition_error_dictionary("observation_not_here");
+        }
+        state.inspect(&self.geography);
+        expedition_state_dictionary(state, &self.geography)
+    }
+
+    /// Midnight, as the one atomic transaction `ExpeditionState` already owns:
+    /// the day turns, the island repopulates, the hunters take their step and
+    /// every anchor spent today becomes usable again. Refused, without
+    /// mutation, while an encounter is pending. The events midnight produced
+    /// ride back on the snapshot so the screen can say what happened.
+    #[func]
+    fn resolve_midnight(&mut self) -> VarDictionary {
+        let Some(state) = self.state.as_mut() else {
+            return expedition_error_dictionary("expedition_not_configured");
+        };
+        let events = match state.resolve_midnight_in(&self.geography, &self.habitats) {
+            Ok(events) => events,
+            Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
+        };
+        let mut projected = Array::<VarDictionary>::new();
+        for event in &events {
+            projected.push(&world_event_dictionary(event));
+        }
+        let mut result = expedition_state_dictionary(state, &self.geography);
+        result.set("events", &projected);
         result
     }
 
@@ -484,7 +529,7 @@ fn expedition_state_dictionary(state: &ExpeditionState, geography: &Geography) -
             "arrived_segment" => time_segment_name(&step.arrived_segment),
         });
     }
-    let mut legal_commands = Array::<GString>::new();
+    let mut legal_route_commands = Array::<GString>::new();
     let error = state.legal_route_commands(geography).err();
     if error.is_none() {
         for command in state
@@ -492,8 +537,23 @@ fn expedition_state_dictionary(state: &ExpeditionState, geography: &Geography) -
             .expect("already checked")
         {
             let value = GString::from(command.as_str());
-            legal_commands.push(&value);
+            legal_route_commands.push(&value);
         }
+    }
+    // B3: every legal verb here, not travel alone -- `travel:<portal>`,
+    // `inspect:<observation>`, `anchor_action:<anchor>`, or the pending
+    // encounter when one is open. The screen draws its controls from this and
+    // nothing else, so an anchor already spent today or a gated door is never
+    // drawn. `legal_route_commands` stays beside it: it is what the route list
+    // and two suites already read, and it carries the refusal reason.
+    let mut legal_commands = Array::<GString>::new();
+    for command in state.legal_next_commands_with_geography(geography) {
+        let value = GString::from(command.as_str());
+        legal_commands.push(&value);
+    }
+    let mut discoveries = Array::<GString>::new();
+    for discovery_id in &state.discoveries {
+        discoveries.push(&GString::from(discovery_id.as_str()));
     }
     let metadata = vdict! { "source" => "rust_gdextension", "authoritative" => true };
     let pending_encounter = state
@@ -523,7 +583,9 @@ fn expedition_state_dictionary(state: &ExpeditionState, geography: &Geography) -
         "active_location_id" => state.active_location_id.as_str(),
         "party_ids" => &party_ids,
         "route_history" => &route_history,
-        "legal_route_commands" => &legal_commands,
+        "legal_route_commands" => &legal_route_commands,
+        "legal_commands" => &legal_commands,
+        "discoveries" => &discoveries,
         "travel_blocked_reason" => error.map(|value| expedition_error_code(&value)).unwrap_or(""),
         "pending_encounter" => &pending_encounter,
         "resolved_encounter_ids" => &resolved_encounter_ids,
@@ -531,6 +593,56 @@ fn expedition_state_dictionary(state: &ExpeditionState, geography: &Geography) -
     };
     result.set("metadata", &metadata);
     result
+}
+
+/// Every `WorldEvent` midnight can produce, projected by name. The match is
+/// exhaustive on purpose: a new world event cannot be added without this
+/// boundary being told what to call it, because the crate will not compile
+/// until it is.
+fn world_event_dictionary(event: &WorldEvent) -> VarDictionary {
+    match event {
+        WorldEvent::MidnightFlashStarted { day } => {
+            vdict! { "kind" => "midnight_flash_started", "day" => i64::from(*day) }
+        }
+        WorldEvent::NamedPersonReturned {
+            person_id,
+            killed_by_player_count,
+        } => vdict! {
+            "kind" => "named_person_returned",
+            "person_id" => person_id.as_str(),
+            "killed_by_player_count" => i64::from(*killed_by_player_count),
+        },
+        WorldEvent::MonsterMaterialized { region_id, monster } => {
+            let mut behavior_tags = Array::<GString>::new();
+            for tag in &monster.behavior_tags {
+                behavior_tags.push(&GString::from(tag.as_str()));
+            }
+            // `loot_seed` is a full u64 hash. Godot integers are signed, so it
+            // is projected as its decimal text rather than silently wrapping
+            // negative past i64::MAX.
+            let materialized = vdict! {
+                "instance_id" => monster.instance_id.as_str(),
+                "definition_id" => monster.definition_id.as_str(),
+                "level" => i64::from(monster.level),
+                "behavior_tags" => &behavior_tags,
+                "physical_variant" => monster.physical_variant.as_str(),
+                "condition" => monster.condition.as_str(),
+                "patrol_purpose" => monster.patrol_purpose.as_str(),
+                "loot_seed" => monster.loot_seed.to_string(),
+            };
+            let mut result = vdict! {
+                "kind" => "monster_materialized",
+                "region_id" => region_id.as_str(),
+            };
+            result.set("monster", &materialized);
+            result
+        }
+        WorldEvent::MidnightFlashEnded { day, monster_count } => vdict! {
+            "kind" => "midnight_flash_ended",
+            "day" => i64::from(*day),
+            "monster_count" => *monster_count as i64,
+        },
+    }
 }
 
 fn expedition_error_dictionary(reason: &str) -> VarDictionary {

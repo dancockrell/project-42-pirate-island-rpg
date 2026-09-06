@@ -27,10 +27,26 @@ func _init() -> void:
 	# button tells the player the door exists.
 	# Roads cost rations and the party lands with none, so the slice through
 	# the engine begins the way the Rust slice does: salvage the wreck first.
+	# B4: the action list is a projection of the native legal-command list, so
+	# the beach draws the wreck it can salvage and both observations it can read.
+	check(expedition.get_action_commands().has("anchor_action:anchor.black_beach.salvage_point"), "the beach must draw its authored salvage anchor as an action")
+	check(expedition.get_action_commands().has("inspect:observation.black_beach.wreck"), "the beach must draw its authored observations as actions")
+	check(expedition.get_action_commands().has("resolve_midnight"), "a midnight control must be offered while no encounter is pending")
 	var salvage: Dictionary = expedition.request_anchor("anchor.black_beach.salvage_point")
 	check(bool(salvage.get("configured", false)), "the wreck must be salvageable through the native bridge")
 	check(int((salvage.get("anchor_outcome", {}) as Dictionary).get("rations_gained", 0)) >= 4, "salvaging the wreck must yield its authored floor of four rations")
 	check(expedition.get_legal_route_count() == 1, "salvaging must not change the one legal departure")
+	check(not expedition.get_action_commands().has("anchor_action:anchor.black_beach.salvage_point"), "an anchor spent today must leave the drawn action list")
+	var inspected: Dictionary = expedition.request_inspect("observation.black_beach.wreck")
+	check(bool(inspected.get("configured", false)), "an observation offered here must be inspectable through the native bridge")
+	var discoveries: Array = inspected.get("discoveries", [])
+	check(discoveries.has("observation.black_beach.wreck"), "inspecting must record the authored observation as a native discovery")
+	var refused: Dictionary = expedition.request_inspect("observation.damaged_estate.veranda")
+	check(not bool(refused.get("configured", true)), "an observation that belongs to another cell must be refused, not recorded")
+	var midnight: Dictionary = expedition.request_midnight()
+	check(bool(midnight.get("configured", false)), "midnight must resolve through the native bridge while no encounter is pending")
+	check(int(midnight.get("campaign_day", 0)) == 2, "midnight must turn the campaign day")
+	check(expedition.get_action_commands().has("anchor_action:anchor.black_beach.salvage_point"), "midnight must make the spent anchor drawable again")
 	expedition.request_travel("world.portal.black_beach_to_damaged_estate")
 	check(expedition.get_authoritative_snapshot().get("active_location_id") == "world.cell.damaged_estate", "travel must use the native portal result")
 	expedition.request_travel("world.portal.damaged_estate_to_river_landing")

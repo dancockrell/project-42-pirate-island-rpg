@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "task_id": "b3-b4-legal-commands-and-controls",
+  "agent": "claude-code/lane-B3-B4",
+  "summary": "The bridge projects the full legal-command list and exposes inspect and midnight; the expedition screen draws anchor, inspect and midnight controls from that list alone",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/godot_bridge.rs",
+    "godot-rust/tests/authored_world.rs",
+    "game/scripts/simulation/native_expedition_port.gd",
+    "game/scripts/campaign/campaign_session.gd",
+    "game/scripts/world/expedition_prototype.gd",
+    "game/tests/expedition_prototype_test.gd",
+    ".agents/claims/b3-b4-legal-commands-and-controls.json"
+  ],
+  "symbols": [
+    "Project42ExpeditionBridge.inspect",
+    "Project42ExpeditionBridge.resolve_midnight",
+    "expedition_state_dictionary",
+    "NativeExpeditionPort.inspect",
+    "NativeExpeditionPort.resolve_midnight",
+    "CampaignSession.inspect",
+    "CampaignSession.resolve_midnight",
+    "ExpeditionPrototype.populate_actions",
+    "ExpeditionPrototype.request_inspect",
+    "ExpeditionPrototype.request_midnight"
+  ],
+  "coordination": {
+    "depends_on": ["c13-authored-discoveries-and-anchor-wire"],
+    "conflicts_with": [],
+    "notes": "Extends C13's wire. Does not touch expedition.rs, geography.rs, strategy/**, content/**, tools/**, docs/SHIP_PLAN.md, or another contributor's game/scripts/world/elizabethan_*, game/scripts/review/, game/tests/elizabethan_*. There is no Godot in this environment, so the GDScript half is verified by CI's Godot job, not locally; the Rust half is proven locally in godot-rust/tests/authored_world.rs."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}

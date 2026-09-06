@@ -24,6 +24,7 @@ var day_label: Label
 var location_label: Label
 var description_label: RichTextLabel
 var route_list: VBoxContainer
+var action_list: VBoxContainer
 var status_label: Label
 var route_board: ExpeditionRouteBoard
 
@@ -116,6 +117,12 @@ func build_location_panel() -> Control:
 	route_list.add_theme_constant_override("separation", 9)
 	route_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stack.add_child(route_list)
+	var action_heading := make_label("LEGAL ACTIONS HERE", 14, BRONZE)
+	stack.add_child(action_heading)
+	action_list = VBoxContainer.new()
+	action_list.name = "LegalActionList"
+	action_list.add_theme_constant_override("separation", 9)
+	stack.add_child(action_list)
 	status_label = make_label("", 14, MUTED)
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(status_label)
@@ -144,6 +151,7 @@ func project_snapshot(snapshot: Dictionary, message: String) -> void:
 	description_label.text = make_description(cell, snapshot)
 	route_board.configure(catalog, snapshot)
 	populate_routes(cell, snapshot)
+	populate_actions(cell, snapshot)
 	status_label.text = message
 
 
@@ -252,6 +260,64 @@ func populate_routes(cell: Dictionary, snapshot: Dictionary) -> void:
 		route_list.add_child(make_label("No legal departure. A pending encounter or unfinished state is blocking travel.", 14, DANGER))
 
 
+## B4: every "do something here" control, drawn from the native legal-command
+## list and from nothing else. An anchor already spent today, or an observation
+## that belongs to another cell, is simply absent from that list and so is
+## never drawn -- the same invariant the route list keeps for a gated door. The
+## catalog is consulted only for the authored label of a command Rust already
+## called legal.
+func populate_actions(cell: Dictionary, snapshot: Dictionary) -> void:
+	for child in action_list.get_children():
+		child.queue_free()
+	var pending_encounter: Dictionary = snapshot.get("pending_encounter", {})
+	if not pending_encounter.is_empty():
+		return
+	var anchor_kinds: Dictionary = {}
+	for anchor in cell.get("anchors", []):
+		if anchor is Dictionary:
+			anchor_kinds[str(anchor.get("id", ""))] = str(anchor.get("kind", ""))
+	var observation_texts: Dictionary = {}
+	for description in cell.get("readableDescriptions", []):
+		if description is Dictionary:
+			observation_texts[str(description.get("id", ""))] = str(description.get("text", ""))
+	for command in snapshot.get("legal_commands", []):
+		var command_text := str(command)
+		if command_text.begins_with("anchor_action:"):
+			var anchor_id := command_text.trim_prefix("anchor_action:")
+			var kind := str(anchor_kinds.get(anchor_id, "")).replace("_", " ").to_upper()
+			var anchor_button := make_action_button("Anchor_" + anchor_id.replace(".", "_"), command_text, "%s\n%s" % [readable_id(anchor_id.trim_prefix("anchor.")), kind], "Authoritative anchor action: %s\nKind: %s" % [anchor_id, kind])
+			anchor_button.pressed.connect(func() -> void: request_anchor(anchor_id))
+			action_list.add_child(anchor_button)
+		elif command_text.begins_with("inspect:"):
+			var observation_id := command_text.trim_prefix("inspect:")
+			var inspect_button := make_action_button("Inspect_" + observation_id.replace(".", "_"), command_text, "INSPECT  •  %s" % readable_id(observation_id.trim_prefix("observation.")), "Records this authored observation as a discovery.\nObservation: %s\n%s" % [observation_id, str(observation_texts.get(observation_id, ""))])
+			inspect_button.pressed.connect(func() -> void: request_inspect(observation_id))
+			action_list.add_child(inspect_button)
+	# Midnight is not a per-place command, so it is not in the legal list: it is
+	# offered whenever no encounter is pending, which is exactly when the native
+	# transaction will accept it.
+	var midnight_button := make_action_button("ResolveMidnight", "resolve_midnight", "HOLD FOR MIDNIGHT\nDAY %d ENDS" % int(snapshot.get("campaign_day", 1)), "Ends the day through the native midnight transaction: the island repopulates and every anchor spent today can be used again.")
+	midnight_button.pressed.connect(request_midnight)
+	action_list.add_child(midnight_button)
+
+
+func make_action_button(node_name: String, command: String, text: String, tooltip: String) -> Button:
+	var button := Button.new()
+	button.name = node_name
+	button.set_meta("command", command)
+	button.custom_minimum_size.y = 54
+	button.text = text
+	button.tooltip_text = tooltip
+	button.add_theme_font_size_override("font_size", 14)
+	button.add_theme_stylebox_override("normal", make_route_box(Color("1d2a24"), BRONZE))
+	button.add_theme_stylebox_override("hover", make_route_box(Color("2a3d33"), TEAL))
+	return button
+
+
+func readable_id(stable_id: String) -> String:
+	return stable_id.replace(".", " ").replace("_", " ").strip_edges().to_upper()
+
+
 func request_travel(portal_id: String) -> void:
 	if campaign_session == null:
 		return
@@ -282,6 +348,33 @@ func request_anchor(anchor_id: String) -> Dictionary:
 	return result
 
 
+## Reading a place. The bridge refuses an observation that is not legal here,
+## so the screen never has to decide what may be looked at.
+func request_inspect(observation_id: String) -> Dictionary:
+	if campaign_session == null:
+		return {"configured": false, "error": "campaign_session_unavailable"}
+	var result: Dictionary = campaign_session.inspect(observation_id)
+	if not bool(result.get("configured", false)):
+		status_label.text = "INSPECTION REFUSED  •  %s" % str(result.get("error", "unknown_error")).to_upper()
+		return result
+	project_snapshot(result, "RECORDED  •  %s" % readable_id(observation_id.trim_prefix("observation.")))
+	return result
+
+
+## Ending the day. Rust owns the whole transaction; the screen only reports how
+## many events it produced.
+func request_midnight() -> Dictionary:
+	if campaign_session == null:
+		return {"configured": false, "error": "campaign_session_unavailable"}
+	var result: Dictionary = campaign_session.resolve_midnight()
+	if not bool(result.get("configured", false)):
+		status_label.text = "MIDNIGHT REFUSED  •  %s" % str(result.get("error", "unknown_error")).to_upper()
+		return result
+	var events: Array = result.get("events", [])
+	project_snapshot(result, "MIDNIGHT  •  DAY %d  •  %d WORLD EVENTS" % [int(result.get("campaign_day", 1)), events.size()])
+	return result
+
+
 func enter_pending_battle() -> void:
 	if campaign_session == null or not campaign_session.has_pending_encounter():
 		status_label.text = "ENCOUNTER HANDOFF UNAVAILABLE"
@@ -291,6 +384,20 @@ func enter_pending_battle() -> void:
 
 func get_authoritative_snapshot() -> Dictionary:
 	return latest_snapshot.duplicate(true)
+
+
+## The commands the action list is currently drawing, in list order. A control
+## and its command are the same fact, so a test can hold the drawn buttons
+## against the native legal-command list directly.
+func get_action_commands() -> Array[String]:
+	var commands: Array[String] = []
+	if action_list == null:
+		return commands
+	for child in action_list.get_children():
+		if child.is_queued_for_deletion():
+			continue
+		commands.append(str(child.get_meta("command", "")))
+	return commands
 
 
 func get_legal_route_count() -> int:
