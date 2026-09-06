@@ -15,13 +15,18 @@ const repo = resolve(import.meta.dirname, "../..");
 // strategic tick reads, and the bridge builds it from this bundle exactly as it
 // builds the faction registry, so a building record that never reached Godot
 // would make the engine's island differ from the harness's.
+// `dungeons` joined with C5: the Tomb of Returning Names' twelve authored
+// spaces and the two site-rule sets an owner brings are read by
+// `strategy/dungeon_content.rs`, and the four tomb world cells mirror their
+// space's rules, so the record has to reach Godot beside the cells that point
+// at it or the engine would carry the mirror without the original.
 //
 // `packs/` is deliberately absent and is not a domain. A presentation-override
 // pack is a separate artifact: E9 builds each one into its own `.pck` and B10's
 // registry discovers it at runtime under `user://packs/` or `res://packs/`.
 // Folding a pack into the base bundle would ship the override with the base
 // game, which is the one thing the pack seam exists to prevent.
-const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships", "buildings"];
+const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships", "buildings", "dungeons"];
 const records = [];
 
 for (const domain of domains) {
