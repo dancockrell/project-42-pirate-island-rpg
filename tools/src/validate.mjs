@@ -1852,9 +1852,9 @@ for (const id of ["atmosphere.segment_table", "atmosphere.weather_table", "atmos
 // record here, and the record carries the notice its licence requires copied
 // verbatim from that project's own licence file. Two rules make the file worth
 // trusting. The first is that no fact is invented: a component whose licence
-// text cannot be read from a file in the build environment carries
-// `noticeText: null` and `needsReview: true`, and the credits page says its
-// notice is pending. The second is the equality below: the ledger is held to
+// text can be read neither from a file in the build environment nor from its
+// own canonical file upstream carries `noticeText: null` and
+// `needsReview: true`, and the credits page says its notice is pending. The second is the equality below: the ledger is held to
 // `godot-rust/Cargo.lock` in both directions, so a crate cannot be credited
 // that the extension does not link (a ghost) and a crate cannot be linked that
 // nothing credits (an orphan). Cargo.lock does not record dependency kind, so
@@ -1892,10 +1892,25 @@ for (const [index, component] of thirdPartyComponents.entries()) {
   if (!(typeof component?.version === "string" && component.version.trim() !== "") && component?.version !== null) fail(thirdPartyLedgerFile, `${field}.version must be the pinned version or null`);
   if (!existsSync(resolve(repo, component?.versionPinnedBy ?? ""))) fail(thirdPartyLedgerFile, `${field}.versionPinnedBy must name a file in this repository: ${component?.versionPinnedBy}`);
   if (typeof component?.needsReview !== "boolean") fail(thirdPartyLedgerFile, `${field}.needsReview must be boolean`);
-  for (const key of ["noticeSpdx", "noticeFiles", "noticeSha256"]) {
+  for (const key of ["noticeSpdx", "noticeFiles", "noticeSha256", "noticeSources"]) {
     if (!Array.isArray(component?.[key])) fail(thirdPartyLedgerFile, `${field}.${key} must be an array`);
   }
   const noticeFiles = component?.noticeFiles ?? [];
+  // E13 read seven notices that no file in this environment carries: the
+  // godot-rust crates and the engine publish their licence only upstream. A
+  // notice fetched over the network is admissible provenance on the same terms
+  // as a file -- the source is named, and the SHA-256 is of the bytes that
+  // arrived, so a reader can fetch the same URL and compare -- so `noticeSources`
+  // is the other way a record may say where its text came from, not a second
+  // schema beside `noticeFiles`.
+  const noticeSources = component?.noticeSources ?? [];
+  for (const [sourceIndex, source] of noticeSources.entries()) {
+    const sourceField = `${field}.noticeSources[${sourceIndex}]`;
+    for (const key of ["url", "spdx", "sha256"]) requireString(source ?? {}, key, thirdPartyLedgerFile);
+    if (!source?.url?.startsWith("https://")) fail(thirdPartyLedgerFile, `${sourceField}.url must be the HTTPS URL the notice was fetched from`);
+    if (!/^[a-f0-9]{64}$/.test(source?.sha256 ?? "")) fail(thirdPartyLedgerFile, `${sourceField}.sha256 must be lowercase SHA-256 of the bytes as received`);
+    if (!Number.isInteger(source?.bytes) || source.bytes <= 0) fail(thirdPartyLedgerFile, `${sourceField}.bytes must be the length of what was received`);
+  }
   if (noticeFiles.length !== (component?.noticeSpdx ?? []).length || noticeFiles.length !== (component?.noticeSha256 ?? []).length) fail(thirdPartyLedgerFile, `${field} must carry one SPDX id and one digest per notice file`);
   for (const digest of component?.noticeSha256 ?? []) {
     if (!/^[a-f0-9]{64}$/.test(digest ?? "")) fail(thirdPartyLedgerFile, `${field}.noticeSha256 entries must be lowercase SHA-256 of the licence file as read`);
@@ -1904,12 +1919,12 @@ for (const [index, component] of thirdPartyComponents.entries()) {
     noticePending += 1;
     // The whole point of the flag: pending means nothing was copied, and the
     // reason is on the record so the next reader knows what to go and get.
-    if (component?.noticeText !== null || noticeFiles.length !== 0 || component?.noticeTextKey !== null) fail(thirdPartyLedgerFile, `${field} needsReview means no notice was read: noticeText, noticeTextKey and noticeFiles must be empty`);
+    if (component?.noticeText !== null || noticeFiles.length !== 0 || noticeSources.length !== 0 || component?.noticeTextKey !== null) fail(thirdPartyLedgerFile, `${field} needsReview means no notice was read: noticeText, noticeTextKey, noticeFiles and noticeSources must be empty`);
     requireString(component ?? {}, "reviewNote", thirdPartyLedgerFile);
     if ((component?.reviewNote ?? "").length < 80) fail(thirdPartyLedgerFile, `${field}.reviewNote must say what could not be read and where the notice lives`);
   } else {
     if (typeof component?.noticeText !== "string" || component.noticeText.trim() === "") fail(thirdPartyLedgerFile, `${field}.noticeText must be the licence text, or null with needsReview true`);
-    if (noticeFiles.length === 0) fail(thirdPartyLedgerFile, `${field} must name the licence file its notice was copied from`);
+    if (noticeFiles.length === 0 && noticeSources.length === 0) fail(thirdPartyLedgerFile, `${field} must name the licence file or the URL its notice was copied from`);
     if (component?.reviewNote !== "") fail(thirdPartyLedgerFile, `${field}.reviewNote must be empty when the notice was read`);
     if (!Object.hasOwn(noticeBodies, component?.noticeTextKey ?? "")) fail(thirdPartyLedgerFile, `${field}.noticeTextKey must be one of the named notice bodies`);
     // One key, one text. Ten crates ship a byte-identical MIT body; the key is
