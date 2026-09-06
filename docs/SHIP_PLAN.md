@@ -355,8 +355,8 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
-- **M3** shipped 6/16 — **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
-- Last updated 2026-09-06 against trunk `58fbdb3`. If this line is older than
+- **M3** shipped 7/16 — **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
+- Last updated 2026-09-06 against trunk `ba1cb56`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -387,7 +387,7 @@ top of the document is never stale:
 | S5 | Utility AI and strategic states | S4 | open |
 | S6 | `StrategicDirective` vocabulary and plain-language explanation | S5 | open |
 | S7 | Offscreen forces and materialisation through routes and sockets | S4, S2 | open |
-| S8 | Weather, corruption, and the dual clocks (world time vs patience/heat) | S4 | open |
+| S8 | Weather, corruption, and the dual clocks (world time vs patience/heat) | S4 | shipped ba1cb56 2026-09-06 — every tuning number marked needs decision |
 | S9 | `DungeonContext` and generation signature | S3, S8 | open |
 | S10 | Elimination and the recovery chain | S3, S7 | open |
 | S11 | Event journal and the strategic save fields | S4 | shipped 8c79fde 2026-09-06 |
@@ -990,7 +990,7 @@ Done when: a test moves a force three cells and asserts its arrival event
 carries the same composition it left with.
 
 ### S8 · Weather, corruption, and the dual clocks
-Status: open · Depends on: S4
+Status: shipped `ba1cb56` 2026-09-06 · Depends on: S4
 `GAME_BUILD_PLAN.md` names this a system contract: **world time and Cthulhu
 patience/heat are distinct dimensions**, advancing one must not silently
 advance the other, and each must be independently testable. So: `campaign_day`
@@ -1007,6 +1007,23 @@ rescue when losing. Reversibility of corruption is **Open** — implement
 accumulation only and mark decay `blocked: needs decision`.
 Done when: pressure and day advance independently in a test; an assistance
 event never fires for a Desperate Cthulhu.
+
+**Shipped.** `cthulhu_heat` moves only through `record_heat_event`
+(ritual completed, corrupted cell held, party interference); the passage of
+days never touches it, and the contract's own test — thirty midnights, heat
+unchanged; one event, heat moved, day still — is proven to bite on a single
+`+= 1` inside midnight. Weather is per region per day inside midnight (under
+the save hash, outside S4's draw digest); corruption accumulates only, with
+**reversibility, summoning interruption and Cthulhu early elimination each
+marked `blocked: needs decision`**; the confrontation trigger answers by
+discovery (`CONFRONTATION_DISCOVERY_ID` is a hook constant that a C card must
+author or rename), day 100, or maximum heat; the assistance *gate* is
+non-zero only for Advantaged or Closing and zero for a Desperate Cthulhu —
+the event itself is S7/S10's. Every tuning number (`MAX_HEAT = 1000`, the
+three heat amounts, the two assistance weights) is provisional and says so;
+`CONFRONTATION_DAY = 100` is the brief's. `corrupt_cell` takes the geography
+so an unknown cell is refused before mutation; the weather step derives its
+regions from the graph so a save cannot conjure one.
 
 ### S9 · `DungeonContext` and generation signature
 Status: open · Depends on: S3, S8
