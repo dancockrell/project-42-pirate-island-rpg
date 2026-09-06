@@ -10,6 +10,25 @@ on:
   push:
   pull_request:
 
+# P1 hoisted these three from godot-suites to the workflow, unchanged: the
+# captures job downloads the same engine, and a pin copied into two jobs is two
+# answers to one question, which is how a pin drifts. One owner, both readers.
+env:
+  # Pinned exactly. An unpinned engine download would make this gate trust
+  # whatever the release page serves on the day it runs, which is precisely
+  # the property a gate is supposed to remove.
+  GODOT_VERSION: 4.7.2-stable
+  GODOT_ASSET: Godot_v4.7.2-stable_linux.x86_64.zip
+  # SHA-512, not SHA-256, and the difference is deliberate. The Godot release
+  # publishes exactly one checksum manifest for its binaries, SHA512-SUMS.txt,
+  # and this literal is the line for the asset above, copied from that file in
+  # the 4.7.2-stable release of godotengine/godot-builds. No SHA-256 for the
+  # *binary* zip is published anywhere official (only the source tarball
+  # carries a .sha256), so writing one here would have meant inventing it or
+  # trusting a mirror. SHA-512 is the stronger digest and it is the one
+  # upstream signs off on.
+  GODOT_SHA512: 9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65
+
 jobs:
   rust-and-content:
     name: Rust and content
@@ -87,22 +106,6 @@ jobs:
     # None of that has ever been timed on a runner, so forty-five minutes is a
     # deliberately loose first bound; tighten it once real runs give numbers.
     timeout-minutes: 45
-
-    env:
-      # Pinned exactly. An unpinned engine download would make this gate trust
-      # whatever the release page serves on the day it runs, which is precisely
-      # the property a gate is supposed to remove.
-      GODOT_VERSION: 4.7.2-stable
-      GODOT_ASSET: Godot_v4.7.2-stable_linux.x86_64.zip
-      # SHA-512, not SHA-256, and the difference is deliberate. The Godot
-      # release publishes exactly one checksum manifest for its binaries,
-      # SHA512-SUMS.txt, and this literal is the line for the asset above,
-      # copied from that file in the 4.7.2-stable release of
-      # godotengine/godot-builds. No SHA-256 for the *binary* zip is published
-      # anywhere official (only the source tarball carries a .sha256), so
-      # writing one here would have meant inventing it or trusting a mirror.
-      # SHA-512 is the stronger digest and it is the one upstream signs off on.
-      GODOT_SHA512: 9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65
 
     steps:
       - name: Check out the repository
@@ -273,4 +276,100 @@ jobs:
         with:
           name: godot-gate-log
           path: ${{ runner.temp }}/godot-gate.log
+          if-no-files-found: warn
+
+  captures:
+    name: Scene captures
+    runs-on: ubuntu-latest
+    # P1. The visual loop's proof: every scene under game/scenes/{review,world,
+    # battle,shell} is rendered to a PNG and uploaded, so a presentation change
+    # can be looked at rather than described. A sibling of godot-suites and not
+    # a step inside it -- this one needs a display server and the Vulkan
+    # software rasteriser, and the headless gate should not wait behind either.
+    #
+    # Budget: apt ~1 min, engine download and unpack ~1 min, the debug
+    # GDExtension build from a cold target directory ~1 min, then roughly ten
+    # seconds of rendering per scene. Thirty minutes is a loose first bound on
+    # the same reasoning godot-suites gives for its forty-five.
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      # xvfb because a capture is a real render and needs a display server;
+      # mesa-vulkan-drivers because lavapipe is what lets this runner render the
+      # Forward+ path at all, and tools/capture-scenes.sh selects the vulkan
+      # driver exactly when vulkan-tools reports a device.
+      - name: Install Xvfb and the software Vulkan rasteriser
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes \
+            xvfb mesa-vulkan-drivers vulkan-tools
+          vulkaninfo --summary | head -n 40 || true
+
+      - name: Install the Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache the Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: godot-rust
+
+      # The same download, the same pin, the same refusal to unpack before the
+      # checksum matches as godot-suites. The three environment values are the
+      # workflow's, so there is one pin and not a copy of one.
+      - name: Download and verify Godot ${{ env.GODOT_VERSION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/${GODOT_ASSET}"
+          echo "Downloading $url"
+          curl --fail --location --silent --show-error \
+               --retry 3 --retry-delay 5 --retry-all-errors \
+               --output "${RUNNER_TEMP}/godot.zip" "$url"
+          printf '%s  %s\n' "$GODOT_SHA512" "${RUNNER_TEMP}/godot.zip" \
+            | sha512sum --check --strict
+          unzip -q "${RUNNER_TEMP}/godot.zip" -d "${RUNNER_TEMP}/godot"
+          binary="${RUNNER_TEMP}/godot/Godot_v${GODOT_VERSION}_linux.x86_64"
+          if [[ ! -f "$binary" ]]; then
+            echo "The pinned archive did not contain $binary. Its contents were:" >&2
+            ls -la "${RUNNER_TEMP}/godot" >&2
+            exit 1
+          fi
+          chmod +x "$binary"
+          echo "GODOT=$binary" >> "$GITHUB_ENV"
+
+      # debug, matching godot-suites: the .gdextension resolves
+      # linux.debug.x86_64 for a debug engine run, and a scene whose script
+      # reaches the bridge renders what the suites test rather than a fallback.
+      - name: Build the native bridge
+        shell: bash
+        run: bash tools/build-native-bridge.sh debug
+
+      - name: Render every scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s "-screen 0 1920x1080x24" \
+            bash tools/capture-scenes.sh 2>&1 | tee "${RUNNER_TEMP}/captures.log"
+
+      # if-no-files-found: error, not warn. An empty captures artifact is the
+      # exact failure this job exists to make impossible, so it fails the job
+      # rather than uploading nothing quietly.
+      - name: Upload the captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: captures-${{ github.sha }}
+          path: work/captures/
+          if-no-files-found: error
+
+      - name: Upload the capture log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: captures-log-${{ github.sha }}
+          path: ${{ runner.temp }}/captures.log
           if-no-files-found: warn
