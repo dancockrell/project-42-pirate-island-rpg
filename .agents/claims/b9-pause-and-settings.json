@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "task_id": "b9-pause-and-settings",
+  "agent": "claude-code (lane B9)",
+  "summary": "Pause becomes a Godot-side fact with one owner: a GamePause autoload holding a set of reasons, the single guard on the one call that advances campaign time, and a small accessibility settings surface that pauses while it is open.",
+  "status": "completed",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T07:15:00Z",
+  "paths": [
+    "game/scripts/campaign/game_pause.gd",
+    "game/scripts/ui/settings_panel.gd",
+    "game/scenes/ui/settings_panel.tscn",
+    "game/tests/game_pause_test.gd",
+    "game/project.godot",
+    "game/scripts/campaign/campaign_session.gd"
+  ],
+  "symbols": [
+    "GamePause.pause",
+    "GamePause.resume",
+    "GamePause.is_paused",
+    "GamePause.pause_reasons",
+    "GamePause.pause_changed",
+    "SettingsPanel",
+    "CampaignSession.advance_refused_while_paused"
+  ],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [],
+    "notes": "Godot-only lane; no Rust file is touched. godot-rust/src/strategy/tick.rs already settles the design -- there is no `paused` field in ExpeditionState, no paused branch in the tick and no host clock, so a paused game is a game whose bridge is not calling. This lane therefore adds no second answer in Rust; it makes Godot the one caller that can be stopped. game/project.godot takes an append at the END of [autoload] only, per the parallel-lane keep-both-tails rule; two other lanes append there too. campaign_session.gd is touched in exactly two hunks -- one guard call inside the existing resolve_midnight wrapper and one new function beside it -- and B8 owns that file's save/load functions. The refusal reuses the session's existing unavailable_state() dictionary with its error replaced, so no second rejection shape enters the codebase. Shipped: the guard lives inside resolve_midnight, the only call in the Godot tree that advances the strategic clock (grep over game/scripts for resolve_midnight, _process, _physics_process and Timer found no per-frame or timer-driven advance at all -- the expedition prototype's HOLD FOR MIDNIGHT button is the whole of it), so there is one guard and not a second path. The refusal reuses unavailable_state() with its error replaced, so the screen's existing 'MIDNIGHT REFUSED  -  <error>' line reports it with no change to expedition_prototype.gd. GamePause.clear() was written and then deleted before shipping because nothing called it. The three accessibility values are stored and read back and nothing else reads them, exactly as the card says."
+  },
+  "completion": {
+    "commit": "49d25cb",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check (no Rust file is touched by this lane): passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (303 lib + 5 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (214 stable IDs): passed",
+      "node tools/src/check-claims.mjs (41 claims, 88 ship-plan rows, 82 cards): passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/ (no content changed; bundle unchanged): passed",
+      "CI run 34018265843 on 08eeb92, whose tree is byte-identical to the shipped 49d25cb: both jobs green -- 'Rust and content' success and 'Godot headless suites' success, including the 'Prove the real bridge loaded, not the mock' step: passed",
+      "Done-when (the card's test): open settings then N advances leaves the tick count unchanged. game_pause_test.gd opens the settings panel scene, attempts REFUSED_ADVANCE_ATTEMPTS = 5 midnights, and asserts the LIVE native snapshot's campaign_day and time_segment are unmoved; closing the last surface turns the day to day_before + 1: passed",
+      "Two reasons, one pause: a reading surface is added beside the settings panel, the panel is closed through its own CloseSettings button, and the game stays paused and the clock stays still until the second reason is released: passed",
+      "Settings persist: text scale, high contrast and reduced motion written to user://settings.cfg through ConfigFile and read back by a freshly opened panel; an out-of-range text scale clamps to MAXIMUM_TEXT_SCALE rather than being refused: passed",
+      "Live-bridge guard copied from native_simulation_port_test.gd and expedition_prototype_test.gd: the suite quits early with the skip line CI's fallback-marker list already watches for, so a run that never reached the bridge cannot pass as a proof. It did not skip -- the gate's 'Prove the real bridge loaded' step found no fallback marker: passed",
+      "Bite: commit 581b2fd removed the guard call from resolve_midnight and CI run 34018367839 failed the Godot gate by name -- 'advance 0 must be refused while paused', 'the strategic clock must not turn while the game is paused', 'one released reason must not let the clock turn', 'the day must still stand after the first surface closes', 'a resumed game must turn the day', then 'Godot game_pause_test.gd failed with exit code 1': failed",
+      "Bite, restored: 49d25cb reverts 581b2fd and its tree is byte-identical to the green 08eeb92 (git diff --quiet 08eeb92 49d25cb): passed",
+      "No Godot binary exists in this container, so every GDScript proof above is CI's, not local; the Rust and Node proofs were run locally on the committed tree and again by CI: passed",
+      "RECORDED, NOT WIRED: text_scale, high_contrast and reduced_motion are read by no scene. The B9 card asks for the surface and the persistence and says so; threading them through the shell belongs with B13's information surface: not_run",
+      "Brief section 14's other pausable systems -- construction, convoys, weather, Cthulhu pressure, local movement -- are not separately guarded because none of them advances from Godot yet: they all move inside the native midnight transaction this guard refuses, and get_tree().paused stops the scene layer. When a second Godot-side advance appears it must route through advance_refused_while_paused rather than grow its own check: not_run",
+      "needs decision: nothing in this card required an Open number or a faction proper name, and none was invented: not_run"
+    ]
+  }
+}
