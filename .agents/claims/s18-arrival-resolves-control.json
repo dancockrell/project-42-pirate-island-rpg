@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "task_id": "s18-arrival-resolves-control",
+  "agent": "claude-code (lane S18)",
+  "summary": "A force's arrival resolves into control of the cell it reached -- unheld or undefended ground changes hands through set_control, a defended cell does not and says so -- and the player raises and dispatches Michael's forces through two bridge verbs.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/force.rs",
+    "godot-rust/src/strategy/tick.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/godot_bridge.rs",
+    "godot-rust/tests/strategic_determinism.rs",
+    "game/scripts/simulation/native_expedition_port.gd",
+    "game/scripts/campaign/campaign_session.gd",
+    "game/scripts/surface/information_surface.gd",
+    "game/tests/board_verification_campaign.gd",
+    "game/tests/isometric_board_test.gd"
+  ],
+  "symbols": [
+    "ExpeditionState.resolve_arrivals",
+    "CONTESTED_ARRIVAL_RESOLVES_CONTROL",
+    "StrategicEvent::ControlTaken",
+    "StrategicEvent::ArrivalContested",
+    "StrategicEvent::ForceRaised",
+    "Project42ExpeditionBridge.raise_force",
+    "Project42ExpeditionBridge.dispatch_force"
+  ],
+  "coordination": {
+    "depends_on": [
+      "s7-offscreen-forces",
+      "s10-elimination-and-recovery",
+      "s17-goals-become-actions",
+      "p4-isometric-board"
+    ],
+    "conflicts_with": [],
+    "notes": "tick.rs takes three appended StrategicEvent variants at the END of the enum and no new PURPOSES entry -- the hash contract's draw sequence is untouched. expedition.rs takes one statement in strategic_tick between advance_forces and eliminate_exhausted_factions (the card names tick.rs; the call to advance_forces lives in expedition.rs, so the one call goes where its neighbour is). godot_bridge.rs takes two #[func]s at the END of the impl and one arm per new variant in journal_entry_dictionary and journal_prose. information_surface.gd takes kind-list entries only. board_verification_campaign.gd's save round trip is replaced by the verbs as its own note demands; isometric_board_test.gd (P10's file otherwise) is repaired only where it reads that helper's result."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
