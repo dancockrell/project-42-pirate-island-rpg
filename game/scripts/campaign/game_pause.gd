@@ -24,10 +24,6 @@ extends Node
 ## react to pause listens here rather than polling `is_paused()` per frame.
 signal pause_changed(paused: bool)
 
-## The reason the accessibility and settings surface gives. Named here so the
-## panel and any test spell it the same way.
-const SETTINGS_REASON := "settings"
-
 var _reasons: Dictionary = {}
 
 

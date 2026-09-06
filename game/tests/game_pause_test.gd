@@ -59,7 +59,7 @@ func _init() -> void:
 	await process_frame
 	check(game_pause.is_paused(), "opening settings must pause the game")
 	check(paused, "a paused game must pause the scene tree")
-	check(game_pause.pause_reasons() == [game_pause.SETTINGS_REASON], "the settings panel must hold exactly its own reason")
+	check(game_pause.pause_reasons() == [SettingsPanel.PAUSE_REASON], "the settings panel must hold exactly its own reason")
 
 	# The clock, before any refused advance.
 	var before: Dictionary = session.snapshot()
@@ -79,7 +79,7 @@ func _init() -> void:
 	# Two surfaces, one pause. A reading surface opens on top of settings, and
 	# closing settings must not resume the island underneath it.
 	check(game_pause.pause(READING_REASON), "a second surface must be able to add its own reason")
-	check(game_pause.pause_reasons() == [READING_REASON, game_pause.SETTINGS_REASON], "both reasons must be readable while both surfaces are open")
+	check(game_pause.pause_reasons() == [READING_REASON, SettingsPanel.PAUSE_REASON], "both reasons must be readable while both surfaces are open")
 	check(not game_pause.pause(READING_REASON), "the same reason twice must not stack")
 	panel.close()
 	await process_frame

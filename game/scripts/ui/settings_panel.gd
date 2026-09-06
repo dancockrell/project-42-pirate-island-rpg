@@ -16,6 +16,11 @@ extends Control
 ## ready to honour one, it reads it from this panel's loaded values rather than
 ## keeping a second copy.
 
+## The reason this surface gives GamePause while it is open. The surface owns
+## the name, not the pause service: GamePause counts reasons and never learns
+## what any of them is.
+const PAUSE_REASON := "settings"
+
 const SETTINGS_PATH := "user://settings.cfg"
 const SECTION := "accessibility"
 
@@ -58,7 +63,7 @@ func _ready() -> void:
 	build_screen()
 	game_pause = get_node_or_null("/root/GamePause")
 	if game_pause != null:
-		game_pause.pause(game_pause.SETTINGS_REASON)
+		game_pause.pause(PAUSE_REASON)
 
 
 func _exit_tree() -> void:
@@ -76,7 +81,7 @@ func close() -> void:
 func release_pause() -> void:
 	if game_pause == null:
 		return
-	game_pause.resume(game_pause.SETTINGS_REASON)
+	game_pause.resume(PAUSE_REASON)
 
 
 func load_settings() -> void:
