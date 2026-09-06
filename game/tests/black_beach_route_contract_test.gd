@@ -9,7 +9,11 @@ const EXPECTED_CELLS := [
 	"world.cell.damaged_estate",
 	"world.cell.river_landing",
 	"world.cell.reception_terrace",
-	"world.cell.processional_ramp"
+	"world.cell.processional_ramp",
+	"world.cell.tomb_threshold",
+	"world.cell.tomb_reception",
+	"world.cell.tomb_archive_core",
+	"world.cell.tomb_service_passage"
 ]
 
 

@@ -1,0 +1,40 @@
+{
+  "id": "world.cell.tomb_threshold",
+  "kind": "world_cell",
+  "regionId": "world.region.black_beach",
+  "displayName": "Threshold of Returning Names",
+  "visualShell": {
+    "runtimePath": "res://assets/world/black_beach/tomb_threshold.glb",
+    "status": "procedural_blockout_pending_baked_scene",
+    "requiredFeatures": ["opened bronze inner door", "sealed name registers cut into the jamb", "rainwater running in from the ramp", "elven public-purpose plan with no idols", "one clear way back to the ramp"],
+    "prohibitedFeatures": ["crypt of coffins and cobwebs", "torchlit dungeon corridor", "colonial chapel interior"]
+  },
+  "collisionScene": "res://scenes/world/black_beach/tomb_threshold_collision.tscn",
+  "navigationScene": "res://scenes/world/black_beach/tomb_threshold_navigation.tscn",
+  "cameraRailId": "camera.exploration.tomb_threshold",
+  "entryAnchors": [
+    {"id": "entry.tomb_threshold.processional_ramp", "positionMetres": [-10.0, 0.0, 9.0], "facingDegrees": 22, "role": "ramp_route"},
+    {"id": "entry.tomb_threshold.reception", "positionMetres": [12.0, 0.0, -6.0], "facingDegrees": 202, "role": "reception_route"},
+    {"id": "entry.tomb_threshold.service_passage", "positionMetres": [7.0, 0.0, -11.0], "facingDegrees": 254, "role": "service_passage_arrival"}
+  ],
+  "interactionAnchors": [
+    {"id": "interact.tomb_threshold.sealed_names", "role": "inspect", "actionId": "action.tomb_threshold.inspect_sealed_names"},
+    {"id": "interact.tomb_threshold.reception", "role": "depart", "actionId": "action.tomb_threshold.enter_reception"}
+  ],
+  "portals": [
+    {"id": "world.portal.tomb_threshold_to_processional_ramp", "fromAnchorId": "entry.tomb_threshold.processional_ramp", "targetCellId": "world.cell.processional_ramp", "targetAnchorId": "entry.processional_ramp.tomb_threshold", "travelMode": "on_foot", "returnRule": "always", "timeCostMinutes": 10, "supplyCost": 0, "riskLevel": 2},
+    {"id": "world.portal.tomb_threshold_to_tomb_reception", "fromAnchorId": "entry.tomb_threshold.reception", "targetCellId": "world.cell.tomb_reception", "targetAnchorId": "entry.tomb_reception.threshold", "travelMode": "on_foot", "returnRule": "allowed_while_no_pending_encounter", "timeCostMinutes": 10, "supplyCost": 0, "riskLevel": 2}
+  ],
+  "battleEntries": [
+    {"id": "battle_entry.tomb_threshold.inner_door", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [0.0, 0.0, 1.0], "returnAnchorId": "entry.tomb_threshold.processional_ramp", "safeRetreatAnchorId": "entry.tomb_threshold.processional_ramp", "status": "future_spawn_socket"}
+  ],
+  "explorationActions": [
+    {"id": "action.tomb_threshold.inspect_sealed_names", "type": "inspect", "result": "discover.returning_names.sealed_register", "once": true},
+    {"id": "action.tomb_threshold.enter_reception", "type": "travel", "portalId": "world.portal.tomb_threshold_to_tomb_reception", "once": false}
+  ],
+  "readableDescriptions": [
+    {"id": "observation.tomb_threshold.sealed_names", "text": "Past the bronze door the jamb carries register after register of sealed names, each one struck through and cut again below. Nothing here is a shrine: the elves built the place to keep an account, and the account is still open."}
+  ],
+  "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
+  "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 1, "browserPerformanceGate": "pending", "releaseLegal": false}
+}

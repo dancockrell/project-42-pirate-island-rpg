@@ -1,0 +1,49 @@
+{
+  "id": "world.cell.tomb_service_passage",
+  "kind": "world_cell",
+  "regionId": "world.region.black_beach",
+  "displayName": "Service Passage of Returning Names",
+  "visualShell": {
+    "runtimePath": "res://assets/world/black_beach/tomb_service_passage.glb",
+    "status": "procedural_blockout_pending_baked_scene",
+    "requiredFeatures": ["low unfinished working passage", "grave goods pulled out and left disturbed", "two ways on, neither of them the archive", "standing water and poor footing", "a clear individual-monster lane"],
+    "prohibitedFeatures": ["spike traps and dart holes", "collapsed dead end", "decorated ceremonial hall"]
+  },
+  "collisionScene": "res://scenes/world/black_beach/tomb_service_passage_collision.tscn",
+  "navigationScene": "res://scenes/world/black_beach/tomb_service_passage_navigation.tscn",
+  "cameraRailId": "camera.exploration.tomb_service_passage",
+  "entryAnchors": [
+    {"id": "entry.tomb_service_passage.reception", "positionMetres": [-9.0, 0.0, 10.0], "facingDegrees": 27, "role": "reception_route"},
+    {"id": "entry.tomb_service_passage.threshold", "positionMetres": [11.0, 0.0, -9.0], "facingDegrees": 208, "role": "threshold_route"}
+  ],
+  "interactionAnchors": [
+    {"id": "interact.tomb_service_passage.disturbed_grave_goods", "role": "inspect", "actionId": "action.tomb_service_passage.inspect_grave_goods"},
+    {"id": "interact.tomb_service_passage.threshold", "role": "depart", "actionId": "action.tomb_service_passage.climb_to_threshold"}
+  ],
+  "anchors": [
+    {
+      "id": "anchor.tomb_service_passage.disturbed_grave_goods",
+      "kind": "loot_cache",
+      "rations": 1,
+      "medicine": 1,
+      "coin": 6,
+      "oncePerDay": true
+    }
+  ],
+  "portals": [
+    {"id": "world.portal.tomb_service_passage_to_tomb_reception", "fromAnchorId": "entry.tomb_service_passage.reception", "targetCellId": "world.cell.tomb_reception", "targetAnchorId": "entry.tomb_reception.service_passage", "travelMode": "on_foot", "returnRule": "always", "timeCostMinutes": 10, "supplyCost": 0, "riskLevel": 3},
+    {"id": "world.portal.tomb_service_passage_to_tomb_threshold", "fromAnchorId": "entry.tomb_service_passage.threshold", "targetCellId": "world.cell.tomb_threshold", "targetAnchorId": "entry.tomb_threshold.service_passage", "travelMode": "on_foot", "returnRule": "always", "timeCostMinutes": 15, "supplyCost": 0, "riskLevel": 2}
+  ],
+  "battleEntries": [
+    {"id": "battle_entry.tomb_service_passage.working_lane", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [1.0, 0.0, 0.5], "returnAnchorId": "entry.tomb_service_passage.reception", "safeRetreatAnchorId": "entry.tomb_service_passage.threshold", "status": "future_spawn_socket"}
+  ],
+  "explorationActions": [
+    {"id": "action.tomb_service_passage.inspect_grave_goods", "type": "inspect", "result": "discover.returning_names.disturbed_goods", "once": true},
+    {"id": "action.tomb_service_passage.climb_to_threshold", "type": "travel", "portalId": "world.portal.tomb_service_passage_to_tomb_threshold", "once": false}
+  ],
+  "readableDescriptions": [
+    {"id": "observation.tomb_service_passage.disturbed_grave_goods", "text": "This is the passage the masons used, never finished and never sealed. Someone has already been through the grave goods stacked along it, and what they left behind is worth carrying out on the way back."}
+  ],
+  "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
+  "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 1, "browserPerformanceGate": "pending", "releaseLegal": false}
+}
