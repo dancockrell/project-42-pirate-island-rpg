@@ -3,9 +3,9 @@
   "task_id": "s16-production-in-the-tick",
   "agent": "claude-code (lane S16)",
   "summary": "S16: an operational building's interval production rules count down every strategic hour and fire on the economy draw -- machines through produce_machine, capacity and services journalled, the rule's cost paid from the faction stockpile or skipped with a journalled reason and never a negative number.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T09:00:00Z",
-  "updated_at": "2026-09-06T09:00:00Z",
+  "updated_at": "2026-09-06T15:30:00Z",
   "paths": [
     "godot-rust/src/strategy/production.rs",
     "godot-rust/src/strategy/tick.rs",
@@ -14,7 +14,6 @@
     "godot-rust/src/godot_bridge.rs",
     "godot-rust/src/habitat.rs",
     "godot-rust/src/strategy/elimination.rs",
-    "godot-rust/src/strategy/faction.rs",
     "godot-rust/src/strategy/force.rs",
     "godot-rust/src/strategy/utility.rs",
     "godot-rust/tests/strategic_determinism.rs",
@@ -41,10 +40,20 @@
     "conflicts_with": [
       "c14"
     ],
-    "notes": "C14 is authoring content/machines/ and may add MachineDefinition::validate rules and tests at the tail of production.rs's test module; this lane's unit tests are in a separate `mod tick_tests` so both append without meeting. building.rs takes one appended serde(default) field on BuildingInstance and nothing else. tick.rs takes two appended StrategicEvent variants at the end of the enum plus the production call inside run_hour's existing per-faction loop. expedition.rs, godot_bridge.rs, habitat.rs, strategy/{elimination,faction,force,utility}.rs and tests/{authored_world,vertical_slice}.rs are touched only to pass the new &MachineDefinitions argument at existing strategic_tick / resolve_midnight_in call sites, the B16 way; no behaviour in those files changes. The bridge hands the tick an empty registry: C14 authors the records and a later B card forwards them through the port, and this lane does not forward machine content itself."
+    "notes": "C14 landed while this lane was open: content/machines/ now authors machine.mechanical_dog and machine.steam_wagon, and C10's production.machine_shop.automaton_frames names the dog. The harness therefore loads content/machines/ off disk the way it already loads content/buildings/ rather than standing a fixture record in, and the only thing the probe writes onto the authored building record is a cost -- C10 authors none and brief section 20 leaves the resource list Open, so a probe for 'an unstocked yard skips' has to name a key to be short of. building.rs takes one appended serde(default) field on BuildingInstance and nothing else. tick.rs takes two StrategicEvent variants at the END of the enum plus the production call inside run_hour's existing per-faction loop. expedition.rs, godot_bridge.rs, habitat.rs, strategy/{elimination,force,utility}.rs and tests/{authored_world,vertical_slice}.rs are touched only to pass the new &MachineDefinitions argument at existing strategic_tick / resolve_midnight_in call sites, the B16 way; no behaviour in those files changes. The bridge hands the tick an EMPTY machine registry: B19 is the card that forwards the records through the port and hands a built registry in exactly where the empty one goes, and until it lands a machine rule that comes due in a Godot session journals ProductionSkipped::UnknownMachineRecord rather than inventing a machine."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "6a98bdc",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml -- 351 lib, 6 authored_world, 5 save_migration, 9 strategic_determinism, 1 vertical_slice, 0 doc-tests, 0 failed: passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs -- 300 stable IDs, 3 building records, 2 machine records, 15 placeholders tracked: passed",
+      "node tools/src/check-claims.mjs -- 55 claims, 105 ship-plan rows, 99 cards: passed",
+      "node tools/src/build-content-bundle.mjs && git diff --quiet game/generated/ -- 93 records, sha256:ec74b6166340c55d085348d6843d6b985ace8711c8cb4d4fa973f67a7becff32, no diff (this lane touches no content): passed",
+      "bite: `let due = remaining <= 1` replaced with `let due = true` (the countdown removed) fails a_stocked_machine_shop_turns_out_a_machine_on_the_authored_interval at tests/strategic_determinism.rs:920 with 'hour 1 of 24 produced a machine early: [HourPassed .., MachineProduced ..]'; restored, the test passes: passed",
+      "manual: no HashMap/HashSet, no rand, no SystemTime/Instant, no unsafe, no std::process added; the two new StrategicEvent variants are appended at the END of the enum; production_countdown is appended #[serde(default)] on BuildingInstance (not on ExpeditionState, so EXPECTED_CURRENT_KEYS is unchanged): passed",
+      "CI verify.yml (godot-suites included) on lane/S16-production-in-the-tick, at the moment this claim was written: not_run"
+    ]
   }
 }
