@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "task_id": "e7-crash-log",
+  "agent": "claude-code (lane E7)",
+  "summary": "A CrashLog autoload writes user://logs/crash-<day>-<segment>-<n>.json carrying the reason, the last expedition snapshot the campaign session handed it, the content bundle hash and the engine version, and a suite proves the round-trip plus that game/scripts/ contains no HTTP client of any kind.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "game/scripts/diagnostics/crash_log.gd",
+    "game/project.godot",
+    "game/scripts/campaign/campaign_session.gd",
+    "game/tests/crash_log_test.gd"
+  ],
+  "symbols": [
+    "CrashLog.remember_snapshot",
+    "CrashLog.record_failure",
+    "CrashLog.pending_failure_reason",
+    "CampaignSession.snapshot"
+  ],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at 2f51e77. Parallel lanes: the [autoload] block in game/project.godot takes one appended line at the end and nothing else, and campaign_session.gd takes exactly one line inside the existing snapshot() wrapper (B8 is adding save functions to the same file elsewhere). No Rust is touched and docs/SHIP_PLAN.md is not edited."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
