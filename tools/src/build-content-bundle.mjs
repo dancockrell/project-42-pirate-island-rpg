@@ -7,7 +7,11 @@ const repo = resolve(import.meta.dirname, "../..");
 // the expedition bridge loads `faction.*` records out of the bundle and hands
 // the registry to the strategic tick, so a faction record that never reached
 // Godot would make the engine's island differ from the harness's.
-const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions"];
+// `relationships` joined with C6 for the same reason on the other side: the
+// scene records carry both the milestone rules the simulation adopts and the
+// beats the scene player shows, and B10's pack registry resolves a scene's
+// presentation level by the scene IDs that only reach Godot through here.
+const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships"];
 const records = [];
 
 for (const domain of domains) {
