@@ -1996,9 +1996,21 @@ fn journal_entry_dictionary(entry: &JournalEntry) -> VarDictionary {
             ),
             MachineProduced { faction_id, .. }
             | ProductionYielded { faction_id, .. }
-            | ProductionSkipped { faction_id, .. } => (
+            | ProductionSkipped { faction_id, .. }
+            | Gathered { faction_id, .. }
+            | ActionSkipped { faction_id, .. } => (
                 faction_id.clone(),
                 String::new(),
+                String::new(),
+                String::new(),
+            ),
+            BuildingStarted {
+                faction_id,
+                cell_id,
+                ..
+            } => (
+                faction_id.clone(),
+                cell_id.clone(),
                 String::new(),
                 String::new(),
             ),
@@ -2096,6 +2108,29 @@ fn journal_prose(entry: &JournalEntry) -> String {
             };
             format!("{building_instance_id} of {faction_id} skipped its run: {why}.")
         }
+        BuildingStarted {
+            faction_id,
+            building_instance_id,
+            def_id,
+            cell_id,
+            ..
+        } => format!("{faction_id} began raising {def_id} at {cell_id} as {building_instance_id}."),
+        Gathered {
+            faction_id,
+            resource_key,
+            amount,
+            ..
+        } => format!("{faction_id} gathered {amount} {resource_key} from the ground it holds."),
+        ActionSkipped {
+            faction_id,
+            goal,
+            reason,
+            ..
+        } => format!(
+            "{faction_id} meant to {} and could not: {}.",
+            serde_name(goal),
+            serde_variant_name(reason)
+        ),
     }
 }
 

@@ -66,7 +66,9 @@ const NOTABLE_KINDS: PackedStringArray = [
 ## Notable only when it is the player's own yard: another faction's production
 ## is not something the player can see, and reporting it would be an alarm for
 ## every faction action -- the second entry on the brief's avoid list.
-const OWN_FACTION_NOTABLE_KINDS: PackedStringArray = ["machine_produced", "production_yielded", "production_skipped"]
+const OWN_FACTION_NOTABLE_KINDS: PackedStringArray = [
+	"machine_produced", "production_yielded", "production_skipped", "building_started", "gathered",
+]
 
 ## Kinds at which a force reaching a place is the event. Used by the two Urgent
 ## rules that are about a place.
