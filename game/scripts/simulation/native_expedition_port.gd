@@ -225,3 +225,23 @@ func resolve_midnight() -> Dictionary:
 
 func unavailable_state() -> Dictionary:
 	return {"configured": false, "error": "native_expedition_bridge_unavailable", "metadata": {"source": "godot_adapter", "authoritative": false}}
+
+
+## B8. The bridge's canonical save JSON, forwarded verbatim. Empty means the
+## bridge holds no campaign to save; the port adds no placeholder document.
+func save_json() -> String:
+	if not is_available():
+		return ""
+	return str(bridge.save_json())
+
+
+## B8. A save document back into the bridge, forwarded verbatim. The bridge
+## parses, validates and refuses it -- this side neither inspects nor repairs
+## it, so the only gate a slot meets is the one the Rust save-migration tests
+## hold. Refused, the returned dictionary is the same `configured: false` shape
+## every other refusal on this boundary uses, and the bridge still holds
+## whatever campaign it held before.
+func load_json(json: String) -> Dictionary:
+	if not is_available():
+		return unavailable_state()
+	return bridge.load_json(json)

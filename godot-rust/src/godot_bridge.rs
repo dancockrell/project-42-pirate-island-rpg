@@ -530,6 +530,58 @@ impl Project42ExpeditionBridge {
             "fatal_intercept_available" => decision.fatal_intercept_available,
         }
     }
+
+    /// B8: this campaign as the canonical save JSON `ExpeditionState::to_json`
+    /// already writes -- byte-identical for equal states, because every map
+    /// behind it is a `BTreeMap`. This is a projection of the save format, not
+    /// a second one: Godot writes exactly these bytes to a slot and hands
+    /// exactly them back to `load_json`, so nothing on the engine side ever
+    /// needs to understand the shape it is carrying.
+    ///
+    /// Empty while nothing is configured. There is no half-save and no
+    /// placeholder document: an empty string handed back to `load_json` is
+    /// refused as malformed, which is the truthful answer for a slot written
+    /// from a session that had no campaign in it.
+    #[func]
+    fn save_json(&self) -> GString {
+        self.state
+            .as_ref()
+            .map(|state| GString::from(state.to_json().as_str()))
+            .unwrap_or_default()
+    }
+
+    /// B8: replaces this campaign with the one the JSON carries, through
+    /// [`ExpeditionState::from_json`] and nothing else -- the same parse, the
+    /// same `validate`, and above all the same `save_version` gate that
+    /// `godot-rust/tests/save_migration.rs` holds. A slot from a future build
+    /// is refused here for exactly the reason it is refused there, so the game
+    /// and the migration harness cannot disagree about what loads.
+    ///
+    /// A refused save leaves the session precisely as it stood: the field is
+    /// assigned only after the parse and the validation have both succeeded,
+    /// so a corrupted slot can never become half a campaign and is never
+    /// silently replaced by a new game. Refusals come back as the same error
+    /// dictionary `configure`, `travel` and `use_anchor` answer with --
+    /// `configured: false` plus the `expedition_error_code` name -- because a
+    /// second rejection shape on this boundary would be a second thing for
+    /// Godot to get right.
+    ///
+    /// The geography, habitats and faction registry are content and are not in
+    /// the save: they stay whatever `configure` last loaded, which is why a
+    /// session configures before it continues.
+    #[func]
+    fn load_json(&mut self, json: GString) -> VarDictionary {
+        let state = match ExpeditionState::from_json(&json.to_string()) {
+            Ok(state) => state,
+            Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
+        };
+        self.state = Some(state);
+        expedition_state_dictionary(
+            self.state.as_ref().expect("state assigned"),
+            &self.geography,
+            &self.factions,
+        )
+    }
 }
 
 fn expedition_battle_records(
