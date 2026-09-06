@@ -458,7 +458,7 @@ top of the document is never stale:
 | E3 | Shell equivalents of the two PowerShell gates | — | shipped 5344b7b 2026-09-05 |
 | E4 | Desktop export presets for Windows, Linux, macOS | — | shipped 838824e 2026-09-05 |
 | E5 | Nightly build artifacts per platform | E2, E4 | open — **must build the native library before exporting**, see its card |
-| E6 | Save-version migration fixtures | — | shipped 85413f0 2026-09-05 — **blind spot closed SHAMARK 2026-09-06**: the expected key set is a literal now |
+| E6 | Save-version migration fixtures | — | shipped 85413f0 2026-09-05 — **blind spot closed 095f3ac 2026-09-06**: the expected key set is a literal now |
 | E7 | Crash log with state snapshot; no silent telemetry | — | open |
 | E8 | Claims enforcement in CI | E1 | open |
 | E9 | Pack build script and pack artifact | C8, E5 | open |
@@ -1332,7 +1332,7 @@ first green run, which built the library and loaded it. It is *release
 packaging* that the missing committed binaries affect, not the test job.
 
 ### E6 · Save-version migration fixtures
-Status: shipped `85413f0` 2026-09-05, blind spot closed `SHAMARK` 2026-09-06
+Status: shipped `85413f0` 2026-09-05, blind spot closed `095f3ac` 2026-09-06
 Two committed v1 fixtures (`v1_minimal.json`, the shape an early save really
 had; `v1_current.json`, a generated full round trip) and a suite that loads
 every fixture in `tests/saves/`, so a dropped `serde(default)` or a renamed
