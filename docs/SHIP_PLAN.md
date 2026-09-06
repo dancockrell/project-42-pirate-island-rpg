@@ -1195,6 +1195,34 @@ commands Rust already called legal — so a spent anchor or a locked door is
 never a button, the invariant the route list already kept. The prototype
 suite gained nine assertions and kept every existing one.
 
+### B5 · Battle screen: Michael's card unfolds; bands and Composure drawn
+Status: open · Depends on: A5, A6
+Touches: `game/scripts/battle/battle_prototype.gd`, `game/scripts/battle/paper_card.gd`,
+`game/tests/prototype_turn_cycle_test.gd`, `game/tests/native_simulation_port_test.gd`,
+`godot-rust/src/battle.rs` (one addition: Michael in `prototype_vertical_slice`)
+A5 put `band_name` and `composure` on every actor dictionary and the mock
+agrees; A6 made Michael a battle actor but left him out of
+`Battle::prototype_vertical_slice()` because `native_simulation_port_test.gd`
+asserts four actors. B5 puts him in and draws what the bridge already says.
+- `prototype_vertical_slice()` gains Michael at A6's stats
+  (`PartyRear`, level 3, vitality 90, initiative 10, his two authored
+  commands); the four-actor assertion becomes five **with the reason in the
+  message**.
+- The screen groups cards by `band_name` in band order (party rear → enemy
+  rear), draws Composure as ten pips from `composure`, and marks `Shaken`
+  from `statuses`. Michael's card, when he is the active actor, unfolds his
+  command grid (Weapon Attack, Guard via `skill.system.hold_position`,
+  Reposition) through the same `SimulationPort` path Betty's uses — no new
+  presentation-side rule, no mock.
+- Suite: `prototype_turn_cycle_test.gd` keeps every existing check and adds:
+  five cards; each card's band label equals its actor's `band_name`; Michael's
+  grid is enabled on his turn and disabled on Betty's; a Reposition through
+  the port moves his card to the other party band.
+Traps: names come from content (`Michael Corrigan` is authored); nothing
+numeric from utility on the screen; the anti-mock gate; `quit(1 if failures > 0 else 0)`.
+Done when: the suite passes on CI's Godot job; `cargo test` green with the
+five-actor fixture.
+
 ### B9 · Settings, accessibility, and pause **(brief)**
 Adds to the first edition: a global pause that stops the character scene,
 the strategic tick (S4), construction, convoys, weather and pressure; every
@@ -1382,6 +1410,42 @@ As the first edition (twelve spaces per bible §3.13) plus: the tomb's cells
 carry `site_rule_ids` and a `dungeonContext` block; S9 selects rules by
 owning faction (elves by default; corrupted variant when Cthulhu holds it).
 
+### C6 · Relationship scene records and schema
+Status: open · Depends on: —
+Touches: `content/relationships/*.json` (new), `tools/src/validate.mjs` (one
+block), `godot-rust/src/strategy/recruitment.rs` (`MilestoneRule::from_authored`
+and one equality test), `game/generated/content_bundle.json` (regenerated)
+The romance is a key feature, fade-to-black in the base game with the adult
+pack as a presentation override (C8/B10/E9). S12 built the seam: a woman's
+stage moves only through authored milestones, and `RecruitmentState.milestone_rules`
+is a data table waiting for records. **A scene record is that record.**
+- `scene.<woman>.<slug>` with `womanId` ∈ the established two
+  (`character.heroine.betty`, `character.heroine.ayla` — never a third),
+  `grantsMilestoneId: "milestone.<woman>.<slug>"` (registered as a stable ID),
+  `rule` mirroring `MilestoneRule` exactly: `advancesTo` (a `RecruitmentStage`
+  name), `requiresStageAtLeast`, `requiresAtLeast` / `requiresAtMost` keyed by
+  `Inclination` names, `blockedByConditions`, `clearsConditions`.
+- `presentationLevel: "fade_to_black"` on every record — the only value the
+  base game may carry (C8's pack overrides it; the validator refuses anything
+  else here). `beats[]`: `{ id, kind ∈ {conversation, action, choice, fade},
+  text }` — placeholder prose is fine and should say so; no explicit content
+  in the base tree, ever.
+- Validator: register `id` and `grantsMilestoneId`; `womanId` must be one of
+  the two; stage and inclination names must be the Rust enums' serde
+  spellings (read them from `recruitment.rs`, do not guess); a `fade` beat
+  must be the last beat.
+- Rust: `MilestoneRule::from_authored(&serde_json::Value)` (or a `Deserialize`
+  wire struct with aliases, as `AuthoredAnchor` does) is the **one**
+  translation; `every_authored_scene_rule_loads` reads `content/relationships/`
+  and holds each rule to it. Content owns; Rust carries; a test holds them
+  equal.
+Traps: attraction alone must not advance a stage — author at least one scene
+whose rule requires trust, and let S12's existing test keep proving it. No
+timers. Two or three scenes per woman is enough to prove the shape.
+Done when: the validator passes with the records; the equality test passes;
+a scene with `presentationLevel: "explicit"` in the base tree fails the
+validator (bite).
+
 ### C8 · Scene `presentationLevel` and the pack manifest schema
 Status: open · Depends on: C6
 Every scene record: `"presentationLevel": "fade_to_black"`. Pack manifest
@@ -1568,6 +1632,35 @@ serializer to it in both directions. Proven to bite: `skip_serializing` on
 the list and regenerating `v1_current.json`, on purpose.
 Rule: a save fixture is generated by the code, never hand-written.
 
+
+### E8 · Claims enforcement in CI
+Status: open · Depends on: E1
+Touches: `tools/src/check-claims.mjs` (new), `.github/workflows/verify.yml`
+(one step in `rust-and-content`), `.agents/README.md` (one paragraph naming
+the check)
+The claims ledger and the ship-plan ledger close by discipline alone. This
+branch found rows without cards five times and commit messages describing
+edits that were not in the commit twice. Make both ledgers a gate.
+- `check-claims.mjs` reads every `.agents/claims/*.json`: valid JSON;
+  `task_id` equals the file stem; `status` ∈ {active, blocked, completed};
+  ISO-8601 `claimed_at`/`updated_at`; `paths` non-empty. For `completed`:
+  `completion.commit` non-null, `git cat-file -e` finds it, and it is an
+  ancestor of `HEAD` (`git merge-base --is-ancestor`); `checks` non-empty and
+  each check string ends in `passed`, `failed` or `not_run`. For `active` /
+  `blocked`: `completion.commit` null.
+- The same script reads `docs/SHIP_PLAN.md`: every ledger row `| X | … |
+  shipped <sha> <date> …` must have a `### X ·` card whose `Status:` line says
+  `shipped` and names the same sha, and `git cat-file -e` finds the sha. Every
+  row that is not `shipped`/`superseded` must have a card (this is the
+  row-without-card rule).
+- CI: one step after "Validate content" running `node tools/src/check-claims.mjs`.
+  It needs the full history: `actions/checkout` with `fetch-depth: 0` in that
+  job (check what the job uses today).
+Traps: never loosen a check to get green — fix the claim. If an existing
+claim or row fails the new script, that is a finding: fix the record in the
+same lane and say what was wrong.
+Done when: the script passes on the current tree; a fixture claim with a
+bogus SHA fails it (bite); CI green with the step present.
 
 ### E9 · Pack build script and pack artifact — `tools/src/build-pack.mjs`
 runs `godot --headless --export-pack` on `packs/<id>/`; CI uploads the `.pck`
