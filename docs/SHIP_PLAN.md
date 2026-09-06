@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `252b3fb`. If this line is older than
+- Last updated 2026-09-06 against trunk `1b0c9f4`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -490,7 +490,7 @@ captured by P1's gate, and no card claims a look it has not captured.
 
 | ID | Task | Depends on | Status |
 |---|---|---|---|
-| P1 | Screenshot gate: every review scene and screen rendered offscreen in CI and locally; the visual loop | E2 | open |
+| P1 | Screenshot gate: every review scene and screen rendered offscreen in CI and locally; the visual loop | E2 | shipped 1b0c9f4 2026-09-06 |
 | P2 | Render foundation: Forward+ with a compatibility fallback, the world environment, the material and shader library, the camera director | P1 | open |
 | P3 | Atmosphere from the simulation: time of day, weather, corruption and pressure read from the snapshot, never a clock | P2, S8 | open |
 | P4 | The isometric board (B11 + B12): room cells with board metadata, three distances, party miniatures, ownership tint, forces in motion | P2, S2, S7, O3 (provisional) | open |
@@ -2473,7 +2473,7 @@ bronze the two prototypes already use (`DEEP`, `TEAL`, `CREAM`, `BRONZE`,
 after P5 (the Theme).
 
 ### P1 · Screenshot gate and the visual loop
-Status: open · Depends on: E2
+Status: shipped `1b0c9f4` 2026-09-06 · Depends on: E2
 Touches: `tools/capture-scenes.sh` (new), `game/tools/capture_review_scene.gd`
 (any scene, settle frames, optional viewport size), `.github/workflows/verify.yml`
 (a `captures` job), `docs/verification/captures/README.md`.
@@ -2491,6 +2491,22 @@ does. A capture that comes out black or uniform is a failure, not a pass
 (measure it).
 Done when: CI uploads captures for every scene on a green run; the local
 command produces the same set; the README says how to look.
+**Shipped:** the capture tool takes a list and renders every scene in one
+engine process, with `--frames`, `--size`, thumbnails, and a uniform-frame
+refusal (luminance stddev over a downsample; proven to bite on an empty
+scene, no PNG written); `tools/capture-scenes.sh` and its `.ps1` twin glob
+every scene under review/world/battle/shell, pick `vulkan` under lavapipe
+else `opengl3`, and reuse the gate's ERROR pattern; a `captures` job in
+verify.yml installs `mesa-vulkan-drivers`, so **CI renders the Forward+
+path**, and uploads `captures-<sha>` (18 files on the first run) plus its
+log. The engine pin was hoisted to the workflow env so two jobs read one
+value. Nine thumbnails committed under `docs/verification/captures/`.
+**Reported, not passed:** the navigation shell scene carries nothing that
+can draw and is skipped by name until it gains geometry. Thumbnails are
+512×288 to stay under the size cap without an image tool in the container;
+full renders are the CI artifact. The Godot courtesy rules arrived mid-lane
+and shaped the design: one process, `nice`, `timeout`, `ulimit -v`, 11.6 s
+for the whole local run.
 
 ### P2 · Render foundation
 Status: open · Depends on: P1
