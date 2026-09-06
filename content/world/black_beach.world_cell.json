@@ -149,6 +149,25 @@
     "timeOfDay": "storm_gold",
     "runtimeMode": "baked_base_plus_day_night_parameters"
   },
+  "board": {
+    "footprint": {"sizeId": "presentation.board.footprint.expanse"},
+    "islandPositionMetres": [-88.0, 44.0],
+    "elevationMetres": 0.0,
+    "spawnPoints": [
+      {"id": "spawn.black_beach.tide_line", "role": "player", "positionMetres": [-8.0, 0.0, 12.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.black_beach.wreck_lee", "role": "player", "positionMetres": [-12.5, 0.0, 8.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.black_beach.driftwood_camp", "role": "occupant", "positionMetres": [-2.0, 0.0, 15.5], "rigSocket": "humanoid-root"},
+      {"id": "spawn.black_beach.shoreline_lane", "role": "hostile", "positionMetres": [4.0, 0.0, 3.0], "rigSocket": "creature-root"},
+      {"id": "spawn.black_beach.surf_break", "role": "hostile", "positionMetres": [11.0, 0.0, 9.5], "rigSocket": "creature-root"},
+      {"id": "spawn.black_beach.boiler_spill", "role": "item", "positionMetres": [-11.0, 0.5, 5.5], "rigSocket": "item-root"},
+      {"id": "spawn.black_beach.flotsam_shelf", "role": "item", "positionMetres": [7.5, 0.2, 14.0], "rigSocket": "item-root"},
+      {"id": "spawn.black_beach.climb_foot", "role": "occupant", "positionMetres": [13.0, 1.0, -5.0], "rigSocket": "humanoid-root"}
+    ],
+    "tethers": [
+      {"portalId": "world.portal.black_beach_to_damaged_estate", "kind": "walk", "anchorMetres": [17.9, 0.0, -22.0]},
+      {"portalId": "world.portal.black_beach_to_reception_terrace_tidal_cut", "kind": "walk", "anchorMetres": [28.0, 0.0, -7.6]}
+    ]
+  },
   "admission": {
     "collisionSeparatedFromVisualShell": true,
     "navigationSeparatedFromVisualShell": true,

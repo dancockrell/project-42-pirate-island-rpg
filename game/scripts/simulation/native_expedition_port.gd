@@ -10,6 +10,9 @@ const INITIAL_PARTY := ["character.protagonist.captain", "character.heroine.bett
 const INITIAL_LOCATION_ID := "world.cell.black_beach"
 
 var bridge: Object
+## The catalog the last `configure_from_catalog` read. Kept so the authored
+## board blocks can be forwarded from one place; see `board_for`.
+var catalog: ContentCatalog
 
 
 func _init() -> void:
@@ -30,6 +33,7 @@ static func bridge_is_registered() -> bool:
 func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 	if not is_available():
 		return unavailable_state()
+	self.catalog = catalog
 	var region := catalog.get_record("world.region.black_beach")
 	var portals: Array[Dictionary] = []
 	var encounter_triggers: Array[Dictionary] = []
@@ -297,3 +301,67 @@ func load_json(json: String) -> Dictionary:
 	if not is_available():
 		return unavailable_state()
 	return bridge.load_json(json)
+
+
+## B11's `board` block for one cell, forwarded from the catalog in the wire
+## shape the isometric board reads: snake_case keys, and the footprint resolved
+## from `presentation.board.registry` to actual metres exactly once, here.
+##
+## This is the only place the authored board block is read. The board scene does
+## not reach into the catalog for it, because the footprint's metres live behind
+## a size ID while O3 is open and two readers would mean two resolutions of it.
+## Nothing about a board block crosses into Rust: the simulation owns where the
+## party is, and this owns what that place looks like.
+func board_for(cell_id: String) -> Dictionary:
+	if catalog == null or not catalog.has(cell_id):
+		return {}
+	var cell := catalog.get_record(cell_id)
+	var board: Dictionary = cell.get("board", {})
+	if board.is_empty():
+		return {}
+	var footprint: Dictionary = board.get("footprint", {})
+	var size_id := str(footprint.get("sizeId", ""))
+	if not catalog.has_registry_entry(size_id):
+		push_error("World cell %s names board footprint %s, which content/presentation/board.registry.json does not declare." % [cell_id, size_id])
+		return {}
+	var size := catalog.get_registry_entry(size_id)
+	var spawn_points: Array[Dictionary] = []
+	for spawn in board.get("spawnPoints", []):
+		spawn_points.append({
+			"id": str(spawn.get("id", "")),
+			"role": str(spawn.get("role", "")),
+			"rig_socket": str(spawn.get("rigSocket", "")),
+			"position_metres": as_vector3(spawn.get("positionMetres", []))
+		})
+	var tethers: Array[Dictionary] = []
+	for tether in board.get("tethers", []):
+		tethers.append({
+			"portal_id": str(tether.get("portalId", "")),
+			"kind": str(tether.get("kind", "")),
+			"anchor_metres": as_vector3(tether.get("anchorMetres", []))
+		})
+	var island: Array = board.get("islandPositionMetres", [0, 0])
+	return {
+		"cell_id": cell_id,
+		"display_name": str(cell.get("displayName", cell_id)),
+		"footprint": {
+			"size_id": size_id,
+			"width_metres": float(size.get("widthMetres", 0)),
+			"depth_metres": float(size.get("depthMetres", 0)),
+			"needs_decision": str(size.get("needsDecision", ""))
+		},
+		"island_position_metres": Vector2(float(island[0]), float(island[1])),
+		"elevation_metres": float(board.get("elevationMetres", 0.0)),
+		"spawn_points": spawn_points,
+		"tethers": tethers
+	}
+
+
+## Three authored metres as a Vector3. Authored positions are always three
+## numbers; anything else is a content error the validator already refuses, so
+## this returns the origin rather than inventing a repair.
+static func as_vector3(metres: Variant) -> Vector3:
+	if not (metres is Array) or (metres as Array).size() != 3:
+		return Vector3.ZERO
+	var values: Array = metres
+	return Vector3(float(values[0]), float(values[1]), float(values[2]))

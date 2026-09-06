@@ -156,6 +156,25 @@
     "timeOfDay": "storm_gold",
     "runtimeMode": "baked_base_plus_day_night_parameters"
   },
+  "board": {
+    "footprint": {"sizeId": "presentation.board.footprint.compound"},
+    "islandPositionMetres": [-49.0, -4.0],
+    "elevationMetres": 18.0,
+    "spawnPoints": [
+      {"id": "spawn.damaged_estate.veranda_step", "role": "player", "positionMetres": [-9.0, 0.6, 5.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.damaged_estate.hall_door", "role": "player", "positionMetres": [-4.0, 0.6, 1.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.damaged_estate.infirmary_table", "role": "occupant", "positionMetres": [-14.0, 0.6, -3.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.damaged_estate.armory_alcove", "role": "occupant", "positionMetres": [6.0, 0.6, -6.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.damaged_estate.garden_breach", "role": "hostile", "positionMetres": [3.0, 0.0, 4.0], "rigSocket": "creature-root"},
+      {"id": "spawn.damaged_estate.wall_gap", "role": "hostile", "positionMetres": [10.0, 0.0, 8.0], "rigSocket": "creature-root"},
+      {"id": "spawn.damaged_estate.worktable_stores", "role": "item", "positionMetres": [-13.0, 1.0, -1.0], "rigSocket": "item-root"},
+      {"id": "spawn.damaged_estate.river_gate_cache", "role": "item", "positionMetres": [11.5, 0.3, -7.0], "rigSocket": "item-root"}
+    ],
+    "tethers": [
+      {"portalId": "world.portal.damaged_estate_to_black_beach", "kind": "walk", "anchorMetres": [-15.4, 0.0, 19.0]},
+      {"portalId": "world.portal.damaged_estate_to_river_landing", "kind": "walk", "anchorMetres": [23.0, 0.0, -10.6]}
+    ]
+  },
   "admission": {
     "collisionSeparatedFromVisualShell": true,
     "navigationSeparatedFromVisualShell": true,

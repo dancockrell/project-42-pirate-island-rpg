@@ -35,5 +35,23 @@
   ],
   "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
   "dungeonContext": {"dungeonId": "dungeon.tomb_of_returning_names", "space": "flooded_archive", "ownerConceptKey": "elves", "corruptedVariantConceptKey": "cthulhu", "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.archive_silence"]},
+  "board": {
+    "footprint": {"sizeId": "presentation.board.footprint.chamber"},
+    "islandPositionMetres": [224.0, -132.0],
+    "elevationMetres": 24.0,
+    "spawnPoints": [
+      {"id": "spawn.tomb_archive_core.reception_way", "role": "player", "positionMetres": [-11.0, 0.0, 5.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.tomb_archive_core.ledger_floor", "role": "player", "positionMetres": [0.5, 0.0, -1.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.tomb_archive_core.ledger_stand", "role": "occupant", "positionMetres": [3.0, 0.0, -7.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.tomb_archive_core.register_rack", "role": "occupant", "positionMetres": [-4.0, 0.0, -9.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.tomb_archive_core.rack_aisle", "role": "hostile", "positionMetres": [8.0, 0.0, -3.0], "rigSocket": "creature-root"},
+      {"id": "spawn.tomb_archive_core.dry_corner", "role": "hostile", "positionMetres": [-8.0, 0.0, 9.0], "rigSocket": "creature-root"},
+      {"id": "spawn.tomb_archive_core.loose_plates", "role": "item", "positionMetres": [6.0, 0.6, 6.0], "rigSocket": "item-root"},
+      {"id": "spawn.tomb_archive_core.name_ledger", "role": "item", "positionMetres": [1.0, 1.2, -8.0], "rigSocket": "item-root"}
+    ],
+    "tethers": [
+      {"portalId": "world.portal.tomb_archive_core_to_tomb_reception", "kind": "walk", "anchorMetres": [-15.0, 0.0, 7.5]}
+    ]
+  },
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 1, "browserPerformanceGate": "pending", "releaseLegal": false}
 }

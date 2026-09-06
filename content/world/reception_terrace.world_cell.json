@@ -38,6 +38,25 @@
     {"id": "observation.reception_terrace.battle_lane", "text": "The broken paving opens into a clear lane between two fallen slabs. Something large has crossed it recently, leaving clawed cuts through the wet moss."}
   ],
   "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
+  "board": {
+    "footprint": {"sizeId": "presentation.board.footprint.court"},
+    "islandPositionMetres": [60.0, 4.0],
+    "elevationMetres": 22.0,
+    "spawnPoints": [
+      {"id": "spawn.reception_terrace.road_mouth", "role": "player", "positionMetres": [-13.0, 0.5, 6.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.reception_terrace.broken_approach", "role": "player", "positionMetres": [-6.0, 0.5, 2.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.reception_terrace.gate_shadow", "role": "occupant", "positionMetres": [12.0, 0.8, -5.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.reception_terrace.stone_bench", "role": "occupant", "positionMetres": [5.0, 0.5, -8.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.reception_terrace.razorbeak_lane", "role": "hostile", "positionMetres": [1.5, 0.0, 1.0], "rigSocket": "creature-root"},
+      {"id": "spawn.reception_terrace.jungle_encroachment", "role": "hostile", "positionMetres": [-9.0, 0.0, 12.0], "rigSocket": "creature-root"},
+      {"id": "spawn.reception_terrace.fallen_lintel", "role": "item", "positionMetres": [8.0, 0.4, 4.0], "rigSocket": "item-root"},
+      {"id": "spawn.reception_terrace.tidal_cut_mouth", "role": "item", "positionMetres": [-8.0, 0.2, 14.0], "rigSocket": "item-root"}
+    ],
+    "tethers": [
+      {"portalId": "world.portal.reception_terrace_to_river_landing", "kind": "walk", "anchorMetres": [-20.0, 0.0, -11.2]},
+      {"portalId": "world.portal.reception_terrace_to_processional_ramp", "kind": "walk", "anchorMetres": [11.1, 0.0, -17.0]}
+    ]
+  },
   "admission": {
     "collisionSeparatedFromVisualShell": true,
     "navigationSeparatedFromVisualShell": true,

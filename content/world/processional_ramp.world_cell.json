@@ -36,5 +36,24 @@
     {"id": "observation.processional_ramp.threshold", "text": "At the top of the ramp, the inner door stands under a fractured bronze arch, open on the threshold of the tomb. It is a destination beyond the first route, not an empty backdrop or a doorway the party can fake open."}
   ],
   "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
+  "board": {
+    "footprint": {"sizeId": "presentation.board.footprint.chamber"},
+    "islandPositionMetres": [94.0, -48.0],
+    "elevationMetres": 34.0,
+    "spawnPoints": [
+      {"id": "spawn.processional_ramp.ramp_foot", "role": "player", "positionMetres": [-9.0, 0.0, 7.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.processional_ramp.stair_break", "role": "player", "positionMetres": [-2.0, 2.5, 2.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.processional_ramp.gate_platform", "role": "occupant", "positionMetres": [11.0, 6.0, -6.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.processional_ramp.wall_niche", "role": "occupant", "positionMetres": [-12.0, 1.0, -2.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.processional_ramp.broken_tread", "role": "hostile", "positionMetres": [1.0, 2.0, 1.5], "rigSocket": "creature-root"},
+      {"id": "spawn.processional_ramp.upper_run", "role": "hostile", "positionMetres": [7.0, 5.0, -4.0], "rigSocket": "creature-root"},
+      {"id": "spawn.processional_ramp.drain_mouth", "role": "item", "positionMetres": [-11.0, 0.4, 5.0], "rigSocket": "item-root"},
+      {"id": "spawn.processional_ramp.bronze_offcut", "role": "item", "positionMetres": [9.0, 5.5, -8.0], "rigSocket": "item-root"}
+    ],
+    "tethers": [
+      {"portalId": "world.portal.processional_ramp_to_reception_terrace", "kind": "walk", "anchorMetres": [-8.5, 0.0, 13.0]},
+      {"portalId": "world.portal.processional_ramp_to_tomb_threshold", "kind": "walk", "anchorMetres": [15.0, 0.0, -11.8]}
+    ]
+  },
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 2, "browserPerformanceGate": "pending", "releaseLegal": false}
 }

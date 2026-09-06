@@ -39,5 +39,25 @@
   ],
   "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
   "dungeonContext": {"dungeonId": "dungeon.tomb_of_returning_names", "space": "petition_gallery", "ownerConceptKey": "elves", "corruptedVariantConceptKey": "cthulhu", "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.petition_heard"]},
+  "board": {
+    "footprint": {"sizeId": "presentation.board.footprint.hall"},
+    "islandPositionMetres": [176.0, -108.0],
+    "elevationMetres": 34.0,
+    "spawnPoints": [
+      {"id": "spawn.tomb_reception.threshold_way", "role": "player", "positionMetres": [-10.0, 0.0, 6.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.tomb_reception.truth_space", "role": "player", "positionMetres": [0.0, 0.0, 0.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.tomb_reception.speaking_stone", "role": "occupant", "positionMetres": [2.0, 0.0, -4.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.tomb_reception.drainage_run", "role": "occupant", "positionMetres": [-6.0, 0.0, -9.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.tomb_reception.archive_door", "role": "hostile", "positionMetres": [11.0, 0.0, -4.0], "rigSocket": "creature-root"},
+      {"id": "spawn.tomb_reception.service_opening", "role": "hostile", "positionMetres": [4.0, 0.0, -11.0], "rigSocket": "creature-root"},
+      {"id": "spawn.tomb_reception.petition_plate", "role": "item", "positionMetres": [-4.0, 0.7, 4.0], "rigSocket": "item-root"},
+      {"id": "spawn.tomb_reception.floor_grate", "role": "item", "positionMetres": [7.0, 0.0, 8.0], "rigSocket": "item-root"}
+    ],
+    "tethers": [
+      {"portalId": "world.portal.tomb_reception_to_tomb_threshold", "kind": "walk", "anchorMetres": [-17.0, 0.0, 11.6]},
+      {"portalId": "world.portal.tomb_reception_to_tomb_archive_core", "kind": "walk", "anchorMetres": [17.0, 0.0, -8.5]},
+      {"portalId": "world.portal.tomb_reception_to_tomb_service_passage", "kind": "walk", "anchorMetres": [-3.4, 0.0, -15.0]}
+    ]
+  },
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 1, "browserPerformanceGate": "pending", "releaseLegal": false}
 }

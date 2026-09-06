@@ -1,0 +1,50 @@
+{
+  "id": "presentation.board.registry",
+  "kind": "board_footprint_registry",
+  "implementationOwner": "godot-gdscript",
+  "note": "The one table of standard room footprints. Brief section 18 requires standard footprint sizes so procedural placement cannot collide, and brief section 4 (one node equals one playable room) requires every room to declare dimensions. The exact numbers are Open item O3 (exact standard building dimensions), so every entry carries needsDecision O3 and every world cell names an entry here rather than writing metres of its own: when O3 closes, the six numbers below change in one place and no room is re-authored.",
+  "entries": [
+    {
+      "id": "presentation.board.footprint.intimate",
+      "widthMetres": 26,
+      "depthMetres": 24,
+      "usage": "A crawl, a service passage, a cell: two people abreast and no formation.",
+      "needsDecision": "O3"
+    },
+    {
+      "id": "presentation.board.footprint.chamber",
+      "widthMetres": 30,
+      "depthMetres": 26,
+      "usage": "One worked interior room or one short outdoor run: a ramp, a records floor.",
+      "needsDecision": "O3"
+    },
+    {
+      "id": "presentation.board.footprint.hall",
+      "widthMetres": 34,
+      "depthMetres": 30,
+      "usage": "A public interior room with three or more named ways out.",
+      "needsDecision": "O3"
+    },
+    {
+      "id": "presentation.board.footprint.court",
+      "widthMetres": 40,
+      "depthMetres": 34,
+      "usage": "An outdoor approach, landing or terrace with a road and a battle lane in it.",
+      "needsDecision": "O3"
+    },
+    {
+      "id": "presentation.board.footprint.compound",
+      "widthMetres": 46,
+      "depthMetres": 38,
+      "usage": "A built holding with a wall around it: the estate, a fortified yard.",
+      "needsDecision": "O3"
+    },
+    {
+      "id": "presentation.board.footprint.expanse",
+      "widthMetres": 56,
+      "depthMetres": 44,
+      "usage": "Open shoreline or open ground where the horizon is part of the room.",
+      "needsDecision": "O3"
+    }
+  ]
+}

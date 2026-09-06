@@ -46,5 +46,24 @@
   ],
   "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
   "dungeonContext": {"dungeonId": "dungeon.tomb_of_returning_names", "space": "service_crawl", "ownerConceptKey": "elves", "corruptedVariantConceptKey": "cthulhu", "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.service_right_of_passage"]},
+  "board": {
+    "footprint": {"sizeId": "presentation.board.footprint.intimate"},
+    "islandPositionMetres": [166.0, -152.0],
+    "elevationMetres": 28.0,
+    "spawnPoints": [
+      {"id": "spawn.tomb_service_passage.reception_crawl", "role": "player", "positionMetres": [-8.0, 0.0, 9.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.tomb_service_passage.working_lane", "role": "player", "positionMetres": [1.0, 0.0, 0.5], "rigSocket": "humanoid-root"},
+      {"id": "spawn.tomb_service_passage.spoil_heap", "role": "occupant", "positionMetres": [-4.0, 0.0, -5.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.tomb_service_passage.prop_timber", "role": "occupant", "positionMetres": [6.0, 0.0, 4.0], "rigSocket": "humanoid-root"},
+      {"id": "spawn.tomb_service_passage.standing_water", "role": "hostile", "positionMetres": [3.0, 0.0, -3.0], "rigSocket": "creature-root"},
+      {"id": "spawn.tomb_service_passage.threshold_crawl", "role": "hostile", "positionMetres": [10.0, 0.0, -8.0], "rigSocket": "creature-root"},
+      {"id": "spawn.tomb_service_passage.disturbed_goods", "role": "item", "positionMetres": [-2.0, 0.3, 6.0], "rigSocket": "item-root"},
+      {"id": "spawn.tomb_service_passage.pulled_grave_goods", "role": "item", "positionMetres": [8.0, 0.3, -2.0], "rigSocket": "item-root"}
+    ],
+    "tethers": [
+      {"portalId": "world.portal.tomb_service_passage_to_tomb_reception", "kind": "walk", "anchorMetres": [2.7, 0.0, 12.0]},
+      {"portalId": "world.portal.tomb_service_passage_to_tomb_threshold", "kind": "walk", "anchorMetres": [-5.5, 0.0, 12.0]}
+    ]
+  },
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 1, "browserPerformanceGate": "pending", "releaseLegal": false}
 }

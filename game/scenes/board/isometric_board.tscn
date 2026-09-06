@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource path="res://scripts/board/isometric_board.gd" type="Script" id="1_board"]
+
+[node name="IsometricBoard" type="Node3D"]
+script = ExtResource("1_board")
+metadata/board_purpose = "B12's one scene graph at three distances: world, route, room. Every mesh in it is procedural blockout built at runtime; no asset file belongs to this scene."
