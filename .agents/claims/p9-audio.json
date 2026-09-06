@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "task_id": "p9-audio",
+  "agent": "claude-code (lane P9)",
+  "summary": "Soundscape: a five-bus audio layout, ambience chosen from the snapshot by region x time segment x weather, one stable audio cue reference per battle event kind and per skill presentation cue, a four-state music machine, and a deterministic in-repo synth that renders every record as a marked procedural placeholder.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "game/default_bus_layout.tres",
+    "game/scripts/audio/",
+    "content/audio/",
+    "content/skills/",
+    "tools/src/validate.mjs",
+    "tools/src/build-content-bundle.mjs",
+    "game/generated/content_bundle.json",
+    "game/project.godot",
+    "game/tests/soundscape_test.gd",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "Soundscape.apply",
+    "Soundscape.on_battle_event",
+    "Soundscape.set_music_state",
+    "Soundscape.set_bus_volume",
+    "PlaceholderSynth.render"
+  ],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [],
+    "notes": "content/skills/*.json is touched for the audioCueId field only -- one stable reference per presentation cue, mirroring vfxId, held equal to the cue's existing free-text audio label by the validator so the two cannot drift. tools/src/validate.mjs takes one appended block plus that one skill-cue field. game/project.godot takes an appended autoload and an appended [audio] section. No Rust, no ui/, no battle/, no render/ file is touched: P6 calls Soundscape.on_battle_event and the surface calls Soundscape.set_music_state, and the API they call is documented in soundscape.gd's header."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
