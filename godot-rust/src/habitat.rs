@@ -576,6 +576,7 @@ mod tests {
                 &geography,
                 &habitats,
                 &crate::strategy::faction::FactionDefinitions::new(),
+                &crate::strategy::building::BuildingDefinitions::new(),
             )
             .expect("resolves");
 
@@ -618,6 +619,7 @@ mod tests {
                 &geography,
                 &habitats,
                 &crate::strategy::faction::FactionDefinitions::new(),
+                &crate::strategy::building::BuildingDefinitions::new(),
             )
             .expect("resolves");
 
@@ -753,6 +755,7 @@ mod tests {
                 &geography,
                 &habitats,
                 &crate::strategy::faction::FactionDefinitions::new(),
+                &crate::strategy::building::BuildingDefinitions::new(),
             )
             .expect("resolves");
 

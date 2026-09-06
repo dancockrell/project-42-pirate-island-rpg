@@ -11,6 +11,7 @@ use crate::geography::{
 };
 use crate::habitat::Habitats;
 use crate::protocol::{CommandEnvelope, CommandKind, PROTOCOL_VERSION};
+use crate::strategy::building::{BuildingDefinition, BuildingDefinitions, BuildingError};
 use crate::strategy::faction::{
     FactionDefinition, FactionDefinitions, FactionError, StrategicState,
 };
@@ -50,6 +51,15 @@ struct Project42ExpeditionBridge {
     /// before factions reached the bundle still loads.
     #[init(val = FactionDefinitions::new())]
     factions: FactionDefinitions,
+    /// B16: C10's `content/buildings/*.json`, as Godot forwards them. Loaded by
+    /// `configure` beside the faction registry and handed to every midnight, so
+    /// S10's hourly elimination sweep reads what a building actually makes and
+    /// how much of a cell it takes instead of reading every building as
+    /// unlookupable. Empty until a configuration supplies records -- a payload
+    /// authored before B16 still loads, and the sweep then reads conservatively
+    /// exactly as it did before.
+    #[init(val = BuildingDefinitions::new())]
+    buildings: BuildingDefinitions,
     #[init(val = None)]
     battle: Option<Battle>,
     #[init(val = 0)]
@@ -80,6 +90,13 @@ struct ExpeditionConfiguration {
     /// weights exactly as it did before.
     #[serde(default)]
     factions: Vec<FactionDefinition>,
+    /// The authored building records, in the field names
+    /// [`BuildingDefinition`] already reads, forwarded verbatim by
+    /// `native_expedition_port.gd`. `serde(default)` for the same reason
+    /// `factions` carries it: a payload that names no buildings must still
+    /// configure.
+    #[serde(default)]
+    buildings: Vec<BuildingDefinition>,
 }
 
 #[godot_api]
@@ -213,6 +230,22 @@ impl Project42ExpeditionBridge {
             }
         }
         self.factions = factions;
+        // B16: and the building registry, on the same terms. `BuildingDefinitions::insert`
+        // runs `BuildingDefinition::validate` -- brief section 5.6's "Michael's
+        // buildings never make people", section 8's envelope rule, section 19's
+        // socket fields -- and refuses a duplicate ID, so a record that breaks
+        // one of those refuses the whole configuration here at the boundary
+        // rather than reaching a tick.
+        let mut buildings = BuildingDefinitions::new();
+        for definition in configuration.buildings {
+            if let Err(error) = buildings.insert(definition) {
+                return expedition_error_dictionary(&format!(
+                    "expedition_configuration_invalid:{}",
+                    building_error_code(&error)
+                ));
+            }
+        }
+        self.buildings = buildings;
         self.state = match ExpeditionState::new(
             configuration.seed,
             configuration.party_ids,
@@ -225,6 +258,7 @@ impl Project42ExpeditionBridge {
             self.state.as_ref().expect("state assigned"),
             &self.geography,
             &self.factions,
+            &self.buildings,
         )
     }
 
@@ -232,7 +266,9 @@ impl Project42ExpeditionBridge {
     fn snapshot(&self) -> VarDictionary {
         self.state
             .as_ref()
-            .map(|state| expedition_state_dictionary(state, &self.geography, &self.factions))
+            .map(|state| {
+                expedition_state_dictionary(state, &self.geography, &self.factions, &self.buildings)
+            })
             .unwrap_or_else(|| expedition_error_dictionary("expedition_not_configured"))
     }
 
@@ -247,7 +283,7 @@ impl Project42ExpeditionBridge {
         // Arrival presents whatever the world actually holds here: an authored
         // trigger, a hunter that caught up, or today's habitat holder.
         state.begin_encounter(&self.geography, &self.habitats);
-        expedition_state_dictionary(state, &self.geography, &self.factions)
+        expedition_state_dictionary(state, &self.geography, &self.factions, &self.buildings)
     }
 
     /// The one "do something here" verb, projected. Salvage the wreck, open a
@@ -286,7 +322,8 @@ impl Project42ExpeditionBridge {
             "discoveries_recorded" => &discoveries,
             "upgrades_recorded" => &upgrades,
         };
-        let mut result = expedition_state_dictionary(state, &self.geography, &self.factions);
+        let mut result =
+            expedition_state_dictionary(state, &self.geography, &self.factions, &self.buildings);
         result.set("anchor_outcome", &anchor_outcome);
         result
     }
@@ -312,7 +349,7 @@ impl Project42ExpeditionBridge {
         {
             return expedition_error_dictionary(expedition_error_code(&error));
         }
-        expedition_state_dictionary(state, &self.geography, &self.factions)
+        expedition_state_dictionary(state, &self.geography, &self.factions, &self.buildings)
     }
 
     /// Midnight, as the one atomic transaction `ExpeditionState` already owns:
@@ -325,16 +362,21 @@ impl Project42ExpeditionBridge {
         let Some(state) = self.state.as_mut() else {
             return expedition_error_dictionary("expedition_not_configured");
         };
-        let events =
-            match state.resolve_midnight_in(&self.geography, &self.habitats, &self.factions) {
-                Ok(events) => events,
-                Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
-            };
+        let events = match state.resolve_midnight_in(
+            &self.geography,
+            &self.habitats,
+            &self.factions,
+            &self.buildings,
+        ) {
+            Ok(events) => events,
+            Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
+        };
         let mut projected = Array::<VarDictionary>::new();
         for event in &events {
             projected.push(&world_event_dictionary(event));
         }
-        let mut result = expedition_state_dictionary(state, &self.geography, &self.factions);
+        let mut result =
+            expedition_state_dictionary(state, &self.geography, &self.factions, &self.buildings);
         result.set("events", &projected);
         result
     }
@@ -370,7 +412,8 @@ impl Project42ExpeditionBridge {
         for event in &events {
             projected.push(&world_event_dictionary(event));
         }
-        let mut result = expedition_state_dictionary(state, &self.geography, &self.factions);
+        let mut result =
+            expedition_state_dictionary(state, &self.geography, &self.factions, &self.buildings);
         result.set("events", &projected);
         result
     }
@@ -632,6 +675,7 @@ fn expedition_state_dictionary(
     state: &ExpeditionState,
     geography: &Geography,
     factions: &FactionDefinitions,
+    buildings: &BuildingDefinitions,
 ) -> VarDictionary {
     let mut party_ids = Array::<GString>::new();
     for id in &state.party_ids {
@@ -743,6 +787,17 @@ fn expedition_state_dictionary(
             "current_goals" => &current_goals,
         });
     }
+    // B16: which authored building records the bridge is holding, and nothing
+    // else. Ids only -- the registry is content, and a screen that could read a
+    // tier's hit points or a production interval off the save would be reading
+    // the record through the wrong door. What is *standing* on the island is
+    // `ExpeditionState::buildings` and is not projected here: no lane places a
+    // building through the tick yet, so a `buildings` array that mixed records
+    // with instances would be two answers to one key on the day one does.
+    let mut building_ids = Array::<GString>::new();
+    for building_id in buildings.ids() {
+        building_ids.push(&GString::from(building_id));
+    }
     let mut result = vdict! {
         "configured" => true,
         "save_version" => i64::from(state.save_version),
@@ -761,6 +816,7 @@ fn expedition_state_dictionary(
         "estate_upgrades" => &estate_upgrades,
     };
     result.set("factions", &factions_projected);
+    result.set("buildings", &building_ids);
     result.set("metadata", &metadata);
     result
 }
@@ -848,6 +904,39 @@ fn faction_error_code(value: &FactionError) -> &'static str {
         FactionError::IdDoesNotMatchConceptKey { .. } => "id_does_not_match_concept_key",
         FactionError::DuplicateFaction { .. } => "duplicate_faction",
         FactionError::UnknownFaction { .. } => "unknown_faction",
+    }
+}
+
+/// What went wrong loading an authored building record, named. Exhaustive for
+/// the same reason `faction_error_code` is: a new `BuildingError` cannot be
+/// added without this boundary being told what to call it. Godot reads the name
+/// after the `expedition_configuration_invalid:` prefix, so a content author
+/// sees which of `BuildingDefinition::validate`'s rules their record broke.
+fn building_error_code(value: &BuildingError) -> &'static str {
+    match value {
+        BuildingError::MalformedId(error) => expedition_error_code(error),
+        BuildingError::WrongIdPrefix { .. } => "wrong_id_prefix",
+        BuildingError::Duplicate { .. } => "duplicate_building",
+        BuildingError::UnknownDefinition { .. } => "unknown_building_definition",
+        BuildingError::UnknownBuilding { .. } => "unknown_building",
+        BuildingError::UnknownCell { .. } => "unknown_cell",
+        BuildingError::CellNotHeld { .. } => "cell_not_held",
+        BuildingError::IncompatibleFaction { .. } => "incompatible_faction",
+        BuildingError::EnvelopeOverlap { .. } => "envelope_overlap",
+        BuildingError::SocketOutsideEnvelope { .. } => "socket_outside_envelope",
+        BuildingError::SocketInWrongField { .. } => "socket_in_wrong_field",
+        BuildingError::MichaelBuildingProducesPeople { .. } => "michael_building_produces_people",
+        BuildingError::TimerDrivenHumanRole { .. } => "timer_driven_human_role",
+        BuildingError::HumanRoleWithoutRecruitmentSupport { .. } => {
+            "human_role_without_recruitment_support"
+        }
+        BuildingError::NeedsDecision { .. } => "building_needs_decision",
+        BuildingError::MalformedTiers { .. } => "malformed_tiers",
+        BuildingError::ProductionAboveTopTier { .. } => "production_above_top_tier",
+        BuildingError::AtTopTier { .. } => "at_top_tier",
+        BuildingError::RequirementsNotMet { .. } => "requirements_not_met",
+        BuildingError::WrongState { .. } => "wrong_building_state",
+        BuildingError::AlreadyHeld { .. } => "already_held",
     }
 }
 

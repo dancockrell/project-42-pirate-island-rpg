@@ -491,14 +491,22 @@ impl ExpeditionState {
     /// the board" true: the flag is set before the next hour's
     /// `recompute_strategic_state` reads it.
     ///
-    /// `definitions` is the building registry. Nothing in the crate threads
-    /// one into the strategic tick yet -- `BuildingDefinitions` is constructed
-    /// only by tests and by whoever loads `content/buildings/` (C10's card,
-    /// unwritten) -- so `strategic_tick` passes an empty one, and every arm
-    /// above reads an unlookupable building conservatively: standing,
-    /// productive, and not to be ruined. That can only delay an elimination,
-    /// never cause one. When a lane threads the real registry through the
-    /// tick it is handed here and nothing else in this file changes.
+    /// `definitions` is the building registry, and B16 made it the real one:
+    /// [`ExpeditionState::strategic_tick`](crate::expedition::ExpeditionState::strategic_tick)
+    /// takes it from its caller, the expedition bridge builds it from the
+    /// `building.*` records Godot forwards out of the content bundle, and the
+    /// Rust harness builds it from the same `content/buildings/` files. So the
+    /// sweep now reads C10's authored records: what a building makes, how much
+    /// of a cell its envelope takes, and whether its wreck still occupies
+    /// ground.
+    ///
+    /// The conservative reading of an *unlookupable* building stays, because it
+    /// is still reachable and is still the right answer where it is: a save
+    /// carrying an instance whose record has been withdrawn, or a caller that
+    /// passes `BuildingDefinitions::new()` deliberately, gets a building read
+    /// as standing, productive and not to be ruined. That can only delay an
+    /// elimination, never cause one. Nothing else in this file changed when the
+    /// registry became real, which is what the parameter was for.
     pub fn eliminate_exhausted_factions(
         &mut self,
         geography: &Geography,
@@ -1080,7 +1088,12 @@ mod tests {
 
         // Twenty-four strategic hours and the character-scale day turning.
         state
-            .resolve_midnight_in(&geography, &habitats, &FactionDefinitions::new())
+            .resolve_midnight_in(
+                &geography,
+                &habitats,
+                &FactionDefinitions::new(),
+                &BuildingDefinitions::new(),
+            )
             .expect("a midnight resolves");
         assert!(
             state.factions[&pirates()].eliminated,

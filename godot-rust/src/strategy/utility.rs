@@ -930,6 +930,7 @@ fn personality(goal: Goal, goal_draw: u64) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::strategy::building::BuildingDefinitions;
     use crate::strategy::faction::{ConceptKey, FactionState};
 
     /// A board the tests state directly, so that a scoring test is about
@@ -1647,7 +1648,7 @@ mod tests {
             assert!(faction.current_goals.is_empty());
         }
 
-        state.strategic_tick(&geography, &definitions);
+        state.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
 
         let ascendant = state
             .factions
@@ -1667,9 +1668,9 @@ mod tests {
         // reaches the same verdict rather than drifting.
         let after_one = state.to_json();
         let mut twin = ExpeditionState::from_json(&after_one).expect("the save reloads");
-        twin.strategic_tick(&geography, &definitions);
+        twin.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
         let mut again = ExpeditionState::from_json(&after_one).expect("the save reloads");
-        again.strategic_tick(&geography, &definitions);
+        again.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
         assert_eq!(twin.to_json(), again.to_json());
     }
 

@@ -53,6 +53,14 @@ func _init() -> void:
 		for key in entry.keys():
 			var name := str(key)
 			check(not ("score" in name or "weight" in name), "no utility score or weight may cross the bridge: %s" % name)
+	# B16: C10's three building records made the same trip. The snapshot carries
+	# the loaded registry's IDs and nothing else from a record -- a tier's hit
+	# points or a production interval crossing here would be the record being
+	# read through the wrong door.
+	var projected_buildings: Array = expedition.get_authoritative_snapshot().get("buildings", [])
+	check(projected_buildings.size() == 3, "the bridge must project the three authored building records it loaded")
+	for projected_building in projected_buildings:
+		check(str(projected_building).begins_with("building."), "every projected building must be a stable record ID")
 	var salvage: Dictionary = expedition.request_anchor("anchor.black_beach.salvage_point")
 	check(bool(salvage.get("configured", false)), "the wreck must be salvageable through the native bridge")
 	check(int((salvage.get("anchor_outcome", {}) as Dictionary).get("rations_gained", 0)) >= 4, "salvaging the wreck must yield its authored floor of four rations")

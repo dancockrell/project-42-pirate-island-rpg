@@ -117,6 +117,17 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 	var factions: Array[Dictionary] = []
 	for faction_id in catalog.ids_with_prefix("faction."):
 		factions.append(as_rust_integers(catalog.get_record(faction_id)) as Dictionary)
+	# B16: C10's building records, forwarded the same way and for the same
+	# reason. They are authored in BuildingDefinition's own field names, and
+	# every number in one is a whole count -- footprint cells, construction
+	# hours, hit points -- so the same integer coercion the factions need
+	# applies here unchanged. Without this the engine ran S10's hourly
+	# elimination sweep against an empty registry while the Rust harness ran it
+	# against the loaded one, and the two islands disagreed about what a
+	# building makes and how much of a cell it takes.
+	var buildings: Array[Dictionary] = []
+	for building_id in catalog.ids_with_prefix("building."):
+		buildings.append(as_rust_integers(catalog.get_record(building_id)) as Dictionary)
 	var configuration := {
 		"seed": seed,
 		"party_ids": INITIAL_PARTY,
@@ -124,7 +135,8 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 		"cells": cells,
 		"portals": portals,
 		"encounter_triggers": encounter_triggers,
-		"factions": factions
+		"factions": factions,
+		"buildings": buildings
 	}
 	var configured: Dictionary = bridge.configure(JSON.stringify(configuration))
 	# A refused configuration used to be silent here: every later call answered
@@ -132,16 +144,18 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 	# downstream of the record that caused it. The bridge already names the
 	# reason; say it once, where the payload was built.
 	if not bool(configured.get("configured", false)):
-		push_error("Native expedition bridge refused the catalog configuration: %s (%d cells, %d portals, %d factions)" % [
-			str(configured.get("error", "")), cells.size(), portals.size(), factions.size()
+		push_error("Native expedition bridge refused the catalog configuration: %s (%d cells, %d portals, %d factions, %d buildings)" % [
+			str(configured.get("error", "")), cells.size(), portals.size(), factions.size(), buildings.size()
 		])
 	return configured
 
 
-## Every number in a faction record, back to an integer.
+## Every number in a forwarded record, back to an integer.
 ##
-## `FactionDefinition` has no floating-point field: every number in it is an
-## `i16` weight, and the authored records write them as integers. Godot's JSON
+## Neither `FactionDefinition` nor `BuildingDefinition` has a floating-point
+## field: every number in one is an `i16` weight or a whole count -- footprint
+## cells, construction hours, hit points -- and the authored records write them
+## as integers. Godot's JSON
 ## round trip is what loses that -- a weight comes back out of `JSON.stringify`
 ## with a decimal point, and serde refuses the whole record rather than
 ## silently truncating it, which refused the whole configuration and left the
