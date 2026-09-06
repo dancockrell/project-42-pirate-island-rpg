@@ -5,7 +5,7 @@
   "summary": "A macos job in .github/workflows/nightly.yml, on macos-latest, that downloads and SHA-512-verifies the pinned macOS Godot app zip and the same pinned export templates, builds the Rust GDExtension with tools/build-native-bridge.sh release, and asserts the dylib is where Godot resolves it before exporting E4's macOS preset and uploading project42-macos-<sha> with an unsigned/unnotarised README. The job builds the dylib and then refuses: the export cannot complete because of two things in game/ that this workflow does not own, both named below with their exact log lines. No macOS artifact is uploaded yet, and nothing pretends one is.",
   "status": "completed",
   "claimed_at": "2026-09-06T09:35:00Z",
-  "updated_at": "2026-09-06T10:10:00Z",
+  "updated_at": "2026-09-06T10:12:00Z",
   "paths": [
     ".github/workflows/nightly.yml"
   ],
@@ -33,7 +33,7 @@
       "A first bite attempt (6cc042d) failed at the wrong step and was treated as a defect, not a tick: a separate \"Report what architecture this runner built\" step ran before the assertion and died as \"fatal error: ... lipo: can't open input file: game/bin/macos/project42_sim.macos.expedition_v5_release.x86_64.dylib (No such file or directory)\". A step that reports facts must not run before the step that checks them, so the report was folded into the assertion after the existence check and the bite re-run: passed",
       "workflow_dispatch could not be used, exactly as E5 found: GitHub registers a workflow_dispatch workflow only from the default branch. Proven instead with a temporary branch-scoped push trigger, added in eb9b27b and removed in 3f19192; runs 34025105405, 34025682879, 34025963084 and 34026109145 are runs of this file with nothing but that trigger and the bite differing. The final committed file therefore has no run of its own, which is the same limitation E5 recorded: passed",
       "E5's Linux and Windows legs and E9's packs still pass beside the new job on every one of those runs -- e.g. run 34026109145: \"Export Linux Desktop\" success, \"Export Windows Desktop\" success, \"Build the presentation packs\" success. The macOS job is the only red one: passed",
-      "node tools/src/check-claims.mjs on the committed tree: passed",
+      "node tools/src/check-claims.mjs on the committed tree (52 claims, 95 ship-plan rows, 89 cards): passed -- and in CI, Verify run 34026594750 on the work commit 3f19192 and run 34026639492 on the check-out commit, both jobs green (Rust and content, and the Godot headless suites): passed",
       "Not run in this lane because nothing under godot-rust/, content/, game/ or tools/ was touched -- this lane's whole diff is .github/workflows/nightly.yml: cargo fmt, cargo test, cargo check --features godot-ext, node tools/src/validate.mjs and the content bundle rebuild: not_run"
     ]
   }
