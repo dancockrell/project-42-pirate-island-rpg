@@ -355,8 +355,8 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
-- **M3** shipped 7/16 — **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
-- Last updated 2026-09-06 against trunk `ba1cb56`. If this line is older than
+- **M3** shipped 8/16 — **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
+- Last updated 2026-09-06 against trunk `9b4765e`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -384,7 +384,7 @@ top of the document is never stale:
 | S2 | Ownership and influence on `Geography` nodes | A2 | shipped 27d777b 2026-09-06 — contested road = authored base + 2 |
 | S3 | Buildings: envelopes, sockets, tiers, capture and ruin | S1, S2 | open |
 | S4 | Strategic tick, pause semantics, determinism | S1 | shipped fefed40 2026-09-06 — the draw sequence is under the save hash |
-| S5 | Utility AI and strategic states | S4 | open |
+| S5 | Utility AI and strategic states | S4 | shipped 9b4765e 2026-09-06 — neutral weights until the bridge loads records |
 | S6 | `StrategicDirective` vocabulary and plain-language explanation | S5 | open |
 | S7 | Offscreen forces and materialisation through routes and sockets | S4, S2 | open |
 | S8 | Weather, corruption, and the dual clocks (world time vs patience/heat) | S4 | shipped ba1cb56 2026-09-06 — every tuning number marked needs decision |
@@ -955,7 +955,7 @@ deleted, and its failure the day S5 scores a record is the instruction to a
 B card to load `content/factions/` and hand it down.
 
 ### S5 · Utility AI and strategic states
-Status: open · Depends on: S4
+Status: shipped `9b4765e` 2026-09-06 · Depends on: S4
 `fn choose_goals(faction, board) -> Vec<Goal>` scoring brief §9's
 considerations (survival, threat, hatred, opportunity, strategic value,
 supply, distance, route danger, relationship, territorial pressure, board
@@ -965,6 +965,26 @@ is recomputed each tick from position, never set by hand. Raw scores are
 never exposed to the bridge (brief §9: "do not expose raw utility arithmetic").
 Done when: a desperate faction chooses recovery goals and an advantaged one
 chooses expansion, from the same code and different states.
+
+**Shipped.** `BoardView` is a pure function of state and graph; the five
+states are recomputed every hour from share of the island (floors 5 / 15 /
+35 / 60 %, provisional, reasoning beside each), being surrounded costs
+exactly one band, and an unclaimed board is `Contesting` for everyone. Goals
+are six abstract verbs; the four considerations no lane can measure yet
+(distance, route danger, victory progress, player directives — S7, S7,
+C9/S15, S6) are named zero-weight terms and a test proves raising them
+changes nothing. Done-when holds and bites both ways. Raw scores never leave
+the module; personality is S4's goal draw, capped, with a compile-time
+assertion it can never outweigh position. **The registry seam:** `run_hour`
+scores with neutral weights because the bridge loads no faction records and
+scoring them would make Godot's island differ from the harness's;
+`GoalWeights::from_definition` exists, bounded, reads only resource and
+relationship weights, never `concept_key` or doctrine (tested). The lane that
+makes the bridge load `content/factions/` closes the seam and deletes
+`the_registry_cannot_change_a_tick_yet` — that is a B card. **Decision
+recorded:** the `board_position` draw is folded but unread; position is a
+fact about the board, and a future perception model is where that draw
+earns its meaning.
 
 ### S6 · `StrategicDirective` vocabulary and plain-language explanation
 Status: open · Depends on: S5
