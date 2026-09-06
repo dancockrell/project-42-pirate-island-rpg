@@ -274,3 +274,60 @@ proven on the trunk; CI green on every integration commit.
 
 **Summary:** a stranger could now start, pause, save, quit, continue and
 get the same legal actions — through the real bridge, proven in CI.
+
+## 2026-09-06, afternoon — the game gets a face
+
+Integrated in order, each with the full proof chain and the headless gate
+green on the trunk before its ledger row moved: **P8** (the shell: title,
+pause, slots, one `SceneFlow`), **P5** (one Theme, the UI grammar, the calm
+information surface, the `strategic_surface` bridge verb), **B19** (machines
+through the bridge), **S17** (goals become acts), **E11** (a universal macOS
+export with the simulation inside, proven by a nightly run), **P2** (Forward+
+with a declared fallback, one island environment, the isometric rig, the
+material library), **P4** (the isometric board: world / route / room), **P6**
+(the battle reads as a fight). Rows B11, B12, B13 and D11 are marked shipped
+by the P cards that delivered them.
+
+- **Three integration defects found on the trunk and fixed there.** P5's
+  exhaustive journal prose refused S16's two production events, then S17's
+  three; both given words and a level at the bridge rather than an
+  `_ => ""`. P4 typed its clay as `StandardMaterial3D` and P2 had already
+  made the factory return the library's `ShaderMaterial`; the board now
+  wears P2's clay as its own header promised.
+- **The gate's timed suites were racing engine start-up.** The first process
+  frame's delta carries initialisation (0.133 s with today's autoloads) and
+  the tree steps timers before tweens, so three suites that waited on a
+  0.12 s wall-clock timer for a 0.10 s tween checked before the motion took
+  one step. `paper_razorbeak_rig_test` failed by name on trunk (CI runs 274
+  and 279; B19 reproduced it on `a1869b8`), and
+  `placeholder_action_presenter_test` halted on a bare `assert()` and hung
+  a ten-minute run. All three now await the tween they test; no assertion
+  weakened. The gate gained a per-step ceiling (`GODOT_STEP_TIMEOUT_SECONDS`,
+  default 240) so a halted suite fails in minutes and says why; proven to
+  bite at a 1 s ceiling. The same class of defect as P9's synth in
+  `_ready`: `InformationSurface` built the whole Theme in `_ready` and named
+  two `class_name` globals from an autoload; both fixed the way P9 was.
+- **Looked at, not only committed:** the title (a seeded shader sky, a
+  cutter on a warm sunline), the terrace at dusk through P2's environment
+  and P3's atmosphere, P4's three board distances, P6's opening and hit
+  frames. The battle now reads as a fight: grounded rigs with contact
+  shadows, effects built from their registry records, a camera beat, damage
+  weight, a legible command dock. The board is a clean clay blockout with
+  the party as a miniature and a marching force on a tether.
+- `cargo test` **364 + 7 + 5 + 11 + 1**, validator 518 IDs, bundle 233
+  records fresh, `check-claims` 67 claims / 105 rows / 99 cards, gate
+  4 review scenes / 28 suites in about 25 s.
+- **Honest gaps, all recorded on their cards:** S17's M3 100-day
+  elimination is `failed` because nothing writes `ownership` from a tick
+  (B11/O3 materialisation); no bridge verb raises or dispatches a force, so
+  a live campaign's `forces` array is empty and P4 drives its proof through
+  a save round trip; Ayla's kit cannot be submitted in the debug battle
+  (bond rank D); `spend_composure` has no caller so no fight produces
+  Shaken; the battle and the shell still restate the palette until they
+  adopt the Theme; the 2D route board still owns the expedition screen and
+  P4's board waits for the card that retires it; the engine has no
+  attribution record and the credits say so.
+
+**Summary:** a stranger can now open the title, start, walk the island on a
+lit board, fight with effects and a camera, pause, save and continue, and
+the island's factions build, gather and march while they do it.

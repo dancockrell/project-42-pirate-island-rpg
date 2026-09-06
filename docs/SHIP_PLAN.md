@@ -411,9 +411,9 @@ top of the document is never stale:
 | B8 | New game, save slots, continue | E6 | shipped ff7a81a 2026-09-06 |
 | B9 | Settings, accessibility, and **pause** | — | shipped 649852a 2026-09-06 |
 | B10 | `ContentPackRegistry` and the presentation override pack | C8 | shipped 2f2b355 2026-09-06 |
-| B11 | Room cells carry board metadata (footprint, spawn sockets, tethers) | A2, O3 | open |
-| B12 | The isometric board: world / route / room distances | B11, S2, O1 | open |
-| B13 | Calm information surface: ambient / notable / urgent | S6, B12 | open |
+| B11 | Room cells carry board metadata (footprint, spawn sockets, tethers) | A2, O3 | shipped `4f8f5e6` 2026-09-06 as P4 |
+| B12 | The isometric board: world / route / room distances | B11, S2, O1 | shipped `4f8f5e6` 2026-09-06 as P4 |
+| B13 | Calm information surface: ambient / notable / urgent | S6, B12 | shipped `c7f0e74` 2026-09-06 as P5 |
 | B14 | Control and risk surface: `set_control`, `controller_of`, `effective_risk`, `contested` on routes | S2, B3 | shipped 58fbdb3 2026-09-06 |
 | B15 | The bridge loads the faction records and hands the registry down; S5's seam closed | C9, S5 | shipped 777a943 2026-09-06 — the seam is closed as an honest negative until a record carries a real weight |
 | B16 | The bridge loads the building records and hands the registry to the tick; S10's sweep reads real buildings | C10, S10 | shipped 049bd45 2026-09-06 |
@@ -455,7 +455,7 @@ top of the document is never stale:
 | D8 | Record the measured per-actor asset bill | D4, D6 | open |
 | D9 | Building blockout kit for Michael's faction (standard envelopes) | C10 | open |
 | D10 | First machine family blockouts (one animal-form automaton, one steam wagon) | S13 | open |
-| D11 | Card rail and command grid in the bronze-and-vellum grammar | — | open |
+| D11 | Card rail and command grid in the bronze-and-vellum grammar | — | shipped `c7f0e74` 2026-09-06 as P5 |
 | D12 | Room blockouts for the Demo region | C11 | open |
 
 ### Lane E — Release engineering
@@ -1650,7 +1650,7 @@ in CI. Two bites proven. **Not proved:** the `.pck` branch — no pack is
 built until E9, which must land each manifest at `res://packs/<id>/pack.json`.
 
 ### B11 · Room cells carry board metadata
-Status: open · Depends on: A2, O3
+Status: shipped `4f8f5e6` 2026-09-06 as P4 (the board block, the O3-marked footprint table, the validator rules; see P4) · Depends on: A2, O3
 Each `world.cell` gains `board: { footprint: {…5 m…}, spawnPoints: [{ id, role ∈ {player, occupant, hostile, item}, position, rigSocket ∈ {humanoid-root, creature-root, item-root} }], tethers: [{ portalId, kind, anchor }] }`
 using dr-companion's field names (`boardLayoutFor`, `classifyTether`,
 `tetherAnchorFor`) so a single owner later is a rename, not a rewrite. The
@@ -1659,7 +1659,7 @@ materialise into these.
 Done when: validator green; B12 reads them.
 
 ### B12 · The isometric board: world / route / room distances
-Status: open · Depends on: B11, S2, **O1**
+Status: shipped `4f8f5e6` 2026-09-06 as P4 (one scene graph, three distances, the miniature, the O1 stand-in; see P4) · Depends on: B11, S2, **O1**
 One scene graph, three LODs (world / route / room) per
 `THREE_D_WORLD_STRATEGY.md` §1.1; fixed orthographic camera; the party as
 miniatures snapping between nodes on confirmed travel; ownership and
@@ -1671,7 +1671,7 @@ Done when: headless test drives travel across three cells and asserts the
 party miniature's node each time; a screenshot at each distance.
 
 ### B13 · Calm information surface
-Status: open · Depends on: S6, B12
+Status: shipped `c7f0e74` 2026-09-06 as P5 (`InformationSurface`; the 100-event test classifies 1 Urgent; see P5) · Depends on: S6, B12
 Ambient (changes simply appear), Notable (a companion line, journal entry,
 map update — no interruption), Urgent (interrupt only for party, major
 relationship, critical core, or final-stage threat). No flashing territory
@@ -2227,7 +2227,7 @@ envelopes; nothing outside the box (brief §8). Reviewed at gameplay distance.
 `steam_wagon`, riveted-iron material language (brief §5.3), future-ready
 pivots/sockets, no animation.
 ### D11 · Card rail and command grid in the bronze-and-vellum grammar
-Status: open · Depends on: —
+Status: shipped `c7f0e74` 2026-09-06 as P5 (`card_rail.gd`, `command_grid.gd` in the Theme; see P5) · Depends on: —
 
 ### D12 · Room blockouts for the Demo region — from C11's contracts.
 

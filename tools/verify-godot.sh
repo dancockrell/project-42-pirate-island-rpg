@@ -57,6 +57,24 @@ export XDG_CACHE_HOME="$task_local"
 # checked against the gate logs before this rule was added.
 error_pattern='^(ERROR|SCRIPT ERROR): |GDScript backtrace'
 
+# A suite that trips a bare assert() halts in the debugger and never reaches
+# its quit(), so without a ceiling the gate waits on it forever (the P5
+# integration lost a ten-minute run to placeholder_action_presenter_test.gd
+# that way). Each step gets a ceiling. The longest legitimate step on the
+# pinned engine under CI's software renderer is well under a minute; the
+# ceiling is generous so a slow runner is never mistaken for a hang. GNU
+# timeout is present on Linux and in CI; where it is absent (a bare macOS)
+# the step runs unbounded and says so once, rather than silently.
+step_ceiling_seconds="${GODOT_STEP_TIMEOUT_SECONDS:-240}"
+step_timeout=()
+if command -v timeout >/dev/null 2>&1; then
+    step_timeout=(timeout --signal=TERM --kill-after=10 "$step_ceiling_seconds")
+elif command -v gtimeout >/dev/null 2>&1; then
+    step_timeout=(gtimeout --signal=TERM --kill-after=10 "$step_ceiling_seconds")
+else
+    echo "No timeout binary on PATH; gate steps run without a ceiling." >&2
+fi
+
 run_godot() {
     local description="$1"
     shift
@@ -65,7 +83,12 @@ run_godot() {
     step_log="$(mktemp "${TMPDIR:-/tmp}/project42-godot-step.XXXXXX")"
     # 2>&1 so push_error (stderr) is judged alongside stdout; tee so the gate
     # log the CI job archives still carries every line.
-    "$godot_executable" --headless --path "$game_path" "$@" 2>&1 | tee "$step_log" || status=${PIPESTATUS[0]}
+    "${step_timeout[@]}" "$godot_executable" --headless --path "$game_path" "$@" 2>&1 | tee "$step_log" || status=${PIPESTATUS[0]}
+    if [[ $status -eq 124 ]]; then
+        rm -f "$step_log"
+        echo "$description hung past the ${step_ceiling_seconds}s ceiling and was stopped; a suite that halts on a bare assert() never reaches its quit()" >&2
+        exit 124
+    fi
     if [[ $status -ne 0 ]]; then
         rm -f "$step_log"
         echo "$description failed with exit code $status" >&2
