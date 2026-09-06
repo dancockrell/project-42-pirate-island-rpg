@@ -52,9 +52,11 @@
 //!
 //! ## Where this lane stops
 //!
-//! Nothing ticks construction automatically: [`ExpeditionState::advance_construction`]
-//! is called with a number of hours by whoever decides that hours passed, and
-//! S13 decides which faction builds what. B11 materialises S7's arriving
+//! [`ExpeditionState::advance_construction`] is called with a number of hours
+//! by whoever decides that hours passed. Card S19 made the strategic tick one
+//! of those callers -- one hour, every hour, on every site -- so a building
+//! S17's `Goal::Develop` founds now finishes on the island's clock; a test or a
+//! deliberate command still hands it a span. B11 materialises S7's arriving
 //! forces through sockets; the seam it attaches to is
 //! [`ExpeditionState::actor_sockets_at`], which answers "which actor sockets
 //! does this cell offer, and whose are they". `strategy/force.rs` is not
@@ -974,12 +976,21 @@ impl ExpeditionState {
     /// Put `hours` of work into every building currently under construction,
     /// and return the IDs of the ones that finished, in `BTreeMap` order.
     ///
-    /// **Nothing calls this on a clock.** The strategic tick does not build:
-    /// S13 decides which faction spends hours on what, and until it does, the
-    /// only caller is a test or a deliberate command. That is why this takes
-    /// hours rather than reading the clock itself -- a method that read the
-    /// clock would be a second answer to "how much time passed", and S4 owns
-    /// the first one.
+    /// **S19: the strategic tick calls this once an hour**, with one hour, from
+    /// [`run_hour`](crate::strategy::tick::run_hour) after every faction has
+    /// acted -- so a building S17 founded finishes on the island's own clock
+    /// and journals [`StrategicEvent::BuildingFinished`]. It still takes hours
+    /// rather than reading the clock itself, and that is still the reason it
+    /// can be called from there: a method that read the clock would be a second
+    /// answer to "how much time passed", and S4 owns the first one. It is also
+    /// still callable with a span, which is what a test or a deliberate command
+    /// hands it.
+    ///
+    /// Every site on the island, not one faction's: an hour is an hour for
+    /// everybody, and a per-faction filter here would be that second answer
+    /// arriving by the other door.
+    ///
+    /// [`StrategicEvent::BuildingFinished`]: crate::strategy::tick::StrategicEvent::BuildingFinished
     pub fn advance_construction(&mut self, hours: u32) -> Vec<String> {
         let mut finished = Vec::new();
         for building in self.buildings.values_mut() {
