@@ -48,6 +48,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::expedition::ExpeditionState;
 use crate::geography::Geography;
+use crate::strategy::directive::{DirectiveStatus, Intent, StrategicDirective};
 use crate::strategy::faction::{FactionDefinition, Relationship, StrategicState};
 
 // ---------------------------------------------------------------------------
@@ -99,6 +100,17 @@ pub struct BoardView {
     /// What this faction holds about every *other* faction the save carries,
     /// zero-filled where no history has formed. S6 moves these; S5 reads them.
     pub relationships: BTreeMap<String, Relationship>,
+    /// S6: the standing directives the player has given *this* faction, keyed
+    /// by directive ID. Only [`DirectiveStatus::Active`] ones are here -- a
+    /// directive that has been completed, cancelled, superseded, made
+    /// impossible or returned stays in the save as history and asks for
+    /// nothing.
+    ///
+    /// This is the one input to scoring that does not come from the board, and
+    /// it is still a fact rather than a command: the whole of its effect is the
+    /// [`GoalWeights::player_directives`] term in [`score`], which
+    /// [`INTENT_GOAL_TABLE`] turns into a signal per goal.
+    pub directives: BTreeMap<String, StrategicDirective>,
 }
 
 impl BoardView {
@@ -176,6 +188,14 @@ impl BoardView {
             holdings_by_faction,
             resources: faction.map(|f| f.resources.clone()).unwrap_or_default(),
             relationships,
+            directives: state
+                .directives
+                .iter()
+                .filter(|(_, directive)| {
+                    directive.state == DirectiveStatus::Active && directive.faction_id == faction_id
+                })
+                .map(|(id, directive)| (id.clone(), directive.clone()))
+                .collect(),
         }
     }
 
@@ -545,10 +565,11 @@ pub struct GoalWeights {
     /// conditions Open, so there is nothing to measure progress against. C9's
     /// records and S15 supply it.
     pub victory_progress: i32,
-    /// "Player directives for Captain Michael's faction". Zero: S6 owns
-    /// `StrategicDirective`, and card S6 is explicit that directives are
-    /// high-weight *inputs to S5*, not commands. S6 supplies it, and this is
-    /// the field it raises.
+    /// "Player directives for Captain Michael's faction", and the loudest
+    /// consideration here by a factor of nearly five. S6 supplies its signal
+    /// from [`BoardView::directives`] through [`INTENT_GOAL_TABLE`]; see
+    /// [`DIRECTIVE_WEIGHT`] for why it is as loud as it is and for the one
+    /// board position at which it goes quiet.
     pub player_directives: i32,
 }
 
@@ -558,12 +579,133 @@ pub const NEUTRAL_WEIGHT: i32 = 100;
 /// A consideration whose input no lane supplies yet. Its term is still written
 /// into the score, multiplied by a signal that is currently zero, so that the
 /// lane which lands the input has one place to change and a weight to raise.
+///
+/// Three of them now rather than S5's four: S6 has landed the player's
+/// directives, and [`directive_signal`] is what that field's term is multiplied
+/// by instead. Distance and route danger wait on S7, victory progress on C9 and
+/// S15.
 const NOT_YET_MEASURABLE: i32 = 0;
 
+// ---------------------------------------------------------------------------
+// S6: what the player has asked for
+// ---------------------------------------------------------------------------
+
+/// How much the player's standing directives count, against a neutral hundred
+/// for every consideration the board supplies.
+///
+/// Four hundred and eighty, which is [`SECONDARY_SCALE`] times 1.2: a single
+/// standing directive at full signal is worth 120 points to the goal it argues
+/// for, against a board-position term of at most 100. That is what card S6's
+/// "high-weight inputs to S5" and the brief's "easy to direct" ask for -- a
+/// directive moves the leading goal of a faction that has a choice, and moves
+/// it by more than the whole board position could.
+///
+/// **It does not silence survival.** Brief section 5.9 keeps the faction on
+/// automatic; a faction fighting for its life is exactly where automatic has to
+/// mean something. [`directive_signal`] returns zero for a
+/// [`StrategicState::Desperate`] faction, so `Recover` leads whatever the
+/// player has asked for -- and the directive is not discarded, it is merely
+/// unheard: it stays [`DirectiveStatus::Active`] in the save and takes effect
+/// the first hour the faction is out of the hole. That is the difference
+/// between an input and a command, made mechanical rather than asserted.
+///
+/// Provisional, like every number in this file. The two facts it has to satisfy
+/// are `a_directive_moves_a_contesting_factions_leading_goal` and
+/// `survival_outranks_the_player`, and both are tests rather than arithmetic in
+/// a comment.
+pub const DIRECTIVE_WEIGHT: i32 = 480;
+
+/// How each of brief section 5.9's ten intents reads as a pull on each of
+/// [`Goal::ALL`], at a standing priority, in [`SIGNAL_CEILING`] units.
+///
+/// This is the whole of the mapping between the player's vocabulary and the
+/// faction's, and it exists once. Read a row as "asking for this argues for
+/// these things and against those":
+///
+/// * **Protect** -- make the ground defensible. **Supply** and **Develop** --
+///   the same abstract verb, because S5's `Develop` is "build and produce on
+///   held ground" and both intents are that; they differ in what the player
+///   means by it, which is the explanation's business, not the score's.
+/// * **Expand** -- take unheld ground. **Pressure** -- lean on a rival.
+///   **Attack** -- both, because a committed attack is pressure that intends to
+///   end with the ground held, and S5 has no seventh verb for it.
+/// * **Support** -- hold and produce for whoever is holding.
+/// * **Investigate** -- nothing. There is no abstract verb for *finding out*:
+///   S5's six are what a faction does with ground, and knowledge is not ground.
+///   Mapping it to `Expand` would turn "go and look" into "go and take", which
+///   is the opposite of what the player asked; mapping it to `Develop` would
+///   turn it into building. So an Investigate directive is recorded, explained,
+///   persists, and moves no goal, and [`Intent::explained_goal`] says exactly
+///   that to the player rather than pretending. **Open, and named as Open in
+///   the S6 report:** the honest fix is a seventh goal or a knowledge model,
+///   and neither is S6's to mint.
+/// * **Avoid** -- the only purely negative row. "Stay away from here" is not
+///   withdrawal and not defence; in a vocabulary of six verbs it is the absence
+///   of expansion and pressure, so it argues against exactly those.
+/// * **Withdraw** -- give the ground up, and stop reaching for more.
+///
+/// Every number is provisional; the *shape* -- one intent, one or two verbs,
+/// negatives only where the player said "not" -- is what the brief asks for.
+pub const INTENT_GOAL_TABLE: [(Intent, [i32; 6]); 10] = [
+    //                          Rec  Con  Dev  Exp  Pre  Wdr
+    (Intent::Protect, [0, 100, 0, 0, 0, 0]),
+    (Intent::Supply, [0, 0, 100, 0, 0, 0]),
+    (Intent::Develop, [0, 0, 100, 0, 0, 0]),
+    (Intent::Expand, [0, 0, 0, 100, 0, 0]),
+    (Intent::Pressure, [0, 0, 0, 0, 100, 0]),
+    (Intent::Attack, [0, 0, 0, 100, 100, 0]),
+    (Intent::Support, [0, 100, 100, 0, 0, 0]),
+    (Intent::Investigate, [0, 0, 0, 0, 0, 0]),
+    (Intent::Avoid, [0, 0, 0, -100, -100, 0]),
+    (Intent::Withdraw, [0, 0, 0, -100, -100, 100]),
+];
+
+/// One intent's row of [`INTENT_GOAL_TABLE`], in [`Goal::ALL`] order.
+pub fn intent_goal_row(intent: Intent) -> [i32; 6] {
+    INTENT_GOAL_TABLE
+        .iter()
+        .find(|(listed, _)| *listed == intent)
+        .map(|(_, row)| *row)
+        .expect("INTENT_GOAL_TABLE carries every Intent")
+}
+
+/// What the player's standing directives say about one goal, as a signal in
+/// `-SIGNAL_CEILING..=SIGNAL_CEILING`.
+///
+/// Directives sum, each scaled by its [`Priority`](crate::strategy::directive::Priority):
+/// two standing requests pulling opposite ways cancel, an urgent one outweighs
+/// a standing one, and the total is clamped like every other signal here so
+/// that stacking directives cannot make one goal unanswerable.
+///
+/// Zero for a [`StrategicState::Desperate`] faction -- see [`DIRECTIVE_WEIGHT`].
+fn directive_signal(view: &BoardView, state: StrategicState, goal: Goal) -> i32 {
+    if state == StrategicState::Desperate {
+        return 0;
+    }
+    let index = Goal::ALL
+        .iter()
+        .position(|g| *g == goal)
+        .expect("Goal::ALL is every goal");
+    let total: i32 = view
+        .directives
+        .values()
+        .map(|directive| {
+            intent_goal_row(directive.intent)[index] * directive.priority.signal_percent() / 100
+        })
+        .sum();
+    clamp_signal(total)
+}
+
 impl Default for GoalWeights {
-    /// Neutral: every measurable consideration at [`NEUTRAL_WEIGHT`], every
-    /// consideration whose input is missing at zero. A faction with no authored
-    /// record reads the board and nothing else.
+    /// Neutral: every measurable consideration at [`NEUTRAL_WEIGHT`], the
+    /// player's directives at [`DIRECTIVE_WEIGHT`], and every consideration
+    /// whose input no lane supplies yet at zero. A faction with no authored
+    /// record reads the board, hears the player, and knows nothing else.
+    ///
+    /// The directive weight is *not* neutral and is not meant to be: a
+    /// directive that counted the same as the size of a stockpile would not be
+    /// direction. It is still a weight in a sum rather than an instruction --
+    /// which is what the survival rule in [`directive_signal`] demonstrates.
     fn default() -> Self {
         Self {
             survival: NEUTRAL_WEIGHT,
@@ -577,7 +719,7 @@ impl Default for GoalWeights {
             distance: 0,
             route_danger: 0,
             victory_progress: 0,
-            player_directives: 0,
+            player_directives: DIRECTIVE_WEIGHT,
         }
     }
 }
@@ -753,14 +895,20 @@ fn score(
         Goal::Withdraw => weights.survival * survival_urgency + weights.threat * threat / 2,
     };
 
+    // What the player has asked this faction for. The loudest term here, and
+    // the only one that is not a fact about the board -- but still a term, and
+    // still worth nothing to a faction that is fighting for its life.
+    let directives = weights.player_directives * directive_signal(view, state, goal);
+
     // The considerations no lane supplies yet. Written into every score, at a
     // signal of zero, so the lane that lands the input has one line to change.
     let unsupplied = weights.distance * NOT_YET_MEASURABLE
         + weights.route_danger * NOT_YET_MEASURABLE
-        + weights.victory_progress * NOT_YET_MEASURABLE
-        + weights.player_directives * NOT_YET_MEASURABLE;
+        + weights.victory_progress * NOT_YET_MEASURABLE;
 
-    board_position + (secondary + unsupplied) / SECONDARY_SCALE + personality(goal, goal_draw)
+    board_position
+        + (secondary + directives + unsupplied) / SECONDARY_SCALE
+        + personality(goal, goal_draw)
 }
 
 /// This faction's bounded personality, for this goal, this hour.
@@ -813,6 +961,7 @@ mod tests {
             holdings_by_faction,
             resources: BTreeMap::new(),
             relationships: BTreeMap::new(),
+            directives: BTreeMap::new(),
         }
     }
 
@@ -1170,7 +1319,6 @@ mod tests {
         assert_eq!(neutral.distance, 0);
         assert_eq!(neutral.route_danger, 0);
         assert_eq!(neutral.victory_progress, 0);
-        assert_eq!(neutral.player_directives, 0);
 
         let view = a_view(6, 20, 3, 3);
         let state = recompute_strategic_state(&view);
@@ -1178,6 +1326,8 @@ mod tests {
             distance: 10_000,
             route_danger: 10_000,
             victory_progress: 10_000,
+            // Supplied since S6, but this board carries no directive, so a
+            // weight on it is still a weight with nothing behind it.
             player_directives: 10_000,
             ..neutral
         };
@@ -1185,6 +1335,193 @@ mod tests {
             choose_goals(&view, state, 99, &neutral),
             choose_goals(&view, state, 99, &loud),
             "a weight with no signal behind it cannot move a decision"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // S6: what the player has asked for
+    // -----------------------------------------------------------------------
+
+    fn a_directive(id: &str, intent: Intent) -> StrategicDirective {
+        StrategicDirective::new(id, ConceptKey::Michael.faction_id(), intent)
+    }
+
+    /// **Card S6's other half.** A directive is a high-weight input: a standing
+    /// request to expand moves a Contesting faction's leading goal to `Expand`,
+    /// which the board alone would never have chosen -- a Contesting faction
+    /// develops first.
+    #[test]
+    fn a_directive_moves_a_contesting_factions_leading_goal() {
+        let view = a_view(4, 20, 2, 2);
+        let state = recompute_strategic_state(&view);
+        assert_eq!(state, StrategicState::Contesting);
+        assert_ne!(
+            choose_goals(&view, state, 0, &GoalWeights::default())
+                .first()
+                .copied(),
+            Some(Goal::Expand),
+            "the board alone does not lead with expansion here"
+        );
+
+        let mut directed = view.clone();
+        directed.directives.insert(
+            "directive.take_the_north".into(),
+            a_directive("directive.take_the_north", Intent::Expand),
+        );
+        // Every draw, so this is the directive rather than a lucky personality.
+        for goal_draw in [0u64, 1, 7, 99, u64::MAX / 3, u64::MAX] {
+            assert_eq!(
+                choose_goals(&directed, state, goal_draw, &GoalWeights::default())
+                    .first()
+                    .copied(),
+                Some(Goal::Expand),
+                "a standing directive to expand must lead, at draw {goal_draw}"
+            );
+        }
+    }
+
+    /// The other side of the same coin: a directive is an input, not a command.
+    /// A faction fighting for its life leads with `Recover` whatever it has
+    /// been asked for -- and the request is not discarded, merely unheard.
+    #[test]
+    fn survival_outranks_the_player() {
+        let view = a_view(0, 20, 0, 0);
+        let state = recompute_strategic_state(&view);
+        assert_eq!(state, StrategicState::Desperate);
+
+        for intent in Intent::ALL {
+            let mut directed = view.clone();
+            directed.directives.insert(
+                "directive.whatever".into(),
+                StrategicDirective {
+                    priority: crate::strategy::directive::Priority::Urgent,
+                    ..a_directive("directive.whatever", intent)
+                },
+            );
+            for goal_draw in [0u64, 3, 42, u64::MAX] {
+                assert_eq!(
+                    choose_goals(&directed, state, goal_draw, &GoalWeights::default())
+                        .first()
+                        .copied(),
+                    Some(Goal::Recover),
+                    "a desperate faction asked to {} still recovers first",
+                    intent.as_str()
+                );
+            }
+        }
+    }
+
+    /// The vocabularies meet in exactly one table, every intent has a row, and
+    /// the rows are bounded by the same signal ceiling as everything else.
+    #[test]
+    fn every_intent_has_exactly_one_row_and_stays_inside_the_ceiling() {
+        assert_eq!(INTENT_GOAL_TABLE.len(), Intent::ALL.len());
+        for intent in Intent::ALL {
+            let matching = INTENT_GOAL_TABLE
+                .iter()
+                .filter(|(listed, _)| *listed == intent)
+                .count();
+            assert_eq!(matching, 1, "{intent:?} has {matching} rows");
+            for pull in intent_goal_row(intent) {
+                assert!(
+                    (-SIGNAL_CEILING..=SIGNAL_CEILING).contains(&pull),
+                    "{intent:?} pulls {pull}, outside the signal ceiling"
+                );
+            }
+        }
+    }
+
+    /// Two equal requests pulling opposite ways cancel on the goal they share
+    /// -- `Expand` against `Avoid` leaves the leading goal exactly where the
+    /// board put it -- and an urgent one does not. Priority is a word the
+    /// player says, and it is the only thing that scales a directive.
+    #[test]
+    fn opposite_requests_cancel_and_urgency_breaks_the_tie() {
+        use crate::strategy::directive::Priority;
+        let view = a_view(4, 20, 2, 2);
+        let state = recompute_strategic_state(&view);
+        let plain = choose_goals(&view, state, 5, &GoalWeights::default())
+            .first()
+            .copied();
+
+        let mut both = view.clone();
+        both.directives.insert(
+            "directive.take_it".into(),
+            a_directive("directive.take_it", Intent::Expand),
+        );
+        both.directives.insert(
+            "directive.leave_it".into(),
+            a_directive("directive.leave_it", Intent::Avoid),
+        );
+        assert_eq!(
+            choose_goals(&both, state, 5, &GoalWeights::default())
+                .first()
+                .copied(),
+            plain,
+            "a standing take and a standing leave cancel on the ground they \
+             share, and the faction leads with what the board wanted"
+        );
+
+        both.directives.insert(
+            "directive.take_it".into(),
+            StrategicDirective {
+                priority: Priority::Urgent,
+                ..a_directive("directive.take_it", Intent::Expand)
+            },
+        );
+        assert_eq!(
+            choose_goals(&both, state, 5, &GoalWeights::default())
+                .first()
+                .copied(),
+            Some(Goal::Expand),
+            "urgency outweighs a standing request pulling the other way"
+        );
+    }
+
+    /// A directive the player gave someone else is somebody else's business,
+    /// and one that has ended asks for nothing.
+    #[test]
+    fn only_this_factions_standing_directives_reach_its_view() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = ExpeditionState::new(
+            11,
+            vec!["character.protagonist.captain".into()],
+            "world.cell.black_beach",
+        )
+        .expect("a fresh campaign constructs");
+        state
+            .factions
+            .insert(ConceptKey::Michael.faction_id(), FactionState::new());
+        state
+            .factions
+            .insert(ConceptKey::Pirates.faction_id(), FactionState::new());
+        state
+            .issue_directive(a_directive("directive.mine", Intent::Expand), &geography)
+            .expect("legal");
+        state
+            .issue_directive(
+                StrategicDirective::new(
+                    "directive.theirs",
+                    ConceptKey::Pirates.faction_id(),
+                    Intent::Expand,
+                ),
+                &geography,
+            )
+            .expect("legal");
+
+        let mine = BoardView::of(&ConceptKey::Michael.faction_id(), &state, &geography);
+        assert_eq!(
+            mine.directives.keys().collect::<Vec<_>>(),
+            vec!["directive.mine"]
+        );
+
+        state
+            .cancel_directive("directive.mine")
+            .expect("cancelling is legal");
+        let after = BoardView::of(&ConceptKey::Michael.faction_id(), &state, &geography);
+        assert!(
+            after.directives.is_empty(),
+            "a cancelled directive asks for nothing"
         );
     }
 

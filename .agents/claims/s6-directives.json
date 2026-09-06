@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "task_id": "s6-directives",
+  "agent": "claude-opus-5-lane-s6",
+  "summary": "S6: StrategicDirective, its ten intents, the plain-language Explanation produced before confirmation, and the directive term made real in S5's scoring",
+  "status": "completed",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/directive.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/strategy/utility.rs",
+    "godot-rust/tests/save_migration.rs"
+  ],
+  "symbols": [
+    "StrategicDirective",
+    "Intent",
+    "DirectiveStatus",
+    "Explanation",
+    "ExpeditionState.issue_directive",
+    "ExpeditionState.supersede_directive",
+    "ExpeditionState.cancel_directive",
+    "ExpeditionState.mark_directive",
+    "ExpeditionState.explain_directive",
+    "BoardView.directives",
+    "GoalWeights.player_directives"
+  ],
+  "coordination": {
+    "depends_on": [
+      "S5"
+    ],
+    "conflicts_with": [],
+    "notes": "expedition.rs is shared with two other lanes this round, so S6 makes exactly two edits there: the `directives` field appended at the END of the ExpeditionState field list and its initialiser at the end of new()'s struct literal, plus the use. Every method this lane needs lives in an impl ExpeditionState block inside strategy/directive.rs. tick.rs, force.rs, godot_bridge.rs, game/, content/, tools/ and docs/SHIP_PLAN.md are untouched; run_hour picks directives up for free because BoardView::of reads them. Shipped: DIRECTIVE_WEIGHT is 480 (provisional) -- 120 points against a board-position term of at most 100, so one standing directive moves the leading goal of a faction that has a choice; directive_signal returns zero for a Desperate faction, so Recover always leads and the directive waits rather than being discarded, which is what makes it an input rather than a command. INTENT_GOAL_TABLE is the one place the player's ten intents and S5's six verbs meet. Investigate maps to no goal: S5 has no verb for finding out, and mapping it to Expand would turn 'go and look' into 'go and take' -- Open, and named as Open in the lane report. DirectiveError is its own enum in directive.rs rather than variants on ExpeditionError because three lanes are in expedition.rs this round; the crate's one ID rule is not restated, it is carried through DirectiveError::Id, and the acceptance criterion for folding it in is written beside the enum."
+  },
+  "completion": {
+    "commit": "22fde4e",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed (no diff)",
+      "cargo test --manifest-path godot-rust/Cargo.toml: passed (250 lib + 4 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice = 267; 18 of them new in this lane)",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs: passed (200 stable IDs, 12 placeholders tracked)",
+      "cargo clippy --manifest-path godot-rust/Cargo.toml --all-targets: no warning in strategy/directive.rs or strategy/utility.rs",
+      "bite -- explain_directive returning no blockers: 3 tests failed including the Done-when an_attack_that_supply_will_not_cover_names_a_blocker_before_confirmation: restored",
+      "bite -- DIRECTIVE_WEIGHT set to 0: a_directive_moves_a_contesting_factions_leading_goal and opposite_requests_cancel_and_urgency_breaks_the_tie failed: restored",
+      "tests/strategic_determinism.rs unchanged and green -- a board with no directive hashes exactly as before",
+      "godot-rust/src/expedition.rs: exactly two hunks plus the use, verified by git diff"
+    ]
+  }
+}
