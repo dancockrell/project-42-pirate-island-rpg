@@ -456,12 +456,10 @@ func select_tile(cell_id: String) -> void:
 func order_move_to_tile(cell_id: String) -> Dictionary:
 	if route_board == null:
 		return refusal("route_board_unavailable")
-	var portal_id := route_board.portal_to_cell(cell_id)
-	if portal_id.is_empty():
-		var display := str(catalog.get_record(cell_id).get("displayName", cell_id)).to_upper()
-		status_label.text = "ORDER REFUSED  •  NO LEGAL ROAD TO %s" % display
+	var portal_ids := route_hotkey_portal_ids()
+	if portal_ids.is_empty():
 		return refusal("no_legal_route_to_cell")
-	return request_travel(portal_id)
+	return request_travel(portal_ids[0])
 
 
 ## The portals the route list is currently offering, in the order it drew them.
