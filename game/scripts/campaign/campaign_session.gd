@@ -309,7 +309,16 @@ func describe_slot(slot: String) -> Dictionary:
 	if text.is_empty():
 		entry["error"] = "save_slot_unreadable"
 		return entry
-	var parsed: Variant = JSON.parse_string(text)
+	# JSON.new().parse rather than the static JSON.parse_string: the static one
+	# prints an engine ERROR line when it refuses a document, and refusing a
+	# document is exactly what this function does for a living. Listing the
+	# slots on a save screen must not write errors into the log for a file the
+	# listing is about to mark broken on screen.
+	var reader := JSON.new()
+	if reader.parse(text) != OK:
+		entry["error"] = "malformed_json"
+		return entry
+	var parsed: Variant = reader.data
 	if not (parsed is Dictionary):
 		entry["error"] = "malformed_json"
 		return entry
