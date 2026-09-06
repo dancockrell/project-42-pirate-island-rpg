@@ -351,12 +351,12 @@ top of the document is never stale:
   victory pays), **A4** (the estate's rooms are anchor actions; one way to act
   at a place), **A5** (five named bands, Composure, the Shaken gate) and
   **A6** (Michael is a playable actor: Weapon Attack, Guard, Reposition)
-- **M2** shipped 8/9 — **B9** (pause is one Godot fact; settings persist), **E7** (a crash log on the player's disk; nothing leaves the machine, proven), **E8** (both ledgers a CI gate), **E1** (CI live and green on GitHub), **E2** (Godot
+- **M2** shipped 9/9 — **B8** (save slots and continue through the bridge; newest by in-world time), **B9** (pause is one Godot fact; settings persist), **E7** (a crash log on the player's disk; nothing leaves the machine, proven), **E8** (both ledgers a CI gate), **E1** (CI live and green on GitHub), **E2** (Godot
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures; E5 open with a hard
-  build-before-export requirement; B8 in flight
+  build-before-export requirement
 - **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `2f2b355`. If this line is older than
+- Last updated 2026-09-06 against trunk `ff7a81a`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -407,7 +407,7 @@ top of the document is never stale:
 | B5 | Battle screen: Michael's card unfolds; bands and Composure drawn | A5, A6 | shipped ab81aee 2026-09-06 |
 | B6 | World cells for the tomb interior | A2 | shipped 95ada6f 2026-09-06 |
 | B7 | Battle-entry sockets bound to habitat holders | B3 | open |
-| B8 | New game, save slots, continue | E6 | open |
+| B8 | New game, save slots, continue | E6 | shipped ff7a81a 2026-09-06 |
 | B9 | Settings, accessibility, and **pause** | — | shipped 649852a 2026-09-06 |
 | B10 | `ContentPackRegistry` and the presentation override pack | C8 | shipped 2f2b355 2026-09-06 |
 | B11 | Room cells carry board metadata (footprint, spawn sockets, tethers) | A2, O3 | open |
@@ -1389,7 +1389,7 @@ work, not content's.
 Status: open · Depends on: B3
 
 ### B8 · New game, save slots, continue
-Status: open · Depends on: E6
+Status: shipped `ff7a81a` 2026-09-06 · Depends on: E6
 Touches: `godot-rust/src/godot_bridge.rs` (`save_json` / `load_json` on the
 expedition bridge, appended), `game/scripts/campaign/campaign_session.gd`
 (new game, save to a slot, continue from the newest slot),
@@ -1402,6 +1402,22 @@ save's own day and hour, never by file time. A load that fails migration is
 refused with the bridge's reason, never silently replaced by a new game.
 Done when: the suite saves, quits the session, continues, and gets the same
 legal actions; a corrupted slot is refused with a reason; the Godot job green.
+**Shipped:** `save_json` and `load_json` appended to the expedition bridge;
+`load_json` calls `ExpeditionState::from_json` and nothing else, so the
+version gate a slot meets in the game is the one `save_migration.rs` holds,
+and state is assigned only after parse and validation succeed. Refusals use
+the bridge's existing `configured: false` error dictionary — the card's
+`ok`/`reason` sketch was not a second shape worth inventing. `CampaignSession`
+gains `new_game` (through `begin_if_needed`), `save_to_slot`,
+`continue_newest` and `list_slots` over `user://saves/<slot>.json`; newest
+is the save's own day and hour, never file time; a broken slot is listed as
+broken without printing an engine error. The live-bridge suite saves, resets,
+continues, gets the same legal actions, and proves nonsense and a
+future-version slot are refused while the running campaign stands. Bite on
+the version gate (one named test fails). **At the merge** the integrator
+repaired `load_json`'s call to the state dictionary, which had grown B16's
+registry parameter. No Rust wrapper or duplicate test was added — the
+existing round-trip tests are the owner.
 
 ### B9 · Settings, accessibility, and pause **(brief)**
 Status: shipped `649852a` 2026-09-06 · Depends on: —
