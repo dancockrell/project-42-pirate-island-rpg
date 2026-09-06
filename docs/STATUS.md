@@ -156,3 +156,40 @@ own worktree, integrated only after the four proofs re-ran on the trunk. Trunk
 only), C6 (relationship scenes), B5 (Michael's card on the battle screen), E8
 (claims enforced in CI).
 
+### 2026-09-06, evening — the round that made the ledgers a gate
+
+Four lanes, integrated the established way. Trunk `00e3e28`.
+
+- **S3 buildings:** §19's definition in full, instances in their own
+  namespace, overlap refused before mutation, Michael's buildings never
+  produce people. The three §20 numbers stay Open *in the data*: named
+  constants marked `needs decision`, and `capture_rules` / `ruin_state`
+  default to a `NeedsDecision` that is refused at load by a message naming
+  the section — the decision lands on each authored record.
+- **C6 relationship scenes:** five fade-to-black scenes for the two women who
+  exist, each granting a milestone whose rule *is* S12's `MilestoneRule`;
+  three rest on a trust floor and the validator refuses the directory if none
+  does. The adult pack overrides this seam (C8/B10/E9); the base tree may
+  carry nothing but `fade_to_black`, proven to bite. Stable IDs 200 → 210.
+- **B5 battle screen:** Michael in the debug battle; the rail grouped by the
+  bridge's band names, Composure as pips, Shaken marked; his grid unfolds on
+  his turn through the same port path as Betty's. Green through the hardened
+  gate on the trunk's own run.
+- **E8 ledgers as a gate:** `tools/src/check-claims.mjs` runs in CI. On
+  arrival it corrected 94 check verdicts across 25 claims, 22 rows without
+  cards, four cards without a status, and one row citing a commit from the
+  other repository — every one as a record, none by loosening a check.
+- `cargo test`: **271 unit + 5 + 5 + 7 + 1 pass.** `--features godot-ext`,
+  `fmt --check`, validator (210 IDs), bundle freshness and
+  `check-claims` all green. Milestones **M1 7/12, M2 6/9, M3 11/16.**
+- **Honest gaps:** Composure redraws only on a fresh snapshot (nothing spends
+  it yet); `skill.system.hold_position` has no content record; Ayla has no
+  character record (C3 ← A7/H5) and C6 carries a one-line named exception for
+  her; force materialisation waits on B11 ← O3.
+
+**Summary:** the strategic layer has buildings, the romance has beats, the
+battle screen shows the whole party, and both ledgers are machine-checked.
+Next: S9 (dungeon context), S10 (elimination), S13 (Michael's machines),
+C10+C8 (building records and the pack manifest), A10 (bond rank as a fact of
+the relationship).
+

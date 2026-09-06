@@ -809,9 +809,30 @@ by `legal_next_commands_with_geography` as `<faction>_briefing` before a
 rematch. Done when: a test's second encounter briefing names the first's observation.
 
 ### A10 · Bond rank D→C with a specified combat effect
-Status: open · Depends on: A6, C6 — `bond_ranks["character.heroine.betty"]="C"`
-after her first household scene unlocks `skill.betty.condition_cleanse` via
-the rank gate. One test each way.
+Status: open · Depends on: A6, C6
+Touches: `godot-rust/src/battle.rs` (the rank gate), `godot-rust/src/expedition.rs`
+(one appended `#[serde(default)] pub bond_ranks: BTreeMap<String, String>` and
+its initialiser), `godot-rust/src/strategy/recruitment.rs` (one hook: a
+recorded milestone whose scene says so raises the rank), `godot-rust/tests/save_migration.rs`
+(key), `content/relationships/` (one field on an existing Betty scene)
+Every skill record carries a `bondRank` (D…SSS) and `skill_rank` mirrors it,
+but nothing yet says which rank a *woman* stands at, so every authored skill
+is usable from the first fight. This card makes rank a fact of the
+relationship: `bond_ranks[woman] = "D"` at the start; a scene record may
+carry `raisesBondRankTo: "C"`; recording that scene's milestone raises the
+rank; `Battle::submit` refuses a skill whose `bondRank` is above the actor's
+current bond rank with a new `BattleError::BondRankTooLow { skill_id,
+required, current }` — before mutation, beside the Shaken gate. Betty's
+`condition_cleanse` is rank C; her first household scene
+(`scene.betty.the_wreck_dead_are_buried` or the one the lane judges right)
+raises her to C. One test each way: refused at D, allowed at C. The bridge's
+`actor_dictionary` gains `bond_rank` (a letter, nothing numeric) so the card
+rail can draw it; the mock port agrees.
+Traps: only Betty and Ayla; rank never advances on a timer; the rank ladder
+is the authored letters, no numbers; `every_authored_skill_has_its_authored_rank`
+stays; the exhaustive error match in the bridge gains its arm.
+Done when: both tests; the harness and migration suites green; the validator
+accepts `raisesBondRankTo` only as one of the seven letters.
 
 ### A11 · Party of five
 Status: shipped 6b9d275 2026-09-04 · **(brief)** "The player controls five heroes."
@@ -1545,8 +1566,37 @@ item it waits on; political form has no field. Held equal to S1's types by
 reach the Godot bundle; nothing in Godot reads them. One line when a consumer
 exists.
 
-### C10 · Building records — `content/buildings/*.json` per S3's fields;
-validator checks envelope integers and socket lists.
+### C10 · Building records with envelopes
+Status: open · Depends on: S3
+Touches: `content/buildings/*.json` (new), `tools/src/validate.mjs` (one
+block), `tools/src/build-content-bundle.mjs` (`buildings` in the domain list),
+`game/generated/content_bundle.json` (regenerated), one equality test in
+`godot-rust/src/strategy/building.rs`
+S3 shipped `BuildingDefinition` and the contract its claim notes spell out;
+this card authors the first records to it. Shapes, not a catalogue: two or
+three buildings — one for Michael's faction (a workshop or core that produces
+a **machine**, never a person) and one or two for ordinary factions — enough
+to prove every field and both refusals.
+- `id` exactly `building.<slug>`; `faction_compatibility` as concept keys
+  (never names); `tier_states` ascending from 1, no gaps, ≤ `TIER_CAP`;
+  `capture_rules` **explicitly** `capturable` or `destroy_only` and
+  `ruin_state` **explicitly** `clears_completely` or `leaves_rubble` — a
+  record that omits either is refused by S3's `validate` naming brief §20, and
+  the validator must mirror that refusal; sockets in their §19 field for
+  their §8 kind with `offset_cells < footprint_cells`; `production` rules
+  with `minimum_tier` ≤ the top tier; `height_class` a placeholder marked
+  needs decision.
+- Validator: register `id`; envelope integers; socket lists; the
+  human-role rule (refused outright on a record listing `michael`; on the
+  others only with `interval_hours: 0` and a non-empty `recruitment_support`).
+- Rust: `every_authored_building_record_loads_and_validates` reads
+  `content/buildings/` into `BuildingDefinitions` through `validate`, the
+  shape S1/C9 set — content owns, Rust carries, a test holds them equal.
+Traps: no resource categories invented — `construction_cost` keys under the
+`resource.open.` namespace only, as C9 did; no proper faction names; no
+doctrine.
+Done when: validator and equality test green; a Michael record producing a
+`human_role` fails both (bite); a record omitting `capture_rules` fails both.
 
 ### C11 · Room contract fields on world cells — brief §3's list (function,
 dimensions, circulation, slots, landmarks, encounter space, material
