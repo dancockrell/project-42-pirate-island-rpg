@@ -354,8 +354,8 @@ top of the document is never stale:
 - **M2** shipped 9/9 (E8 is listed for the record but sits outside the bracket) — **E5** (nightly Linux and Windows builds that refuse to ship hollow; macOS honestly absent), **B8** (save slots and continue through the bridge; newest by in-world time), **B9** (pause is one Godot fact; settings persist), **E7** (a crash log on the player's disk; nothing leaves the machine, proven), **E8** (both ledgers a CI gate), **E1** (CI live and green on GitHub), **E2** (Godot
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
-- **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `1b0c9f4`. If this line is older than
+- **M3** shipped 15/16 (S16 and S17 are additions outside the bracket) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
+- Last updated 2026-09-06 against trunk `7a715f7`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -394,7 +394,7 @@ top of the document is never stale:
 | S13 | Michael's faction production: machines, not people | S3 | shipped 245aa5c 2026-09-06 |
 | S14 | Founding sequence: shipwreck to first strategic core | S13, O5 | open |
 | S15 | Two Provisional doctrines approved and encoded | S1, human | blocked: needs approval of brief §6.x doctrines |
-| S16 | Production runs in the tick: interval rules produce on the economy draw | S13, B16 | open |
+| S16 | Production runs in the tick: interval rules produce on the economy draw | S13, B16 | shipped 7a715f7 2026-09-06 |
 | S17 | Goals become actions: Develop places a building, Supply gathers, Expand and Pressure dispatch a force | S16, S5, S7, B16 | open — after S16 |
 
 ### Lane B — Bridge, board and Godot
@@ -1334,7 +1334,7 @@ powers — both coastal, both give the contested route and port front M4
 needs), get explicit approval, then encode their `FactionDefinition`s (C9).
 
 ### S16 · Production runs in the tick: interval rules produce on the economy draw
-Status: open · Depends on: S13, B16
+Status: shipped `7a715f7` 2026-09-06 · Depends on: S13, B16
 Touches: `godot-rust/src/strategy/production.rs` (the hourly step),
 `godot-rust/src/strategy/tick.rs` (`run_hour` consumes `strategic.economy`;
 one appended event if needed), `godot-rust/src/strategy/building.rs` (one
@@ -1354,6 +1354,19 @@ Done when: the harness with a placed machine shop and a stocked faction
 produces a machine on the authored interval and the 2,400-hour run still
 reproduces; an unstocked yard skips with a journal entry and never goes
 negative; removing the countdown makes the probe fail (bite).
+**Shipped** (a second agent finished the first's uncommitted work rather
+than starting over): a per-rule countdown on `BuildingInstance`; an hourly
+`advance_production` in production.rs called from `run_hour` that consumes
+the `strategic.economy` draw every hour; machine rules at zero go through
+`produce_machine` with a deterministic instance id and the real
+`MachineDefinitions` threaded through `strategic_tick` (the harness loads
+`content/machines/`; the bridge passes an empty registry until B19);
+capacity and service rules journal a `Yielded` event because no stock for
+them exists; cost paid from the stockpile or `ProductionSkipped` journaled,
+never negative; human-role rules never run. The harness's stocked machine
+shop turns out a `machine.mechanical_dog` on the authored interval and the
+2,400-hour claims still reproduce. Bite proven. **Left, on purpose:** nothing
+refills a stockpile (S17 gathers); the bridge's registry is empty (B19).
 
 ### S17 · Goals become actions
 Status: open — after S16 · Depends on: S16, S5, S7, B16
