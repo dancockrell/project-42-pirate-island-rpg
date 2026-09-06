@@ -39,9 +39,9 @@ const DANGER := Color("c24e45")
 
 # Tile geometry, in pixels at the board's drawn size. An isometric top face is
 # twice as wide as it is tall; the body is the extrusion under it.
-const TILE_HALF_WIDTH := 52.0
-const TILE_HALF_HEIGHT := 26.0
-const TILE_DEPTH := 13.0
+const TILE_HALF_WIDTH := 58.0
+const TILE_HALF_HEIGHT := 29.0
+const TILE_DEPTH := 15.0
 
 # The selection ring's gentle breath. The amplitude is a fraction of the ring's
 # radius and the period is in seconds. Both are switched off under reduced
@@ -244,6 +244,7 @@ func _draw() -> void:
 	draw_rect(frame.grow(-3.0), BRONZE, false, 2.0)
 	var island := island_rect()
 	draw_style_box(make_island_box(), island)
+	draw_coast(island)
 	draw_river(island)
 	# Painter's order: a tile further down the board is nearer the eye and must
 	# cover the one behind it.
@@ -253,8 +254,27 @@ func _draw() -> void:
 	drawn.sort_custom(func(a: String, b: String) -> bool: return tile_center(a).y < tile_center(b).y)
 	for cell_id in drawn:
 		draw_cell(cell_id)
-	draw_string(ThemeDB.fallback_font, Vector2(22, 30), "BLACK BEACH", HORIZONTAL_ALIGNMENT_LEFT, -1, 17, BRONZE)
+	draw_string(ThemeDB.fallback_font, Vector2(22, 30), region_title(), HORIZONTAL_ALIGNMENT_LEFT, -1, 17, BRONZE)
 	draw_string(ThemeDB.fallback_font, Vector2(22, size.y - 20), "LEFT-CLICK  LOOK      RIGHT-CLICK  MARCH      1-9  DEPARTURES", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, MUTED)
+
+
+## The region's own authored name, upper-cased. The board never invents a place
+## name; before the catalog is configured it has none to show.
+func region_title() -> String:
+	if catalog == null:
+		return ""
+	return str(catalog.get_record("world.region.black_beach").get("displayName", "")).to_upper()
+
+
+## A hairline rounded outline, used for the coast contours. Transparent inside:
+## it is a stroke, not a fill.
+func make_contour_box(color: Color) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(color, 0.0)
+	box.border_color = color
+	box.set_border_width_all(2)
+	box.set_corner_radius_all(16)
+	return box
 
 
 func make_island_box() -> StyleBoxFlat:
@@ -266,24 +286,81 @@ func make_island_box() -> StyleBoxFlat:
 	return box
 
 
-## The river as a soft ribbon: four stacked passes, widest and faintest first,
-## so the water has a bank that fades into the land instead of a hard edge.
+## The shore, as three contours drawn in from the island's edge. It is the same
+## rounded rectangle the land is, stepped inward and lightened a little each
+## time, which is enough to read as a beach shelving into the interior without
+## claiming any geography the content has not authored.
+func draw_coast(island: Rect2) -> void:
+	for step in 3:
+		var inset := 8.0 + 11.0 * float(step)
+		var shade := Color(LAND.lerp(BRONZE, 0.26 - 0.07 * float(step)), 0.42 - 0.11 * float(step))
+		draw_style_box(make_contour_box(shade), island.grow(-inset))
+
+
+## The river, as a ribbon rather than a stroke: one smoothed course, widening
+## from the highland source to the mouth, drawn as a filled band with a shallow
+## inside it and a thin glint down the middle. A polyline could not do this --
+## it has one width everywhere and its corners mitre into visible steps -- and
+## the water is the only large natural feature on the board, so it is worth the
+## fifteen lines.
+const RIVER_SOURCE_WIDTH := 13.0
+const RIVER_MOUTH_WIDTH := 34.0
+
+
 func draw_river(island: Rect2) -> void:
-	var points := PackedVector2Array([
-		island.position + island.size * Vector2(0.48, 0.03),
-		island.position + island.size * Vector2(0.505, 0.12),
-		island.position + island.size * Vector2(0.52, 0.20),
-		island.position + island.size * Vector2(0.485, 0.30),
-		island.position + island.size * Vector2(0.47, 0.40),
-		island.position + island.size * Vector2(0.505, 0.50),
-		island.position + island.size * Vector2(0.535, 0.62),
-		island.position + island.size * Vector2(0.52, 0.78),
-		island.position + island.size * Vector2(0.50, 0.96)
-	])
-	draw_polyline(points, Color(RIVER, 0.20), 40.0, true)
-	draw_polyline(points, Color(RIVER, 0.55), 27.0, true)
-	draw_polyline(points, RIVER, 16.0, true)
-	draw_polyline(points, Color(Color("68aab0"), 0.75), 3.0, true)
+	var course := river_course(island)
+	draw_colored_polygon(river_ribbon(course, RIVER_SOURCE_WIDTH + 6.0, RIVER_MOUTH_WIDTH + 8.0), Color(DEEP.lerp(RIVER, 0.4), 0.55))
+	draw_colored_polygon(river_ribbon(course, RIVER_SOURCE_WIDTH, RIVER_MOUTH_WIDTH), Color(RIVER, 0.92))
+	draw_colored_polygon(river_ribbon(course, RIVER_SOURCE_WIDTH * 0.45, RIVER_MOUTH_WIDTH * 0.5), Color(RIVER.lightened(0.14), 0.55))
+	draw_polyline(course, Color(Color("68aab0"), 0.22), 1.5, true)
+
+
+## The authored course of the water, smoothed. The control points are the shape
+## of the valley; everything between them is a Catmull-Rom sample, so the banks
+## curve instead of mitring at every corner.
+func river_course(island: Rect2) -> PackedVector2Array:
+	var controls := PackedVector2Array()
+	for fraction in [
+		Vector2(0.47, 0.0), Vector2(0.48, 0.04), Vector2(0.505, 0.12), Vector2(0.52, 0.20),
+		Vector2(0.485, 0.30), Vector2(0.47, 0.40), Vector2(0.505, 0.50), Vector2(0.535, 0.62),
+		Vector2(0.52, 0.78), Vector2(0.505, 0.94), Vector2(0.50, 1.0)
+	]:
+		controls.append(island.position + island.size * (fraction as Vector2))
+	var course := PackedVector2Array()
+	for index in range(controls.size() - 1):
+		var previous: Vector2 = controls[maxi(index - 1, 0)]
+		var current: Vector2 = controls[index]
+		var next: Vector2 = controls[index + 1]
+		var after: Vector2 = controls[mini(index + 2, controls.size() - 1)]
+		for step in 8:
+			course.append(catmull_rom(previous, current, next, after, float(step) / 8.0))
+	course.append(controls[controls.size() - 1])
+	return course
+
+
+func catmull_rom(previous: Vector2, current: Vector2, next: Vector2, after: Vector2, t: float) -> Vector2:
+	var t2 := t * t
+	var t3 := t2 * t
+	return 0.5 * ((2.0 * current) + (-previous + next) * t + (2.0 * previous - 5.0 * current + 4.0 * next - after) * t2 + (-previous + 3.0 * current - 3.0 * next + after) * t3)
+
+
+## One band around the course, widening from `start_width` to `end_width`. The
+## polygon is the left bank followed by the right bank walked back, which is the
+## shape a filled river needs.
+func river_ribbon(course: PackedVector2Array, start_width: float, end_width: float) -> PackedVector2Array:
+	var left := PackedVector2Array()
+	var right := PackedVector2Array()
+	for index in course.size():
+		var ahead: Vector2 = course[mini(index + 1, course.size() - 1)]
+		var behind: Vector2 = course[maxi(index - 1, 0)]
+		var normal := (ahead - behind).normalized().orthogonal()
+		var half := lerpf(start_width, end_width, float(index) / float(maxi(course.size() - 1, 1))) * 0.5
+		left.append(course[index] + normal * half)
+		right.append(course[index] - normal * half)
+	var ribbon := PackedVector2Array(left)
+	for index in range(right.size() - 1, -1, -1):
+		ribbon.append(right[index])
+	return ribbon
 
 
 ## One place on the island, as a small isometric tile.
@@ -295,13 +372,15 @@ func draw_cell(cell_id: String) -> void:
 	var center := tile_center(cell_id)
 	var active := cell_id == active_location_id
 	var reachable := is_reachable(cell_id)
-	var top_color := LAND.lerp(TEAL, 0.5) if active else (LAND.lerp(BRONZE, 0.34) if reachable else LAND.lerp(DEEP, 0.4))
+	var top_color := LAND.lerp(TEAL, 0.5) if active else (LAND.lerp(BRONZE, 0.36) if reachable else LAND.lerp(DEEP, 0.25))
 	var edge_color := CREAM if active else (BRONZE if reachable else MUTED)
 	if cell_id == hovered_cell_id:
 		top_color = top_color.lerp(CREAM, 0.12)
 	var top := diamond_points(center)
 	var body := body_points(center)
-	draw_colored_polygon(body, top_color.darkened(0.55))
+	# The side faces are a fixed step darker than the top rather than a fixed
+	# colour, so a dim tile keeps the same isometric read as a lit one.
+	draw_colored_polygon(body, top_color.darkened(0.45))
 	draw_colored_polygon(top, top_color)
 	draw_polyline(closed(top), Color(edge_color, 0.9 if (active or reachable) else 0.45), 2.0, true)
 	if active and party_selected:
@@ -360,13 +439,23 @@ func draw_ring(center: Vector2, ring_scale: float, color: Color, width: float) -
 
 
 ## Michael and Betty, as the two standing marks an RTS puts on the selected
-## unit's tile. Procedural placeholder geometry, drawn in code and generated
-## nowhere else: it is replaced by the owner's models when they arrive.
+## unit's tile: a shadow on the ground, a body and a head each. Procedural
+## placeholder geometry, drawn in code and generated nowhere else -- it is
+## replaced by the owner's models when they arrive, by name.
 func draw_party_marker(center: Vector2) -> void:
-	for offset in [Vector2(-9.0, -1.0), Vector2(9.0, 3.0)]:
-		var foot: Vector2 = center + offset
-		draw_line(foot, foot + Vector2(0.0, -15.0), Color(CREAM, 0.9), 3.0, true)
-		draw_circle(foot + Vector2(0.0, -19.0), 4.0, CREAM)
+	var figures := [
+		{"foot": center + Vector2(-11.0, -1.0), "color": CREAM},
+		{"foot": center + Vector2(10.0, 4.0), "color": CREAM.lerp(BRONZE, 0.55)}
+	]
+	for figure in figures:
+		var foot: Vector2 = figure["foot"]
+		var tint: Color = figure["color"]
+		draw_ellipse(foot, 7.0, 3.0, Color(DEEP, 0.45), true, -1.0, true)
+		draw_line(foot, foot + Vector2(0.0, -11.0), tint, 2.6, true)
+		draw_line(foot + Vector2(0.0, -7.0), foot + Vector2(-3.5, -3.0), Color(tint, 0.75), 1.8, true)
+		draw_line(foot + Vector2(0.0, -7.0), foot + Vector2(3.5, -3.0), Color(tint, 0.75), 1.8, true)
+		draw_circle(foot + Vector2(0.0, -14.5), 3.4, tint)
+
 
 
 func draw_cell_label(cell_id: String, center: Vector2, active: bool, reachable: bool) -> void:
@@ -377,7 +466,13 @@ func draw_cell_label(cell_id: String, center: Vector2, active: bool, reachable: 
 	var origin := center + Vector2(-width * 0.5, TILE_HALF_HEIGHT + TILE_DEPTH + 22.0)
 	# A plate under the name, so a place stays readable where the river or a
 	# neighbouring tile runs behind it.
-	draw_rect(Rect2(origin + Vector2(-8.0, -13.0), Vector2(width + 16.0, 19.0)), Color(DEEP, 0.72), true)
+	var plate := StyleBoxFlat.new()
+	plate.bg_color = Color(DEEP, 0.78)
+	plate.border_color = Color(BRONZE if (active or reachable) else MUTED, 0.35)
+	plate.set_border_width_all(1)
+	plate.set_corner_radius_all(4)
+	draw_style_box(plate, Rect2(origin + Vector2(-9.0, -13.0), Vector2(width + 18.0, 20.0)))
 	draw_string(font, origin, label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, CREAM if active else (Color(CREAM, 0.82) if reachable else MUTED))
 	if cell_id == "world.cell.reception_terrace":
-		draw_string(font, center + Vector2(-58.0, -TILE_HALF_HEIGHT - 16.0), "RAZORBEAK TERRITORY", HORIZONTAL_ALIGNMENT_CENTER, 116, 10, DANGER)
+		# The one authored warning on this board: whose ground the terrace is.
+		draw_string(font, center + Vector2(-70.0, -TILE_HALF_HEIGHT - 8.0), "RAZORBEAK TERRITORY", HORIZONTAL_ALIGNMENT_CENTER, 140, 10, Color(DANGER, 0.9))

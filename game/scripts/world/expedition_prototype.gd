@@ -139,7 +139,6 @@ func build_location_panel() -> Control:
 	route_list = VBoxContainer.new()
 	route_list.name = "LegalRouteList"
 	route_list.add_theme_constant_override("separation", 9)
-	route_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stack.add_child(route_list)
 	var action_heading := make_label("LEGAL ACTIONS HERE", 14, BRONZE)
 	stack.add_child(action_heading)
@@ -147,6 +146,13 @@ func build_location_panel() -> Control:
 	action_list.name = "LegalActionList"
 	action_list.add_theme_constant_override("separation", 9)
 	stack.add_child(action_list)
+	# The lists are as tall as what they contain; the slack goes here, so the
+	# status line sits at the foot of the panel instead of a hole opening
+	# between the departures and the actions.
+	var slack := Control.new()
+	slack.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	slack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(slack)
 	status_label = make_label("", 14, MUTED)
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(status_label)
