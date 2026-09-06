@@ -418,7 +418,7 @@ top of the document is never stale:
 | B15 | The bridge loads the faction records and hands the registry down; S5's seam closed | C9, S5 | shipped 777a943 2026-09-06 — the seam is closed as an honest negative until a record carries a real weight |
 | B16 | The bridge loads the building records and hands the registry to the tick; S10's sweep reads real buildings | C10, S10 | shipped 049bd45 2026-09-06 |
 | B17 | A battle is built from the campaign: bond ranks reach the fight | A10 | shipped b9c6ad5 2026-09-06 |
-| B18 | Travel by tile, by the words, or by hotkey; the drawn route markers go | B14 | open |
+| B18 | RTS controls: select, then order a move by tile, words or hotkey; route markers go | B14 | open |
 
 ### Lane C — Content and validator (`content/`, `tools/src/validate.mjs`)
 
@@ -1677,25 +1677,28 @@ bridge setter for a bond rank was added and none is blocked:** an authored
 beat remains the only thing that moves a bond. Two live-bridge assertions in
 the Godot suites; CI's Godot job is their proof.
 
-### B18 · Travel by tile, by the words, or by hotkey; the drawn route markers go
+### B18 · RTS controls: select, then order a move by tile, by the words, or by hotkey; the drawn route markers go
 Status: open · Depends on: B14
 Touches: `game/scripts/world/expedition_route_board.gd`,
 `game/scripts/world/expedition_prototype.gd`, `game/tests/expedition_prototype_test.gd`.
-The owner's direction: remove the route markers. The board no longer draws
-portal lines or the teal midpoint dots or the "solid teal route" legend. You
-travel three ways, all of them the same command: **click another tile** on
-the board (a cell node whose portal from the active cell is in
-`legal_route_commands` — an illegal or unconnected tile does nothing and
-says why in the status line), **click the words** (the route list, as
-today), or **a hotkey** (digits 1–9 in the route list's order, shown on each
-entry). Every path calls `request_travel(portal_id)` and nothing else; no
-second legality check in GDScript — the native list decides, the screen
-only reads it. Tiles still show which cells are reachable now (tint), since
-that is the snapshot's fact, not a marker.
-Done when: the prototype suite travels once by tile, once by hotkey, and
-once by the words and lands on the same cell each way; a click on an
-unreachable tile leaves the snapshot unchanged; `draw_portal` is gone;
-the Godot job green.
+The owner's direction (2026-09-06): "remove the route markers … it's
+basically an RTS under the hood — RTS-style controls." The board no longer
+draws portal lines, the teal midpoint dots or the "solid teal route" legend.
+The grammar is the RTS one: **left-click** the party's tile (or its card in
+the interface) selects it; **right-click another tile** issues a move order
+along the portal from the active cell to that tile, if the native
+`legal_route_commands` carries it — an unreachable tile is refused in the
+status line and nothing moves; **the words** (the route list) issue the same
+order; **hotkeys** — digits 1–9 in the route list's order, shown on each
+entry — issue it too. Every path calls `request_travel(portal_id)` and
+nothing else; no second legality check in GDScript. Tiles still tint by
+reachability, since that is the snapshot's fact, not a marker. Left-click
+on a non-party tile only inspects (selects it as a target and shows its
+name); it never moves.
+Done when: the prototype suite orders one move by right-click on a tile, one
+by hotkey, and one by the words and lands on the same cell each way; a
+right-click on an unreachable tile leaves the snapshot unchanged; a
+left-click never travels; `draw_portal` is gone; the Godot job green.
 
 ### Lane C — new cards
 
