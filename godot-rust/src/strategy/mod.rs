@@ -16,6 +16,9 @@
 //!   `BTreeSet` everywhere a map or set is serialized.
 //! - Pause is not a state. The bridge simply does not call the tick.
 
+/// S3: buildings -- envelopes, sockets, tiers, capture and ruin. Shapes are
+/// the deliverable; every Open number is a named constant marked needs decision.
+pub mod building;
 /// S8: the dual clocks -- world time against Cthulhu patience and heat --
 /// weather, and corruption. Advancing one clock never advances the other.
 pub mod clocks;
