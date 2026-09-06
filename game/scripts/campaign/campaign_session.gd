@@ -41,6 +41,25 @@ func use_anchor(anchor_id: String) -> Dictionary:
 	return latest_snapshot.duplicate(true)
 
 
+func set_control(cell_id: String, faction_id: String) -> Dictionary:
+	if expedition == null:
+		return unavailable_state()
+	latest_snapshot = expedition.set_control(cell_id, faction_id)
+	return latest_snapshot.duplicate(true)
+
+
+func controller_of(cell_id: String) -> String:
+	if expedition == null:
+		return ""
+	return expedition.controller_of(cell_id)
+
+
+func effective_risk(portal_id: String) -> Variant:
+	if expedition == null:
+		return unavailable_state()
+	return expedition.effective_risk(portal_id)
+
+
 func inspect(observation_id: String) -> Dictionary:
 	if expedition == null:
 		return unavailable_state()

@@ -236,6 +236,11 @@ func populate_routes(cell: Dictionary, snapshot: Dictionary) -> void:
 		var command_text := str(command)
 		if command_text.begins_with("travel:"):
 			legal[command_text.trim_prefix("travel:")] = true
+	# B14: what each road costs the party *right now*. The native snapshot
+	# recomputes risk from control every time it is built, so the screen reads
+	# it here and keeps nothing: a risk number remembered in GDScript would be
+	# a second answer to how dangerous a road is, and it would be the stale one.
+	var options := route_options(snapshot)
 	var visible_count := 0
 	for portal in cell.get("portals", []):
 		if not portal is Dictionary:
@@ -244,13 +249,21 @@ func populate_routes(cell: Dictionary, snapshot: Dictionary) -> void:
 		if not legal.has(portal_id):
 			continue
 		visible_count += 1
+		var option: Dictionary = options.get(portal_id, {})
 		var target := catalog.get_record(str(portal.get("targetCellId", "")))
 		var travel_mode := str(portal.get("travelMode", "on_foot")).replace("_", " ").to_upper()
+		var risk_level := int(option.get("risk_level", 0))
+		var contested := bool(option.get("contested", false))
+		var risk_text := "RISK %d" % risk_level
+		if contested:
+			risk_text += "  •  CONTESTED"
 		var button := Button.new()
 		button.name = "Route_" + portal_id.replace(".", "_")
+		button.set_meta("portal_id", portal_id)
 		button.custom_minimum_size.y = 64
-		button.text = "%s\n%s  •  ARRIVAL SAVE" % [str(target.get("displayName", "UNKNOWN DESTINATION")).to_upper(), travel_mode]
-		button.tooltip_text = "Authoritative portal: %s\nFrom: %s\nTo: %s\nTravel mode: %s" % [portal_id, str(cell.get("id", "")), str(target.get("id", "")), travel_mode]
+		button.text = "%s\n%s  •  %s  •  ARRIVAL SAVE" % [str(target.get("displayName", "UNKNOWN DESTINATION")).to_upper(), travel_mode, risk_text]
+		var contested_note := "  (contested: the endpoints are held by different parties)" if contested else ""
+		button.tooltip_text = "Authoritative portal: %s\nFrom: %s\nTo: %s\nTravel mode: %s\nRisk now: %d%s" % [portal_id, str(cell.get("id", "")), str(target.get("id", "")), travel_mode, risk_level, contested_note]
 		button.add_theme_font_size_override("font_size", 14)
 		button.add_theme_stylebox_override("normal", make_route_box(Color("1a322e"), BRONZE))
 		button.add_theme_stylebox_override("hover", make_route_box(Color("22443d"), TEAL))
@@ -398,6 +411,55 @@ func get_action_commands() -> Array[String]:
 			continue
 		commands.append(str(child.get_meta("command", "")))
 	return commands
+
+
+## The native route projection, keyed by portal. One entry per legal road,
+## carrying the risk the party would run now and whether the road is contested.
+## The authored base risk is deliberately absent from it: one road, one number.
+func route_options(snapshot: Dictionary) -> Dictionary:
+	var options: Dictionary = {}
+	for option in snapshot.get("route_options", []):
+		if option is Dictionary:
+			options[str(option.get("portal_id", ""))] = option
+	return options
+
+
+## The route button currently drawn for one portal, or null. A button freed by
+## the previous projection is still a child until the frame ends, so the
+## deletion check is what keeps a stale control from answering for a live one --
+## the same guard `get_legal_route_count` keeps.
+func get_route_button(portal_id: String) -> Button:
+	if route_list == null:
+		return null
+	for child in route_list.get_children():
+		if child.is_queued_for_deletion():
+			continue
+		var button := child as Button
+		if button != null and str(button.get_meta("portal_id", "")) == portal_id:
+			return button
+	return null
+
+
+## The risk a drawn route button is currently showing the player, read back out
+## of the button's own text, or -1 when no such button is drawn. A control and
+## the number on it are the same fact, so a test can hold the screen to it.
+func get_drawn_route_risk(portal_id: String) -> int:
+	var button := get_route_button(portal_id)
+	if button == null:
+		return -1
+	for part in button.text.replace("\n", "  •  ").split("  •  "):
+		var field := str(part).strip_edges()
+		if field.begins_with("RISK "):
+			return int(field.trim_prefix("RISK "))
+	return -1
+
+
+## Whether a drawn route button is marked contested.
+func get_drawn_route_is_contested(portal_id: String) -> bool:
+	var button := get_route_button(portal_id)
+	if button == null:
+		return false
+	return "CONTESTED" in button.text
 
 
 func get_legal_route_count() -> int:

@@ -135,6 +135,32 @@ func use_anchor(anchor_id: String) -> Dictionary:
 	return bridge.use_anchor(anchor_id)
 
 
+## S2's control model through the one bridge. An empty faction_id releases the
+## cell rather than forcing it unheld. The returned snapshot carries the
+## ControlChanged events the change produced.
+func set_control(cell_id: String, faction_id: String) -> Dictionary:
+	if not is_available():
+		return unavailable_state()
+	return bridge.set_control(cell_id, faction_id)
+
+
+## The effective controller of a cell, "" for unheld. Godot never reads the
+## campaign's raw ownership map; this is the only answer.
+func controller_of(cell_id: String) -> String:
+	if not is_available():
+		return ""
+	return bridge.controller_of(cell_id)
+
+
+## One road's live risk: the authored base plus the contested modifier while
+## its endpoints are held by different parties. An integer, or the bridge's
+## error dictionary when no portal carries this ID.
+func effective_risk(portal_id: String) -> Variant:
+	if not is_available():
+		return unavailable_state()
+	return bridge.effective_risk(portal_id)
+
+
 func inspect(observation_id: String) -> Dictionary:
 	if not is_available():
 		return unavailable_state()

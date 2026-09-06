@@ -4,6 +4,12 @@ extends SceneTree
 ## bridge. The test proves that the route buttons are a projection of legal
 ## native commands and that selected travel updates the rendered location.
 
+## What a contested road adds to its authored risk. The number is
+## `geography.rs`'s `CONTESTED_RISK_MODIFIER` and that constant remains its
+## owner; this is the expected value the suite holds the drawn button to, so a
+## change to the rule that did not reach the screen fails here.
+const CONTESTED_RISK_MODIFIER := 2
+
 var failures := 0
 
 
@@ -52,6 +58,31 @@ func _init() -> void:
 	expedition.request_travel("world.portal.damaged_estate_to_river_landing")
 	check(expedition.get_authoritative_snapshot().get("active_location_id") == "world.cell.river_landing", "estate departure must arrive at River Landing")
 	check(expedition.get_legal_route_count() == 3, "River Landing must project its three legal native routes")
+	# B14: the safe road's danger is control, drawn. Nothing here edits a route
+	# record; the claim changes who holds the landing and the button changes
+	# with it, which is the brief's "a safe road becomes contested" on screen.
+	var session: Node = expedition.campaign_session
+	var safe_road := "world.portal.river_landing_to_reception_terrace_safe_road"
+	var uncontested_risk := expedition.get_drawn_route_risk(safe_road)
+	check(uncontested_risk > 0, "the safe road must draw the risk the native snapshot gives it")
+	check(not expedition.get_drawn_route_is_contested(safe_road), "a campaign that holds nothing must draw no contested road")
+	var claimed: Dictionary = session.set_control("world.cell.river_landing", "faction.pirates")
+	check(bool(claimed.get("configured", false)), "claiming an authored cell must be accepted by the native bridge")
+	var control_events: Array = claimed.get("events", [])
+	check(control_events.size() == 1, "one handover must project exactly one control_changed event")
+	check(str((control_events[0] as Dictionary).get("kind", "")) == "control_changed", "the projected event must be the control change")
+	check(session.controller_of("world.cell.river_landing") == "faction.pirates", "the effective controller must be the party that took the cell")
+	expedition.project_snapshot(claimed, "CONTROL CHANGED")
+	check(expedition.get_drawn_route_risk(safe_road) == uncontested_risk + CONTESTED_RISK_MODIFIER, "holding one endpoint must raise the safe road's drawn risk by the contested modifier")
+	check(expedition.get_drawn_route_is_contested(safe_road), "a contested road must be marked contested on its button")
+	check(int(session.effective_risk(safe_road)) == uncontested_risk + CONTESTED_RISK_MODIFIER, "the bridge's single-route risk query must agree with the drawn number")
+	var released: Dictionary = session.set_control("world.cell.river_landing", "")
+	check(bool(released.get("configured", false)), "releasing a held cell must be accepted by the native bridge")
+	check(session.controller_of("world.cell.river_landing") == "", "a released cell must read as unheld")
+	expedition.project_snapshot(released, "CONTROL RELEASED")
+	check(expedition.get_drawn_route_risk(safe_road) == uncontested_risk, "releasing the landing must put the safe road's drawn risk back")
+	check(not expedition.get_drawn_route_is_contested(safe_road), "a released road must lose its contested marker")
+	check(expedition.get_legal_route_count() == 3, "control changes must not add or remove a legal departure")
 	expedition.request_travel("world.portal.river_landing_to_reception_terrace_safe_road")
 	check(expedition.get_authoritative_snapshot().get("active_location_id") == "world.cell.reception_terrace", "safe road must arrive at Reception Terrace")
 	var pending_encounter: Dictionary = expedition.get_authoritative_snapshot().get("pending_encounter", {})

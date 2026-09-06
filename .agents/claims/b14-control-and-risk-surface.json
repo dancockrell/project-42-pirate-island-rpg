@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "task_id": "b14-control-and-risk-surface",
+  "agent": "claude-code (lane B14)",
+  "summary": "Project S2's control and risk model through the bridge and draw live, contested-aware route risk on the expedition screen",
+  "status": "completed",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T03:45:00Z",
+  "paths": [
+    "godot-rust/src/godot_bridge.rs",
+    "godot-rust/tests/authored_world.rs",
+    "game/scripts/simulation/native_expedition_port.gd",
+    "game/scripts/campaign/campaign_session.gd",
+    "game/scripts/world/expedition_prototype.gd",
+    "game/tests/expedition_prototype_test.gd",
+    ".agents/claims/b14-control-and-risk-surface.json"
+  ],
+  "symbols": [
+    "Project42ExpeditionBridge.set_control",
+    "Project42ExpeditionBridge.controller_of",
+    "Project42ExpeditionBridge.effective_risk",
+    "expedition_state_dictionary.route_options",
+    "NativeExpeditionPort.set_control",
+    "CampaignSession.set_control",
+    "ExpeditionPrototype.populate_routes"
+  ],
+  "coordination": {
+    "depends_on": [
+      "s2-ownership-and-influence",
+      "b3-b4-legal-commands-and-controls"
+    ],
+    "conflicts_with": [],
+    "notes": "Bridge-side only. geography.rs, expedition.rs, strategy/, content/, tools/ and docs/SHIP_PLAN.md are untouched; the derived risk is never stored in GDScript."
+  },
+  "completion": {
+    "commit": "4bdbfb0cca32e0b376b060a37fbcaa772cdee2cd",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml: passed (183 unit, 4 authored_world, 5 save_migration, 1 vertical_slice)",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs: passed (194 stable IDs)",
+      "bite proof: forcing CONTESTED_RISK_MODIFIER to 0 fails holding_the_river_landing_contests_the_safe_road_and_releasing_it_does_not; the constant was restored: passed",
+      "CI Verify run 34009522411 on 4bdbfb0, both jobs success: \"Rust and content\" passed and \"Godot headless suites\" passed with \"Expedition prototype tests passed.\", no ERROR line, and \"Real Rust bridge confirmed: all three native suites reported a pass.\": passed",
+      "godot headless suites locally: not_run (no Godot in this environment; CI run 34009522411 is the verification)"
+    ]
+  }
+}

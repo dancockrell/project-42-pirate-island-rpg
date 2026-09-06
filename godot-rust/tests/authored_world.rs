@@ -12,7 +12,9 @@
 
 use std::collections::BTreeMap;
 
-use project42_sim::geography::{AuthoredCell, EncounterTriggerDefinition, PortalDefinition};
+use project42_sim::geography::{
+    AuthoredCell, CONTESTED_RISK_MODIFIER, EncounterTriggerDefinition, PortalDefinition,
+};
 use project42_sim::*;
 
 fn content(path: &str) -> String {
@@ -305,5 +307,86 @@ fn the_salvage_anchor_leaves_the_legal_commands_when_spent_and_returns_at_midnig
             .legal_next_commands_with_geography(&geography)
             .contains(&salvage),
         "midnight makes the wreck salvageable again"
+    );
+}
+
+/// B14's rule, on the world Godot forwards: the safe road out of the river
+/// landing is authored risk 1, and while the landing is held by a party the
+/// terrace is not, that road costs `CONTESTED_RISK_MODIFIER` more -- exactly
+/// what the jungle edge beside it costs. Releasing the landing puts it back.
+/// The bridge's `route_options` projection reads `Geography::effective_risk`
+/// for every drawn road, so this is the number the expedition screen draws;
+/// `Project42ExpeditionBridge` needs a live Godot, and the GDScript suite is
+/// what proves the button says it.
+#[test]
+fn holding_the_river_landing_contests_the_safe_road_and_releasing_it_does_not() {
+    let geography = geography_as_godot_forwards_it();
+    let mut state = ExpeditionState::new(
+        42,
+        vec![
+            "character.protagonist.captain".into(),
+            "character.heroine.betty".into(),
+        ],
+        "world.cell.river_landing",
+    )
+    .expect("the prototype's party constructs");
+
+    let safe_road = geography
+        .route("world.portal.river_landing_to_reception_terrace_safe_road")
+        .expect("the authored safe road")
+        .clone();
+    let authored_risk = safe_road.risk_level;
+    let uncontested = geography.effective_risk(&safe_road, &state.ownership);
+    assert_eq!(
+        uncontested, authored_risk,
+        "a fresh campaign holds nothing, so no road is contested"
+    );
+
+    let events = state
+        .set_control(
+            "world.cell.river_landing",
+            Some("faction.pirates".into()),
+            &geography,
+        )
+        .expect("the river landing is a cell the authored world declares");
+    assert_eq!(events.len(), 1, "one handover, one event");
+    assert_eq!(
+        geography.effective_risk(&safe_road, &state.ownership),
+        uncontested + CONTESTED_RISK_MODIFIER,
+        "holding one endpoint contests the safe road"
+    );
+    assert_eq!(
+        geography.effective_risk(&safe_road, &state.ownership),
+        geography.effective_risk(
+            geography
+                .route("world.portal.river_landing_to_reception_terrace_jungle_edge")
+                .expect("the authored jungle edge"),
+            &state.ownership,
+        ) - CONTESTED_RISK_MODIFIER,
+        "the jungle edge is contested by the same claim, so the two move together"
+    );
+    assert_eq!(
+        safe_road.risk_level, authored_risk,
+        "no route record was edited: the sum is derived, never stored"
+    );
+
+    state
+        .set_control("world.cell.river_landing", None, &geography)
+        .expect("releasing a held cell");
+    assert_eq!(
+        geography.effective_risk(&safe_road, &state.ownership),
+        uncontested,
+        "releasing the landing puts the safe road back to its authored risk"
+    );
+
+    assert!(
+        state
+            .set_control(
+                "world.cell.nowhere",
+                Some("faction.pirates".into()),
+                &geography
+            )
+            .is_err(),
+        "a cell the authored world does not declare cannot be claimed"
     );
 }
