@@ -14,6 +14,10 @@ extends Control
 ## Theme; the portrait below them is a placeholder illustration and its colours
 ## are marked as the game colours they are.
 const ThemeTokensScript = preload("res://scripts/ui/theme_tokens.gd")
+## The one owner of the screen's sizes (card P14). The portrait gutter and the
+## Composure well are measured there, so the card and the copy column beside it
+## cannot disagree about where one ends and the other begins.
+const BattleMetricsScript = preload("res://scripts/battle/battle_metrics.gd")
 
 const COMPOSURE_PIPS := 10
 
@@ -66,7 +70,6 @@ func _notification(what: int) -> void:
 func _draw() -> void:
 	var s := size
 	var theme := ThemeTokensScript.active(self)
-	var cream := ThemeTokensScript.color(theme, "cream")
 	var danger := ThemeTokensScript.color(theme, "danger")
 	# Dark-and-bronze frame, a physical card rather than a generic button. A
 	# Shaken actor's frame carries the danger colour, so the state reads before
@@ -108,38 +111,44 @@ func _draw() -> void:
 		draw_circle(Vector2(40, 33), 2.5, PORTRAIT["heroine_iris"])
 		draw_arc(Vector2(35, 36), 9, deg_to_rad(20), deg_to_rad(160), 8, PORTRAIT["mouth"], 2)
 	draw_composure(s, theme)
-	draw_shaken(s, theme, cream)
 
 func draw_composure(s: Vector2, theme: Theme) -> void:
 	# Ten pips, one for each point of Composure. A count, not a bar and not a
 	# percentage: the player must be able to see how many are left at a glance,
 	# so each pip sits in its own dark well and the spent ones stay visible as
 	# empty sockets rather than fading into the card.
+	#
+	# Card P14: the well is one caption line tall with air around it, so it
+	# grows with the text scale instead of staying a 24-pixel bar under type
+	# that has grown past it, and it runs from the edge of the portrait gutter
+	# to the card's inset rather than from a stated x.
 	var filled := clampi(composure, 0, COMPOSURE_PIPS)
-	var spacing := (s.x - 88.0) / float(COMPOSURE_PIPS)
-	var origin := Vector2(78.0 + spacing * .5, s.y - 18.0)
+	var well_height := BattleMetricsScript.well_height(theme)
+	var left := BattleMetricsScript.PORTRAIT_GUTTER - 4.0
+	var trough := Rect2(left, s.y - well_height - 6.0, s.x - left - 8.0, well_height)
+	var spacing := (trough.size.x - 16.0) / float(COMPOSURE_PIPS)
+	var origin := Vector2(trough.position.x + 8.0 + spacing * .5, trough.position.y + trough.size.y * .5)
+	var radius := minf(5.0, trough.size.y * .28)
 	var lit := ThemeTokensScript.color(theme, "danger_soft" if shaken else "teal")
 	var well := ThemeTokensScript.color(theme, "night")
-	draw_style_box(make_box(Color(well, .82), Color(lit, .35), 1, 8), Rect2(70, s.y - 30, s.x - 78, 24))
+	draw_style_box(make_box(Color(well, .82), Color(lit, .35), 1, 8), trough)
 	for index in COMPOSURE_PIPS:
 		var centre := origin + Vector2(spacing * float(index), 0.0)
 		if index < filled:
-			draw_circle(centre, 5.0, Color(lit, .30))
-			draw_circle(centre, 3.6, lit)
+			draw_circle(centre, radius * 1.4, Color(lit, .30))
+			draw_circle(centre, radius, lit)
 		else:
-			draw_arc(centre, 3.6, 0, TAU, 14, ThemeTokensScript.color(theme, "muted").darkened(0.42), 1.6, true)
+			draw_arc(centre, radius, 0, TAU, 14, ThemeTokensScript.color(theme, "muted").darkened(0.42), 1.6, true)
 
 
-func draw_shaken(s: Vector2, theme: Theme, cream: Color) -> void:
-	# Shaken is a state that changes what the player may do with this actor, so
-	# it is a marked tab on the card, not eight grey pixels along the bottom
-	# edge. The frame already carries the danger colour; this names it.
-	if not shaken:
-		return
-	var tab := Rect2(s.x - 76, 8, 68, 20)
-	var danger := ThemeTokensScript.color(theme, "danger")
-	draw_style_box(make_box(danger.darkened(0.55), ThemeTokensScript.color(theme, "danger_soft"), 2, 6), tab)
-	draw_string(ThemeDB.fallback_font, Vector2(tab.position.x, tab.position.y + 15), "SHAKEN", HORIZONTAL_ALIGNMENT_CENTER, tab.size.x, ThemeTokensScript.font_size(theme, "caption"), cream)
+## Card P14: the Shaken mark used to be drawn here, as a 68-pixel tab pinned to
+## the card's top-right corner -- which is inside the copy column, over the
+## actor's name, and which stayed 68 pixels wide while the word inside it grew
+## with the text scale. It is a Label in the copy column now, laid out beside
+## the name and sized from the caption step like every other line on this
+## screen; the frame's danger colour, which is drawn above, is what this card
+## still says about it.
+
 
 func make_box(background: Color, border: Color, width: int, radius: int) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()

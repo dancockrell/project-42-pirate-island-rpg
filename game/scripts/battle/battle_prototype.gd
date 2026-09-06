@@ -8,6 +8,8 @@ const PaperSkillDiamondScript = preload("res://scripts/battle/paper_skill_diamon
 const BattleStageScript = preload("res://scripts/battle/battle_stage.gd")
 const DamageNumberScript = preload("res://scripts/battle/damage_number.gd")
 const CampaignEncounterSimulationPortScript = preload("res://scripts/simulation/campaign_encounter_simulation_port.gd")
+## The one owner of this screen's sizes (card P14).
+const BattleMetricsScript = preload("res://scripts/battle/battle_metrics.gd")
 
 ## Presentation-only prototype. Gameplay truth comes through SimulationPort.
 ## All generated shapes and labels are explicit placeholders registered in
@@ -43,6 +45,17 @@ const ACTOR_ACCENTS := {
 ## control, so the outline is what keeps text legible over stone and sky alike.
 const PLATE_OUTLINE_SIZE := 5
 
+## The layer the HUD is drawn on. P6 said the HUD sits above the stage and is
+## never scaled by the camera, and it is a later sibling of the stage, which
+## would ordinarily be enough. It is not: a paper rig gives its own pieces a
+## z_index (a razorbeak's jaw is 6 so it draws over its neck), Godot's z is
+## relative by default, and those pieces therefore rose above the whole HUD --
+## in the 1.3x capture the enemy's legs stood in front of the command dock and
+## took a letter of its prompt with them. One above the highest layer a VFX
+## record may ask for (`vfx_factory.gd` clamps to 100) puts the HUD over
+## everything on the stage, whatever a rig or a record asks for.
+const HUD_LAYER := 101
+
 const BETTY_ID := "character.heroine.betty"
 const CAPTAIN_ID := "character.protagonist.captain"
 ## The five bands A5 named, in the order the board reads: the party's rear rank
@@ -73,12 +86,20 @@ const BETTY_COMMANDS := [
 ]
 ## The rail's geometry. One card per actor the simulation reports, standing in
 ## its band's column; a card eases to its new column when the actor moves.
-const CARD_SIZE := Vector2(196, 124)
-const RAIL_ORIGIN := Vector2(34.0, 772.0)
-const RAIL_COLUMN_WIDTH := 212.0
-const RAIL_ROW_HEIGHT := 132.0
-const RAIL_HEADING_HEIGHT := 20.0
+##
+## Card P14: the numbers that were here -- a 196-wide card, a 212-wide column,
+## a 132-tall row -- are gone. They were typed once at 1.0x and they did not
+## move when the player asked for larger type, so the status line inside a card
+## was wider than the card at every scale. `measure_layout` asks
+## `BattleMetrics` for them now, at the Theme in force, and asks again whenever
+## the grammar is rebuilt.
 const CARD_MOVE_SECONDS := 0.30
+## The canvas the HUD is composed on when there is no viewport to ask -- a
+## screen measured before it is in the tree. `window/stretch/mode` is
+## `canvas_items`, so the live answer is the content scale size, which is what
+## every position on this screen is written in.
+const DESIGN_WIDTH_SETTING := "display/window/size/viewport_width"
+const DESIGN_HEIGHT_SETTING := "display/window/size/viewport_height"
 ## The accessibility settings this screen honours, read from the same file the
 ## settings surface writes (B9 owns that surface; this screen owns reading it).
 ## `reduced_flash` is not a checkbox yet -- the surface offers text scale,
@@ -114,6 +135,15 @@ var round_label: Label
 var target_label: Label
 var action_cue_label: Label
 var command_dock: Control
+## What `measure_layout` last worked out from the Theme: the card and its copy
+## column, the rail's column and row, and the dock's rectangle and plate. Every
+## position on the bottom of this screen is read from here, so one measurement
+## moves all of them together.
+var layout: Dictionary = {}
+## The Shaken mark beside each actor's name, and the name label itself, so the
+## rail can be re-laid-out without being rebuilt.
+var name_labels: Dictionary = {}
+var shaken_marks: Dictionary = {}
 var return_to_expedition_button: Button
 var is_campaign_encounter := false
 var command_buttons: Dictionary = {}
@@ -164,6 +194,12 @@ func _ready() -> void:
 		get_tree().quit(78)
 		return
 	build_screen()
+	# The canvas can change under a running screen -- a resized window, a review
+	# capture composing at another size -- and every position on this HUD is
+	# measured from it, so it is measured again when it moves.
+	get_viewport().size_changed.connect(func() -> void:
+		if is_instance_valid(self) and is_inside_tree():
+			place_bottom_hud())
 	placeholder_presenter = PlaceholderActionPresenterScript.new()
 	placeholder_presenter.name = "PlaceholderActionPresenter"
 	add_child(placeholder_presenter)
@@ -198,6 +234,7 @@ func build_screen() -> void:
 	hud.name = "BattleHud"
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hud.z_index = HUD_LAYER
 	add_child(hud)
 	build_actors()
 	build_hud(hud)
@@ -219,8 +256,6 @@ func build_hud(hud: Control) -> void:
 	# The only persistent information at the top is information the player can
 	# use: location/time and the current enemy intent. No ornamental meter.
 	round_label = make_label("DAY 18  •  16:40", &"BodyLabel")
-	round_label.position = Vector2(38, 30)
-	round_label.size = Vector2(280, 28)
 	hud.add_child(round_label)
 	description_label = RichTextLabel.new()
 	description_label.name = "CombatDescription"
@@ -228,20 +263,14 @@ func build_hud(hud: Control) -> void:
 	description_label.fit_content = false
 	restyle_description()
 	description_label.text = "[color=#%s]RECEPTION ROAD[/color]  •  ELVEN GATE  •  LATE AFTERNOON" % ThemeTokensScript.color(theme, "bronze").to_html(false)
-	description_label.position = Vector2(38, 58)
-	description_label.size = Vector2(880, 64)
 	description_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.add_child(description_label)
 	intent_label = make_label("RAZORBEAK  •  RUSHING BITE  •  16 DAMAGE", &"DangerLabel")
 	intent_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	intent_label.position = Vector2(1120, 30)
-	intent_label.size = Vector2(760, 30)
 	hud.add_child(intent_label)
 	action_cue_label = make_label("BETTY IS READY", &"CueLabel")
 	action_cue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	action_cue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	action_cue_label.position = Vector2(1120, 736)
-	action_cue_label.size = Vector2(766, 28)
 	hud.add_child(action_cue_label)
 	# Every actor the simulation reports receives one card, standing in the band
 	# the simulation puts it in. The prototype does not invent empty roster slots
@@ -249,23 +278,182 @@ func build_hud(hud: Control) -> void:
 	band_rail = Control.new()
 	band_rail.name = "BandRail"
 	band_rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	band_rail.position = RAIL_ORIGIN
-	band_rail.size = Vector2(RAIL_COLUMN_WIDTH * BAND_ORDER.size(), 260)
 	hud.add_child(band_rail)
 	command_dock = build_command_dock()
-	command_dock.position = Vector2(1120, 772)
-	command_dock.size = Vector2(766, 284)
 	hud.add_child(command_dock)
 	return_to_expedition_button = Button.new()
 	return_to_expedition_button.name = "ReturnToExpedition"
 	return_to_expedition_button.text = "RETURN TO RECEPTION TERRACE"
 	return_to_expedition_button.tooltip_text = "Return to the expedition after the authoritative encounter outcome has been recorded."
 	style_command_button(return_to_expedition_button)
-	return_to_expedition_button.position = Vector2(1400, 676)
-	return_to_expedition_button.size = Vector2(460, 72)
 	return_to_expedition_button.visible = false
 	return_to_expedition_button.pressed.connect(return_to_expedition)
 	hud.add_child(return_to_expedition_button)
+	# Everything on the bottom of the screen is placed from one measurement of
+	# the Theme, now that all of it exists.
+	place_bottom_hud()
+
+
+## The canvas the HUD is composed on, in the coordinates every position on this
+## screen is written in. It is asked of the viewport rather than assumed: a
+## review capture composes this screen at 1280x720 and the player's window may
+## be anything, and a HUD laid out for a canvas it is not standing on is the
+## same fault as a box laid out for type it is not set in.
+func design_size() -> Vector2:
+	if is_inside_tree():
+		var live := get_viewport_rect().size
+		if live.x > 1.0 and live.y > 1.0:
+			return live
+	return Vector2(
+		float(ProjectSettings.get_setting(DESIGN_WIDTH_SETTING, 1920)),
+		float(ProjectSettings.get_setting(DESIGN_HEIGHT_SETTING, 1080)))
+
+
+## Work out the bottom of the screen from the Theme in force. Every width here
+## is a measurement of the Theme's own face at the Theme's own size, so 1.3x
+## text makes the cards and the command plates wider by exactly as much as it
+## makes the words wider, and nothing is left behind at 1.0x.
+func measure_layout() -> void:
+	var names: Array = []
+	for command in BETTY_COMMANDS:
+		names.append(command[2])
+	layout = BattleMetricsScript.bottom_hud(theme, design_size().x, BAND_ORDER.size(), names, roster_names())
+
+
+## Every name the rail can be asked to set, the simulation's hostiles included.
+## The copy column is measured against these, so a name the screen did not write
+## for itself still gets a column wide enough to hold it whole.
+func roster_names() -> Array:
+	var names: Array = actor_display_names.values().duplicate()
+	for actor in snapshot_actors:
+		var shown := str(actor.get("display_name", "")).to_upper()
+		if not shown.is_empty() and not names.has(shown):
+			names.append(shown)
+	return names
+
+
+## Put the rail and the dock where the measurement says. Called when the screen
+## is built, whenever the grammar is rebuilt under it, and whenever the rail
+## gains or loses a row -- the rail stands ON the bottom margin, so a taller
+## card grows the rail upwards rather than off the bottom of the screen.
+func place_bottom_hud(rows := 0) -> void:
+	measure_layout()
+	var canvas := design_size()
+	place_top_hud(canvas)
+	var card_height: float = layout.card_height
+	var heading := BattleMetricsScript.rail_heading_height(theme)
+	var rail_rows := maxi(1, rows if rows > 0 else rail_row_count())
+	var rail_height := heading + float(rail_rows) * (card_height + BattleMetricsScript.RAIL_ROW_GAP)
+	var bottom := canvas.y - BattleMetricsScript.BOTTOM_MARGIN
+	if band_rail != null:
+		band_rail.position = Vector2(BattleMetricsScript.SCREEN_MARGIN, bottom - rail_height)
+		band_rail.size = Vector2(layout.rail_width, rail_height)
+	var dock_width: float = layout.dock_width
+	var dock_height: float = layout.dock_height
+	var dock_left := canvas.x - BattleMetricsScript.SCREEN_MARGIN - dock_width
+	if command_dock != null:
+		command_dock.position = Vector2(dock_left, bottom - dock_height)
+		command_dock.size = Vector2(dock_width, dock_height)
+		for skill_id in command_buttons:
+			(command_buttons[skill_id] as PaperSkillDiamond).set_plate_size(layout.plate)
+	if action_cue_label != null:
+		var cue_height := BattleMetricsScript.line_height(theme, "body") + BattleMetricsScript.LINE_PADDING * 2.0
+		action_cue_label.position = Vector2(dock_left, bottom - dock_height - cue_height)
+		action_cue_label.size = Vector2(dock_width, cue_height)
+	if return_to_expedition_button != null:
+		var button_size := Vector2(
+			BattleMetricsScript.text_width(theme, "body", return_to_expedition_button.text) + BattleMetricsScript.DOCK_PADDING * 4.0,
+			BattleMetricsScript.line_height(theme, "body") + BattleMetricsScript.MARK_PADDING * 3.0)
+		return_to_expedition_button.size = button_size
+		return_to_expedition_button.position = Vector2(
+			canvas.x - BattleMetricsScript.SCREEN_MARGIN - button_size.x,
+			bottom - dock_height - BattleMetricsScript.line_height(theme, "body") - BattleMetricsScript.LINE_PADDING * 2.0 - button_size.y - BattleMetricsScript.RAIL_ROW_GAP)
+	relay_cards()
+
+
+## The three lines along the top: the day and the hour on the left, the location
+## under them, the enemy's intent on the right. They are placed from the canvas
+## rather than from a typed corner, so the right-hand line ends at the right
+## edge of whatever screen this is and the left-hand ones are as tall as the
+## type they are set in.
+func place_top_hud(canvas: Vector2) -> void:
+	var body := BattleMetricsScript.label_line_height(theme, "body")
+	var left := BattleMetricsScript.SCREEN_MARGIN
+	var top := BattleMetricsScript.BOTTOM_MARGIN
+	if round_label != null:
+		round_label.position = Vector2(left, top)
+		round_label.size = Vector2(canvas.x * .5 - left, body)
+	if description_label != null:
+		description_label.position = Vector2(left, top + body)
+		description_label.size = Vector2(canvas.x * .5 - left, body * 2.0)
+	if intent_label != null:
+		intent_label.size = Vector2(canvas.x * .5 - BattleMetricsScript.SCREEN_MARGIN, body)
+		intent_label.position = Vector2(canvas.x * .5, top)
+
+
+## How many rows of cards the busiest band is holding.
+func rail_row_count() -> int:
+	var deepest := 1
+	for band in BAND_ORDER:
+		deepest = maxi(deepest, actors_in_band(band).size())
+	return deepest
+
+
+## Re-fit every card that already stands in the rail to the measurement just
+## taken. A card is a Control the screen positions itself, so nothing else puts
+## it back after the type scale moves.
+func relay_cards() -> void:
+	if layout.is_empty():
+		return
+	var card_size := Vector2(layout.card_width, layout.card_height)
+	for id in card_buttons:
+		var holder := card_buttons[id] as Control
+		holder.size = card_size
+		var portrait := card_portraits.get(id) as PaperCard
+		if portrait != null:
+			portrait.size = card_size
+		var copy := holder.get_node_or_null("Copy") as Control
+		if copy == null:
+			continue
+		var copy_width: float = layout.copy_width
+		var name_height := BattleMetricsScript.name_height(theme, copy_width, roster_names())
+		copy.position = Vector2(BattleMetricsScript.PORTRAIT_GUTTER, BattleMetricsScript.CARD_COPY_TOP)
+		copy.size = Vector2(copy_width,
+			card_size.y - BattleMetricsScript.CARD_COPY_TOP - BattleMetricsScript.WELL_GAP
+				- BattleMetricsScript.well_height(theme) - BattleMetricsScript.CARD_INSET)
+		var mark_size := BattleMetricsScript.shaken_mark_size(theme)
+		var names := roster_names()
+		var beside := BattleMetricsScript.mark_beside_name(theme, copy_width, names)
+		var name_box := Vector2(BattleMetricsScript.name_width(theme, copy_width, names),
+			name_height if beside else name_height - mark_size.y)
+		var mark := shaken_marks.get(id) as Label
+		if mark != null:
+			mark.position = Vector2(copy_width - mark_size.x, 0.0) if beside else Vector2(0.0, name_box.y)
+			mark.size = mark_size
+			mark.add_theme_stylebox_override("normal", shaken_mark_box())
+		var name_label := name_labels.get(id) as Label
+		if name_label != null:
+			name_label.position = Vector2.ZERO
+			name_label.size = name_box
+		var status := status_labels.get(id) as Label
+		if status != null:
+			status.position = Vector2(0.0, name_height)
+			status.size = Vector2(copy_width, copy.size.y - name_height)
+
+
+## The plate the Shaken mark sits on. It is built in code, so it is built again
+## when the grammar is rebuilt.
+func shaken_mark_box() -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = ThemeTokensScript.color(theme, "danger").darkened(0.55)
+	box.border_color = ThemeTokensScript.color(theme, "danger_soft")
+	box.set_border_width_all(2)
+	box.set_corner_radius_all(6)
+	box.content_margin_left = BattleMetricsScript.MARK_PADDING
+	box.content_margin_right = BattleMetricsScript.MARK_PADDING
+	box.content_margin_top = BattleMetricsScript.LINE_PADDING
+	box.content_margin_bottom = BattleMetricsScript.LINE_PADDING
+	return box
 
 
 ## One dock, whichever actor is commanding. Betty's seven rank diamonds and
@@ -278,16 +466,27 @@ func build_command_dock() -> Control:
 	dock.mouse_filter = Control.MOUSE_FILTER_PASS
 	dock.add_theme_stylebox_override("panel", command_dock_box())
 	var rows := VBoxContainer.new()
-	rows.add_theme_constant_override("separation", 4)
+	rows.add_theme_constant_override("separation", int(BattleMetricsScript.DOCK_ROW_GAP))
 	dock.add_child(rows)
 	target_label = make_label("BETTY  •  D-RANK", &"BronzeLabel")
+	# The prompt line is the one line on this screen whose length the screen
+	# does not know in advance -- it carries a targeting prompt the simulation
+	# wrote. It is therefore the one line allowed to end in an ellipsis, and it
+	# must not be allowed to decide how wide the dock is.
+	target_label.clip_text = true
+	target_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	target_label.custom_minimum_size = Vector2(0.0, BattleMetricsScript.line_height(theme, "body"))
 	rows.add_child(target_label)
-	var first_row := HBoxContainer.new()
-	first_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	first_row.add_theme_constant_override("separation", 6)
-	var second_row := HBoxContainer.new()
-	second_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	second_row.add_theme_constant_override("separation", 6)
+	# Card P14: the seven commands were split across two stated rows of four and
+	# three. A row is not a fact about the commands, it is a fact about how wide
+	# the dock is and how wide a name is at the text scale in force, so the
+	# commands flow: they take as many rows as the plates need, and a plate is
+	# never narrowed to make a row come out even.
+	var flow := HFlowContainer.new()
+	flow.name = "CommandFlow"
+	flow.alignment = FlowContainer.ALIGNMENT_CENTER
+	flow.add_theme_constant_override("h_separation", int(BattleMetricsScript.DOCK_ROW_GAP))
+	flow.add_theme_constant_override("v_separation", int(BattleMetricsScript.DOCK_ROW_GAP))
 	# Seven diamonds correspond exactly to Betty's D through SSS authored skill
 	# records. Six are locked because their named milestones have not occurred;
 	# they are future capabilities, not decorative empty inventory slots.
@@ -296,13 +495,9 @@ func build_command_dock() -> Control:
 		var gem := PaperSkillDiamondScript.new()
 		gem.configure(command[0], command[1], command[2], index == 0)
 		gem.command_pressed.connect(func(skill_id: String) -> void: begin_skill_targeting(skill_id))
-		if index < 4:
-			first_row.add_child(gem)
-		else:
-			second_row.add_child(gem)
+		flow.add_child(gem)
 		command_buttons[command[0]] = gem
-	rows.add_child(first_row)
-	rows.add_child(second_row)
+	rows.add_child(flow)
 	captain_command_grid = make_captain_command_grid()
 	rows.add_child(captain_command_grid)
 	return dock
@@ -317,6 +512,10 @@ func rebuild_band_rail() -> void:
 		return
 	var drawn := 0
 	var seen: Dictionary = {}
+	# The rail stands on the bottom margin, so its top moves with the number of
+	# rows the busiest band holds and with how tall a card is at this text
+	# scale. Both are settled before a card is placed.
+	place_bottom_hud(rail_row_count())
 	for band_index in BAND_ORDER.size():
 		var band: String = str(BAND_ORDER[band_index])
 		var occupants := actors_in_band(band)
@@ -333,6 +532,8 @@ func rebuild_band_rail() -> void:
 			card_buttons.erase(id)
 			card_portraits.erase(id)
 			status_labels.erase(id)
+			name_labels.erase(id)
+			shaken_marks.erase(id)
 			if stale != null:
 				stale.queue_free()
 	if drawn != snapshot_actors.size():
@@ -353,8 +554,8 @@ func set_band_heading(band: String, band_index: int, occupied: bool) -> void:
 		var heading := make_label(band.replace("_", " ").to_upper(), &"MonoLabel")
 		heading.name = "Heading_" + band
 		heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		heading.position = Vector2(RAIL_COLUMN_WIDTH * float(band_index), 0.0)
-		heading.size = Vector2(CARD_SIZE.x, RAIL_HEADING_HEIGHT)
+		heading.position = Vector2(rail_column_width() * float(band_index), 0.0)
+		heading.size = Vector2(float(layout.card_width), BattleMetricsScript.rail_heading_height(theme))
 		band_rail.add_child(heading)
 		band_headings[band] = heading
 	(band_headings[band] as Label).visible = occupied
@@ -364,7 +565,9 @@ func set_band_heading(band: String, band_index: int, occupied: bool) -> void:
 ## a new one appears where it belongs.
 func place_band_card(actor: Dictionary, band_index: int, row: int) -> void:
 	var id := str(actor.get("id", ""))
-	var destination := Vector2(RAIL_COLUMN_WIDTH * float(band_index), RAIL_HEADING_HEIGHT + RAIL_ROW_HEIGHT * float(row))
+	var destination := Vector2(rail_column_width() * float(band_index),
+		BattleMetricsScript.rail_heading_height(theme)
+			+ (float(layout.card_height) + BattleMetricsScript.RAIL_ROW_GAP) * float(row))
 	var holder := card_buttons.get(id) as Control
 	if holder == null:
 		holder = make_band_card(actor)
@@ -383,38 +586,68 @@ func place_band_card(actor: Dictionary, band_index: int, row: int) -> void:
 	update_actor_status(actor)
 
 
+## One roster column's width: the card the Theme measured, plus the gutter
+## between two columns.
+func rail_column_width() -> float:
+	return float(layout.card_width) + BattleMetricsScript.RAIL_GUTTER
+
+
 func make_band_card(actor: Dictionary) -> Control:
 	var id := str(actor.get("id", ""))
 	var band := str(actor.get("band_name", ""))
 	var display_name := str(actor.get("display_name", id)).to_upper()
+	var card_size := Vector2(layout.card_width, layout.card_height)
 	var holder := Control.new()
 	holder.name = "Card_" + id.replace(".", "_")
-	holder.size = CARD_SIZE
+	holder.size = card_size
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.tooltip_text = "PAPER PORTRAIT — DEVELOPMENT BLOCKOUT\nStable actor ID: %s\nBand: %s\nFuture portrait must preserve card crop, face, hair, outfit palette and readiness overlay." % [id, band]
 	var portrait := PaperCardScript.new()
 	portrait.name = "Portrait"
 	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	portrait.size = CARD_SIZE
+	portrait.size = card_size
 	portrait.configure(display_name, band, accent_for(actor), int(actor.get("composure", 0)), actor_is_shaken(actor), portrait_kind_for(actor))
 	holder.add_child(portrait)
-	var copy := VBoxContainer.new()
+	# The copy column. Card P14: it begins where the drawn portrait ends and it
+	# is as wide as the status line needs at this text scale -- both measured,
+	# neither stated -- so nothing inside it has to be clipped to fit.
+	# A plain Control rather than a box container: the screen has already
+	# measured what goes in it, and a container would take that measurement back
+	# by clamping the column to its own idea of a minimum.
+	var copy := Control.new()
+	copy.name = "Copy"
 	copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	copy.position = Vector2(74, 16)
-	copy.size = Vector2(CARD_SIZE.x - 82, CARD_SIZE.y - 52)
-	copy.add_theme_constant_override("separation", 0)
+	# The name shares its line with the Shaken mark, which used to be drawn over
+	# it. A name too long for what is left wraps to a second line and, if it is
+	# longer than that, ends in an ellipsis: one rule, and the player is told.
 	var name_label := make_label(display_name, &"BodyLabel")
+	name_label.name = "Name"
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	name_label.clip_text = true
-	name_label.custom_minimum_size = Vector2(CARD_SIZE.x - 82, 18)
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	name_label.max_lines_visible = BattleMetricsScript.NAME_MAXIMUM_LINES
 	copy.add_child(name_label)
+	var mark := make_label(BattleMetricsScript.SHAKEN_MARK, &"CaptionLabel")
+	mark.name = "ShakenMark"
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	mark.visible = actor_is_shaken(actor)
+	copy.add_child(mark)
+	# The status line takes as many lines as the column leaves it. It never
+	# clips: the card was measured to be as tall as those lines come to.
 	var status_label := make_label("", &"CaptionLabel")
+	status_label.name = "Status"
 	status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	copy.add_child(status_label)
 	holder.add_child(copy)
+	name_labels[id] = name_label
+	shaken_marks[id] = mark
 	card_buttons[id] = holder
 	card_portraits[id] = portrait
 	status_labels[id] = status_label
+	relay_cards()
 	return holder
 
 
@@ -423,17 +656,17 @@ func make_band_card(actor: Dictionary) -> Control:
 ## Betty's commands use; the simulation remains the authority on whether it is
 ## legal.
 func make_captain_command_grid() -> Control:
-	var grid := HBoxContainer.new()
+	var grid := HFlowContainer.new()
 	grid.name = "CaptainCommandGrid"
 	grid.visible = false
-	grid.alignment = BoxContainer.ALIGNMENT_CENTER
-	grid.add_theme_constant_override("separation", 8)
+	grid.alignment = FlowContainer.ALIGNMENT_CENTER
+	grid.add_theme_constant_override("h_separation", int(BattleMetricsScript.DOCK_ROW_GAP))
+	grid.add_theme_constant_override("v_separation", int(BattleMetricsScript.DOCK_ROW_GAP))
 	for entry in CAPTAIN_COMMANDS:
 		var skill_id: String = entry[0]
 		var button := Button.new()
 		button.name = "Command_" + skill_id.replace(".", "_")
 		button.text = captain_command_label(skill_id, entry[1])
-		button.custom_minimum_size = Vector2(190, 44)
 		style_command_button(button)
 		button.tooltip_text = "Captain Michael's command. Stable skill ID: %s" % skill_id
 		button.pressed.connect(func() -> void: on_captain_command(skill_id))
@@ -540,10 +773,16 @@ func command_dock_box() -> StyleBoxFlat:
 
 ## A command button wears the box above and the body step. Both are built in
 ## code, so both are remade in `_on_theme_rebuilt`.
+## A command button wears the grammar and is as wide as its own word at the
+## text scale in force (card P14): a 190-pixel minimum was a promise that
+## "WEAPON ATTACK" fits, and at 1.3x it was not true.
 func style_command_button(button: Button) -> void:
 	button.set_meta("command_button", true)
 	button.add_theme_font_size_override("font_size", ThemeTokensScript.font_size(theme, "body"))
 	button.add_theme_stylebox_override("normal", make_command_box())
+	button.custom_minimum_size = Vector2(
+		BattleMetricsScript.text_width(theme, "body", button.text) + BattleMetricsScript.DOCK_PADDING * 3.0,
+		BattleMetricsScript.line_height(theme, "body") + BattleMetricsScript.MARK_PADDING * 2.0)
 
 
 func make_actor_placeholder(spec_id: String, accent: Color) -> PanelContainer:
@@ -842,8 +1081,13 @@ func update_actor_status(actor: Dictionary) -> void:
 	if not status_labels.has(id):
 		return
 	var status := status_labels[id] as Label
-	var state := "DEFEATED" if int(actor.get("vitality", 0)) <= 0 else "READY"
-	status.text = "VIT %d/%d  •  GRD %d  •  %s" % [int(actor.get("vitality", 0)), int(actor.get("max_vitality", 0)), int(actor.get("guard", 0)), state]
+	var state := BattleMetricsScript.STATE_DEFEATED if int(actor.get("vitality", 0)) <= 0 else BattleMetricsScript.STATE_READY
+	# The format is `BattleMetrics`'s, because the column this line is set in
+	# was measured against that same format. One owner, one width.
+	status.text = BattleMetricsScript.STATUS_FORMAT % [int(actor.get("vitality", 0)), int(actor.get("max_vitality", 0)), int(actor.get("guard", 0)), state]
+	var mark := shaken_marks.get(id) as Label
+	if mark != null:
+		mark.visible = actor_is_shaken(actor)
 
 
 ## An actor changed band. The destination's name is the one the bridge gave for
@@ -982,6 +1226,10 @@ func _on_theme_rebuilt(rebuilt: Theme) -> void:
 			style_command_button(button)
 	if command_dock != null:
 		(command_dock as PanelContainer).add_theme_stylebox_override("panel", command_dock_box())
+	# Card P14: the type moved, so every width measured from it moves too. One
+	# call re-measures the cards, the commands and the dock together, and the
+	# cards then report what their copy came out at in the new type.
+	place_bottom_hud()
 	var base := get_node_or_null("BackgroundBase") as ColorRect
 	if base != null:
 		base.color = ThemeTokensScript.color(rebuilt, "night")
