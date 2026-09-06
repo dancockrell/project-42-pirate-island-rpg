@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "task_id": "e5-e9-nightly-and-pack",
+  "agent": "claude-code (lane E5+E9)",
+  "summary": "A scheduled nightly workflow that builds the Rust GDExtension, asserts the library exists at the path game/bin/project42_sim.gdextension names, exports the desktop presets it can honestly produce on a Linux runner and uploads them by commit SHA; plus tools/src/build-pack.mjs, which exports every packs/<id>/ to a .pck whose manifest lands at res://packs/<id>/pack.json where B10's ContentPackRegistry reads it.",
+  "status": "active",
+  "claimed_at": "2026-09-06T12:00:00Z",
+  "updated_at": "2026-09-06T12:00:00Z",
+  "paths": [
+    ".github/workflows/nightly.yml",
+    ".github/workflows/verify.yml",
+    "tools/src/build-pack.mjs",
+    ".gitignore"
+  ],
+  "symbols": [],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [],
+    "notes": "E2 owns .github/workflows/verify.yml; this lane adds exactly one step to its existing godot-suites job (the pack build, which is free there because that job has already downloaded and verified the pinned engine) and changes nothing else in the file. The Godot download, checksum and version-confirmation steps in nightly.yml are E2's steps reused verbatim, not a second download path. game/export_presets.cfg is E4's and is read, not written. Nothing under godot-rust/, game/scripts/, content/ or docs/SHIP_PLAN.md is touched."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
