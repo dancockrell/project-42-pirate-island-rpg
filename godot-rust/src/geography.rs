@@ -924,6 +924,23 @@ impl Geography {
         self.locations.get(cell_id)?.owner_faction_id.as_deref()
     }
 
+    /// Who holds a cell right now: the campaign's `ownership` override where
+    /// it names the cell, else the graph's authored [`Self::controller`].
+    /// The one place that composition lives -- `effective_risk` reads it and
+    /// the bridge's `controller_of` reads it, so the two can never disagree
+    /// about who is standing on a road's far end. B14 had written the same
+    /// composition a second time beside the closure this replaced.
+    pub fn held_by<'a>(
+        &'a self,
+        cell_id: &str,
+        ownership: &'a BTreeMap<String, String>,
+    ) -> Option<&'a str> {
+        ownership
+            .get(cell_id)
+            .map(String::as_str)
+            .or_else(|| self.controller(cell_id))
+    }
+
     /// S2, and the one owner of "how dangerous is this road right now".
     ///
     /// The route's authored `risk_level` (C2 authors it on every portal in
@@ -950,13 +967,9 @@ impl Geography {
     /// overrides the graph's authored [`Self::controller`] wherever it names a
     /// cell. Deterministic: no draw, no clock, no hidden state.
     pub fn effective_risk(&self, route: &RouteOption, ownership: &BTreeMap<String, String>) -> u8 {
-        let held_by = |cell_id: &str| -> Option<&str> {
-            ownership
-                .get(cell_id)
-                .map(String::as_str)
-                .or_else(|| self.controller(cell_id))
-        };
-        if held_by(&route.from_location_id) == held_by(&route.to_location_id) {
+        if self.held_by(&route.from_location_id, ownership)
+            == self.held_by(&route.to_location_id, ownership)
+        {
             route.risk_level
         } else {
             route.risk_level.saturating_add(CONTESTED_RISK_MODIFIER)

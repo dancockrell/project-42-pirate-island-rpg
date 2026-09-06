@@ -781,11 +781,9 @@ fn route_kind_name(value: &RouteKind) -> &'static str {
 /// this composes the same two public queries so `controller_of` can answer the
 /// question on its own, and Godot never reads `ownership` raw.
 fn effective_controller(state: &ExpeditionState, geography: &Geography, cell_id: &str) -> String {
-    state
-        .ownership
-        .get(cell_id)
-        .map(String::as_str)
-        .or_else(|| geography.controller(cell_id))
+    // One owner: Geography::held_by is the composition; this only stringifies.
+    geography
+        .held_by(cell_id, &state.ownership)
         .unwrap_or_default()
         .to_owned()
 }
