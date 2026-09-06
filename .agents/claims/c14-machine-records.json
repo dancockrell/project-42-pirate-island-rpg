@@ -3,7 +3,7 @@
   "task_id": "c14-machine-records",
   "agent": "claude-code (lane C14)",
   "summary": "Author content/machines/ -- machine.mechanical_dog and machine.steam_wagon with brief section 18's fields, every Open dimension a needs-decision placeholder -- mirror the eight families and the authored travelMode vocabulary in the validator, point building.machine_shop's machine rule at a machine that exists, and hold MachineDefinitions equal to the directory in Rust.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -20,12 +20,36 @@
     "ExpeditionState.produce_machine"
   ],
   "coordination": {
-    "depends_on": ["s13-machines-not-people", "c10-building-records"],
+    "depends_on": [
+      "s13-machines-not-people",
+      "c10-building-records"
+    ],
     "conflicts_with": [],
     "notes": "S13's last check spells this card's contract. Rust is confined to the END of production.rs's test module because lane S16 is editing that file's hourly logic and building.rs at the same time; no existing test, type or function is restructured. content/buildings/machine_shop.json is touched in exactly one place -- the automaton_frames rule's output_key, which C10 left at the resource placeholder because no machine record existed to name. The validator change to the buildings block is narrow: a machine rule's output_key is a machine.<...> reference, every other output_key stays under resource.open."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "e81b256",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (308 unit incl. 2 new strategy::production, 6 authored_world, 5 save_migration, 8 strategic_determinism, 1 vertical_slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (225 stable IDs; 2 machine records): passed",
+      "node tools/src/check-claims.mjs (48 claims, 91 ship-plan rows): passed",
+      "node tools/src/build-content-bundle.mjs && git diff --quiet game/generated/ (53 records, sha256:f838d304254cc223d135d3055db8ec3686b44db826773599ba8c80c9d6e91487): passed",
+      "Done-when 1: content/machines/ authors machine.mechanical_dog and machine.steam_wagon with brief section 18's fields, and every_authored_machine_record_loads holds MachineDefinitions equal to the directory through the real validate and insert: passed",
+      "Done-when 2: the machine shop's rule names a machine that exists -- production.machine_shop.automaton_frames output_key is machine.mechanical_dog, resolved as a stable-ID reference by tools/src/validate.mjs and looked up by produce_machine in the_authored_machine_shop_builds_the_authored_dog_and_refuses_a_family_that_disagrees: passed",
+      "Done-when 3, the family agreement: the same authored pair with only the rule's family changed to steam_wagon is refused with ProductionError::FamilyMismatch and leaves state.machines empty: passed",
+      "Bite (a ninth family fails both): family mechanical_horse on content/machines/steam_wagon.json failed the validator ('family \"mechanical_horse\" is not one of brief section 5.4's eight families') and failed every_authored_machine_record_loads at deserialization ('unknown variant `mechanical_horse`, expected one of `mechanical_dog` ... `airship`'); restored and green: passed",
+      "Bite (a decided-looking dimension): operational_footprint_cells 3 on steam_wagon.json failed the validator ('is 3, which reads as a decided dimension ... it stays 0 and open_dimensions.operational_footprint_cells names the decision'); restored and green: passed",
+      "Bite (the mismatch refusal): disabling the family check in produce_machine failed the_authored_machine_shop_builds_the_authored_dog_and_refuses_a_family_that_disagrees on 'a rule that claims a wagon and names a dog produces neither' (left Ok(MachineProduced{family: SteamWagon}), right Err(FamilyMismatch)); restored and green: passed",
+      "Bite (the narrow output_key adjustment stays narrow): a capacity rule's output_key resource.iron is still refused for inventing a resource category, and a machine rule naming machine.does_not_exist fails as a missing stable ID; restored and green: passed",
+      "The travelMode vocabulary now has one owner in the validator: the portals block and the machines block read the same const, and the Rust test reads the modes out of content/world/ portals rather than restating them: passed",
+      "MachineDefinition::validate is S13's and was not restructured; every Rust change is appended at the END of production.rs's test module, and content/buildings/machine_shop.json was touched in exactly one rule field plus its metadata note, because lane S16 holds production.rs's hourly logic and building.rs: passed",
+      "needs decision: every section 18 dimension for both records -- operational footprint, navigation width, turning clearance, maximum slope, wreck footprint and salvage value -- stays 0 or resource.open.needs_decision, with open_dimensions naming each decision (brief section 20, exact standard dimensions and the exact resource list). The validator REQUIRES the placeholder rather than a number: not_run",
+      "needs decision: bridge_requirements carries requirement.open.needs_decision.reinforced_bridge for the wagon and nothing for the dog; what reinforces a crossing is undecided (brief section 5.11 stops at naming reinforced bridges): not_run",
+      "needs decision: local_and_offscreen_representations stays placeholder prose for both records until there is a materialiser and an aggregate-force weight to consume it: not_run",
+      "Not authored here: six of the eight families have no record, because one record per family would be a catalogue invented in this lane -- brief section 5.4 lists candidates, not a roster. No building produces machine.steam_wagon yet; the building that makes wagons is a later card's: not_run",
+      "Godot: no suite was added or changed and no bridge shape moved; CI's godot-suites job on this branch is the proof. Trunk's campaign_session.gd tree guard (030bef3) was merged in before judging CI: not_run"
+    ]
   }
 }
