@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 (S16–S19 are additions outside the bracket; the M3 100-day elimination passes for a faction that does not act (S18) and for an autonomous faction whose machines drain its reserve (S19)) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `01abece`. If this line is older than
+- Last updated 2026-09-06 against trunk `e2b289b`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -437,7 +437,7 @@ top of the document is never stale:
 | C8 | Scene `presentationLevel` and the pack manifest schema | C6 | shipped a579ff9 2026-09-06 |
 | C9 | Faction records (no proper names) | S1 | shipped 3598628 2026-09-06 — the validator refuses a real name until one is approved |
 | C10 | Building records with envelopes | S3 | shipped a579ff9 2026-09-06 |
-| C11 | Room contract fields on world cells | B11 | open |
+| C11 | Room contract fields on world cells | B11 | shipped `e2b289b` 2026-09-06 |
 | C12 | One recruitable woman's arc (records only; identity per O2) | C6, S12, O2 | blocked: needs decision O2 |
 | C13 | Content can declare a discovery ID; the tidal cut's gate authored | A4 | shipped 3c85451 2026-09-05 — plus the bridge wire it turned out to need |
 | C14 | Machine records: the eight families with brief §18's fields | S13 | shipped 6d2aa16 2026-09-06 |
@@ -2192,7 +2192,7 @@ Rust. Stable IDs 210 → 214; bundle 44 → 47 records. **Left, on purpose:**
 `role.*`, `service.*` and `recruitment_support.*` have no authored vocabulary.
 
 ### C11 · Room contract fields on world cells
-Status: open · Depends on: B11 (shipped as P4)
+Status: shipped `e2b289b` 2026-09-06 · Depends on: B11 (shipped as P4)
 Touches: `content/world/*.world_cell.json` (a `contract` block), `tools/src/validate.mjs`
 (one block), `godot-rust/tests/authored_world.rs` (one equality test if a
 field is read by Rust; none is expected to be), one GDScript suite only if
@@ -2215,6 +2215,23 @@ the dimensions equal to the board block's footprint.
 Done when: the validator bites (drop a field, point a slot at an unknown
 record → fails by name); all nine cells carry the block; the D12 row can
 name what a room blockout must hold.
+**Shipped:** every world cell carries a `contract` block — function,
+dimensions (the board block's footprint ID only, held equal to it),
+circulation (every tether, named), slots (exactly the building records the
+room's faction accepts and the machine records whose route types reach it,
+derived and checked), landmarks (quoted from observation prose, the visual
+shell or the room's setpiece script, each with its source; a phrase that
+appears in none fails by name), the encounter space (battle entries,
+habitats and site rules the cell already declares, referenced not
+restated), material language (P2 library keys only, each backed by a
+quotation that mentions the surface), and `avoid` pointing at
+`visualShell.prohibitedFeatures` rather than restating it. Twenty-one
+validator bites recorded, every one failing by name. `needs decision`:
+`slots.buildingIds` is null on the five non-tomb cells because nothing in
+the repository gives those rooms an owning faction; `materialLanguage` is
+null on the service passage because nothing it carries names a surface.
+Only the terrace has a setpiece script, so the other eight rooms' landmarks
+come from prose alone.
 
 ### C12 · One recruitable woman's arc — blocked: needs decision O2.
 

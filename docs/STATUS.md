@@ -369,3 +369,32 @@ weather and the battle's dock).
 selected and a column marching, fights with effects, and factions take
 ground from each other while the player reads about it in one calm
 surface.
+
+## 2026-09-06, evening — the island spends, builds and shows it
+
+Integrated after a container restart, each with the full chain and the gate
+green on trunk: **E13** (seven of eight licence notices read from upstream
+files, Mesa alone pending behind the proxy), **S19** (machines drink the
+fuel and water their records name, construction runs on the clock, and an
+autonomous faction can now be eliminated — the M3 second claim flipped),
+**P13** (building and machine instances cross the bridge and P12's kits
+stand on the board where the simulation put them), **P14** (the battle's
+cards and dock are measured from the type scale; nothing clips at 1.3×),
+**C11** (brief §3's room contract on all nine cells, every value sourced
+from what the repository already says, twenty-one validator bites).
+
+- The owner pushed a CI change directly to trunk mid-round (one run per
+  pull request, in-progress runs cancelled by a newer push, 7-day
+  artifacts); fast-forwarded under the lanes without conflict.
+- Gate: 5 review scenes / 32 suites. Ledger: 78 claims, 114 rows, 108 cards.
+- **Honest gaps:** nothing on the authored island produces fuel or water,
+  so every authored machine starves the hour after it is built; no
+  authored campaign raises a building or machine through the live bridge
+  inside 60 days, so P13's proof drives instances through a save round
+  trip and says so; five non-tomb rooms have no owning faction so their
+  building slots are null; Mesa's notice; Ayla's colours and kit; a
+  Composure rule the brief does not give.
+
+**Summary:** the simulation now closes its own loop — take ground, build,
+feed or starve, fall — and the board shows the buildings and machines it
+produces.
