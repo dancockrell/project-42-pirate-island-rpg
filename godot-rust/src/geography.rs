@@ -222,10 +222,51 @@ impl TryFrom<AuthoredAnchor> for AnchorDefinition {
     }
 }
 
+/// The status a content battle entry declares for a live one-time encounter --
+/// the authored fight that answers here once, before any habitat holder.
+pub const BATTLE_ENTRY_STATUS_VERTICAL_SLICE: &str = "vertical_slice_encounter";
+
+/// One battle entry exactly as `content/world/*.world_cell.json` authors it:
+/// the socket in a cell where a fight actually happens. Only the two fields
+/// that decide whether this place presents an encounter are read here --
+/// the rest of the authored record (world position, return and safe-retreat
+/// anchors, aftermath prose) is presentation, and serde ignores it.
+///
+/// B7: `habitat_id` is the second way an entry can be live. A one-time
+/// `vertical_slice_encounter` is content's own fight, answered once; a
+/// habitat-bound entry is the socket where whatever
+/// [`crate::habitat::Habitats`] currently holds this ground answers, day
+/// after day, through the same `begin_encounter` habitat path. Before this
+/// there was no content spelling for the second kind, so the tomb's service
+/// passage -- where the terrace precinct's guardian meets the party that
+/// took the wrong turn -- was eligible only in the Rust fixture.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize)]
+pub struct AuthoredBattleEntry {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub status: String,
+    /// The `habitat.*` stable ID whose holder fights at this entry, or `None`
+    /// for an entry no habitat is bound to. It is deliberately not carried
+    /// into [`CellDefinition`]: which habitat covers a cell is already
+    /// answered by that habitat's `territory_location_ids`, and a second copy
+    /// of that answer would drift from it.
+    #[serde(default, alias = "habitatId")]
+    pub habitat_id: Option<String>,
+}
+
+impl AuthoredBattleEntry {
+    /// Whether this entry presents a fight today: content's own one-time
+    /// encounter, or the habitat holder bound to it.
+    pub fn is_live(&self) -> bool {
+        self.status == BATTLE_ENTRY_STATUS_VERTICAL_SLICE || self.habitat_id.is_some()
+    }
+}
+
 /// One cell as Godot forwards it from the content catalog: the authored
-/// fields the simulation needs, with anchors in their authored shape.
-/// `TryFrom` turns it into a [`CellDefinition`]; the policies default, since
-/// content does not author them yet.
+/// fields the simulation needs, with anchors and battle entries in their
+/// authored shape. `TryFrom` turns it into a [`CellDefinition`]; the policies
+/// default, since content does not author them yet.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct AuthoredCell {
     pub id: String,
@@ -235,14 +276,34 @@ pub struct AuthoredCell {
     pub observation_ids: Vec<String>,
     #[serde(default)]
     pub anchors: Vec<AuthoredAnchor>,
-    #[serde(default)]
-    pub encounter_eligible: bool,
+    /// The cell's authored battle entries. Accepts the content spelling as
+    /// well as the wire spelling, like [`AuthoredAnchor`], so the equality
+    /// test reads content through the same struct the bridge reads the wire
+    /// through. `encounter_eligible` is derived from these and from nothing
+    /// else: the rule has one owner, here, rather than half of it in
+    /// GDScript.
+    #[serde(default, alias = "battleEntries")]
+    pub battle_entries: Vec<AuthoredBattleEntry>,
+}
+
+impl AuthoredCell {
+    /// Whether any authored battle entry in this cell is live. This is the
+    /// whole of the eligibility rule.
+    pub fn encounter_eligible(&self) -> bool {
+        self.battle_entries.iter().any(AuthoredBattleEntry::is_live)
+    }
 }
 
 impl TryFrom<AuthoredCell> for CellDefinition {
     type Error = ExpeditionError;
 
     fn try_from(authored: AuthoredCell) -> Result<Self, Self::Error> {
+        let encounter_eligible = authored.encounter_eligible();
+        for entry in &authored.battle_entries {
+            if let Some(habitat_id) = &entry.habitat_id {
+                require_stable_id("battle_entry.habitat_id", habitat_id)?;
+            }
+        }
         let anchors = authored
             .anchors
             .into_iter()
@@ -257,7 +318,7 @@ impl TryFrom<AuthoredCell> for CellDefinition {
             anchors,
             return_policy: ReturnPolicy::default(),
             persistence_policy: PersistencePolicy::default(),
-            encounter_eligible: authored.encounter_eligible,
+            encounter_eligible,
         })
     }
 }
@@ -347,12 +408,15 @@ impl Geography {
     /// and the bridge cannot disagree about what a graph is;
     /// `fixture_matches_the_authored_world_cells` holds it equal to the content.
     pub fn black_beach_vertical_slice() -> Self {
-        // `encounter_eligible` follows each authored cell's `battleEntries[].status`,
-        // not merely whether `battleEntries` is non-empty. Four of the five cells
-        // declare a `future_spawn_socket` -- a reserved place for an encounter that
-        // does not exist yet -- and only `world.cell.reception_terrace` declares a
-        // live `vertical_slice_encounter`. Keying on presence would put a fight on
-        // the whole coast today. The sockets become eligible when their entries do.
+        // `encounter_eligible` follows each authored cell's battle entries, not
+        // merely whether `battleEntries` is non-empty: an entry is live when it
+        // is a one-time `vertical_slice_encounter` or when it names the habitat
+        // that holds it. Keying on presence would put a fight on the whole coast
+        // today, because most entries are still `future_spawn_socket` -- a
+        // reserved place for an encounter that does not exist yet. Two cells are
+        // eligible: `world.cell.reception_terrace`, whose authored razorbeak
+        // answers once, and `world.cell.tomb_service_passage`, where the terrace
+        // precinct's habitat holder answers the wrong turn (D3).
         let cell = |id: &str,
                     display_name: &str,
                     observation_ids: &[&str],
@@ -1402,6 +1466,12 @@ mod tests {
         let mut authored_map_table: Option<(String, Option<String>, Option<String>)> = None;
         let mut authored_workshop_requirement: Option<String> = None;
         let mut authored_portal_ids_by_cell: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        // B7: eligibility and the habitat each live entry is bound to, read
+        // through `AuthoredCell` -- the same struct and the same rule the
+        // bridge runs, so the test cannot pass on a reading of content the
+        // game does not share.
+        let mut authored_encounter_eligible: BTreeMap<String, bool> = BTreeMap::new();
+        let mut authored_habitat_bindings: Vec<(String, String)> = Vec::new();
         #[allow(clippy::type_complexity)]
         let mut authored_portals: Vec<(
             String,
@@ -1498,6 +1568,18 @@ mod tests {
                 })
                 .collect();
             authored_observation_ids.insert(cell_id.clone(), observation_ids);
+            let battle_entries: Vec<AuthoredBattleEntry> =
+                serde_json::from_value(cell["battleEntries"].clone())
+                    .expect("an authored battle entry has the authored shape");
+            for entry in &battle_entries {
+                if let Some(habitat_id) = &entry.habitat_id {
+                    authored_habitat_bindings.push((cell_id.clone(), habitat_id.clone()));
+                }
+            }
+            authored_encounter_eligible.insert(
+                cell_id.clone(),
+                battle_entries.iter().any(AuthoredBattleEntry::is_live),
+            );
             authored_cell_ids.insert(cell_id);
         }
         assert!(
@@ -1638,6 +1720,47 @@ mod tests {
                 "{cell_id} declares different observations in the fixture"
             );
         }
+
+        // B7: and eligibility itself. B6 had to leave this one field out --
+        // content could say "a one-time encounter happens here" but had no way
+        // to say "the habitat that holds this ground fights here", so
+        // `world.cell.tomb_service_passage` was eligible in the fixture and
+        // nowhere else. A battle entry's `habitatId` is that spelling, so the
+        // tolerance goes and the two sides are equal on every field the
+        // simulation reads.
+        for (cell_id, encounter_eligible) in &authored_encounter_eligible {
+            let location = geography
+                .location(cell_id)
+                .unwrap_or_else(|| panic!("authored cell {cell_id} is missing from the fixture"));
+            assert_eq!(
+                location.encounter_eligible, *encounter_eligible,
+                "{cell_id} is encounter-eligible in the fixture but not in content/world/, or the other way round"
+            );
+        }
+
+        // A `habitatId` is a claim about the habitat registry, so it is held
+        // against it: the habitat must exist, and its territory must actually
+        // cover the cell whose entry names it. Otherwise a typo would make a
+        // cell eligible for a fight `begin_encounter` can never find, and the
+        // party would walk into an empty room the content promised a guardian
+        // in.
+        let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
+        assert!(
+            !authored_habitat_bindings.is_empty(),
+            "content/world/ must bind at least one battle entry to a habitat for this check to mean anything"
+        );
+        for (cell_id, habitat_id) in &authored_habitat_bindings {
+            let habitat = habitats.habitat(habitat_id).unwrap_or_else(|| {
+                panic!("{cell_id} binds a battle entry to {habitat_id}, which no habitat declares")
+            });
+            assert!(
+                habitat
+                    .territory_location_ids
+                    .iter()
+                    .any(|id| id == cell_id),
+                "{cell_id} binds a battle entry to {habitat_id}, whose territory does not cover it"
+            );
+        }
     }
 
     /// The bridge receives cells in the shape `native_expedition_port.gd`
@@ -1659,7 +1782,10 @@ mod tests {
                 "coin": 2,
                 "once_per_day": true
             }],
-            "encounter_eligible": false
+            "battle_entries": [{
+                "id": "battle_entry.black_beach.shoreline",
+                "status": "future_spawn_socket"
+            }]
         });
         let authored: AuthoredCell = serde_json::from_value(wire).expect("the wire shape parses");
         let cell = CellDefinition::try_from(authored).expect("a known kind converts");
@@ -1675,6 +1801,70 @@ mod tests {
             }]
         );
         assert_eq!(cell.observation_ids, vec!["observation.black_beach.wreck"]);
+        assert!(
+            !cell.encounter_eligible,
+            "a reserved socket is not a fight the world presents today"
+        );
+    }
+
+    /// B7's rule, both ways round, on the wire shape the port sends: an entry
+    /// bound to a habitat makes its cell eligible exactly as a live one-time
+    /// encounter does, and an entry that is neither leaves it alone.
+    #[test]
+    fn a_battle_entry_bound_to_a_habitat_makes_its_cell_encounter_eligible() {
+        let cell_with = |entry: serde_json::Value| {
+            let authored: AuthoredCell = serde_json::from_value(serde_json::json!({
+                "id": "world.cell.tomb_service_passage",
+                "region_id": "world.region.black_beach",
+                "display_name": "Service Passage of Returning Names",
+                "battle_entries": [entry],
+            }))
+            .expect("the wire shape parses");
+            CellDefinition::try_from(authored)
+        };
+
+        assert!(
+            cell_with(serde_json::json!({
+                "id": "battle_entry.tomb_service_passage.working_lane",
+                "status": "habitat_holder",
+                "habitat_id": "habitat.black_beach.terrace_precinct",
+            }))
+            .expect("a habitat-bound entry converts")
+            .encounter_eligible
+        );
+        assert!(
+            !cell_with(serde_json::json!({
+                "id": "battle_entry.tomb_service_passage.working_lane",
+                "status": "future_spawn_socket",
+            }))
+            .expect("a socket converts")
+            .encounter_eligible
+        );
+        // The content spelling, which the equality test reads, is the same
+        // struct: a rename on either side fails here.
+        assert!(
+            cell_with(serde_json::json!({
+                "id": "battle_entry.tomb_service_passage.working_lane",
+                "status": "habitat_holder",
+                "habitatId": "habitat.black_beach.terrace_precinct",
+            }))
+            .expect("the content spelling converts")
+            .encounter_eligible
+        );
+        // A malformed habitat ID is refused at configuration, naming the field,
+        // rather than making a cell eligible for a habitat nothing can resolve.
+        assert_eq!(
+            cell_with(serde_json::json!({
+                "id": "battle_entry.tomb_service_passage.working_lane",
+                "status": "habitat_holder",
+                "habitatId": "Terrace Precinct",
+            }))
+            .unwrap_err(),
+            ExpeditionError::InvalidStableId {
+                field: "battle_entry.habitat_id",
+                value: "Terrace Precinct".into(),
+            }
+        );
     }
 
     /// A kind the simulation has no rule for is refused at configuration,

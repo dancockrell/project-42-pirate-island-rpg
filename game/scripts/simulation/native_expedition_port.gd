@@ -60,17 +60,31 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 				if not value.is_empty():
 					forwarded_anchor[pair[1]] = value
 			anchors.append(forwarded_anchor)
-		var encounter_eligible := false
+		# B7: the cell's battle entries, forwarded rather than judged here.
+		# This used to send a single `encounter_eligible` bool that GDScript
+		# derived from `status == "vertical_slice_encounter"`, which meant the
+		# eligibility rule lived on this side and the tomb's service passage --
+		# whose fight is the terrace precinct's habitat holder, not a one-time
+		# authored encounter -- had no way to say so. The rule now has one
+		# owner, `AuthoredCell::encounter_eligible` in Rust, and this forwards
+		# the two authored fields it reads.
+		var battle_entries: Array[Dictionary] = []
 		for entry in cell.get("battleEntries", []):
-			if str(entry.get("status", "")) == "vertical_slice_encounter":
-				encounter_eligible = true
+			var forwarded_entry := {
+				"id": str(entry.get("id", "")),
+				"status": str(entry.get("status", ""))
+			}
+			var habitat_id := str(entry.get("habitatId", ""))
+			if not habitat_id.is_empty():
+				forwarded_entry["habitat_id"] = habitat_id
+			battle_entries.append(forwarded_entry)
 		cells.append({
 			"id": str(cell.get("id", "")),
 			"region_id": str(cell.get("regionId", "")),
 			"display_name": str(cell.get("displayName", "")),
 			"observation_ids": observation_ids,
 			"anchors": anchors,
-			"encounter_eligible": encounter_eligible
+			"battle_entries": battle_entries
 		})
 		for portal in cell.get("portals", []):
 			# Every field PortalDefinition reads, not only the endpoints. Until

@@ -230,18 +230,30 @@ fn geography_as_godot_forwards_it() -> Geography {
                 forwarded
             })
             .collect();
-        let encounter_eligible = cell["battleEntries"]
+        // B7: the port forwards each battle entry's id, status and (when it
+        // has one) habitat binding, and Rust derives eligibility from them.
+        let battle_entries: Vec<serde_json::Value> = cell["battleEntries"]
             .as_array()
             .into_iter()
             .flatten()
-            .any(|entry| entry["status"] == "vertical_slice_encounter");
+            .map(|entry| {
+                let mut forwarded = serde_json::json!({
+                    "id": entry["id"],
+                    "status": entry["status"],
+                });
+                if let Some(habitat_id) = entry["habitatId"].as_str() {
+                    forwarded["habitat_id"] = serde_json::Value::String(habitat_id.to_owned());
+                }
+                forwarded
+            })
+            .collect();
         let authored: AuthoredCell = serde_json::from_value(serde_json::json!({
             "id": cell_id,
             "region_id": cell["regionId"],
             "display_name": cell["displayName"],
             "observation_ids": observation_ids,
             "anchors": anchors,
-            "encounter_eligible": encounter_eligible,
+            "battle_entries": battle_entries,
         }))
         .expect("the forwarded cell has the wire shape");
         cells.push(CellDefinition::try_from(authored).expect("known anchor kinds"));

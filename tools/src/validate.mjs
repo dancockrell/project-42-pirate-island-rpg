@@ -615,6 +615,15 @@ for (const { file, value } of worldRecords) {
       }
       if (portal.requiredDiscoveryId !== undefined) reference(portal.requiredDiscoveryId, file, `portals[${index}].requiredDiscoveryId`);
     }
+    // B7: a battle entry's `status` says what, if anything, actually fights
+    // here, and it is now a closed set. `future_spawn_socket` is a reserved
+    // place with nothing in it; `vertical_slice_encounter` is content's own
+    // one-time fight; `habitat_holder` is the socket where whatever the named
+    // habitat currently holds answers, through `begin_encounter`'s existing
+    // habitat path rather than a second spawn rule. The last two are what make
+    // a cell encounter-eligible in godot-rust/src/geography.rs, so a status
+    // typo used to be a silently dead room.
+    const battleEntryStatuses = new Set(["future_spawn_socket", "vertical_slice_encounter", "habitat_holder"]);
     if (!Array.isArray(value.battleEntries) || value.battleEntries.length === 0) fail(file, "world cell requires one or more battle entries");
     else for (const [index, entry] of value.battleEntries.entries()) {
       requireString(entry, "id", file);
@@ -622,6 +631,14 @@ for (const { file, value } of worldRecords) {
       for (const field of ["returnAnchorId", "safeRetreatAnchorId"]) requireString(entry, field, file);
       if (!entryAnchorIds.has(entry.returnAnchorId)) fail(file, `battleEntries[${index}].returnAnchorId must name an entry anchor in this cell`);
       if (!entryAnchorIds.has(entry.safeRetreatAnchorId)) fail(file, `battleEntries[${index}].safeRetreatAnchorId must name an entry anchor in this cell`);
+      if (!battleEntryStatuses.has(entry.status)) fail(file, `battleEntries[${index}].status must be one of ${[...battleEntryStatuses].join(", ")}`);
+      if (entry.habitatId !== undefined) {
+        reference(entry.habitatId, file, `battleEntries[${index}].habitatId`);
+        if (typeof entry.habitatId === "string" && !entry.habitatId.startsWith("habitat.")) fail(file, `battleEntries[${index}].habitatId must use the habitat. prefix`);
+        if (entry.status === "future_spawn_socket") fail(file, `battleEntries[${index}] is bound to ${entry.habitatId} and is therefore not a future socket; use status habitat_holder or vertical_slice_encounter`);
+      } else if (entry.status === "habitat_holder") {
+        fail(file, `battleEntries[${index}].status is habitat_holder but no habitatId names the habitat that holds it`);
+      }
     }
     if (!Array.isArray(value.explorationActions) || value.explorationActions.length < 2) fail(file, "world cell requires two or more real exploration actions");
     else for (const [index, action] of value.explorationActions.entries()) {
@@ -951,7 +968,22 @@ for (const directoryName of packDirectoryNames) {
   if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "pack metadata.notes must record what the pack is and what it deliberately does not carry");
 }
 
-const intentionallyExternalPrefixes = ["skill.enemy."];
+// A habitat is a Rust registry (`Habitats::black_beach_vertical_slice` in
+// godot-rust/src/habitat.rs), not authored content, so a `habitat.*` reference
+// resolves outside this ID map exactly as an enemy skill does. A content twin
+// under `content/habitats/` -- the way `content/loot/` owns the drop tables the
+// same registry names -- is the right end state and is deliberately NOT faked
+// here: a habitat record is mostly its roster, and the roster names creature
+// definition IDs content does not declare (`enemy.boar.thunderback` and
+// `enemy.raptor.razorbeak.crested` exist nowhere in content/enemies/, and the
+// records that do exist carry a `.prototype` suffix the registry does not).
+// Authoring a twin today would mean inventing those creatures or writing a
+// half-record that answers "what is a habitat" differently from the registry,
+// and two answers drift. What holds the two sides together instead is
+// `geography::tests::fixture_matches_the_authored_world_cells`, which fails
+// unless every authored `habitatId` names a habitat the registry actually has
+// and that habitat's territory covers the cell binding it.
+const intentionallyExternalPrefixes = ["skill.enemy.", "habitat."];
 for (const item of references) {
   if (!ids.has(item.id) && !intentionallyExternalPrefixes.some(prefix => item.id.startsWith(prefix))) {
     fail(item.file, `${item.field} references missing stable ID ${item.id}`);
