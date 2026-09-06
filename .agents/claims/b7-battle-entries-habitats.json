@@ -5,7 +5,7 @@
   "summary": "A battle entry may declare the habitat that holds it, so a cell whose fight is the habitat holder's is encounter-eligible from content alone; the fixture/content equality test then compares encounter_eligible and B6's last Rust-side-only field goes.",
   "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
-  "updated_at": "2026-09-06T10:45:00Z",
+  "updated_at": "2026-09-06T11:05:00Z",
   "paths": [
     "content/world/reception_terrace.world_cell.json",
     "content/world/tomb_service_passage.world_cell.json",
@@ -45,7 +45,7 @@
       "Bite, the validator side: habitatId deleted leaving status habitat_holder; node tools/src/validate.mjs FAILED with 'content/world/tomb_service_passage.world_cell.json: battleEntries[0].status is habitat_holder but no habitatId names the habitat that holds it': failed",
       "Bite, restored: cargo test --lib fixture_matches (geography + habitat twins) and node tools/src/validate.mjs: passed",
       "Merged origin/backend/b0-expedition-state (030bef3, campaign_session.gd is_inside_tree guard) into the lane at 786bdf4 before judging CI, per the coordinator's note that the red save_slots_test.gd on 2ec3243 was a trunk fault: passed",
-      "CI 'Verify' run 34024063896 on lane/B7-battle-entries-habitats at 2cb30d2: 'Rust and content' passed fmt and the full Rust test suite, then sat in 'Check the Godot extension build' for over eighty minutes while 'Godot headless suites' sat in 'Build the native bridge'. Both jobs were still in_progress when this claim was written -- the runners are contended by the parallel lanes, not failing -- so the Godot gate for this branch is UNPROVEN here and the integrator must read https://github.com/dancockrell/project-42-pirate-island-rpg/actions/runs/34024063896 before shipping the row. No Godot binary exists in the authoring container, so it cannot be proven locally: not_run"
+      "CI 'Verify' run 34024063896 on lane/B7-battle-entries-habitats at 2cb30d2: both jobs green. 'Rust and content' -- fmt, the full Rust test suite, cargo check --features godot-ext, validate.mjs, check-claims.mjs and the stale-bundle gate. 'Godot headless suites' -- every game/tests/*.gd suite under the pinned Godot 4.7.2-stable against the real GDExtension bridge, with 'Prove the real bridge loaded, not the mock' green, which is the proof for the reshaped configure payload native_expedition_port.gd now sends (battle_entries in place of the encounter_eligible bool). No Godot binary exists in the authoring container, so this was proven in CI rather than locally. Recorded honestly: an earlier revision of this claim called the Godot gate not_run because the Actions API served stale in_progress job data for over an hour after the jobs had in fact completed at 09:16Z: passed"
     ]
   }
 }
