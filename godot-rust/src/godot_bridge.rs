@@ -18,7 +18,7 @@ use crate::strategy::faction::{
     FactionDefinition, FactionDefinitions, FactionError, StrategicState,
 };
 use crate::strategy::journal::JournalEntry;
-use crate::strategy::production::MachineDefinitions;
+use crate::strategy::production::{MachineDefinition, MachineDefinitions, ProductionError};
 use crate::strategy::site_rule::{AuthoredSiteRule, AuthoredSiteRuleError, SiteRules};
 use crate::strategy::utility::Goal;
 use crate::world::WorldEvent;
@@ -65,6 +65,15 @@ struct Project42ExpeditionBridge {
     /// exactly as it did before.
     #[init(val = BuildingDefinitions::new())]
     buildings: BuildingDefinitions,
+    /// B19: C14's `content/machines/*.json`, as Godot forwards them. Loaded by
+    /// `configure` beside the building registry and handed to every midnight,
+    /// so S16's production hour can look up the record a machine rule names
+    /// instead of journaling a skip against a registry the bridge built empty.
+    /// Empty until a configuration supplies records -- a payload authored
+    /// before B19 still loads, and the hour then skips exactly as it did
+    /// before.
+    #[init(val = MachineDefinitions::new())]
+    machines: MachineDefinitions,
     /// A7: `content/site_rules/*.json`, as Godot forwards them. Loaded by
     /// `configure` beside the faction and building registries, for the same
     /// reason both of those are: `Battle` stands under the rules a cell
@@ -112,6 +121,12 @@ struct ExpeditionConfiguration {
     /// configure.
     #[serde(default)]
     buildings: Vec<BuildingDefinition>,
+    /// The authored machine records, in the field names [`MachineDefinition`]
+    /// already reads, forwarded verbatim by `native_expedition_port.gd`.
+    /// `serde(default)` for the same reason `factions` and `buildings` carry
+    /// it: a payload that names no machines must still configure.
+    #[serde(default)]
+    machines: Vec<MachineDefinition>,
     /// The authored site-rule records, in the field names
     /// [`AuthoredSiteRule`] already reads. `serde(default)` for the same
     /// reason `factions` and `buildings` carry it.
@@ -272,6 +287,22 @@ impl Project42ExpeditionBridge {
             }
         }
         self.buildings = buildings;
+        // B19: and the machine registry, on the same terms.
+        // `MachineDefinitions::insert` runs `MachineDefinition::validate` -- a
+        // stable ID under the `machine.` prefix -- and refuses a duplicate
+        // record, so a record that breaks either refuses the whole
+        // configuration here at the boundary rather than reaching a production
+        // hour and being read as a machine nobody authored.
+        let mut machines = MachineDefinitions::new();
+        for definition in configuration.machines {
+            if let Err(error) = machines.insert(definition) {
+                return expedition_error_dictionary(&format!(
+                    "expedition_configuration_invalid:{}",
+                    machine_error_code(&error)
+                ));
+            }
+        }
+        self.machines = machines;
         // A7: and the site-rule registry, on the same terms.
         // `SiteRules::insert` runs `AuthoredSiteRule::validate` -- a stable ID
         // under the `site_rule.` prefix, a display name, and an `effect` that
@@ -302,6 +333,7 @@ impl Project42ExpeditionBridge {
             &self.geography,
             &self.factions,
             &self.buildings,
+            &self.machines,
         )
     }
 
@@ -310,7 +342,13 @@ impl Project42ExpeditionBridge {
         self.state
             .as_ref()
             .map(|state| {
-                expedition_state_dictionary(state, &self.geography, &self.factions, &self.buildings)
+                expedition_state_dictionary(
+                    state,
+                    &self.geography,
+                    &self.factions,
+                    &self.buildings,
+                    &self.machines,
+                )
             })
             .unwrap_or_else(|| expedition_error_dictionary("expedition_not_configured"))
     }
@@ -326,7 +364,13 @@ impl Project42ExpeditionBridge {
         // Arrival presents whatever the world actually holds here: an authored
         // trigger, a hunter that caught up, or today's habitat holder.
         state.begin_encounter(&self.geography, &self.habitats);
-        expedition_state_dictionary(state, &self.geography, &self.factions, &self.buildings)
+        expedition_state_dictionary(
+            state,
+            &self.geography,
+            &self.factions,
+            &self.buildings,
+            &self.machines,
+        )
     }
 
     /// The one "do something here" verb, projected. Salvage the wreck, open a
@@ -365,8 +409,13 @@ impl Project42ExpeditionBridge {
             "discoveries_recorded" => &discoveries,
             "upgrades_recorded" => &upgrades,
         };
-        let mut result =
-            expedition_state_dictionary(state, &self.geography, &self.factions, &self.buildings);
+        let mut result = expedition_state_dictionary(
+            state,
+            &self.geography,
+            &self.factions,
+            &self.buildings,
+            &self.machines,
+        );
         result.set("anchor_outcome", &anchor_outcome);
         result
     }
@@ -392,7 +441,13 @@ impl Project42ExpeditionBridge {
         {
             return expedition_error_dictionary(expedition_error_code(&error));
         }
-        expedition_state_dictionary(state, &self.geography, &self.factions, &self.buildings)
+        expedition_state_dictionary(
+            state,
+            &self.geography,
+            &self.factions,
+            &self.buildings,
+            &self.machines,
+        )
     }
 
     /// Midnight, as the one atomic transaction `ExpeditionState` already owns:
@@ -410,14 +465,13 @@ impl Project42ExpeditionBridge {
             &self.habitats,
             &self.factions,
             &self.buildings,
-            // S16: the tick runs production timers, and a machine rule names
-            // a `machine.<...>` record. C14 authored `content/machines/`, but
-            // the port does not forward those records yet -- that is B19, and
-            // it hands a built registry in exactly here -- so the bridge hands
-            // the hour an empty one today and a machine rule that comes due
-            // journals a skip naming the record it could not find. Nothing
-            // here pretends to carry machine content.
-            &MachineDefinitions::new(),
+            // B19: the tick runs production timers, and a machine rule names a
+            // `machine.<...>` record. C14 authored `content/machines/`, the
+            // port forwards those records, and `configure` validated them into
+            // the registry handed in here -- so a rule that comes due makes the
+            // machine the record describes rather than journaling a skip
+            // against a lookup that could never succeed.
+            &self.machines,
         ) {
             Ok(events) => events,
             Err(error) => return expedition_error_dictionary(expedition_error_code(&error)),
@@ -426,8 +480,13 @@ impl Project42ExpeditionBridge {
         for event in &events {
             projected.push(&world_event_dictionary(event));
         }
-        let mut result =
-            expedition_state_dictionary(state, &self.geography, &self.factions, &self.buildings);
+        let mut result = expedition_state_dictionary(
+            state,
+            &self.geography,
+            &self.factions,
+            &self.buildings,
+            &self.machines,
+        );
         result.set("events", &projected);
         result
     }
@@ -463,8 +522,13 @@ impl Project42ExpeditionBridge {
         for event in &events {
             projected.push(&world_event_dictionary(event));
         }
-        let mut result =
-            expedition_state_dictionary(state, &self.geography, &self.factions, &self.buildings);
+        let mut result = expedition_state_dictionary(
+            state,
+            &self.geography,
+            &self.factions,
+            &self.buildings,
+            &self.machines,
+        );
         result.set("events", &projected);
         result
     }
@@ -694,6 +758,7 @@ impl Project42ExpeditionBridge {
             &self.geography,
             &self.factions,
             &self.buildings,
+            &self.machines,
         )
     }
 
@@ -852,6 +917,7 @@ fn expedition_state_dictionary(
     geography: &Geography,
     factions: &FactionDefinitions,
     buildings: &BuildingDefinitions,
+    machines: &MachineDefinitions,
 ) -> VarDictionary {
     let mut party_ids = Array::<GString>::new();
     for id in &state.party_ids {
@@ -974,6 +1040,16 @@ fn expedition_state_dictionary(
     for building_id in buildings.ids() {
         building_ids.push(&GString::from(building_id));
     }
+    // B19: and which authored machine records it is holding, on exactly the
+    // same terms. Ids only: a crew requirement or a fuel count crossing here
+    // would be the record being read through the wrong door, and what is
+    // *standing* on the island is `ExpeditionState::machines` and is not
+    // projected here -- a `machines` array that mixed records with instances
+    // would be two answers to one key.
+    let mut machine_ids = Array::<GString>::new();
+    for machine_id in machines.ids() {
+        machine_ids.push(&GString::from(machine_id));
+    }
     let mut result = vdict! {
         "configured" => true,
         "save_version" => i64::from(state.save_version),
@@ -1039,6 +1115,7 @@ fn expedition_state_dictionary(
             .unwrap_or(""),
     );
     result.set("is_night", crate::habitat::is_night(&state.time_segment));
+    result.set("machines", &machine_ids);
     result.set("metadata", &metadata);
     result
 }
@@ -1173,6 +1250,36 @@ fn building_error_code(value: &BuildingError) -> &'static str {
         BuildingError::RequirementsNotMet { .. } => "requirements_not_met",
         BuildingError::WrongState { .. } => "wrong_building_state",
         BuildingError::AlreadyHeld { .. } => "already_held",
+    }
+}
+
+/// What went wrong loading an authored machine record, named. Exhaustive for
+/// the same reason `faction_error_code` and `building_error_code` are: a new
+/// `ProductionError` cannot be added without this boundary being told what to
+/// call it. Godot reads the name after the `expedition_configuration_invalid:`
+/// prefix. `MachineDefinitions::insert` can only raise the first three of
+/// these, but the enum is one vocabulary for the whole production lane, so the
+/// rest are named here rather than collapsed into a catch-all that would go
+/// stale the day `insert` learns another rule.
+fn machine_error_code(value: &ProductionError) -> &'static str {
+    match value {
+        ProductionError::MalformedId(error) => expedition_error_code(error),
+        ProductionError::WrongIdPrefix { .. } => "wrong_id_prefix",
+        ProductionError::DuplicateDefinition { .. } => "duplicate_machine_definition",
+        ProductionError::Duplicate { .. } => "duplicate_machine",
+        ProductionError::UnknownDefinition { .. } => "unknown_machine_definition",
+        ProductionError::MichaelActorKitNamesANonMachine { .. } => {
+            "michael_actor_kit_names_a_non_machine"
+        }
+        ProductionError::UnknownBuilding { .. } => "unknown_building",
+        ProductionError::NoSuchRule { .. } => "no_such_production_rule",
+        ProductionError::NotOperational { .. } => "building_not_operational",
+        ProductionError::BelowMinimumTier { .. } => "below_minimum_tier",
+        ProductionError::NotAMachineRule { .. } => "not_a_machine_rule",
+        ProductionError::FamilyMismatch { .. } => "machine_family_mismatch",
+        ProductionError::UnknownFaction { .. } => "unknown_faction",
+        ProductionError::InsufficientResource { .. } => "insufficient_resource",
+        ProductionError::Building(error) => building_error_code(error),
     }
 }
 

@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "task_id": "b19-machines-through-the-bridge",
+  "agent": "claude-opus-5-lane-b19",
+  "summary": "B19: the bridge loads content/machines/ and hands the validated MachineDefinitions to the tick, so S16's production hour reads C14's authored records instead of the empty registry the bridge hands it today",
+  "status": "completed",
+  "claimed_at": "2026-09-06T08:00:00Z",
+  "updated_at": "2026-09-06T12:20:00Z",
+  "paths": [
+    "game/scripts/simulation/native_expedition_port.gd",
+    "game/tests/expedition_prototype_test.gd",
+    "godot-rust/src/godot_bridge.rs",
+    "godot-rust/tests/authored_world.rs"
+  ],
+  "symbols": [
+    "ExpeditionConfiguration.machines",
+    "Project42ExpeditionBridge.configure",
+    "Project42ExpeditionBridge.resolve_midnight",
+    "machine_error_code",
+    "NativeExpeditionPort.configure_from_catalog"
+  ],
+  "coordination": {
+    "depends_on": [
+      "C14",
+      "S16",
+      "B15",
+      "B16"
+    ],
+    "conflicts_with": [
+      "S17"
+    ],
+    "notes": "B15's and B16's shape, repeated for machines. S17 runs in parallel on godot-rust/tests/strategic_determinism.rs; this lane does not touch that file -- the harness already loads content/machines/ (the_authored_machines) and hands it to the hash claims, which is exactly what this card asked to confirm. Nothing under strategy/, content/, tools/ or docs/SHIP_PLAN.md is touched: the only production change is the bridge boundary. Left standing and reported to the integrator, not caused by this lane: game/tests/paper_razorbeak_rig_test.gd fails two assertions (\"an individual Razorbeak must recoil from Betty's impact\", \"the hit reaction must visibly open the Razorbeak jaw\") and E3's no-ERROR rule turns that into a red Godot gate. Reproduced identically on trunk a1869b8 with this lane's commit checked out of the way, so it is pre-existing and belongs to game/scripts/battle/paper_razorbeak_rig.gd's owner; nothing here touches it. Every other suite in the gate, including this card's, passed on the same run."
+  },
+  "completion": {
+    "commit": "7fcb0c3",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml -- 351 unit + 7 authored_world + 5 save_migration + 9 strategic_determinism + 1 vertical_slice = 373: passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs -- 434 stable IDs, 2 machine records: passed",
+      "node tools/src/check-claims.mjs -- 59 claims, 105 ship-plan rows, 99 cards: passed",
+      "node tools/src/build-content-bundle.mjs -- 227 records, sha256:aa422c40d44ef4bc9a3fe0a630f79cda9e635e9b03cbb0fd4ae0335a7efb5095, git diff --quiet game/generated/ clean on the committed tree: passed",
+      "bite: machines dropped from the build-content-bundle.mjs domain list and the bundle regenerated -- the_authored_machines_reach_the_bridge_and_validate failed at tests/authored_world.rs:212, \"the Godot bundle must carry C14's two machine records, ascending by ID\", left: [] against right: [\"machine.mechanical_dog\", \"machine.steam_wagon\"]; restored, bundle regenerated clean, green: passed",
+      "local headless Godot gate on the committed tree (Godot 4.7.2-stable, debug GDExtension from tools/build-native-bridge.sh) -- \"==> Suite expedition_prototype_test.gd ... Expedition prototype tests passed.\" with the new two-machine-ID assertion, through the real bridge and no ERROR line: passed",
+      "local headless Godot gate overall -- game/tests/paper_razorbeak_rig_test.gd printed two push_error lines and the gate refused the run: failed",
+      "the same two razorbeak assertions reproduced on trunk a1869b8 with this lane's commit checked out of the way, so the gate failure is pre-existing and not this card's: passed",
+      "CI Verify run 34031601564 on 7fcb0c3 -- \"Rust and content\" every step success (fmt, tests, godot-ext check, validate, claims gate, bundle freshness) and \"Scene captures\" every step success: passed",
+      "CI Verify run 34031601564 on 7fcb0c3, \"Godot headless suites\" -- \"Expedition prototype tests passed.\" and every other suite green, then paper_razorbeak_rig_test.gd's two pre-existing push_error lines failed the gate step: failed"
+    ]
+  }
+}
