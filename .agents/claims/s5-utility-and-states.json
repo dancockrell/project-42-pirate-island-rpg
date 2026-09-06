@@ -3,7 +3,7 @@
   "task_id": "s5-utility-and-states",
   "agent": "claude-opus-5-lane-s5",
   "summary": "S5: BoardView, recompute_strategic_state and choose_goals -- the five strategic states and abstract goals recomputed from the board every strategic hour",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -27,10 +27,19 @@
       "S4"
     ],
     "conflicts_with": [],
-    "notes": "faction.rs is S1's file; S5 touches it for exactly one appended #[serde(default)] field, current_goals, as the lane brief allows. tick.rs is edited only inside run_hour: the PURPOSES list, its order and the digest fold are untouched. expedition.rs, journal.rs, clocks.rs, godot_bridge.rs, game/, content/, tools/ and docs/SHIP_PLAN.md are left alone -- other lanes are in expedition.rs right now. run_hour deliberately does not read FactionDefinitions this round so strategic_determinism.rs::the_registry_cannot_change_a_tick_yet keeps passing; GoalWeights::from_definition is the seam left for it."
+    "notes": "faction.rs is S1's file; S5 touches it for exactly one appended #[serde(default)] field, current_goals, as the lane brief allows. tick.rs is edited only inside run_hour: the PURPOSES list, its order and the digest fold are untouched. expedition.rs, journal.rs, clocks.rs, godot_bridge.rs, game/, content/, tools/ and docs/SHIP_PLAN.md are left alone -- other lanes are in expedition.rs right now. run_hour deliberately does not read FactionDefinitions this round so strategic_determinism.rs::the_registry_cannot_change_a_tick_yet keeps passing; GoalWeights::from_definition is the seam left for it. Shipped: run_hour consumes strategic.goal and deliberately does not read strategic.board_position -- the card requires the board position to be recomputed from the board, so no draw enters recompute_strategic_state; the purpose keeps its slot and the digest fold is unchanged. All thresholds, weights and the affinity table are provisional first numbers, each documented beside itself."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "4983a94",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed (no diff)",
+      "cargo test --manifest-path godot-rust/Cargo.toml: passed (206 lib + 3 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice = 222)",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs: passed (200 stable IDs, 12 placeholders tracked)",
+      "cargo clippy --all-targets: no warning in strategy/utility.rs, strategy/tick.rs or the appended faction.rs field",
+      "bite -- recompute_strategic_state returning Contesting unconditionally: 5 tests failed including the Done-when a_desperate_faction_recovers_and_an_advantaged_one_expands: restored",
+      "bite -- board_position term zeroed in score(): the Done-when and one_strategic_hour_recomputes_every_factions_position_and_goals failed: restored",
+      "tests/save_migration.rs and tests/strategic_determinism.rs unchanged and green, the_registry_cannot_change_a_tick_yet included"
+    ]
   }
 }
