@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 (S16 and S17 are additions outside the bracket) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `7a715f7`. If this line is older than
+- Last updated 2026-09-06 against trunk `1a03dd7`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -496,7 +496,7 @@ captured by P1's gate, and no card claims a look it has not captured.
 | P4 | The isometric board (B11 + B12): room cells with board metadata, three distances, party miniatures, ownership tint, forces in motion | P2, S2, S7, O3 (provisional) | open |
 | P5 | The bronze-and-vellum grammar (D11) and the calm information surface (B13): one Theme, the card rail, the command grid, journal and directive surfaces, accessibility wired | S6, S11, B9 | open |
 | P6 | Battle presentation: skill VFX and camera beats from the registries, hit-stop, band motion, site-rule ambience, the paper rigs until models | A5, A7, C3 | open |
-| P7 | RTS controls on the board (B18 resumed): select, then order a move by tile, words or hotkey; the drawn markers go | B14 | open |
+| P7 | RTS controls on the board (B18 resumed): select, then order a move by tile, words or hotkey; the drawn markers go | B14 | shipped 1a03dd7 2026-09-06 |
 | P8 | The shell: title, new game, continue, settings, pause, save slots, loading; one scene flow shell → expedition → battle and back | B8, B9 | open |
 | P9 | Audio: buses, ambience by region, time and weather, cues keyed to battle events, a music state machine; procedural placeholders until assets | P3 | open |
 
@@ -2619,12 +2619,27 @@ bridge and asserts the effect node named by the record was instantiated
 and cleaned up; six captures across a fight, committed.
 
 ### P7 · RTS controls on the board (B18 resumed)
-Status: open · Depends on: B14
+Status: shipped `1a03dd7` 2026-09-06 · Depends on: B14
 The B18 card as written, on P4's board when it exists and on the current
 route board until then: left-click selects, right-click on a tile orders
 the move, the words and digit hotkeys issue the same order, the drawn
 markers and legend go; every path is `request_travel`. Owner's words in
 B18's card. Done when: B18's done-when; a capture with the markers gone.
+**Shipped:** `draw_portal`, the midpoint dots and the legend deleted;
+reachability is a tile tint read from the native legal list; left-click on
+the party's tile or its card selects (a ring), left-click elsewhere only
+inspects (name, risk, contested from `route_options`), right-click orders
+the move or refuses in the status line with no bridge call, the words and
+digits 1–9 issue the same order, all through `order_move_along` →
+`request_travel`; every control inert while paused. The board emits
+`tile_selected`/`move_ordered` and never touches the bridge, so P4's 3D
+board adopts the grammar by calling the same three hooks. The look: isometric
+tile glyphs with state plates, a filled river ribbon (the polyline read as
+neon tape on the capture and was replaced), coast contours, a breathing ring
+stilled under reduced motion, a status line in the party's voice. Suite: one
+move each way lands on the same cell; an unreachable right-click leaves the
+snapshot byte-identical; a left-click never travels; proven to bite. Captures
+`P7-a954666-{before,after}.png`.
 
 ### P8 · The shell
 Status: open · Depends on: B8, B9
