@@ -34,7 +34,7 @@
     "notes": "P7 is B18 resumed; the stopped B18 lane pushed a claim and no code, so this claim replaces it rather than joining it. Branched from origin/backend/b0-expedition-state at f5d26d1. Godot-only lane: no Rust, no port, no campaign_session.gd, no content, no docs/SHIP_PLAN.md. draw_portal and its midpoint dot are deleted rather than hidden -- move 3, the feature goes -- and the reachability those lines carried becomes the tint on the tile, which is the same snapshot fact drawn once instead of twice. Legality stays where it is: the native legal_route_commands list is the only judge, and portal_from_active_cell_to is a lookup inside that list, not a second check. The board owns the cell-to-portal mapping because it already builds the catalog portal list; the prototype asks it rather than keeping a second copy. request_travel remains the single path to the bridge -- the words, the right-click and the hotkey all end in it -- and the mouse and key handlers call the same three hooks a suite calls, so there is one code path per order and not two. Reduced motion is read from SettingsPanel's own SETTINGS_PATH and SECTION constants rather than copied, and no file under game/scripts/ui/ is edited. P4 is building the 3D board in parallel and will adopt these controls through the same three functions."
   },
   "completion": {
-    "commit": "5aa991c",
+    "commit": "d212f40",
     "checks": [
       "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
       "cargo test --manifest-path godot-rust/Cargo.toml (347 lib + 6 authored_world + 5 save_migration + 8 strategic_determinism + 1 vertical_slice; no Rust was touched in this lane): passed",
@@ -54,7 +54,8 @@
       "Bite: select_tile's non-active branch made to call order_move_to_tile -- a left-click that travels, the exact defect the card forbids. The suite exited 1 naming 'a left-click on another tile must look at it and never travel'; restored and the suite passed again: failed",
       "Captures committed and looked at: docs/verification/captures/P7-a954666-before.png (portal lines, teal midpoint dots, the legend) and P7-a954666-after.png (none of the three; isometric tiles lit by reachability, the ringed party, the digit on the departure). Both from the real scene through the live bridge, offscreen on the compatibility renderer at 1280x720: passed",
       "The selection ring's pulse is driven by accumulated frame delta, never a wall clock, and is switched off -- ring drawn at rest, _process disabled -- when the settings surface's reduced_motion is set. No automated proof: the suites are headless and never draw: not_run",
-      "P4's 3D board is not touched and cannot be: it is a parallel lane. It adopts this grammar by calling the same select_tile, order_move_to_tile and press_route_hotkey on ExpeditionPrototype: not_run"
+      "P4's 3D board is not touched and cannot be: it is a parallel lane. It adopts this grammar by calling the same select_tile, order_move_to_tile and press_route_hotkey on ExpeditionPrototype: not_run",
+      "Follow-up on the committed tree: the key handler asks GamePause before marking the digit handled, so a paused screen no longer swallows a key it refuses to act on; expedition_prototype_test.gd rerun green after it: passed"
     ]
   }
 }
