@@ -415,6 +415,8 @@ top of the document is never stale:
 | B13 | Calm information surface: ambient / notable / urgent | S6, B12 | open |
 | B14 | Control and risk surface: `set_control`, `controller_of`, `effective_risk`, `contested` on routes | S2, B3 | shipped 58fbdb3 2026-09-06 |
 | B15 | The bridge loads the faction records and hands the registry down; S5's seam closed | C9, S5 | shipped 777a943 2026-09-06 — the seam is closed as an honest negative until a record carries a real weight |
+| B16 | The bridge loads the building records and hands the registry to the tick; S10's sweep reads real buildings | C10, S10 | open |
+| B17 | A battle is built from the campaign: bond ranks reach the fight | A10 | open |
 
 ### Lane C — Content and validator (`content/`, `tools/src/validate.mjs`)
 
@@ -1360,12 +1362,35 @@ record, with `every_authored_skill_has_its_authored_rank` extended to it).
 
 ### B6 · World cells for the tomb interior
 Status: open · Depends on: A2
+Touches: `content/world/tomb_*.world_cell.json` (new), `game/generated/content_bundle.json`
+(regenerated), `godot-rust/src/geography.rs` (the equality test only).
+D3 put four tomb cells in the Rust fixture — threshold, reception, archive
+core, service passage — with their portals, discovery gate and the service
+passage's anchor; `content/world/` carries none of them, so the map the
+frontend draws stops at the terrace. Author the four cells in the shape the
+existing cells use, values read from the fixture verbatim, and widen
+`fixture_matches_the_authored_world_cells` so it holds the whole graph
+equal, not the beach alone. Content owns, Rust carries.
+Done when: the equality test covers every fixture cell and bites when a
+tomb portal is removed from either side; validator and bundle green.
 
 ### B7 · Battle-entry sockets bound to habitat holders
 Status: open · Depends on: B3
 
 ### B8 · New game, save slots, continue
 Status: open · Depends on: E6
+Touches: `godot-rust/src/godot_bridge.rs` (`save_json` / `load_json` on the
+expedition bridge, appended), `game/scripts/campaign/campaign_session.gd`
+(new game, save to a slot, continue from the newest slot),
+`game/scripts/simulation/*_port.gd` (the port pair agrees on the shape),
+`game/tests/save_slots_test.gd` (new).
+`ExpeditionState` serialises deterministically and E6 proves migration, but
+nothing in Godot can write it to disk: the bridge exposes no save. Slots
+live under `user://saves/<slot>.json`; continue picks the newest by the
+save's own day and hour, never by file time. A load that fails migration is
+refused with the bridge's reason, never silently replaced by a new game.
+Done when: the suite saves, quits the session, continues, and gets the same
+legal actions; a corrupted slot is refused with a reason; the Godot job green.
 
 ### B9 · Settings, accessibility, and pause **(brief)**
 Adds to the first edition: a global pause that stops the character scene,
@@ -1496,6 +1521,45 @@ Open brief question. `the_authored_registry_changes_the_tick` pins that
 equality as a negative and proves the wiring against a probe record with one
 weighted signal; reverting `run_hour` fails it. The day content carries a
 real weight, the negative flips on its own.
+
+### B16 · The bridge loads the building records and hands the registry to the tick
+Status: open · Depends on: C10, S10
+Touches: `game/scripts/simulation/native_expedition_port.gd` (forward
+`building.*` records), `godot-rust/src/godot_bridge.rs` (`configure` builds a
+validated `BuildingDefinitions`, refusing configuration if any record fails
+`validate`), `godot-rust/src/expedition.rs` (`resolve_midnight_in` and
+`strategic_tick` gain the registry; every caller repaired),
+`godot-rust/src/strategy/elimination.rs` (the sweep receives it instead of
+`BuildingDefinitions::new()`), `godot-rust/tests/strategic_determinism.rs`
+and `tests/authored_world.rs` (the harness loads `content/buildings/`).
+B15's shape, repeated for buildings: C10 put the records in the bundle, S10
+wrote its sweep against an empty registry and read every unlookupable
+building conservatively. This card threads the real registry through the
+one entry point so the honest gap closes. No new behaviour beyond the
+threading: no timer produces, no building is placed by the tick.
+Done when: the harness runs the authored island with the building registry
+loaded and reproduces; a probe test places one of C10's buildings for a
+faction, ruins it, and the sweep reports `RecoveryLink::OperationalCore`
+lost — proven to bite by reverting the threading; the Godot job green.
+
+### B17 · A battle is built from the campaign: bond ranks reach the fight
+Status: open · Depends on: A10
+Touches: `godot-rust/src/battle.rs` (one constructor that takes the ranks),
+`godot-rust/src/godot_bridge.rs` (`begin_pending_battle` and
+`create_debug_battle` read `ExpeditionState::bond_ranks`), `game/tests/`
+(one assertion in the native port suite).
+A10 named the seam plainly: no `Battle` is built from `ExpeditionState`, so
+`Actor.bond_rank` is fixture data. This card makes `Actor.bond_rank` a copy of
+`bond_ranks[woman]` at both constructors, falling back to the floor for a
+woman the map does not know and to the fixture for actors who are not women.
+Traps: the debug battle must keep showing Betty's whole kit for the review
+scenes — so the debug constructor reads the map *and* the prototype suites
+that assert her SSS commands must set the rank they need through the
+campaign, not by exempting the debug path.
+Done when: a Rust test builds a battle from a campaign at rank D and Betty's
+rank C command is refused through the bridge's own path; raising the rank by
+recording the burial milestone makes the same command legal; the Godot job
+green.
 
 ### Lane C — new cards
 
@@ -1888,6 +1952,16 @@ Rule: a save fixture is generated by the code, never hand-written.
 
 ### E7 · Crash log with state snapshot; no silent telemetry
 Status: open · Depends on: —
+Touches: `game/scripts/diagnostics/crash_log.gd` (new autoload),
+`game/project.godot` (autoload), `game/tests/crash_log_test.gd` (new).
+On `NOTIFICATION_CRASH` and on an explicit `record_failure(reason)` the
+autoload writes `user://logs/crash-<day>-<hour>-<n>.json` carrying the
+reason, the last expedition snapshot the session handed it, the content
+bundle hash and the engine version. Nothing leaves the machine: no HTTP, no
+analytics, no upload prompt — the file is the whole feature.
+Done when: the suite triggers `record_failure` and reads the file back with
+the snapshot inside; a grep of `game/scripts/` for `HTTPRequest` and
+`HTTPClient` prints nothing; the Godot job green.
 
 ### E8 · Claims enforcement in CI
 Status: shipped 528773b 2026-09-06 · Depends on: E1
