@@ -414,6 +414,7 @@ top of the document is never stale:
 | B12 | The isometric board: world / route / room distances | B11, S2, O1 | open |
 | B13 | Calm information surface: ambient / notable / urgent | S6, B12 | open |
 | B14 | Control and risk surface: `set_control`, `controller_of`, `effective_risk`, `contested` on routes | S2, B3 | shipped 58fbdb3 2026-09-06 |
+| B15 | The bridge loads the faction records and hands the registry down; S5's seam closed | C9, S5 | open |
 
 ### Lane C — Content and validator (`content/`, `tools/src/validate.mjs`)
 
@@ -1255,6 +1256,36 @@ own `CONTESTED_RISK_MODIFIER := 2` as the expected value (accepted — a fourth
 `ownership` over the graph's owner a second time beside the closure inside
 `Geography::effective_risk` — unified by the integrator into one public
 `Geography::held_by` immediately after the merge.
+
+### B15 · The bridge loads the faction records and hands the registry down
+Status: open · Depends on: C9, S5
+Touches: `tools/src/build-content-bundle.mjs`, `game/generated/content_bundle.json`
+(regenerated), `game/scripts/simulation/native_expedition_port.gd`,
+`godot-rust/src/godot_bridge.rs`, `godot-rust/src/expedition.rs`
+(`resolve_midnight_in`'s signature and its callers only),
+`godot-rust/src/strategy/tick.rs` (`run_hour` only),
+`godot-rust/tests/strategic_determinism.rs`, `godot-rust/tests/authored_world.rs`
+The seam three shipped cards describe from three sides: S4 passes an empty
+registry because the bridge has none; S5 scores with neutral weights because
+scoring records would make Godot's island differ from the harness's; C9's
+records do not reach the Godot bundle because the builder's domain list omits
+them. One lane closes all three at once:
+- `factions` joins the bundle's domains; the port forwards every `faction.*`
+  record verbatim; the bridge builds a validated `FactionDefinitions`
+  (refusing configuration if any record fails `validate`) and passes it to
+  `resolve_midnight_in`, whose signature gains the registry.
+- `run_hour` uses `GoalWeights::from_definition` when the record exists.
+- The harness loads `content/factions/*.json` and runs the same island Godot
+  does; `the_registry_cannot_change_a_tick_yet` is **deleted** — it was
+  written to be — and replaced by `the_authored_registry_changes_the_tick`:
+  the 2,400-hour hash with the registry differs from the hash without, and
+  both reproduce.
+- The state dictionary carries `factions` with `id`, `strategic_state` and
+  `current_goals` names only — nothing numeric from utility.
+Traps: no widening of `from_definition` (it reads resource and relationship
+weights only; doctrine never acts). Bundle freshness is a CI gate.
+Done when: the new harness test passes; the Godot job green; the prototype
+suite asserts six factions in the snapshot and no numeric score key.
 
 ### Lane C — new cards
 
