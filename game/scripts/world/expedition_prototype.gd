@@ -583,11 +583,14 @@ func route_hotkey_portal_ids() -> Array[String]:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
-	if key == null or not key.pressed or key.echo:
+	if key == null or not key.pressed or key.echo or controls_are_held():
 		return
 	var index := route_hotkey_index(key.keycode)
 	if index == 0:
 		return
+	# Swallowed only once this screen has decided the key is one of its own and
+	# the game is not held, so a paused game leaves the digit for whatever
+	# surface is holding it.
 	get_viewport().set_input_as_handled()
 	press_route_hotkey(index)
 
