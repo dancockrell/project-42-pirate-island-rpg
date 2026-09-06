@@ -3,7 +3,7 @@
   "task_id": "b17-battle-from-the-campaign",
   "agent": "claude-code lane B17",
   "summary": "A battle built for a campaign copies its actors' bond ranks from ExpeditionState::bond_ranks, so Betty's rank C command is refused in a fresh campaign's fight and opens once the authored burial scene's milestone is recorded.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -14,20 +14,36 @@
     "game/tests/campaign_encounter_port_test.gd"
   ],
   "symbols": [
-    "battle::Battle::apply_bond_ranks",
-    "battle::Battle::prototype_vertical_slice_from_bond_ranks",
     "battle::is_woman_actor_id",
-    "godot_bridge::Project42ExpeditionBridge::begin_pending_battle"
+    "battle::Battle::prototype_vertical_slice_from_bond_ranks",
+    "battle::Battle::apply_bond_ranks",
+    "godot_bridge::Project42ExpeditionBridge::begin_pending_battle",
+    "godot_bridge::Project42SimulationBridge::create_debug_battle"
   ],
   "coordination": {
     "depends_on": [
       "a10-bond-rank-gate"
     ],
     "conflicts_with": [],
-    "notes": "Branched from origin/backend/b0-expedition-state at 2f51e77. Lane B8 appends save_json/load_json and lane B16 edits configure/resolve_midnight in godot_bridge.rs; this lane touches only begin_pending_battle there, so the hunks do not meet."
+    "notes": "Branched from origin/backend/b0-expedition-state at 2f51e77. Lane B8 appends save_json/load_json and lane B16 edits configure/resolve_midnight in godot_bridge.rs; this lane changed only the three lines inside begin_pending_battle plus a doc comment above create_debug_battle, so the hunks do not meet. ONE OWNER OF THE FIXTURE: Battle::prototype_vertical_slice is still the only actor list in the crate. prototype_vertical_slice_from_bond_ranks delegates to it and then calls apply_bond_ranks, which copies ExpeditionState::bond_ranks onto every actor whose ID carries the character.heroine. prefix (battle::is_woman_actor_id), falls back to STARTING_BOND_RANK for a woman the map does not name, and leaves Captain Michael and the Razorbeak alone. THE CARD'S TRAP, DECIDED BY READING THE CODE: create_debug_battle lives on Project42SimulationBridge, which holds no expedition state at all -- its whole struct is `battle` and `sequence`, it has no configure, no save and no campaign to ask. So this lane took the card's second branch: the debug battle keeps the review fixture's letters (Betty at SSS) and is documented in code as having no campaign and therefore no ranks. Every prototype suite that exercises Betty's kit up to SSS -- native_simulation_port_test.gd, prototype_turn_cycle_test.gd via BattlePrototype's NativeSimulationPort, and the battle prototype scenes -- runs through that stateless bridge and is unchanged; prototype_turn_cycle_test.gd needed no edit at all. NO set_bond_rank WAS ADDED. It would have had no caller (a noodle to nowhere under AGENTS.md), and more importantly A10's ExpeditionState::raise_bond_rank is documented private on purpose -- 'there is no public set her rank for a tick, a timer or the bridge to reach for' -- so a bridge setter would be a second answer to the question 'what moves a bond', which is exactly the fork section 0 forbids. The campaign's honest way to stand at a rank for review is to play the authored beat, which is what the expedition.rs test does. The campaign path that DOES read the map is Project42ExpeditionBridge::begin_pending_battle, reached from GDScript by CampaignEncounterSimulationPort -> CampaignSession.begin_pending_battle; battle_prototype.gd picks that port whenever a CampaignSession with a pending encounter exists. That is why the pending-battle bond_rank assertion went into game/tests/campaign_encounter_port_test.gd (the suite that arms a real campaign encounter and reads the resulting snapshot) rather than into native_simulation_port_test.gd, which never touches the expedition bridge. native_simulation_port_test.gd gained the matching assertion for the other side of the decision: the debug fixture's Betty is SSS. Both keep their suite's existing live-bridge guard exactly (bridge_is_registered / ClassDB.can_instantiate). mock_simulation_port.gd needed no change: A10 already gave actor_snapshot a bond_rank parameter defaulting to \"D\" and already stands its mock Betty at SSS to mirror the debug fixture, which is still what create_debug_battle returns. native_expedition_port.gd needed no change either, since no new #[func] was added."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "155d2e0",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (306 lib + 5 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext (begin_pending_battle builds the battle before assigning self.battle, so the immutable borrow of self.state ends first): passed",
+      "node tools/src/validate.mjs (214 stable IDs, 5 relationship scenes): passed",
+      "node tools/src/check-claims.mjs (41 claims, 88 ship-plan rows, 82 cards): passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/ (47 records, sha256:13655d16...; no content changed in this lane): passed",
+      "Done-when 1 and 2, one test: expedition::tests::the_burial_scene_opens_betty_s_rank_c_command_in_the_campaign_s_next_battle -- a fresh ExpeditionState stands Betty at D, a battle built from its bond_ranks refuses skill.betty.condition_cleanse with BondRankTooLow { required: C, current: D }, recording milestone.betty.the_wreck_dead_are_buried (read from content/relationships/betty.the_wreck_dead_are_buried.json, not a fixture rule) raises her to C, and a battle rebuilt from the same map resolves the identical command and clears Vix's authored poison: passed",
+      "battle::tests::a_battle_built_from_a_campaign_stands_each_woman_where_her_bond_stands -- the review fixture still stands Betty at SSS, a campaign battle stands her at the campaign's C, and Vix (a woman no campaign has heard of) falls to the floor rather than keeping a fixture letter: passed",
+      "battle::tests::a_campaign_battle_leaves_every_actor_who_is_not_a_woman_alone -- is_woman_actor_id, and a map naming Captain Michael and the Razorbeak at SSS moves neither: passed",
+      "Bite: the copy deleted from prototype_vertical_slice_from_bond_ranks (delegating to the fixture and dropping the ranks), cargo test --lib FAILED 2 of 306 -- a_battle_built_from_a_campaign_stands_each_woman_where_her_bond_stands on \"the campaign's letter, not the fixture's\" (left \"SSS\", right \"C\"), and the_burial_scene_opens_betty_s_rank_c_command_in_the_campaign_s_next_battle on the unwrap_err at expedition.rs:3782 (the fixture SSS made the refusal impossible): failed",
+      "Bite, restored: cargo test --manifest-path godot-rust/Cargo.toml --lib (306) and cargo fmt --check: passed",
+      "A10's own gate tests unchanged and green (betty_at_bond_rank_d_cannot_spend_her_rank_c_command, betty_at_bond_rank_c_may_spend_her_rank_c_command, the_bond_ladder_is_the_seven_authored_letters, every_authored_skill_has_its_authored_rank): passed",
+      "Godot suites (game/tests/*.gd) not run in this lane: no Godot binary in the container. CI's godot-suites job is the proof for the two added assertions -- campaign_encounter_port_test.gd (the campaign's pending battle stands Betty at D) and native_simulation_port_test.gd (the stateless debug bridge's Betty stands at the fixture's SSS): not_run",
+      "No bridge setter for a bond rank was added and none is blocked: an authored beat remains the only thing that moves a bond (A10). If a future review scene needs the campaign path at a higher rank, the honest lever is playing the beat, not a setter: not_run"
+    ]
   }
 }
