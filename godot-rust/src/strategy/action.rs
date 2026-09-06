@@ -501,24 +501,39 @@ fn march(
         .map(|force| (force.id.to_string(), force.position_cell_id.clone()))
         .next();
 
-    let (force_id, from_cell_id) = match idle {
-        Some(found) => found,
+    // Where it would set off from: where the standing body is, or the first
+    // cell this faction holds if one has to be raised.
+    let from_cell_id = match &idle {
+        Some((_, position)) => position.clone(),
         None => {
             if standing.len() >= MAX_STANDING_FORCES_PER_FACTION {
                 return Err(ActionSkipReason::NoIdleForce);
             }
-            let origin = view
-                .held
+            view.held
                 .iter()
                 .next()
                 .expect("the held set was checked non-empty above")
-                .clone();
+                .clone()
+        }
+    };
+    // The destination is chosen **before** anything is raised, so an hour with
+    // nowhere to go leaves the board exactly as it found it rather than
+    // standing up a body it then cannot send.
+    let destination = candidates
+        .into_iter()
+        .find(|cell_id| *cell_id != from_cell_id)
+        .ok_or(ActionSkipReason::NoReachableTarget)?
+        .to_owned();
+
+    let force_id = match idle {
+        Some((id, _)) => id,
+        None => {
             let id = force_id(&view.faction_id, goal, state.campaign_day, hour, draw);
             state
                 .raise_force(
                     &id,
                     &view.faction_id,
-                    &origin,
+                    &from_cell_id,
                     Default::default(),
                     BTreeMap::from([(
                         FORCE_COMPOSITION_ACTOR_KEY.to_owned(),
@@ -528,15 +543,9 @@ fn march(
                     geography,
                 )
                 .map_err(|_| ActionSkipReason::OrderRefused)?;
-            (id, origin)
+            id
         }
     };
-
-    let destination = candidates
-        .into_iter()
-        .find(|cell_id| *cell_id != from_cell_id)
-        .ok_or(ActionSkipReason::NoReachableTarget)?
-        .to_owned();
 
     let departed = state
         .dispatch_force(&force_id, &destination, geography)
