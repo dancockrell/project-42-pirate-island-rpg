@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 (S16–S19 are additions outside the bracket; the M3 100-day elimination passes for a faction that does not act (S18) and for an autonomous faction whose machines drain its reserve (S19)) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `aee3fbd`. If this line is older than
+- Last updated 2026-09-06 against trunk `01abece`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -507,7 +507,7 @@ captured by P1's gate, and no card claims a look it has not captured.
 | P11 | One palette owner, adopted: battle, shell, settings and review scenes take colour and type from the Theme; the restated hexes deleted | P5, P6, P8 | shipped `477447e` 2026-09-06 |
 | P12 | Blockout kits for buildings and machines (D9 + D10): procedural envelopes from the C10 and C14 records in the library's riveted iron and clay, reviewed at gameplay distance | P2, C10, C14 | shipped `76f09ac` 2026-09-06 |
 | P13 | The island develops on screen: building and machine instances cross the bridge read-only and P12's kits stand on the board where the simulation put them | P10, P12, S17, B19 | shipped `aee3fbd` 2026-09-06 |
-| P14 | The battle at every text scale: card and dock layouts that never clip or overflow at 1.0× and 1.3×; the roster status line and the diamond labels | P6, P11 | open |
+| P14 | The battle at every text scale: card and dock layouts that never clip or overflow at 1.0× and 1.3×; the roster status line and the diamond labels | P6, P11 | shipped `01abece` 2026-09-06 |
 
 ### Lane H — Docs and hygiene
 
@@ -3327,7 +3327,7 @@ an authored campaign raises one it must go. Captures
 `P13-28db626-{world,route,development,development-room}.png`, read.
 
 ### P14 · The battle at every text scale
-Status: open · Depends on: P6, P11
+Status: shipped `01abece` 2026-09-06 · Depends on: P6, P11
 Touches: `game/scripts/battle/paper_card.gd`, the command dock and skill
 diamond scripts under `game/scripts/battle/`, `game/tests/battle_presentation_test.gd`
 (layout assertions appended), captures.
@@ -3345,6 +3345,16 @@ and no diamond label is truncated. Ayla's colours stay Open; do not touch
 `battle_palette.gd`'s game colours or any file outside `battle/`.
 Done when: that suite bites (restore the fixed column width → fails by
 name); captures of the battle at 1.0× and 1.3× high contrast.
+**Shipped:** `battle_metrics.gd` is the one place the battle's sizes come
+from: the card's copy column and the diamond plate are measured from the
+Theme's type scale and the longest authored command name, so they grow with
+the text and never clip a name. `paper_card.gd` and `paper_skill_diamond.gd`
+read it; `battle_layout_test.gd` instances the battle at 1.0× and 1.3× and
+asserts no card or plate label is wider than its container and no diamond
+label is truncated. Bites: restoring the fixed copy width fails by name
+("114 at 1.0x and 114 at 1.3x"); restoring the fixed plate size fails
+nineteen named checks. Captures `P14-e6b57ee-{battle-1.0x,battle-1.3x-high-contrast}.png`,
+read. Ayla's colours and `battle_palette.gd` untouched.
 
 ### One lane, one clean checkout
 
