@@ -354,8 +354,8 @@ top of the document is never stale:
 - **M2** shipped 9/9 (E8 is listed for the record but sits outside the bracket) — **E5** (nightly Linux and Windows builds that refuse to ship hollow; macOS honestly absent), **B8** (save slots and continue through the bridge; newest by in-world time), **B9** (pause is one Godot fact; settings persist), **E7** (a crash log on the player's disk; nothing leaves the machine, proven), **E8** (both ledgers a CI gate), **E1** (CI live and green on GitHub), **E2** (Godot
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
-- **M3** shipped 15/16 (S16 and S17 are additions outside the bracket) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `c7f0e74`. If this line is older than
+- **M3** shipped 15/16 (S16 and S17 are additions outside the bracket; S17 shipped with the M3 100-day elimination `failed` until a tick writes ownership, B11/O3) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
+- Last updated 2026-09-06 against trunk `24b1332`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -395,7 +395,7 @@ top of the document is never stale:
 | S14 | Founding sequence: shipwreck to first strategic core | S13, O5 | open |
 | S15 | Two Provisional doctrines approved and encoded | S1, human | blocked: needs approval of brief §6.x doctrines |
 | S16 | Production runs in the tick: interval rules produce on the economy draw | S13, B16 | shipped 7a715f7 2026-09-06 |
-| S17 | Goals become actions: Develop places a building, Supply gathers, Expand and Pressure dispatch a force | S16, S5, S7, B16 | open — after S16 |
+| S17 | Goals become actions: Develop places a building, Supply gathers, Expand and Pressure dispatch a force | S16, S5, S7, B16 | shipped `24b1332` 2026-09-06 |
 
 ### Lane B — Bridge, board and Godot
 
@@ -418,7 +418,7 @@ top of the document is never stale:
 | B15 | The bridge loads the faction records and hands the registry down; S5's seam closed | C9, S5 | shipped 777a943 2026-09-06 — the seam is closed as an honest negative until a record carries a real weight |
 | B16 | The bridge loads the building records and hands the registry to the tick; S10's sweep reads real buildings | C10, S10 | shipped 049bd45 2026-09-06 |
 | B17 | A battle is built from the campaign: bond ranks reach the fight | A10 | shipped b9c6ad5 2026-09-06 |
-| B19 | The bridge loads the machine records and hands the registry to the tick | C14, S16 | open — after S16 |
+| B19 | The bridge loads the machine records and hands the registry to the tick | C14, S16 | shipped `1fca984` 2026-09-06 |
 | B18 | RTS controls: select, then order a move by tile, words or hotkey; route markers go | B14 | superseded by P7 — the owner returned the front end to this branch the same day |
 
 ### Lane C — Content and validator (`content/`, `tools/src/validate.mjs`)
@@ -1369,7 +1369,7 @@ shop turns out a `machine.mechanical_dog` on the authored interval and the
 refills a stockpile (S17 gathers); the bridge's registry is empty (B19).
 
 ### S17 · Goals become actions
-Status: open — after S16 · Depends on: S16, S5, S7, B16
+Status: shipped `24b1332` 2026-09-06 (M3 done-when `failed`, see below) · Depends on: S16, S5, S7, B16
 Touches: `godot-rust/src/strategy/tick.rs` (`run_hour`), a new
 `strategy/action.rs`, `strategy/building.rs` (only if a placement helper is
 missing), `godot-rust/tests/strategic_determinism.rs`.
@@ -1392,9 +1392,34 @@ least one faction placing a building and one dispatching a force, still
 reproducing byte-identically; the M3 done-when — one faction eliminated
 with its recovery chain demonstrably exhausted in a 100-day run — passes
 as a harness test (a scripted opening may seed the imbalance; say so).
+**Shipped:** `strategy/action.rs`, `act_on_goals` called from `run_hour`
+after `advance_production`, keyed on `Goal` alone. Develop: first
+compatible authored building on a held cell with room, cost checked in
+full then paid, `BuildingStarted`. Recover: a per-held-cell trickle into
+`resource.open.gathered`, `Gathered` (`Goal` has no Supply; that word is
+S6's `Intent`). Expand/Pressure: nearest open or contested frontier cell
+through `dispatch_force`, reusing an idle body or raising one. Consolidate
+and Withdraw journal `ActionSkipped { NoActionAuthoredYet }`. Michael's
+faction and an eliminated faction return at once. No new `PURPOSES` entry
+(the economy and force draws were already made and folded), three variants
+at the end of `StrategicEvent`, no new state field. Bite: skipping the
+Develop arm fails the 2,400-hour harness by name ("raised no building at
+all"). `needs decision`: `GATHER_PER_HELD_CELL_PER_HOUR`,
+`GATHERED_RESOURCE_KEY`, `FORCE_COMPOSITION_ACTOR_KEY`,
+`FORCE_COMPOSITION_HEADS`, `MAX_STANDING_FORCES_PER_FACTION`.
+**The M3 done-when is `failed`, recorded not hidden:** on the card's
+opening nobody is eliminated in 100 days because nothing writes
+`ExpeditionState::ownership` from a tick; `set_control` is its only writer
+and resolving an arrival into a change of control is the materialisation
+B11 owns (decision O3). No constant was tuned. The harness asserts exactly
+that and proves the other half: when the harness takes the ground, the next
+hour reports `RecoveryLinkLost` for every link and `FactionEliminated`
+once. Also open: `advance_construction` has no caller on a clock, so a
+placed building stands `UnderConstruction`. Integration `24b1332`: the
+three events given prose and a level at the bridge.
 
 ### B19 · The bridge loads the machine records and hands the registry to the tick
-Status: open — after S16 · Depends on: C14, S16
+Status: shipped `1fca984` 2026-09-06 · Depends on: C14, S16
 Touches: `game/scripts/simulation/native_expedition_port.gd`,
 `godot-rust/src/godot_bridge.rs` (`configure`), `godot-rust/tests/authored_world.rs`.
 B15's and B16's shape for machines: the port forwards `machine.*` records,
@@ -1402,6 +1427,17 @@ B15's and B16's shape for machines: the port forwards `machine.*` records,
 S16 threaded the empty one. Done when: the Godot snapshot carries the two
 machine IDs and the harness runs the authored island with all three
 registries.
+**Shipped:** the port forwards every `machine.*` record through the same
+integer coercion as buildings; the bridge holds a validated
+`MachineDefinitions`, refuses a bad configuration with
+`expedition_configuration_invalid:<code>` (exhaustive over
+`ProductionError`), hands the registry to `resolve_midnight`, and the
+snapshot carries `machines` as IDs beside `buildings`. `authored_world.rs`
+proves the two authored machines reach the bridge whole (route types,
+`safe_road`) and the midnight there runs on the authored registry; the
+expedition prototype suite asserts both IDs in the snapshot. Bite: dropping
+`machines` from the bundle domain list fails by name. The determinism
+harness already loaded `content/machines/`, so nothing was added there.
 
 ### Lane B — new cards
 
