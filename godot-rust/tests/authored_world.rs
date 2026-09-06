@@ -15,6 +15,7 @@ use std::collections::BTreeMap;
 use project42_sim::geography::{
     AuthoredCell, CONTESTED_RISK_MODIFIER, EncounterTriggerDefinition, PortalDefinition,
 };
+use project42_sim::strategy::building::{BuildingDefinition, BuildingDefinitions};
 use project42_sim::strategy::faction::{ConceptKey, FactionDefinition, FactionDefinitions};
 use project42_sim::*;
 
@@ -116,6 +117,65 @@ fn the_six_authored_factions_reach_the_bridge_as_six_distinct_ids() {
             concept.faction_id()
         );
     }
+}
+
+/// Mirrors the same script's building forwarding, on the same terms: every
+/// `building.*` record out of the catalog, verbatim, into the `buildings` array
+/// `ExpeditionConfiguration` reads. C10 authored them in
+/// `BuildingDefinition`'s own field names, so nothing is renamed here either.
+fn building_registry_as_godot_forwards_it() -> BuildingDefinitions {
+    let forwarded = serde_json::Value::Array(bundle_records("buildings"));
+    let definitions: Vec<BuildingDefinition> =
+        serde_json::from_value(forwarded).expect("every forwarded record is a BuildingDefinition");
+    let mut registry = BuildingDefinitions::new();
+    for definition in definitions {
+        registry
+            .insert(definition)
+            .expect("the bridge admits every authored record");
+    }
+    registry
+}
+
+/// C10's three records reach Godot, survive the forwarding verbatim, and pass
+/// `BuildingDefinition::validate` on the way into the bridge's registry.
+///
+/// `strategy/building.rs` already holds `content/buildings/` equal to the schema
+/// on disk; this is the other half, and the half B16 needed: that the bundle
+/// Godot actually reads carries the records, that the authoring-only keys
+/// (`metadata`, the prose relationships) survive the JSON round trip through it,
+/// and that the registry the bridge hands to the tick is the one the harness
+/// runs on.
+#[test]
+fn the_authored_buildings_reach_the_bridge_and_validate() {
+    let registry = building_registry_as_godot_forwards_it();
+    let ids: Vec<&str> = registry.ids().collect();
+    assert_eq!(
+        ids,
+        vec![
+            "building.coast_watch_post",
+            "building.machine_shop",
+            "building.ritual_anchor"
+        ],
+        "the Godot bundle must carry C10's three building records, ascending by ID"
+    );
+
+    // The two halves of brief section 5.6 are authored, not asserted: exactly
+    // one of these records is Michael's, and it makes machines rather than
+    // people. `validate` refused the alternative on the way in.
+    let michaels: Vec<&str> = ids
+        .iter()
+        .copied()
+        .filter(|id| {
+            registry
+                .get(id)
+                .is_some_and(|record| record.faction_compatibility.contains(&ConceptKey::Michael))
+        })
+        .collect();
+    assert_eq!(
+        michaels,
+        vec!["building.machine_shop"],
+        "Michael's working core must reach the bridge"
+    );
 }
 
 /// Mirrors `NativeExpeditionPort.configure_from_catalog` field for field. If
@@ -388,6 +448,7 @@ fn the_salvage_anchor_leaves_the_legal_commands_when_spent_and_returns_at_midnig
             &geography,
             &habitats,
             &faction_registry_as_godot_forwards_it(),
+            &building_registry_as_godot_forwards_it(),
         )
         .expect("no encounter is pending on the sand");
     assert!(

@@ -391,6 +391,7 @@ pub(crate) fn run_hour(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::strategy::building::BuildingDefinitions;
     use crate::strategy::faction::{ConceptKey, FactionState};
 
     fn a_campaign_with_two_factions() -> ExpeditionState {
@@ -424,12 +425,12 @@ mod tests {
         let definitions = FactionDefinitions::new();
         let mut state = a_campaign_with_two_factions();
 
-        let events = state.strategic_tick(&geography, &definitions);
+        let events = state.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
         assert_eq!(events, vec![StrategicEvent::HourPassed { day: 1, hour: 0 }]);
         assert_eq!(state.strategic_clock.hour_of_day, 1);
         assert_eq!(state.strategic_clock.total_hours, 1);
 
-        let events = state.strategic_tick(&geography, &definitions);
+        let events = state.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
         assert_eq!(events, vec![StrategicEvent::HourPassed { day: 1, hour: 1 }]);
         assert_eq!(state.strategic_clock.hour_of_day, 2);
     }
@@ -444,7 +445,7 @@ mod tests {
         let mut state = a_campaign_with_two_factions();
 
         for _ in 0..HOURS_PER_DAY {
-            state.strategic_tick(&geography, &definitions);
+            state.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
         }
         assert_eq!(state.strategic_clock.hour_of_day, 0);
         assert_eq!(state.strategic_clock.total_hours, 24);
@@ -465,7 +466,7 @@ mod tests {
         .expect("a fresh campaign constructs");
         assert!(state.factions.is_empty());
 
-        let events = state.strategic_tick(&geography, &definitions);
+        let events = state.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
         assert_eq!(events, vec![StrategicEvent::HourPassed { day: 1, hour: 0 }]);
         assert_eq!(state.strategic_clock.total_hours, 1);
         assert_eq!(state.strategic_clock.draw_digest, 0);
@@ -562,8 +563,8 @@ mod tests {
             .expect("the fixture carries this faction")
             .eliminated = true;
 
-        alive.strategic_tick(&geography, &definitions);
-        with_one_eliminated.strategic_tick(&geography, &definitions);
+        alive.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
+        with_one_eliminated.strategic_tick(&geography, &definitions, &BuildingDefinitions::new());
         assert_eq!(
             alive.strategic_clock.draw_digest,
             with_one_eliminated.strategic_clock.draw_digest

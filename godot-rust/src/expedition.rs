@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::geography::{AnchorDefinition, AnchorKind, Geography, RouteOption};
 use crate::habitat::{Habitats, LootTable};
 use crate::hunter::{self, Hunter, HunterKind};
-use crate::strategy::building::BuildingInstance;
+use crate::strategy::building::{BuildingDefinitions, BuildingInstance};
 use crate::strategy::clocks::{
     CONFRONTATION_DAY, CONFRONTATION_DISCOVERY_ID, CTHULHU_FACTION_ID, ConfrontationTrigger,
     HeatEvent, MAX_HEAT, WeatherState, assistance_weight, region_corruption_pressure,
@@ -1473,6 +1473,7 @@ impl ExpeditionState {
         geography: &Geography,
         habitats: &Habitats,
         factions: &FactionDefinitions,
+        buildings: &BuildingDefinitions,
     ) -> Result<Vec<WorldEvent>, ExpeditionError> {
         // S4: the day that is ending is twenty-four strategic hours long, and
         // they run *before* the character-scale Midnight Return so that the
@@ -1487,8 +1488,13 @@ impl ExpeditionState {
         // islands the moment S5 scored a record; the bridge now loads
         // `content/factions/*.json` and hands it down, so there is one island
         // and this function has no opinion about which records exist.
+        // B16: and the building registry beside it, for the same reason and by
+        // the same route. S10's hourly sweep reads what a faction still has,
+        // and two of the ways back it reads -- what a building makes, and
+        // whether a cell has room to raise another -- are answers only the
+        // authored records hold.
         for _ in 0..HOURS_PER_DAY {
-            self.strategic_tick(geography, factions);
+            self.strategic_tick(geography, factions, buildings);
         }
 
         // S8: the day's weather, one draw per region, before the
@@ -1547,13 +1553,18 @@ impl ExpeditionState {
     /// The logic lives in [`crate::strategy::tick`] with the rest of the
     /// strategic layer; this is the method on the state that owns the data.
     /// `geography` and `factions` are the board and the authored records the
-    /// utility AI will score against (S5); an hour today advances the clock,
-    /// makes each present faction's fixed sequence of draws, and reports the
-    /// hour that ran.
+    /// utility AI will score against (S5), and `buildings` is the authored
+    /// building registry S10's hourly elimination sweep reads (B16); an hour
+    /// today advances the clock, makes each present faction's fixed sequence of
+    /// draws, notices any faction that has run out of ways back, and reports
+    /// the hour that ran. **The hour does not build.** Nothing here places a
+    /// building or runs a production timer -- S13 owns who spends hours on what
+    /// -- so the registry is read and never written through.
     pub fn strategic_tick(
         &mut self,
         geography: &Geography,
         factions: &FactionDefinitions,
+        buildings: &BuildingDefinitions,
     ) -> Vec<StrategicEvent> {
         // S11: the hour's events are recorded before they are handed back, so
         // the save's history does not depend on what the caller does with the
@@ -1575,10 +1586,13 @@ impl ExpeditionState {
         // S10: and the hour notices any faction whose recovery chain has just
         // run out. After the marching, because a force reaching or leaving a
         // cell is one of the things that empties a chain.
-        events.extend(self.eliminate_exhausted_factions(
-            geography,
-            &crate::strategy::building::BuildingDefinitions::new(),
-        ));
+        // B16: with the registry the caller was handed, not an empty one built
+        // here. Until this lane the sweep read every building as unlookupable,
+        // which it treats conservatively -- standing, productive and not to be
+        // ruined -- so an elimination could only ever be delayed. The bridge
+        // now loads `content/buildings/*.json` and hands it down, so Godot's
+        // island and the harness's island agree about what is standing on it.
+        events.extend(self.eliminate_exhausted_factions(geography, buildings));
         for event in &events {
             self.strategic_journal
                 .push(JournalEntry::new(day, hour, event.clone()));
@@ -2958,7 +2972,12 @@ mod tests {
         let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
         let mut state = fixture();
         state
-            .resolve_midnight_in(&geography, &habitats, &FactionDefinitions::new())
+            .resolve_midnight_in(
+                &geography,
+                &habitats,
+                &FactionDefinitions::new(),
+                &BuildingDefinitions::new(),
+            )
             .expect("resolves");
         state.active_location_id = "world.cell.reception_terrace".into();
         (geography, habitats, state)
@@ -3019,7 +3038,12 @@ mod tests {
 
         // The next midnight puts a new individual there and reopens it.
         state
-            .resolve_midnight_in(&geography, &habitats, &FactionDefinitions::new())
+            .resolve_midnight_in(
+                &geography,
+                &habitats,
+                &FactionDefinitions::new(),
+                &BuildingDefinitions::new(),
+            )
             .expect("resolves");
         assert!(state.begin_encounter(&geography, &habitats).is_some());
     }
@@ -3174,7 +3198,12 @@ mod tests {
         let mut state = fixture();
         for _ in 0..40 {
             state
-                .resolve_midnight_in(&geography, &habitats, &FactionDefinitions::new())
+                .resolve_midnight_in(
+                    &geography,
+                    &habitats,
+                    &FactionDefinitions::new(),
+                    &BuildingDefinitions::new(),
+                )
                 .expect("resolves");
             if state
                 .hunters
@@ -3240,7 +3269,12 @@ mod tests {
                 break;
             }
             state
-                .resolve_midnight_in(&geography, &habitats, &FactionDefinitions::new())
+                .resolve_midnight_in(
+                    &geography,
+                    &habitats,
+                    &FactionDefinitions::new(),
+                    &BuildingDefinitions::new(),
+                )
                 .expect("resolves");
         }
         assert_eq!(
@@ -3368,7 +3402,12 @@ mod tests {
 
         // Midnight is where the island's law runs: the revenant stands back up.
         state
-            .resolve_midnight_in(&geography, &habitats, &FactionDefinitions::new())
+            .resolve_midnight_in(
+                &geography,
+                &habitats,
+                &FactionDefinitions::new(),
+                &BuildingDefinitions::new(),
+            )
             .expect("resolves");
         assert!(!state.hunters[0].is_defeated_today());
     }
@@ -3482,7 +3521,12 @@ mod tests {
         let heat_before = state.cthulhu_heat;
         for _ in 0..30 {
             state
-                .resolve_midnight_in(&geography, &habitats, &FactionDefinitions::new())
+                .resolve_midnight_in(
+                    &geography,
+                    &habitats,
+                    &FactionDefinitions::new(),
+                    &BuildingDefinitions::new(),
+                )
                 .expect("a midnight resolves");
         }
         assert_eq!(
@@ -3541,10 +3585,20 @@ mod tests {
         let mut first = ExpeditionState::from_json(&state.to_json()).expect("round trip");
         let mut again = ExpeditionState::from_json(&state.to_json()).expect("round trip");
         first
-            .resolve_midnight_in(&geography, &habitats, &FactionDefinitions::new())
+            .resolve_midnight_in(
+                &geography,
+                &habitats,
+                &FactionDefinitions::new(),
+                &BuildingDefinitions::new(),
+            )
             .expect("a midnight resolves");
         again
-            .resolve_midnight_in(&geography, &habitats, &FactionDefinitions::new())
+            .resolve_midnight_in(
+                &geography,
+                &habitats,
+                &FactionDefinitions::new(),
+                &BuildingDefinitions::new(),
+            )
             .expect("a midnight resolves");
 
         assert!(!first.weather.is_empty(), "a midnight draws the day's sky");
@@ -3565,7 +3619,12 @@ mod tests {
         let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
         let mut state = fixture();
         state
-            .resolve_midnight_in(&geography, &habitats, &FactionDefinitions::new())
+            .resolve_midnight_in(
+                &geography,
+                &habitats,
+                &FactionDefinitions::new(),
+                &BuildingDefinitions::new(),
+            )
             .expect("a midnight resolves");
 
         let regions: BTreeSet<&str> = geography
@@ -3707,7 +3766,12 @@ mod tests {
             .corrupt_cell("world.cell.river_landing", 90, &geography)
             .expect("a real cell");
         state
-            .resolve_midnight_in(&geography, &habitats, &FactionDefinitions::new())
+            .resolve_midnight_in(
+                &geography,
+                &habitats,
+                &FactionDefinitions::new(),
+                &BuildingDefinitions::new(),
+            )
             .expect("a midnight resolves");
 
         let restored = ExpeditionState::from_json(&state.to_json()).expect("round trip parses");

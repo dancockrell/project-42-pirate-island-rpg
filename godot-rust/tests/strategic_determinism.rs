@@ -23,6 +23,14 @@
 //! iterating the purposes through a `HashMap` (test 1 failed again, on
 //! iteration order); both were restored.
 //!
+//! **B16: and the building registry beside it.** Every midnight is handed the
+//! registry loaded from `content/buildings/` as well, the same three files the
+//! bridge loads out of the bundle, so S10's hourly elimination sweep reads
+//! C10's authored records here exactly as it reads them in the engine. A fifth
+//! claim comes with that -- `the_authored_building_registry_reaches_the_hourly_sweep`
+//! -- and an honest negative: this file's campaign raises no buildings, so the
+//! four hash claims above are unchanged by the registry arriving.
+//!
 //! **B15: the harness runs the island Godot runs.** Every midnight here is
 //! handed the registry loaded from `content/factions/` -- the same six files the
 //! expedition bridge loads out of the Godot content bundle -- rather than the
@@ -34,6 +42,10 @@
 use std::collections::BTreeMap;
 
 use project42_sim::habitat::Habitats;
+use project42_sim::strategy::building::{
+    BuildingDefinition, BuildingDefinitions, CELL_CAPACITY_CELLS,
+};
+use project42_sim::strategy::elimination::RecoveryLink;
 use project42_sim::strategy::faction::{
     ConceptKey, FactionDefinition, FactionDefinitions, FactionState, Relationship,
 };
@@ -87,6 +99,33 @@ fn the_authored_registry() -> FactionDefinitions {
         definitions.len(),
         ConceptKey::ALL.len(),
         "content/factions/ must author exactly the brief's six concepts"
+    );
+    definitions
+}
+
+/// C10's building records, read off disk the same way -- and for the same
+/// reason. Before B16 `strategic_tick` built an empty `BuildingDefinitions` for
+/// itself, so the harness and the engine disagreed about what a building on the
+/// island makes and how much of a cell it takes the moment either one had a
+/// building standing.
+fn the_authored_buildings() -> BuildingDefinitions {
+    let directory = concat!(env!("CARGO_MANIFEST_DIR"), "/../content/buildings/");
+    let mut definitions = BuildingDefinitions::new();
+    for entry in std::fs::read_dir(directory).expect("content/buildings/ is readable") {
+        let path = entry.expect("a readable directory entry").path();
+        if path.extension().and_then(|name| name.to_str()) != Some("json") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).expect("the building record is readable");
+        let record: BuildingDefinition = serde_json::from_str(&text)
+            .unwrap_or_else(|error| panic!("{} is a BuildingDefinition: {error}", path.display()));
+        definitions
+            .insert(record)
+            .unwrap_or_else(|error| panic!("{} does not load: {error:?}", path.display()));
+    }
+    assert!(
+        !definitions.is_empty(),
+        "content/buildings/ must author at least one record; C10 is what fills it"
     );
     definitions
 }
@@ -206,6 +245,19 @@ fn island() -> (Geography, Habitats) {
 /// itself ever advances the strategic clock, so the harness measures the real
 /// path rather than a test-only one.
 fn run_hours(state: &mut ExpeditionState, hours: u64, factions: &FactionDefinitions) {
+    run_hours_with(state, hours, factions, &the_authored_buildings());
+}
+
+/// The same, with the building registry named explicitly. Every hash claim in
+/// this file goes through `run_hours` and therefore through the authored
+/// buildings; this exists so the probe below can say which registry the sweep
+/// was handed.
+fn run_hours_with(
+    state: &mut ExpeditionState,
+    hours: u64,
+    factions: &FactionDefinitions,
+    buildings: &BuildingDefinitions,
+) {
     let (geography, habitats) = island();
     assert_eq!(
         hours % u64::from(HOURS_PER_DAY),
@@ -214,7 +266,7 @@ fn run_hours(state: &mut ExpeditionState, hours: u64, factions: &FactionDefiniti
     );
     for _ in 0..(hours / u64::from(HOURS_PER_DAY)) {
         state
-            .resolve_midnight_in(&geography, &habitats, factions)
+            .resolve_midnight_in(&geography, &habitats, factions, buildings)
             .expect("nothing in this harness blocks midnight");
     }
 }
@@ -277,11 +329,12 @@ fn a_save_at_hour_twelve_hundred_reloads_into_the_same_hour_twenty_four_hundred(
 fn pausing_at_any_hour_produces_a_byte_identical_save() {
     let (geography, _habitats) = island();
     let definitions = the_authored_registry();
+    let buildings = the_authored_buildings();
     const HOURS: usize = 200;
 
     let mut uninterrupted = a_campaign();
     for _ in 0..HOURS {
-        uninterrupted.strategic_tick(&geography, &definitions);
+        uninterrupted.strategic_tick(&geography, &definitions, &buildings);
     }
 
     // "Pause" after each of these hour counts: serialize, drop the state, load
@@ -296,7 +349,7 @@ fn pausing_at_any_hour_produces_a_byte_identical_save() {
             interrupted = ExpeditionState::from_json(&json).expect("a paused save reloads");
             assert_eq!(interrupted.to_json(), json);
         }
-        interrupted.strategic_tick(&geography, &definitions);
+        interrupted.strategic_tick(&geography, &definitions, &buildings);
     }
 
     assert_eq!(
@@ -320,7 +373,7 @@ fn the_strategic_hour_and_the_campaign_day_agree_after_every_midnight() {
     for day in 1..=10u32 {
         assert_eq!(state.campaign_day, day);
         state
-            .resolve_midnight_in(&geography, &habitats, &factions)
+            .resolve_midnight_in(&geography, &habitats, &factions, &the_authored_buildings())
             .expect("midnight resolves");
         assert_eq!(state.campaign_day, day + 1);
         assert_eq!(
@@ -347,12 +400,13 @@ fn the_strategic_hour_and_the_campaign_day_agree_after_every_midnight() {
 fn midnights_hours_are_drawn_under_the_day_that_is_ending() {
     let (geography, _habitats) = island();
     let definitions = FactionDefinitions::new();
+    let buildings = BuildingDefinitions::new();
     let mut state = a_campaign();
 
     let events: Vec<StrategicEvent> = (0..HOURS_PER_DAY)
         .map(|_| {
             state
-                .strategic_tick(&geography, &definitions)
+                .strategic_tick(&geography, &definitions, &buildings)
                 .into_iter()
                 .next()
                 .expect("an hour always reports itself")
@@ -480,4 +534,144 @@ fn the_per_faction_per_hour_draw_sequence_is_fixed() {
         }
     }
     assert_eq!(seen.len(), ConceptKey::ALL.len() * PURPOSES.len());
+}
+
+/// B16's probe: the authored building registry reaches S10's hourly sweep.
+///
+/// S10 wrote `eliminate_exhausted_factions` against a registry it was handed
+/// and said so in its own comment: `strategic_tick` built an empty one, every
+/// unlookupable building was read conservatively -- standing, productive, and
+/// not to be ruined -- and that could only ever delay an elimination. This test
+/// is the closing of that gap, measured through the one entry point the game
+/// itself uses: `ExpeditionState::strategic_tick`.
+///
+/// The board is C10's `building.machine_shop`, twice, on ground Michael holds.
+/// Its authored envelope is six cells (footprint four plus clearance two), so
+/// two of them are exactly [`CELL_CAPACITY_CELLS`] and the cell has no room for
+/// a third; its authored `ruin_state` leaves two cells of rubble each, so
+/// wrecking both frees the ground again.
+///
+/// Three claims, and **which of them bites is worth being exact about**:
+///
+/// 1. **The registry reaches the sweep.** With the real records the hour reads
+///    a full cell and `RecoveryLink::ValidConstructionSite` is not in Michael's
+///    chain. This is the assertion that fails the moment `strategic_tick` is
+///    handed `BuildingDefinitions::new()` again -- an unlookupable building
+///    contributes nothing to `envelope_cells_used`, so the cell reads empty and
+///    the link comes back.
+/// 2. **The card's assertion.** Ruining the buildings costs Michael
+///    `RecoveryLink::OperationalCoreBuilding` and
+///    `RecoveryLink::WorkerProductionOrRecruitment`, reported by the sweep in
+///    the hour it happened. Honestly: this pair is registry-*independent* --
+///    `is_working` reads the instance, and an unlookupable building is read as
+///    productive -- so it proves the sweep runs in the tick, not that it runs on
+///    the records. Claim 1 is what proves the records.
+/// 3. **And the records again, from the other side.** Two wrecks leave four of
+///    twelve cells occupied, so `ValidConstructionSite` returns. Under an empty
+///    registry it never left, so there is nothing to return.
+#[test]
+fn the_authored_building_registry_reaches_the_hourly_sweep() {
+    const BEACH: &str = "world.cell.black_beach";
+    const SHOPS: [&str; 2] = [
+        "building_instance.b16.machine_shop_north",
+        "building_instance.b16.machine_shop_south",
+    ];
+
+    let (geography, _habitats) = island();
+    let factions = the_authored_registry();
+    let buildings = the_authored_buildings();
+    let michael = ConceptKey::Michael.faction_id();
+
+    let shop = buildings
+        .get("building.machine_shop")
+        .expect("C10 authored building.machine_shop");
+    assert_eq!(
+        shop.envelope_cells() * 2,
+        CELL_CAPACITY_CELLS,
+        "the probe's arithmetic is the record's: two machine shops fill a cell"
+    );
+
+    let mut state = a_campaign();
+    state
+        .set_control(BEACH, Some(michael.clone()), &geography)
+        .expect("the beach is a real cell");
+    for instance_id in SHOPS {
+        state
+            .place_building(
+                instance_id,
+                "building.machine_shop",
+                BEACH,
+                &michael,
+                &geography,
+                &buildings,
+            )
+            .expect("Michael may raise a machine shop on ground Michael holds");
+    }
+    // A shop is raised under construction; the sweep reads what is *working*.
+    // Nothing in the tick builds -- S13 owns who spends hours on what -- so the
+    // probe puts the authored tier-one hours in deliberately.
+    let finished = state.advance_construction(
+        shop.tier_states
+            .first()
+            .expect("the record authors a first tier")
+            .construction_hours,
+    );
+    assert_eq!(finished.len(), SHOPS.len(), "both shops finish");
+
+    // One hour, through the one entry point. The sweep runs inside it.
+    state.strategic_tick(&geography, &factions, &buildings);
+    let held = &state.factions[&michael].recovery_links_held;
+    assert!(
+        held.contains(&RecoveryLink::OperationalCoreBuilding)
+            && held.contains(&RecoveryLink::WorkerProductionOrRecruitment)
+            && held.contains(&RecoveryLink::ControlledSettlement),
+        "two working shops on held ground are a core, a producer and a settlement: {held:?}"
+    );
+    // Claim 1: the registry is live in the tick.
+    assert!(
+        !held.contains(&RecoveryLink::ValidConstructionSite),
+        "the sweep is reading an empty building registry: two authored machine \
+         shops fill the cell, so there is nowhere left to build"
+    );
+
+    for instance_id in SHOPS {
+        state
+            .ruin_building(instance_id)
+            .expect("a standing building can be brought down");
+    }
+    let events = state.strategic_tick(&geography, &factions, &buildings);
+    let lost: Vec<&RecoveryLink> = events
+        .iter()
+        .filter_map(|event| match event {
+            StrategicEvent::RecoveryLinkLost { faction_id, link } if *faction_id == michael => {
+                Some(link)
+            }
+            _ => None,
+        })
+        .collect();
+    // Claim 2: the card's.
+    assert!(
+        lost.contains(&&RecoveryLink::OperationalCoreBuilding),
+        "ruining every working building must cost the operational core: {lost:?}"
+    );
+    assert!(
+        lost.contains(&&RecoveryLink::WorkerProductionOrRecruitment),
+        "ruining every working building must cost the ability to make: {lost:?}"
+    );
+    assert!(
+        !state.factions[&michael].eliminated,
+        "the ground is still held, so the chain is not empty"
+    );
+    // Claim 3: the wrecks are read by their records too.
+    assert_eq!(
+        state.envelope_cells_used(BEACH, &buildings),
+        shop.ruined_envelope_cells() * 2,
+        "two wrecks leave exactly their authored rubble"
+    );
+    assert!(
+        state.factions[&michael]
+            .recovery_links_held
+            .contains(&RecoveryLink::ValidConstructionSite),
+        "clearing the shops leaves room to build again"
+    );
 }
