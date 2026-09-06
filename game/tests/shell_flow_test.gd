@@ -219,6 +219,8 @@ func check_credits_match_the_ledgers() -> void:
 		check(str(source.get("canonicalUrl", "")) == str(credited["url"]), "the credited source URL must be the ledger's: %s" % str(credited["record"]))
 		check(str(record.get("status", "")) == "candidate", "a shared record that stopped being a candidate must be re-credited as what it became: %s" % str(credited["record"]))
 
+	check_credits_match_the_third_party_ledger(repository)
+
 	var placeholders: Dictionary = read_json(repository.path_join(CreditsScreen.PLACEHOLDER_LEDGER))
 	var placeholder_sources := {}
 	for asset in placeholders.get("assets", []):
@@ -234,6 +236,65 @@ func check_credits_match_the_ledgers() -> void:
 			var vendor_source: Dictionary = manifest.get("source", {})
 			for fragment in [str(vendor_source.get("vendor", "")), str(vendor_source.get("generator", "")), str(vendor_source.get("downloadedAt", "")), str(vendor_source.get("creationUrl", ""))]:
 				check(fragment != "" and fragment in str(credited_asset["text"]), "the credited vendor line must carry the manifest's own '%s'" % fragment)
+
+
+## E12. The engine, the bindings and every crate the extension links have an
+## admission record now, and the credits page carries what those records say.
+## The ledger owns the facts -- name, pinned version, SPDX id, canonical URL and
+## the notice text copied out of the component's own licence file -- and this
+## holds the page to it component for component and body for body. A component
+## the ledger records with no notice must appear on the page as pending: the one
+## thing the page may never do is invent a notice for something whose licence
+## text nobody has read.
+func check_credits_match_the_third_party_ledger(repository: String) -> void:
+	var ledger: Dictionary = read_json(repository.path_join(CreditsScreen.THIRD_PARTY_LEDGER))
+	if ledger.is_empty():
+		print("Shell flow credits check skipped: %s is not readable from this run." % CreditsScreen.THIRD_PARTY_LEDGER)
+		return
+	var components: Array = ledger.get("components", [])
+	check(components.size() == CreditsScreen.THIRD_PARTY.size(), "the credits must carry every third-party component: %d in the ledger, %d credited" % [components.size(), CreditsScreen.THIRD_PARTY.size()])
+	var credited := {}
+	for entry in CreditsScreen.THIRD_PARTY:
+		credited[str(entry["record"])] = entry
+	var pending := 0
+	for record in components:
+		var component: Dictionary = record
+		var id := str(component.get("id", ""))
+		var entry: Dictionary = credited.get(id, {})
+		check(not entry.is_empty(), "the credits must carry the ledger's component %s" % id)
+		if entry.is_empty():
+			continue
+		check(str(entry["name"]) == str(component.get("name", "")), "the credited name must be the ledger's: %s" % id)
+		var version: Variant = component.get("version")
+		check(str(entry["version"]) == ("" if version == null else str(version)), "the credited version must be the version this repository pins: %s" % id)
+		check(str(entry["license"]) == str(component.get("licenseSpdx", "")), "the credited licence must be the ledger's: %s" % id)
+		check(str(entry["url"]) == str(component.get("canonicalUrl", "")), "the credited URL must be the ledger's: %s" % id)
+		check(str(entry["role"]) == str(component.get("distribution", "")), "the credited role must be the ledger's: %s" % id)
+		check(CreditsScreen.ROLES.has(str(entry["role"])), "every credited role must have words on the page: %s" % str(entry["role"]))
+		var notice_key := str(entry["notice"])
+		if bool(component.get("needsReview", false)):
+			pending += 1
+			check(notice_key == "", "a component the ledger has read no notice for must be credited as pending, not under a licence body: %s" % id)
+		else:
+			check(notice_key != "", "a component the ledger carries a notice for must be credited under a licence body: %s" % id)
+			check(notice_key == str(component.get("noticeTextKey", "")), "the credited licence body must be the ledger's noticeTextKey: %s" % id)
+			check(CreditsScreen.NOTICE_BODIES.has(notice_key), "the credits must carry the licence body %s that %s is credited under" % [notice_key, id])
+			if CreditsScreen.NOTICE_BODIES.has(notice_key):
+				check(str(CreditsScreen.NOTICE_BODIES[notice_key]) == str(component.get("noticeText", "")), "the notice on the page must be the ledger's text, character for character: %s" % id)
+	check(pending == int(ledger.get("noticePendingCount", -1)), "the ledger's own pending count must be the number of components with no notice: %d counted, %d declared" % [pending, int(ledger.get("noticePendingCount", -1))])
+	check(CreditsScreen.NOTICES_PENDING == pending, "the credits must say how many notices are still owed: %d on the page, %d in the ledger" % [CreditsScreen.NOTICES_PENDING, pending])
+	# The other direction: a record the page credits that the ledger no longer
+	# carries. Both directions are named, so whichever side loses a component
+	# the failure says which one it was rather than only that a count moved.
+	var ledger_ids := {}
+	for record in components:
+		ledger_ids[str((record as Dictionary).get("id", ""))] = true
+	for entry in CreditsScreen.THIRD_PARTY:
+		check(ledger_ids.has(str(entry["record"])), "%s is credited on the page and has no record in the ledger" % str(entry["record"]))
+	var bodies: Dictionary = ledger.get("noticeBodies", {})
+	check(CreditsScreen.NOTICE_BODIES.size() == bodies.size(), "the credits must carry every licence body the ledger names: %d in the ledger, %d on the page" % [bodies.size(), CreditsScreen.NOTICE_BODIES.size()])
+	for key in bodies:
+		check(CreditsScreen.NOTICE_BODIES.has(str(key)), "the credits must carry the licence body %s" % str(key))
 
 
 func read_json(path: String) -> Dictionary:
