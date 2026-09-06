@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "task_id": "s12-recruitment-state",
+  "agent": "claude-opus-5-lane-s12",
+  "summary": "S12: RecruitmentState for the women -- authored milestones advance a named stage, never a timer, and only a stage string plus the current beat ID ever leaves the simulation",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/recruitment.rs",
+    "godot-rust/src/expedition.rs"
+  ],
+  "symbols": [
+    "RecruitmentState",
+    "RecruitmentStage",
+    "RecruitmentProjection",
+    "MilestoneRule",
+    "Disposition",
+    "Inclination",
+    "ExpeditionState.recruitment",
+    "ExpeditionState::record_recruitment_milestone"
+  ],
+  "coordination": {
+    "depends_on": [
+      "S1"
+    ],
+    "conflicts_with": [
+      "B3"
+    ],
+    "notes": "Only additions to godot-rust/src/expedition.rs are one appended ExpeditionState field (recruitment), two appended ExpeditionError variants, and record_recruitment_milestone. strategy/mod.rs, lib.rs and godot_bridge.rs are untouched; B3 owns the bridge and consumes RecruitmentState::projection() only."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}

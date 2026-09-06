@@ -577,6 +577,13 @@ fn expedition_error_code(value: &ExpeditionError) -> &'static str {
         ExpeditionError::AnchorRequiresDiscovery { .. } => "anchor_requires_discovery",
         ExpeditionError::AnchorAlreadyResolved { .. } => "anchor_already_resolved",
         ExpeditionError::TravelBlockedByEncounter { .. } => "travel_blocked_by_encounter",
+        // S12 added these two and this match is exhaustive, so their codes
+        // belong here now. Nothing else of S12 reaches the bridge from this
+        // edit: projecting a recruitment arc is B3's card, and when it does,
+        // `RecruitmentState::projection()` is the only thing it may pass -- a
+        // stage word and the current authored beat ID, never a disposition.
+        ExpeditionError::UnknownRecruit { .. } => "unknown_recruit",
+        ExpeditionError::MilestoneAlreadyRecorded { .. } => "milestone_already_recorded",
     }
 }
 
