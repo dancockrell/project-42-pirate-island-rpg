@@ -1,0 +1,23 @@
+; Terrace slabs, steps, quay and cobbles.
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://shaders/wet_stone.gdshader" id="1_wet_stone"]
+
+[resource]
+resource_name = "Wet Stone"
+shader = ExtResource("1_wet_stone")
+shader_parameter/dry_color = Color(0.38, 0.439, 0.373, 1)
+shader_parameter/wet_color = Color(0.114, 0.161, 0.153, 1)
+shader_parameter/dry_roughness = 0.92
+shader_parameter/wet_roughness = 0.12
+shader_parameter/wetness = 0.55
+shader_parameter/pooling_bias = 0.45
+shader_parameter/puddle_scale = 0.55
+shader_parameter/puddle_contrast = 1.4
+shader_parameter/lichen_color = Color(0.286, 0.373, 0.259, 1)
+shader_parameter/lichen_amount = 0.22
+shader_parameter/rim_color = Color(0.333, 0.788, 0.675, 1)
+shader_parameter/rim_strength = 0.5
+shader_parameter/rim_sharpness = 3.4
+shader_parameter/sky_wrap_color = Color(0.55, 0.74, 0.78, 1)
+shader_parameter/sky_wrap_strength = 0.24

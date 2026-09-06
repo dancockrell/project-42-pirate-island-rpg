@@ -7,6 +7,25 @@ extends Node3D
 @export_enum("processional_terrace", "elven_gate", "jungle_mass", "shipwreck_flotsam", "sea_and_sky") var component_id := "processional_terrace"
 
 
+## Wet stone in a named colour. The render foundation owns how rain reads on
+## stone; this names which stone it is raining on. Terrace slabs hold more
+## water than the gate does, because the terrace is what people walk on.
+func _stone(dry: Color, wet: Color, wetness: float) -> ShaderMaterial:
+	var surface := SetpieceMeshFactory.library_material(SetpieceMeshFactory.WET_STONE)
+	surface.set_shader_parameter("dry_color", dry)
+	surface.set_shader_parameter("wet_color", wet)
+	surface.set_shader_parameter("wetness", wetness)
+	return surface
+
+
+## Leaf mass that moves with the global wind.
+func _leaf(base: Color, tip: Color) -> ShaderMaterial:
+	var surface := SetpieceMeshFactory.library_material(SetpieceMeshFactory.FOLIAGE)
+	surface.set_shader_parameter("albedo", base)
+	surface.set_shader_parameter("tip_color", tip)
+	return surface
+
+
 func _ready() -> void:
 	match component_id:
 		"processional_terrace":
@@ -25,8 +44,8 @@ func _ready() -> void:
 
 func _build_processional_terrace() -> void:
 	set_meta("replacement_scope", "ground slabs, broken steps, edge fragments and luminous seam inlays")
-	var dark_stone := SetpieceMeshFactory.material(Color("27332d"), 0.12, 0.78)
-	var light_stone := SetpieceMeshFactory.material(Color("61705f"), 0.05, 0.9)
+	var dark_stone := _stone(Color("27332d"), Color("10181a"), 0.55)
+	var light_stone := _stone(Color("61705f"), Color("2a3733"), 0.8)
 	var teal_inlay := SetpieceMeshFactory.material(Color("1b8c79"), 0.25, 0.35, Color("1b8c79"), 1.45)
 	SetpieceMeshFactory.box(self, "TerraceGround", Vector3(24.0, 0.55, 15.0), Vector3(0.0, -0.28, 0.0), dark_stone)
 	for row in range(4):
@@ -55,8 +74,8 @@ func _build_processional_terrace() -> void:
 func _build_elven_gate() -> void:
 	set_meta("replacement_scope", "monumental bronze-age gate, carved pillars, broken lintel and teal magical inlay")
 	position = Vector3(-0.4, 0.0, -8.45)
-	var gate_stone := SetpieceMeshFactory.material(Color("39483f"), 0.1, 0.82)
-	var carved_stone := SetpieceMeshFactory.material(Color("69755f"), 0.08, 0.75)
+	var gate_stone := _stone(Color("39483f"), Color("17211d"), 0.4)
+	var carved_stone := _stone(Color("69755f"), Color("2e372c"), 0.5)
 	var rune_surface := SetpieceMeshFactory.material(Color("1b8c79"), 0.2, 0.25, Color("1b8c79"), 1.2)
 	for side in [-1.0, 1.0]:
 		var pillar := Node3D.new()
@@ -84,8 +103,8 @@ func _build_elven_gate() -> void:
 func _build_jungle_mass() -> void:
 	set_meta("replacement_scope", "large foliage clumps, palm trunks, roots, vine curtains and cliffside silhouette")
 	var bark := SetpieceMeshFactory.material(Color("4b3823"), 0.0, 0.95)
-	var dark_leaf := SetpieceMeshFactory.material(Color("183c2f"), 0.0, 0.97)
-	var light_leaf := SetpieceMeshFactory.material(Color("2d6842"), 0.0, 0.98)
+	var dark_leaf := _leaf(Color("183c2f"), Color("27664c"))
+	var light_leaf := _leaf(Color("2d6842"), Color("4b8c5c"))
 	var placements: Array[Vector3] = [Vector3(-12.6, 1.1, -8.0), Vector3(-14.2, 0.8, -2.8), Vector3(-13.1, 1.0, 3.7), Vector3(12.7, 1.0, -8.3), Vector3(14.1, 0.8, -2.2), Vector3(12.8, 1.0, 4.4), Vector3(-9.8, 1.2, 8.2), Vector3(10.3, 1.2, 8.4), Vector3(-7.7, 1.0, -10.7), Vector3(7.9, 1.0, -10.6)]
 	for index in range(placements.size()):
 		var clump := Node3D.new()
@@ -107,7 +126,8 @@ func _build_shipwreck_flotsam() -> void:
 	position = Vector3(8.8, -0.1, 7.2)
 	var wood := SetpieceMeshFactory.material(Color("3b2719"), 0.0, 0.88)
 	var crate := SetpieceMeshFactory.material(Color("604126"), 0.0, 0.86)
-	var brass := SetpieceMeshFactory.material(Color("8e622a"), 0.72, 0.35)
+	var brass := SetpieceMeshFactory.library_material(SetpieceMeshFactory.BRONZE)
+	brass.set_shader_parameter("metal_color", Color("8e622a"))
 	for plank in range(7):
 		SetpieceMeshFactory.box(self, "HullPlank_%02d" % plank, Vector3(4.4 - float(plank % 3) * 0.38, 0.24, 0.52), Vector3(-1.7 + float(plank % 2) * 1.2, 0.38 + float(plank % 3) * 0.3, -1.1 + plank * 0.75), wood, Vector3(float((plank % 4) * 8 - 10), float(plank * 13), float((plank % 3) * 9 - 7)))
 	for tea_crate in range(3):
@@ -120,8 +140,8 @@ func _build_shipwreck_flotsam() -> void:
 
 func _build_sea_and_sky() -> void:
 	set_meta("replacement_scope", "downhill sea plane, coast silhouette, storm break and distant ruin mass")
-	var sand := SetpieceMeshFactory.material(Color("8d7650"), 0.0, 0.94)
-	var sea := SetpieceMeshFactory.material(Color("0b5260"), 0.25, 0.25, Color("197e8c"), 0.22)
+	var sand := _stone(Color("8d7650"), Color("40351f"), 0.65)
+	var sea := SetpieceMeshFactory.library_material(SetpieceMeshFactory.SEA)
 	var islands := SetpieceMeshFactory.material(Color("173d36"), 0.0, 1.0)
 	SetpieceMeshFactory.box(self, "DownhillSand", Vector3(16.0, 0.22, 13.0), Vector3(10.0, -0.45, 11.0), sand, Vector3(3.0, 0.0, -7.0))
 	SetpieceMeshFactory.box(self, "SeaPlane", Vector3(28.0, 0.1, 18.0), Vector3(11.0, -0.7, 18.0), sea, Vector3(0.0, -5.0, 0.0))

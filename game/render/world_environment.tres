@@ -1,0 +1,126 @@
+; The island's environment. One resource, one owner.
+;
+; Everything here is a value that does not change while the game runs. The
+; values that DO change while the game runs -- sun angle and colour, fog
+; density, exposure, wind -- are exported properties on
+; res://render/world_environment.tscn's script, because P3 drives those from
+; the simulation snapshot and a driven value hard-coded in a resource is a
+; value with two owners.
+;
+; Forward+ only, and therefore unverified until CI renders with Vulkan:
+; ssil_*. Everything else below draws on gl_compatibility as well.
+[gd_resource type="Environment" load_steps=5 format=3]
+
+; Sky. A procedural gradient in the project palette: deep teal-blue overhead,
+; a pale sea-haze horizon, deep jungle green below. No panorama texture, so
+; nothing here is an asset of uncertain provenance.
+[sub_resource type="ProceduralSkyMaterial" id="IslandSkyMaterial"]
+sky_top_color = Color(0.098, 0.278, 0.337, 1)
+sky_horizon_color = Color(0.639, 0.757, 0.729, 1)
+sky_curve = 0.19
+sky_energy_multiplier = 1.0
+ground_bottom_color = Color(0.031, 0.071, 0.067, 1)
+ground_horizon_color = Color(0.161, 0.271, 0.251, 1)
+ground_curve = 0.08
+ground_energy_multiplier = 1.0
+sun_angle_max = 26.0
+sun_curve = 0.11
+use_debanding = true
+
+[sub_resource type="Sky" id="IslandSky"]
+sky_material = SubResource("IslandSkyMaterial")
+radiance_size = 3
+
+; Colour correction. Read per channel by the tonemapper: the low end of this
+; ramp is what black becomes and the high end is what white becomes. Teal in
+; the shadows, warm cream in the highlights, neutral through the middle.
+[sub_resource type="Gradient" id="TealShadowsWarmHighlights"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(0.016, 0.063, 0.071, 1, 0.502, 0.502, 0.482, 1, 1, 0.973, 0.906, 1)
+
+[sub_resource type="GradientTexture1D" id="IslandColorCorrection"]
+gradient = SubResource("TealShadowsWarmHighlights")
+width = 256
+
+[resource]
+background_mode = 2
+sky = SubResource("IslandSky")
+; Ambient and reflections both come from that sky, so a shadowed face picks up
+; sea-haze rather than a flat constant.
+ambient_light_source = 3
+ambient_light_color = Color(0.404, 0.573, 0.573, 1)
+ambient_light_sky_contribution = 1.0
+ambient_light_energy = 1.0
+reflected_light_source = 2
+; AgX. Chosen over Filmic and ACES because it holds hue through a bright sky
+; and a specular glint without the magenta shift ACES puts on saturated teal,
+; which is the one colour this project cannot afford to lose.
+tonemap_mode = 4
+tonemap_exposure = 1.0
+tonemap_white = 6.0
+ssr_enabled = false
+; SSAO. Available on Forward+ AND on gl_compatibility in 4.7, so this one
+; contact shadow is in both captures. Small radius: the board is read from a
+; distance and a wide AO reads as dirt.
+ssao_enabled = true
+ssao_radius = 0.85
+ssao_intensity = 1.6
+ssao_power = 1.5
+ssao_detail = 0.4
+ssao_horizon = 0.06
+ssao_sharpness = 0.98
+ssao_light_affect = 0.1
+ssao_ao_channel_affect = 0.0
+; SSIL. Forward+ ONLY -- gl_compatibility ignores every value below it. It is
+; here because it is what makes a teal-lit terrace bounce teal into its own
+; shadows, and that is the whole reason this card moved off compatibility.
+ssil_enabled = true
+ssil_radius = 4.0
+ssil_intensity = 0.9
+ssil_sharpness = 0.98
+ssil_normal_rejection = 1.0
+sdfgi_enabled = false
+; Glow. Low threshold and soft, so a luminous elven seam and a sun glint on
+; water bloom, and nothing else does. Screen blend: the compatibility renderer
+; forces screen, so naming it here keeps the two plates the same image.
+glow_enabled = true
+glow_normalized = true
+glow_intensity = 0.75
+glow_strength = 1.0
+glow_mix = 0.05
+glow_bloom = 0.12
+glow_blend_mode = 1
+glow_hdr_threshold = 0.85
+glow_hdr_scale = 2.0
+glow_hdr_luminance_cap = 12.0
+glow_levels/1 = 0.0
+glow_levels/2 = 0.35
+glow_levels/3 = 1.0
+glow_levels/4 = 1.0
+glow_levels/5 = 0.6
+glow_levels/6 = 0.0
+glow_levels/7 = 0.0
+; Depth fog in the sea's own colour, not grey. Aerial perspective pulls the
+; sky colour into the far fog so a distant island sits behind the haze rather
+; than in front of it, and the depth curve keeps the first eighteen metres
+; clear so the gate is never fogged out of its own frame.
+fog_enabled = true
+fog_mode = 1
+fog_light_color = Color(0.184, 0.435, 0.455, 1)
+fog_light_energy = 1.0
+fog_sun_scatter = 0.25
+fog_density = 0.0075
+fog_aerial_perspective = 0.45
+fog_sky_affect = 0.35
+fog_depth_curve = 1.2
+fog_depth_begin = 18.0
+fog_depth_end = 340.0
+volumetric_fog_enabled = false
+; Colour correction and a light grade. Saturation slightly up, contrast
+; slightly up: the ramp does the hue work, these two keep it from going flat.
+; No vignette anywhere in this file: the board's edges are information.
+adjustment_enabled = true
+adjustment_brightness = 1.0
+adjustment_contrast = 1.06
+adjustment_saturation = 1.08
+adjustment_color_correction = SubResource("IslandColorCorrection")

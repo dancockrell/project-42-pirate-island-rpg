@@ -1,0 +1,50 @@
+; The sea. Wide, slow, deep, and steered by the global wind.
+;
+; The ripple texture is generated in-repo at load time by FastNoiseLite: a
+; seamless 512-square value-noise tile with a fixed seed, so it is the same
+; tile in every run and on every machine and no image file is admitted to the
+; repository for it.
+[gd_resource type="ShaderMaterial" load_steps=4 format=3]
+
+[ext_resource type="Shader" path="res://shaders/stylised_water.gdshader" id="1_water"]
+
+[sub_resource type="FastNoiseLite" id="SeaRippleNoise"]
+noise_type = 1
+seed = 4207
+frequency = 0.014
+fractal_type = 1
+fractal_octaves = 4
+fractal_lacunarity = 2.1
+fractal_gain = 0.48
+
+[sub_resource type="NoiseTexture2D" id="SeaRippleTexture"]
+width = 512
+height = 512
+seamless = true
+seamless_blend_skirt = 0.15
+generate_mipmaps = true
+noise = SubResource("SeaRippleNoise")
+
+[resource]
+resource_name = "Stylised Sea"
+shader = ExtResource("1_water")
+shader_parameter/ripple_noise = SubResource("SeaRippleTexture")
+shader_parameter/shallow_color = Color(0.176, 0.588, 0.596, 1)
+shader_parameter/deep_color = Color(0.031, 0.145, 0.18, 1)
+shader_parameter/depth_fade_distance = 6.5
+shader_parameter/foam_color = Color(0.918, 0.874, 0.792, 1)
+shader_parameter/foam_width = 0.9
+shader_parameter/foam_outer_width = 3.2
+shader_parameter/foam_sharpness = 1.6
+shader_parameter/foam_noise_scale = 0.22
+shader_parameter/ripple_scale = 0.08
+shader_parameter/ripple_strength = 1.0
+shader_parameter/ripple_speed = 0.035
+shader_parameter/flow_speed = 0.0
+shader_parameter/flow_heading_degrees = 0.0
+shader_parameter/follows_wind = true
+shader_parameter/water_roughness = 0.06
+shader_parameter/water_metallic = 0.15
+shader_parameter/sun_glint_color = Color(1, 0.9, 0.72, 1)
+shader_parameter/sun_glint_strength = 0.6
+shader_parameter/surface_alpha = 0.92

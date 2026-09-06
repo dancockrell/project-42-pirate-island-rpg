@@ -1,0 +1,23 @@
+; Jungle mass. Sways with the global wind; stills when B9's reduced-motion
+; setting drives motion_scale to zero.
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://shaders/foliage_wind.gdshader" id="1_foliage"]
+
+[resource]
+resource_name = "Foliage"
+shader = ExtResource("1_foliage")
+shader_parameter/albedo = Color(0.094, 0.235, 0.184, 1)
+shader_parameter/tip_color = Color(0.176, 0.408, 0.259, 1)
+shader_parameter/roughness = 0.95
+shader_parameter/sway_amplitude = 0.055
+shader_parameter/sway_frequency = 1.15
+shader_parameter/flutter_amplitude = 0.018
+shader_parameter/flutter_frequency = 4.3
+shader_parameter/anchor_height = 0.35
+shader_parameter/rim_color = Color(0.333, 0.788, 0.675, 1)
+shader_parameter/rim_strength = 0.45
+shader_parameter/rim_sharpness = 2.6
+shader_parameter/sky_wrap_color = Color(0.55, 0.74, 0.78, 1)
+shader_parameter/sky_wrap_strength = 0.3
+shader_parameter/translucency = 0.35

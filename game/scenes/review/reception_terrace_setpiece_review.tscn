@@ -1,17 +1,16 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/world/black_beach/reception_terrace.tscn" id="1_cell"]
-
-[sub_resource type="StandardMaterial3D" id="ReviewGroundMaterial"]
-albedo_color = Color(0.018, 0.027, 0.03, 1)
-roughness = 1.0
+[ext_resource type="PackedScene" path="res://render/camera_rig.tscn" id="2_camera_rig"]
+[ext_resource type="Material" path="res://render/materials/wet_stone.tres" id="3_wet_stone"]
 
 [sub_resource type="PlaneMesh" id="ReviewGroundMesh"]
 size = Vector2(80, 80)
-material = SubResource("ReviewGroundMaterial")
+material = ExtResource("3_wet_stone")
 
 [node name="ReceptionTerraceSetpieceReview" type="Node3D"]
-metadata/review_purpose = "Environment-only cinematic camera review. No character proxy may be added to this scene."
+metadata/review_purpose = "Environment-only review at gameplay distance. No character proxy may be added to this scene."
+metadata/render_contract = "Light comes from res://render/world_environment.tscn through the cell's lighting kit; the view is the fixed isometric rig at room distance. Neither is written here."
 
 [node name="ReceptionTerrace" parent="." instance=ExtResource("1_cell")]
 
@@ -19,8 +18,7 @@ metadata/review_purpose = "Environment-only cinematic camera review. No characte
 mesh = SubResource("ReviewGroundMesh")
 position = Vector3(0, -0.58, 0)
 
-[node name="SetpieceCamera" type="Camera3D" parent="."]
-transform = Transform3D(0.819152, -0.181606, 0.544639, 0, 0.948683, 0.316228, -0.573576, -0.258819, 0.777146, 18.3, 10.2, 23.6)
-current = true
-fov = 48.0
-metadata/camera_description = "Wide three-quarter downhill view: processional terrace and shattered gate left-of-centre, wild jungle framing, sea and Handsome Jack flotsam visible to the right."
+[node name="SetpieceCamera" parent="." instance=ExtResource("2_camera_rig")]
+frame_target = NodePath("../ReceptionTerrace")
+frame_target_distance = 2
+metadata/camera_description = "The game's own isometric view -- 45 degree yaw, 30 degree pitch -- framed on the whole cell at room distance, so the terrace is judged at the distance it will be played at rather than through a camera only this scene has."

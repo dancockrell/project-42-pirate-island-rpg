@@ -1,0 +1,24 @@
+; The blockout base. SetpieceMeshFactory.material() duplicates this and sets
+; albedo, metallic, roughness and emission per surface, so every procedural
+; box in the game inherits one grammar and a change here moves all of them.
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://shaders/clay_blockout.gdshader" id="1_clay"]
+
+[resource]
+resource_name = "Clay Blockout"
+render_priority = 0
+shader = ExtResource("1_clay")
+shader_parameter/albedo = Color(0.38, 0.44, 0.4, 1)
+shader_parameter/metallic = 0.0
+shader_parameter/roughness = 0.9
+shader_parameter/emission_color = Color(0, 0, 0, 1)
+shader_parameter/emission_energy = 0.0
+shader_parameter/rim_color = Color(0.333, 0.788, 0.675, 1)
+shader_parameter/rim_strength = 0.55
+shader_parameter/rim_sharpness = 3.2
+shader_parameter/sky_wrap_color = Color(0.55, 0.74, 0.78, 1)
+shader_parameter/ground_bounce_color = Color(0.24, 0.19, 0.13, 1)
+shader_parameter/sky_wrap_strength = 0.22
+shader_parameter/grain_scale = 0.35
+shader_parameter/grain_strength = 0.12

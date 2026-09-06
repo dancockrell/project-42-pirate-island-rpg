@@ -1,0 +1,34 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/render/island_environment.gd" id="1_island_environment"]
+[ext_resource type="Environment" path="res://render/world_environment.tres" id="2_environment"]
+
+[node name="IslandEnvironment" type="WorldEnvironment"]
+environment = ExtResource("2_environment")
+script = ExtResource("1_island_environment")
+metadata/render_contract = "The island's light. Instance this instead of writing a WorldEnvironment per scene; P3 drives its exported sun, fog, exposure and wind properties from the simulation snapshot."
+
+[node name="KeySun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-38, -47, 0)
+light_color = Color(1, 0.847, 0.635, 1)
+light_energy = 1.85
+light_angular_distance = 1.2
+shadow_enabled = true
+shadow_bias = 0.03
+shadow_normal_bias = 1.5
+shadow_blur = 1.1
+directional_shadow_mode = 2
+directional_shadow_split_1 = 0.06
+directional_shadow_split_2 = 0.16
+directional_shadow_split_3 = 0.42
+directional_shadow_blend_splits = true
+directional_shadow_max_distance = 260.0
+directional_shadow_pancake_size = 24.0
+
+[node name="SeaFill" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-14, 138, 0)
+light_color = Color(0.435, 0.816, 0.753, 1)
+light_energy = 0.42
+light_specular = 0.25
+shadow_enabled = false
+metadata/render_contract = "Bounce from the sea and the wet ground, opposite the key. Never casts a shadow: a second shadow map from a fill light reads as an error."

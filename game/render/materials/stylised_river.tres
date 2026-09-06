@@ -1,0 +1,50 @@
+; A river or a harbour channel. Narrow, fast, shallow, and steered by its own
+; heading rather than by the wind, with a tighter, brighter foam line because
+; a river breaks on everything it passes.
+;
+; Same shader and the same in-repo FastNoiseLite tile as the sea, at a higher
+; frequency: one water look, two setups, no second implementation.
+[gd_resource type="ShaderMaterial" load_steps=4 format=3]
+
+[ext_resource type="Shader" path="res://shaders/stylised_water.gdshader" id="1_water"]
+
+[sub_resource type="FastNoiseLite" id="RiverRippleNoise"]
+noise_type = 1
+seed = 4207
+frequency = 0.032
+fractal_type = 1
+fractal_octaves = 3
+fractal_lacunarity = 2.1
+fractal_gain = 0.52
+
+[sub_resource type="NoiseTexture2D" id="RiverRippleTexture"]
+width = 512
+height = 512
+seamless = true
+seamless_blend_skirt = 0.15
+generate_mipmaps = true
+noise = SubResource("RiverRippleNoise")
+
+[resource]
+resource_name = "Stylised River"
+shader = ExtResource("1_water")
+shader_parameter/ripple_noise = SubResource("RiverRippleTexture")
+shader_parameter/shallow_color = Color(0.259, 0.612, 0.549, 1)
+shader_parameter/deep_color = Color(0.055, 0.212, 0.216, 1)
+shader_parameter/depth_fade_distance = 1.8
+shader_parameter/foam_color = Color(0.941, 0.918, 0.855, 1)
+shader_parameter/foam_width = 0.35
+shader_parameter/foam_outer_width = 0.9
+shader_parameter/foam_sharpness = 2.2
+shader_parameter/foam_noise_scale = 0.55
+shader_parameter/ripple_scale = 0.22
+shader_parameter/ripple_strength = 1.4
+shader_parameter/ripple_speed = 0.0
+shader_parameter/flow_speed = 0.09
+shader_parameter/flow_heading_degrees = 196.0
+shader_parameter/follows_wind = false
+shader_parameter/water_roughness = 0.1
+shader_parameter/water_metallic = 0.08
+shader_parameter/sun_glint_color = Color(1, 0.94, 0.8, 1)
+shader_parameter/sun_glint_strength = 0.45
+shader_parameter/surface_alpha = 0.88

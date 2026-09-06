@@ -2,42 +2,25 @@
 
 [ext_resource type="Script" path="res://scripts/review/betty_3d_candidate_review.gd" id="1_review"]
 [ext_resource type="PackedScene" path="res://assets/candidates/betty_3d/betty_candidate_v1.glb" id="2_betty"]
-[sub_resource type="Environment" id="Environment_review"]
-background_mode = 1
-background_color = Color(0.015, 0.026, 0.028, 1)
-ambient_light_source = 3
-ambient_light_color = Color(0.35, 0.42, 0.38, 1)
-ambient_light_energy = 0.65
-tonemap_mode = 2
-tonemap_exposure = 1.15
-glow_enabled = true
-glow_intensity = 0.35
-
-[sub_resource type="StandardMaterial3D" id="FloorMaterial"]
-albedo_color = Color(0.035, 0.065, 0.06, 1)
-metallic = 0.35
-roughness = 0.6
+[ext_resource type="PackedScene" path="res://render/world_environment.tscn" id="3_environment"]
+[ext_resource type="Material" path="res://render/materials/wet_stone.tres" id="4_wet_stone"]
 
 [sub_resource type="PlaneMesh" id="FloorMesh"]
-material = SubResource("FloorMaterial")
+material = ExtResource("4_wet_stone")
 size = Vector2(22, 14)
 
 [node name="Betty3DCandidateReview" type="Node3D"]
 script = ExtResource("1_review")
+metadata/render_contract = "Light is res://render/world_environment.tscn, the same rig every scene uses, so the candidate's silhouette is judged in the island's own light. The camera is NOT the isometric board rig: this scene's declared purpose is the battle crop, which P6 owns, and swapping it would delete the review."
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
-environment = SubResource("Environment_review")
-
-[node name="KeyLight" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-48, -32, 0)
-light_color = Color(1, 0.79, 0.55, 1)
-light_energy = 2.0
-shadow_enabled = true
-
-[node name="RimLight" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-32, 142, 0)
-light_color = Color(0.2, 0.9, 0.75, 1)
-light_energy = 1.25
+[node name="WorldEnvironment" parent="." instance=ExtResource("3_environment")]
+sun_pitch_degrees = 48.0
+sun_yaw_degrees = -32.0
+sun_color = Color(1, 0.79, 0.55, 1)
+sun_energy = 2.0
+fill_color = Color(0.2, 0.9, 0.75, 1)
+fill_energy = 1.25
+fog_density = 0.004
 
 [node name="Floor" type="MeshInstance3D" parent="."]
 mesh = SubResource("FloorMesh")

@@ -1,0 +1,15 @@
+; Deliberately ugly. Anything wearing this has not been art-directed yet, and
+; is meant to be impossible to miss in a capture.
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://shaders/placeholder.gdshader" id="1_placeholder"]
+
+[resource]
+resource_name = "Placeholder"
+shader = ExtResource("1_placeholder")
+shader_parameter/checker_color = Color(0.761, 0.306, 0.271, 1)
+shader_parameter/ground_color = Color(0.075, 0.137, 0.129, 1)
+shader_parameter/label_color = Color(0.918, 0.874, 0.792, 1)
+shader_parameter/checker_metres = 0.5
+shader_parameter/band_metres = 2.0
+shader_parameter/band_width = 0.12

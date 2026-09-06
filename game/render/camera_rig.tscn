@@ -1,0 +1,16 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/render/camera_director.gd" id="1_camera_director"]
+
+[node name="CameraRig" type="Node3D"]
+script = ExtResource("1_camera_director")
+metadata/render_contract = "Fixed isometric heading: 45 degree yaw, 30 degree pitch, named in camera_director.gd. Instance this rather than placing a Camera3D by hand, so every view of the board is the same view."
+
+[node name="IsometricCamera" type="Camera3D" parent="."]
+transform = Transform3D(0.707107, -0.353553, 0.612372, 0, 0.866025, 0.5, -0.707107, -0.353553, 0.612372, 0, 0, 0)
+projection = 1
+current = true
+size = 24.0
+fov = 12.0
+near = 0.05
+far = 6000.0

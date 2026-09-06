@@ -5,6 +5,8 @@ extends Node3D
 ## routes, landmarks, anchors, and population slots are the replacement contract.
 
 const PACK_ID := "resource.geometry.settlement.elizabethan-atlantic-port-town.v1"
+const ISLAND_ENVIRONMENT := preload("res://render/world_environment.tscn")
+
 const RECIPE_IDS := [
 	"arrival_gate_and_watch",
 	"market_green",
@@ -22,22 +24,28 @@ const RECIPE_IDS := [
 	"hidden_alley_loop",
 ]
 
-var plaster: StandardMaterial3D
-var oak: StandardMaterial3D
-var roof: StandardMaterial3D
-var slate: StandardMaterial3D
-var stone: StandardMaterial3D
-var cobble: StandardMaterial3D
-var sand: StandardMaterial3D
-var water: StandardMaterial3D
-var green: StandardMaterial3D
-var sea_green: StandardMaterial3D
-var brass: StandardMaterial3D
-var oxblood: StandardMaterial3D
-var canvas_red: StandardMaterial3D
-var canvas_gold: StandardMaterial3D
-var canvas_blue: StandardMaterial3D
-var dark: StandardMaterial3D
+# The render foundation's library, not flat colours: clay for the blockout
+# mass, wet stone for anything the rain sits on, bronze for the fittings,
+# vellum for the canvas, foliage for the tree canopies and the stylised sea
+# for the harbour. The palette below is the one this set already had; only the
+# material grammar under it changed.
+var plaster: Material
+var oak: Material
+var roof: Material
+var slate: Material
+var stone: Material
+var cobble: Material
+var sand: Material
+var water: Material
+var green: Material
+var sea_green: Material
+var brass: Material
+var oxblood: Material
+var canvas_red: Material
+var canvas_gold: Material
+var canvas_blue: Material
+var dark: Material
+var canopy: Material
 
 
 func _ready() -> void:
@@ -60,18 +68,55 @@ func _make_materials() -> void:
 	oak = SetpieceMeshFactory.material(Color("3b2418"), 0.0, 0.86)
 	roof = SetpieceMeshFactory.material(Color("71382d"), 0.02, 0.82)
 	slate = SetpieceMeshFactory.material(Color("33464d"), 0.03, 0.78)
-	stone = SetpieceMeshFactory.material(Color("69675d"), 0.0, 0.97)
-	cobble = SetpieceMeshFactory.material(Color("4f5350"), 0.0, 0.93)
-	sand = SetpieceMeshFactory.material(Color("a18b62"), 0.0, 1.0)
-	water = SetpieceMeshFactory.material(Color("1b6871"), 0.22, 0.24, Color("174f58"), 0.12)
+	stone = _wet_stone(Color("69675d"), Color("3a3a33"), 0.35)
+	cobble = _wet_stone(Color("4f5350"), Color("22292b"), 0.7)
+	sand = _wet_stone(Color("a18b62"), Color("4e4130"), 0.25)
+	water = SetpieceMeshFactory.library_material(SetpieceMeshFactory.SEA)
+	# Turf and painted trim are not foliage: they must not sway. Only the
+	# canopies below get the wind shader.
 	green = SetpieceMeshFactory.material(Color("315937"), 0.0, 1.0)
 	sea_green = SetpieceMeshFactory.material(Color("267d73"), 0.03, 0.7)
-	brass = SetpieceMeshFactory.material(Color("ad7c32"), 0.72, 0.34)
+	canopy = _foliage(Color("2a5c3a"), Color("4a7a45"))
+	brass = _bronze(Color("ad7c32"))
 	oxblood = SetpieceMeshFactory.material(Color("7e2f32"), 0.05, 0.72)
-	canvas_red = SetpieceMeshFactory.material(Color("a63d3f"), 0.0, 0.88)
-	canvas_gold = SetpieceMeshFactory.material(Color("d3a642"), 0.0, 0.9)
-	canvas_blue = SetpieceMeshFactory.material(Color("366a91"), 0.0, 0.86)
+	canvas_red = _canvas(Color("a63d3f"))
+	canvas_gold = _canvas(Color("d3a642"))
+	canvas_blue = _canvas(Color("366a91"))
 	dark = SetpieceMeshFactory.material(Color("192326"), 0.05, 0.9)
+
+
+## Wet stone in this set's own colours. The library owns how rain reads; this
+## names which stone it is raining on.
+func _wet_stone(dry: Color, wet: Color, wetness: float) -> Material:
+	var surface := SetpieceMeshFactory.library_material(SetpieceMeshFactory.WET_STONE)
+	surface.set_shader_parameter("dry_color", dry)
+	surface.set_shader_parameter("wet_color", wet)
+	surface.set_shader_parameter("wetness", wetness)
+	return surface
+
+
+## Wind-moved green. The town's hedges and harbour weed sway with the same
+## global wind the jungle does.
+func _foliage(base: Color, tip: Color) -> Material:
+	var surface := SetpieceMeshFactory.library_material(SetpieceMeshFactory.FOLIAGE)
+	surface.set_shader_parameter("albedo", base)
+	surface.set_shader_parameter("tip_color", tip)
+	return surface
+
+
+## Bronze fittings: bell, cranes, weathervanes, ships' brass.
+func _bronze(metal: Color) -> Material:
+	var surface := SetpieceMeshFactory.library_material(SetpieceMeshFactory.BRONZE)
+	surface.set_shader_parameter("metal_color", metal)
+	return surface
+
+
+## Market canopies and sails: vellum stock, dyed.
+func _canvas(dye: Color) -> Material:
+	var surface := SetpieceMeshFactory.library_material(SetpieceMeshFactory.VELLUM)
+	surface.set_shader_parameter("stock_color", dye)
+	surface.set_shader_parameter("shade_color", dye.darkened(0.35))
+	return surface
 
 
 func _build_environment() -> void:
@@ -79,25 +124,19 @@ func _build_environment() -> void:
 	SetpieceMeshFactory.box(section, "TownGround", Vector3(134.0, 0.5, 96.0), Vector3(0.0, -0.3, -8.0), green)
 	SetpieceMeshFactory.box(section, "HarborWater", Vector3(134.0, 0.18, 45.0), Vector3(0.0, -0.48, 61.0), water)
 	SetpieceMeshFactory.box(section, "ShoreBand", Vector3(132.0, 0.24, 8.0), Vector3(0.0, -0.25, 36.0), sand)
-	var environment := Environment.new()
-	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color("8db4bd")
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color("b7cbd0")
-	environment.ambient_light_energy = 0.75
-	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	environment.tonemap_exposure = 1.12
-	var world := WorldEnvironment.new()
+	# The island's light, not a second copy of it. The town used to build its
+	# own Environment and its own sun here; both are now the render
+	# foundation's, so a change to the island's light reaches this set and
+	# every other one at the same moment. The town keeps its own hour by
+	# setting the exported properties, which is also the seam P3 drives.
+	var world := ISLAND_ENVIRONMENT.instantiate() as IslandEnvironment
 	world.name = "TownEnvironment"
-	world.environment = environment
+	world.sun_pitch_degrees = 52.0
+	world.sun_yaw_degrees = -34.0
+	world.sun_color = Color("ffe6b5")
+	world.sun_energy = 1.55
+	world.fog_density = 0.0042
 	section.add_child(world)
-	var sun := DirectionalLight3D.new()
-	sun.name = "SoftCoastalSun"
-	sun.rotation_degrees = Vector3(-52.0, -34.0, 0.0)
-	sun.light_color = Color("ffe6b5")
-	sun.light_energy = 1.3
-	sun.shadow_enabled = true
-	section.add_child(sun)
 
 
 func _build_routes() -> void:
@@ -378,8 +417,8 @@ func _tree(parent: Node3D, tree_name: String, location: Vector3) -> void:
 	tree.position = location
 	parent.add_child(tree)
 	SetpieceMeshFactory.cylinder(tree, "Trunk", 0.25, 0.4, 4.3, Vector3(0.0, 2.15, 0.0), oak, 7)
-	SetpieceMeshFactory.sphere(tree, "CanopyA", Vector3(2.0, 1.5, 1.7), Vector3(0.0, 4.9, 0.0), green)
-	SetpieceMeshFactory.sphere(tree, "CanopyB", Vector3(1.4, 1.1, 1.3), Vector3(1.2, 4.3, 0.4), green)
+	SetpieceMeshFactory.sphere(tree, "CanopyA", Vector3(2.0, 1.5, 1.7), Vector3(0.0, 4.9, 0.0), canopy)
+	SetpieceMeshFactory.sphere(tree, "CanopyB", Vector3(1.4, 1.1, 1.3), Vector3(1.2, 4.3, 0.4), canopy)
 
 
 func _prop_cluster(parent: Node3D, cluster_name: String, location: Vector3) -> void:
