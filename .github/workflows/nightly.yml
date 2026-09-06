@@ -24,9 +24,6 @@ on:
     # worse than one that starts seventeen minutes past.
     - cron: '17 6 * * *'
   workflow_dispatch:
-  # TEMPORARY PROOF TRIGGER -- removed before this lane is completed.
-  push:
-    branches: [lane/E5-E9-nightly-and-pack]
 
 env:
   # Identical to verify.yml's pins. If one moves, both move.
@@ -64,16 +61,30 @@ jobs:
             artifact: project42.x86_64
             library: game/bin/linux/project42_sim.linux.expedition_v5_release.x86_64.so
             declared: linux.release.x86_64
+          # Windows exports from this Linux runner because the Windows
+          # libraries are the ones game/bin/ actually carries, and Godot copies
+          # the .dll next to the exported .exe. Nothing needs Wine or rcedit:
+          # application/modify_resources is skipped with a notice, not an error.
           - preset: Windows Desktop
             slug: windows-desktop
             artifact: project42.exe
             library: game/bin/windows/project42_sim.windows.expedition_v5_release.x86_64.dll
             declared: windows.release.x86_64
-          - preset: macOS
-            slug: macos-desktop
-            artifact: project42.zip
-            library: game/bin/macos/project42_sim.macos.expedition_v5_release.x86_64.dylib
-            declared: macos.release.x86_64
+          #
+          # macOS is deliberately absent, and this is the honest reason rather
+          # than an omission. E4's preset exists and is correct; what does not
+          # exist is the library. game/bin/macos/ is empty, tools/build-native-bridge.sh
+          # builds for the host it runs on and a Linux runner is not a macOS
+          # host, so nothing on this runner can produce
+          # project42_sim.macos.expedition_v5_release.x86_64.dylib. It was
+          # tried: run 34023865769's "Export macOS" job failed at the assertion
+          # below with "The macOS export needs
+          # game/bin/macos/project42_sim.macos.expedition_v5_release.x86_64.dylib
+          # and it is not there", which is exactly the refusal E5 asked for --
+          # Godot would happily have exported an unsigned .zip with no
+          # simulation inside it. Adding macOS back means either a macos-latest
+          # runner in this matrix or a cross-compiled dylib; a preset entry
+          # alone would only produce a hollow build.
 
     steps:
       - name: Check out the repository
@@ -152,10 +163,7 @@ jobs:
       # does not find one to carry.
       - name: Build the native bridge
         shell: bash
-        # TEMPORARY BITE PROOF -- restored in the next commit. With no library
-        # built, the assertion below must fail this job by name.
-        run: |
-          echo "BITE PROOF - the native bridge build is deliberately skipped."
+        run: bash tools/build-native-bridge.sh release
 
       # E5's hard requirement, from E4's finding. game/bin/ holds only the
       # Windows libraries; Linux and macOS are built, never committed, and
