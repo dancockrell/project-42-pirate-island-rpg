@@ -3,9 +3,9 @@
   "task_id": "ci-usage-efficiency",
   "agent": "codex",
   "summary": "Remove duplicate verification runs and bound transient artifact storage",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T14:09:08.159738Z",
-  "updated_at": "2026-09-06T14:09:08.159738Z",
+  "updated_at": "2026-09-06T14:11:53.074804Z",
   "paths": [
     ".github/workflows/verify.yml",
     ".github/workflows/nightly.yml",
@@ -18,7 +18,12 @@
     "notes": "No active or blocked claims at inspection. Update existing backend/b0-expedition-state branch and PR 3; preserve all jobs and assertions."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "5f8499492c0dd416f8db7e0871b8cbfce6e02c99",
+    "checks": [
+      "actionlint 1.7.12 on both workflows (external shellcheck and pyflakes unavailable): passed",
+      "Original job steps preserved; push main, PR and manual triggers plus PR-only cancellation reviewed: passed",
+      "node tools/src/check-claims.mjs (73 claims, 114 rows, 108 cards; local ship plan normalized to LF for Windows regex compatibility): passed",
+      "git diff --check and commit secret scan: passed"
+    ]
   }
 }
