@@ -3,7 +3,7 @@
   "task_id": "c5-tomb-dungeon",
   "agent": "claude-code (lane C5)",
   "summary": "The Tomb of Returning Names becomes an authored dungeon record of the design bible's twelve spaces, the four authored tomb cells carry a dungeonContext block naming their space and site rules, and Rust selects the elven or the corrupted rule set from S9's DungeonContext owner.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -26,12 +26,41 @@
     "TOMB_OF_RETURNING_NAMES"
   ],
   "coordination": {
-    "depends_on": ["b6-tomb-interior-cells", "s9-dungeon-context", "c10-c8-buildings-and-pack-manifest"],
+    "depends_on": [
+      "b6-tomb-interior-cells",
+      "s9-dungeon-context",
+      "c10-c8-buildings-and-pack-manifest"
+    ],
     "conflicts_with": [],
     "notes": "Branched from origin/backend/b0-expedition-state at 2ec3243. The four tomb world cells are touched in exactly one added line each (the dungeonContext block, inserted before admission), so other lanes editing those files merge cleanly. tools/src/validate.mjs takes one new block plus one line in the world-cell block; tools/src/build-content-bundle.mjs takes dungeons in the domain list. godot-rust/src/strategy/dungeon.rs is NOT edited: S9 owns it, and the authored-record reader is a different responsibility from the context and its signature, so it lives in a new strategy/dungeon_content.rs that imports DungeonContext rather than restating anything in it. That is move 1 (build on it), not a second dungeon module: nothing in dungeon.rs is copied or shadowed. Duplication that does exist is deliberate and held equal: a cell's dungeonContext.siteRuleIds mirrors its space's default-owner list in the dungeon record, and both validate.mjs and the Rust reader refuse a mismatch, so the record is the owner and the cell is the mirror."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "ea1d0fb",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (313 lib incl. 7 new strategy::dungeon_content, 6 authored_world, 5 save_migration, 8 strategic_determinism, 1 vertical_slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (262 stable IDs, up from 223: dungeon.tomb_of_returning_names, its twelve space IDs and twenty-six site_rule.* IDs; 12 authored dungeon spaces): passed",
+      "node tools/src/check-claims.mjs (48 claims, 91 ship-plan rows, 85 cards): passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/ (52 records, sha256:d7651d0f5745a4168d0ae908de4bb5d2d95a5cffd80e1e32c21545482c4eb7f6; dungeons joined the domain list): passed",
+      "Done-when: the same context selects the same rules -- strategy::dungeon_content::tests::the_same_context_selects_the_same_site_rules: passed",
+      "Done-when: an owner change selects different rules -- an_owner_change_selects_different_site_rules, which also asserts the two sets share no rule at all: passed",
+      "C10's shape, content owns and Rust carries: the_authored_tomb_record_equals_what_the_reader_loads holds every field of the loaded record equal to the file's own JSON and asserts the design bible section 3.13 spaces by name and in order: passed",
+      "every_tomb_cell_mirrors_its_authored_space -- each of B6's four tomb cells names the dungeon, both concept keys, its space, and exactly the site rules the record gives that space; tools/src/validate.mjs refuses the same drift: passed",
+      "every_space_either_names_a_cell_or_says_that_none_is_authored -- six of the twelve spaces are realised today and six carry worldCellId null with a note: passed",
+      "a_bad_record_refuses_before_a_rule_is_read -- palette-swap variant, same owner and variant, a renamed space, a non-site_rule prefix and an empty rule set each refuse by their own error: passed",
+      "every_other_owner_and_unheld_ground_bring_the_default_rules -- the two-set record read honestly; a third owner's set is needs decision: passed",
+      "Bite (the card's): every space's corruptedSiteRuleIds set equal to its siteRuleIds in content/dungeons/tomb_of_returning_names.json. cargo test --lib dungeon_content FAILED 7/7 at the shared loader with 'the tomb record validates: VariantIsAPaletteSwap { space: \"reception_terrace\" }', and node tools/src/validate.mjs failed with twelve 'spaces[N].corruptedSiteRuleIds must differ from siteRuleIds; a corrupted variant that selects the same rules is a palette swap (brief section 12)'; restored: failed",
+      "Bite (behaviour, so the owner-change assertion itself fires): select_site_rules forced to the default branch. an_owner_change_selects_different_site_rules FAILED alone (6 passed, 1 failed) with 'assertion `left != right` failed: the Cthulhu concept key must select the corrupted variant's rules'; restored: failed",
+      "Bite (the mirror): site_rule.tomb.grave_watch removed from content/world/tomb_threshold.world_cell.json's dungeonContext. validate.mjs failed with 'dungeonContext.siteRuleIds must equal the registry_court space's siteRuleIds in dungeon.tomb_of_returning_names' and every_tomb_cell_mirrors_its_authored_space failed on the same pair; restored: failed",
+      "Bites restored: cargo test --manifest-path godot-rust/Cargo.toml --lib (313) and node tools/src/validate.mjs both green on the committed tree: passed",
+      "godot-rust/src/strategy/dungeon.rs is not edited. The reader lives in a new strategy/dungeon_content.rs because reading an authored record is a different responsibility from folding a context into a signature, and dungeon.rs is S9's file at 1,103 lines; the new module imports DungeonContext and ConceptKey and restates nothing. strategy/mod.rs takes one declaration beside dungeon's: passed",
+      "Six of the twelve bible spaces have a world cell, not four as the card assumed: world.cell.reception_terrace and world.cell.processional_ramp realise spaces 1 and 2 and were authored before this card. They are outside this lane's owned file set and carry no dungeonContext block; the record names them and says so. Only B6's four tomb_* interior cells carry the block: not_run",
+      "Space-to-cell mapping is authored from each cell's own evidence and every mapping carries its reasoning in the record's note: tomb_threshold -> registry_court (the sealed name registers and the site's first evidence inspect), tomb_reception -> petition_gallery (the speaking stone answers a petitioner; the service opening is the retreat exit), tomb_service_passage -> service_crawl (the cramped bypass and its grave-goods cache), tomb_archive_core -> flooded_archive (the ledger, the site's textual evidence). No thirteenth space was invented and none of the bible's twelve was dropped: not_run",
+      "Site rules are opaque IDs and nothing reads a rule's meaning. A7 owns what a site rule does and no rule registry exists; site_rule.tomb.grave_watch is A7's card's own ID, carried verbatim. No suppressed_site_rules, no Battle::new change, no CellDefinition field -- all A7's: not_run",
+      "needs decision: a third owner's rule set (the record carries two, so every non-Cthulhu owner brings the default), and what a corrupted variant does to a space no cell realises: not_run",
+      "Trunk merged before judging CI, per the integrator's note about save_slots_test.gd on 2ec3243: git merge --no-ff origin/backend/b0-expedition-state (30566e7) at 11d4283, clean, and every proof above rerun on the merged tree: passed",
+      "CI 'Verify' on lane/C5-tomb-dungeon at ea1d0fb (run 34024169745): 'Rust and content' green -- fmt, cargo test, cargo check --features godot-ext, validate.mjs, check-claims.mjs, the bundle rebuild and the stale-bundle gate; 'Godot headless suites' green -- the pinned Godot 4.7.2-stable gate and 'Prove the real bridge loaded, not the mock'. The merge commit 11d4283 was green on both jobs in run 34024110582 as well. No Godot binary exists in the authoring container, so the GDScript side is proven in CI only; this lane changed no GDScript and no dictionary shape: passed"
+    ]
   }
 }
