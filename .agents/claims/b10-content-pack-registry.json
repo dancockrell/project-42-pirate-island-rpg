@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "task_id": "b10-content-pack-registry",
+  "agent": "claude-code (lane B10)",
+  "summary": "ContentPackRegistry autoload: scans user://packs/ and res://packs/ for .pck files and for plain pack directories, reads C8's pack.json, merges overrides by scene ID in load order, and answers presentation_level_for / override_for / loaded_packs against the one fade_to_black < explicit level table.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "game/scripts/content/pack_registry.gd",
+    "game/project.godot",
+    "game/tests/pack_registry_test.gd"
+  ],
+  "symbols": [
+    "ContentPackRegistry.scan",
+    "ContentPackRegistry.scan_default_roots",
+    "ContentPackRegistry.presentation_level_for",
+    "ContentPackRegistry.base_presentation_level_for",
+    "ContentPackRegistry.override_for",
+    "ContentPackRegistry.loaded_packs",
+    "ContentPackRegistry.refusals",
+    "ContentPackRegistry.PRESENTATION_LEVELS"
+  ],
+  "coordination": {
+    "depends_on": ["c10-c8-buildings-and-pack-manifest"],
+    "conflicts_with": [],
+    "notes": "The manifest schema has exactly one owner: tools/src/validate.mjs's packFile block (C8). This registry is the runtime reader, not a second validator -- it refuses only what it cannot use and says why. The fixture pack at packs/pack.presentation.fixture/ is NOT copied under game/; scan(root) takes an explicit root so the suite points it at the repository directory by absolute path. game/project.godot takes one appended [autoload] line at the end of the block, so parallel lanes merge as keep-both tails. content/relationships records already reach Godot through the bundle as scene.<woman>.<slug> records, so ContentCatalog.has/get_record answer the base presentationLevel and the catalog needed no new accessor at all. Nothing in the Rust crate or the port is touched: the simulation never reads presentation."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
