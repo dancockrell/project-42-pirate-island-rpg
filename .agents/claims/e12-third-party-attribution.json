@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "task_id": "e12-third-party-attribution",
+  "agent": "claude-code lane E12",
+  "summary": "The engine, the bindings and every Rust crate compiled into the GDExtension get an admission record: content/art/third_party_ledger.json carries name, pinned version, SPDX id, canonical URL and the verbatim notice text read from the crate's own licence file (or noticeText null with needsReview when no licence file exists in this environment); the validator holds the ledger equal to godot-rust/Cargo.lock in both directions; the credits page carries the notices and the shell suite holds the page equal to the ledger.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "content/art/third_party_ledger.json",
+    "tools/src/validate.mjs",
+    "game/scripts/shell/credits.gd",
+    "game/tests/shell_flow_test.gd",
+    "docs/SHARED_ASSET_PLATFORM.md",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "CreditsScreen.THIRD_PARTY_LEDGER",
+    "CreditsScreen.THIRD_PARTY",
+    "shell_flow_test::check_credits_match_the_ledgers"
+  ],
+  "coordination": {
+    "depends_on": [
+      "p8-the-shell"
+    ],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at 04bdd7a. P11 is re-theming the shell in shell_style.gd, so this lane adds no colour or font code to credits.gd -- only new blocks built from the ShellStyle helpers that already exist. No Rust, no world/board/battle/ui script, no other content file touched."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
