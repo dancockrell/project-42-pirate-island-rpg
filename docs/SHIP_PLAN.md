@@ -356,7 +356,7 @@ top of the document is never stale:
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement
 - **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `ff7a81a`. If this line is older than
+- Last updated 2026-09-06 against trunk `9f09b9c`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -407,7 +407,7 @@ top of the document is never stale:
 | B4 | Route board shows anchor and estate commands | B3 | shipped 9090284 2026-09-06 |
 | B5 | Battle screen: Michael's card unfolds; bands and Composure drawn | A5, A6 | shipped ab81aee 2026-09-06 |
 | B6 | World cells for the tomb interior | A2 | shipped 95ada6f 2026-09-06 |
-| B7 | Battle-entry sockets bound to habitat holders | B3 | open |
+| B7 | Battle-entry sockets bound to habitat holders | B3 | shipped 9f09b9c 2026-09-06 |
 | B8 | New game, save slots, continue | E6 | shipped ff7a81a 2026-09-06 |
 | B9 | Settings, accessibility, and **pause** | — | shipped 649852a 2026-09-06 |
 | B10 | `ContentPackRegistry` and the presentation override pack | C8 | shipped 2f2b355 2026-09-06 |
@@ -1411,7 +1411,7 @@ not exist yet, exactly as the estate and river landing do — that is D12's
 work, not content's.
 
 ### B7 · Battle-entry sockets bound to habitat holders
-Status: open · Depends on: B3
+Status: shipped `9f09b9c` 2026-09-06 · Depends on: B3
 Touches: `content/world/*.world_cell.json` (`battleEntries[].habitatId`),
 `tools/src/validate.mjs`, `game/scripts/simulation/native_expedition_port.gd`,
 `godot-rust/src/geography.rs` (`from_authored` and the equality test),
@@ -1426,6 +1426,18 @@ holds — the same `begin_encounter` path, no second spawn rule. The equality
 test then compares `encounter_eligible` too and the tolerance goes.
 Done when: the service passage is eligible from content alone; removing its
 `habitatId` fails the equality test (bite); the Godot job green.
+**Shipped:** `AuthoredBattleEntry` with `habitatId`; an entry is live when
+its status is the one-time slice encounter or it names a habitat, and
+`AuthoredCell::encounter_eligible()` is the whole rule — the port forwards
+`battle_entries` and judges nothing. The service passage binds the terrace
+precinct's habitat from content; the equality test compares eligibility for
+every cell with no tolerance and holds each `habitatId` against the registry
+(the habitat must exist and its territory must cover the cell). Three bites
+proven. **Decision recorded:** no `content/habitats/` mirror yet — a habitat
+is mostly its roster, and two of the roster's creatures have no content
+record, so `habitat.` is an intentionally external prefix until
+`content/enemies/` grows them; the registry cross-check is the stronger
+guard meanwhile.
 
 ### B8 · New game, save slots, continue
 Status: shipped `ff7a81a` 2026-09-06 · Depends on: E6
