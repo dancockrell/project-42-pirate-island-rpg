@@ -10,6 +10,7 @@ run/main_scene="res://scenes/world/expedition_prototype.tscn"
 CampaignSession="*res://scripts/campaign/campaign_session.gd"
 CrashLog="*res://scripts/diagnostics/crash_log.gd"
 GamePause="*res://scripts/campaign/game_pause.gd"
+ContentPackRegistry="*res://scripts/content/pack_registry.gd"
 
 [display]
 window/size/viewport_width=1920
