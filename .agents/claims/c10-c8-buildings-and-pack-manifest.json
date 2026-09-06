@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "task_id": "c10-c8-buildings-and-pack-manifest",
+  "agent": "claude-code (lane C10+C8)",
+  "summary": "Author content/buildings/ to S3's contract and the presentation-override pack manifest schema, with the two validator blocks and the Rust equality test that hold them.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "content/buildings/",
+    "packs/pack.presentation.fixture/pack.json",
+    "tools/src/validate.mjs",
+    "tools/src/build-content-bundle.mjs",
+    "game/generated/content_bundle.json",
+    "godot-rust/src/strategy/building.rs"
+  ],
+  "symbols": [
+    "every_authored_building_record_loads_and_validates"
+  ],
+  "coordination": {
+    "depends_on": [
+      "s3-buildings",
+      "c6-relationship-scenes",
+      "c9-faction-records"
+    ],
+    "conflicts_with": [],
+    "notes": "building.rs is touched in exactly one hunk -- a single test appended at the END of the test module -- because three other lanes are appending fields and tests to the same file and an end-of-module append merges. validate.mjs gains two blocks (buildings, packs) and no existing block is edited. Packs are validated but deliberately NOT bundled: they are separate artifacts (E9 builds the .pck), so build-content-bundle.mjs gains buildings only. packs/pack.presentation.fixture/ is a FIXTURE that proves the schema at targetLevel fade_to_black; the adult pack is not authored in this repository and no explicit content exists here."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
