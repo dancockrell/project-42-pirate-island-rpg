@@ -1,0 +1,21 @@
+{
+  "id": "atmosphere.heat_shift",
+  "kind": "atmosphere_heat_shift",
+  "displayName": "Sky shift by hidden-pressure band",
+  "description": "The slow sky shift brief section 13's hidden pressure is allowed to make, one row per S9 HeatBand. Only the band's name crosses the bridge; cthulhu_heat itself never does, so the most this table can express is which of four rooms the world is in.",
+  "bands": {
+    "dormant": { "shiftName": "settled", "skyHueShiftDegrees": 0.0, "ambientEnergyScale": 1.0, "horizonDesaturation": 0.0 },
+    "stirring": { "shiftName": "listing", "skyHueShiftDegrees": -6.0, "ambientEnergyScale": 0.97, "horizonDesaturation": 0.06 },
+    "rising": { "shiftName": "canting", "skyHueShiftDegrees": -14.0, "ambientEnergyScale": 0.92, "horizonDesaturation": 0.16 },
+    "imminent": { "shiftName": "capsized", "skyHueShiftDegrees": -26.0, "ambientEnergyScale": 0.84, "horizonDesaturation": 0.3 }
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "presentationOwner": "godot-gdscript",
+    "releaseLegal": true,
+    "notes": [
+      "Felt before it is read: the shift is small per band and slow in time (atmosphere.transitions owns the duration), so the player notices the island has changed colour before anything tells them why.",
+      "No bar, no percentage, no number on screen. Section 13 keeps the pressure hidden and this table is the only thing that shows it at all."
+    ]
+  }
+}

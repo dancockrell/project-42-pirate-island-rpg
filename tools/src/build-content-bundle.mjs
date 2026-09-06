@@ -41,7 +41,12 @@ const repo = resolve(import.meta.dirname, "../..");
 // builds the faction and building registries. A site-rule record that never
 // reached Godot would leave the engine fighting under no rules while the Rust
 // harness fought under the tomb's.
-const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships", "buildings", "machines", "dungeons", "habitats", "site_rules"];
+// `atmosphere` joined with P3: the segment, weather, corruption and heat
+// tables are what the `Atmosphere` autoload reads to decide what the island's
+// sky is, and it reads them through `ContentCatalog` like every other runtime
+// system. A table that never reached Godot would leave the sky ungraded while
+// the validator and the Rust band tests both passed.
+const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships", "buildings", "machines", "dungeons", "habitats", "site_rules", "atmosphere"];
 const records = [];
 
 for (const domain of domains) {

@@ -185,6 +185,30 @@ impl CorruptionBand {
             CorruptionBand::Consumed => 3,
         }
     }
+
+    /// The lowercase word a projection shows, exactly as `serde` spells the
+    /// variant. The twin of [`WeatherCondition::as_str`](crate::strategy::clocks::WeatherCondition::as_str)
+    /// and for the same reason: the band's *name* is what may cross a boundary,
+    /// never the `u8` it was banded from. Stated once here so the bridge and
+    /// `content/atmosphere/` cannot grow private spellings of the same ladder.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            CorruptionBand::Untouched => "untouched",
+            CorruptionBand::Touched => "touched",
+            CorruptionBand::Spreading => "spreading",
+            CorruptionBand::Consumed => "consumed",
+        }
+    }
+
+    /// Every band, low to high. The ladder as a list, so a reader that must
+    /// cover all four -- an authored palette, a test -- reads it rather than
+    /// retyping it.
+    pub const ALL: [CorruptionBand; 4] = [
+        CorruptionBand::Untouched,
+        CorruptionBand::Touched,
+        CorruptionBand::Spreading,
+        CorruptionBand::Consumed,
+    ];
 }
 
 /// Hidden pressure as a band.
@@ -219,6 +243,28 @@ impl HeatBand {
             HeatBand::Dormant
         }
     }
+
+    /// The lowercase word a projection shows. **Only the word.** Brief section
+    /// 13 keeps hidden pressure hidden, and this file's own note says the most
+    /// a player may learn is which of four bands the world is in, and only at
+    /// the thresholds -- so `cthulhu_heat` itself has no spelling that crosses
+    /// a boundary and this method is deliberately not `fn value`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            HeatBand::Dormant => "dormant",
+            HeatBand::Stirring => "stirring",
+            HeatBand::Rising => "rising",
+            HeatBand::Imminent => "imminent",
+        }
+    }
+
+    /// Every band, low to high, for a reader that must cover all four.
+    pub const ALL: [HeatBand; 4] = [
+        HeatBand::Dormant,
+        HeatBand::Stirring,
+        HeatBand::Rising,
+        HeatBand::Imminent,
+    ];
 }
 
 /// Brief section 19's `world_epoch`: the campaign day as a band.
@@ -1098,6 +1144,109 @@ mod tests {
             after.signature(),
             context.signature(),
             "a save and reload is the same dungeon"
+        );
+    }
+}
+
+/// P3: the authored atmosphere tables and the Rust ladders they mirror, held
+/// equal.
+///
+/// `content/atmosphere/` owns every number the sky is made of; Rust owns the
+/// names those numbers are keyed by, because the names are the bands the
+/// simulation actually has. Two lists of band names -- one authored, one in
+/// this file -- would drift, and the day they did the island would silently
+/// stop grading a cell. So this module reads the authored tables and holds
+/// their keys equal to [`CorruptionBand::ALL`], [`HeatBand::ALL`] and
+/// [`WeatherCondition::ALL`], exactly and in no other spelling.
+///
+/// It lives here rather than in the bridge because `godot_bridge.rs` compiles
+/// only under the `godot-ext` feature and its dictionaries need a running
+/// engine; the ladders do not, and this is what the bridge projects.
+#[cfg(test)]
+mod authored_atmosphere {
+    use super::{CorruptionBand, HeatBand};
+    use crate::strategy::clocks::WeatherCondition;
+    use std::collections::BTreeSet;
+
+    /// One authored atmosphere record, parsed. The directory is resolved from
+    /// the crate manifest exactly as `battle`'s authored-skill check resolves
+    /// `content/skills/`.
+    fn record(file_name: &str) -> serde_json::Value {
+        let path = format!(
+            "{}/../content/atmosphere/{}",
+            env!("CARGO_MANIFEST_DIR"),
+            file_name
+        );
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("{path} is readable: {error}"));
+        serde_json::from_str(&text).unwrap_or_else(|error| panic!("{path} is JSON: {error}"))
+    }
+
+    /// The keys of one object in a record, as a set.
+    fn keys(value: &serde_json::Value, field: &str) -> BTreeSet<String> {
+        value[field]
+            .as_object()
+            .unwrap_or_else(|| panic!("{field} is an object"))
+            .keys()
+            .cloned()
+            .collect()
+    }
+
+    #[test]
+    fn the_authored_corruption_palette_names_exactly_the_four_bands() {
+        let authored = keys(&record("corruption_palette.json"), "bands");
+        let rust: BTreeSet<String> = CorruptionBand::ALL
+            .iter()
+            .map(|band| band.as_str().to_owned())
+            .collect();
+        assert_eq!(
+            authored, rust,
+            "content/atmosphere/corruption_palette.json must carry one grade per \
+             CorruptionBand and name it the way strategy/dungeon.rs does"
+        );
+    }
+
+    #[test]
+    fn the_authored_heat_shift_names_exactly_the_four_bands() {
+        let authored = keys(&record("heat_shift.json"), "bands");
+        let rust: BTreeSet<String> = HeatBand::ALL
+            .iter()
+            .map(|band| band.as_str().to_owned())
+            .collect();
+        assert_eq!(
+            authored, rust,
+            "content/atmosphere/heat_shift.json must carry one shift per HeatBand \
+             and name it the way strategy/dungeon.rs does"
+        );
+    }
+
+    #[test]
+    fn the_authored_weather_table_names_exactly_the_five_conditions() {
+        let authored = keys(&record("weather_table.json"), "conditions");
+        let rust: BTreeSet<String> = WeatherCondition::ALL
+            .iter()
+            .map(|condition| condition.as_str().to_owned())
+            .collect();
+        assert_eq!(
+            authored, rust,
+            "content/atmosphere/weather_table.json must carry one row per \
+             WeatherCondition and name it the way strategy/clocks.rs does"
+        );
+    }
+
+    /// The other half of the same rule: the authored segment table's keys are
+    /// the four `TimeSegment` values, spelled as the bridge spells them.
+    #[test]
+    fn the_authored_segment_table_names_exactly_the_four_time_segments() {
+        let authored = keys(&record("segment_table.json"), "segments");
+        let expected: BTreeSet<String> = ["dawn", "day", "dusk", "midnight"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect();
+        assert_eq!(
+            authored, expected,
+            "content/atmosphere/segment_table.json must carry one row per \
+             TimeSegment, named as godot_bridge::time_segment_name spells it"
         );
     }
 }

@@ -1,0 +1,66 @@
+{
+  "id": "atmosphere.segment_table",
+  "kind": "atmosphere_segment_table",
+  "displayName": "Sun and sky by time segment",
+  "description": "The sun the island stands under, per ExpeditionState::time_segment. The four keys are the four segments the simulation has and no others; game/scripts/atmosphere/atmosphere.gd reads this table and owns no number of its own. hour_of_day refines a segment rather than replacing it: the strategic clock's hour supplies the fraction between this segment's row and the next one's, so the sun crawls instead of snapping at a segment boundary.",
+  "hourFraction": {
+    "hoursPerSegment": 6,
+    "note": "ExpeditionState::advance_time rolls one segment every 360 minutes, and StrategicClock counts 24 hours to the day; six hours is that same day divided the same way. The fraction is (hour_of_day mod 6) / 6."
+  },
+  "segments": {
+    "dawn": {
+      "sunElevationDegrees": 7.0,
+      "sunAzimuthDegrees": 92.0,
+      "sunColourTemperatureKelvin": 2450,
+      "sunEnergy": 1.05,
+      "ambientEnergy": 0.42,
+      "ambientColour": "#3a5a68",
+      "skyHorizonColour": "#d98a5a",
+      "skyTopColour": "#2a4a6b",
+      "exposure": 1.05
+    },
+    "day": {
+      "sunElevationDegrees": 64.0,
+      "sunAzimuthDegrees": 176.0,
+      "sunColourTemperatureKelvin": 6100,
+      "sunEnergy": 1.65,
+      "ambientEnergy": 0.78,
+      "ambientColour": "#8fb3ae",
+      "skyHorizonColour": "#a7c8cf",
+      "skyTopColour": "#4d86b4",
+      "exposure": 1.0
+    },
+    "dusk": {
+      "sunElevationDegrees": 6.0,
+      "sunAzimuthDegrees": 268.0,
+      "sunColourTemperatureKelvin": 2150,
+      "sunEnergy": 1.15,
+      "ambientEnergy": 0.38,
+      "ambientColour": "#4a3f52",
+      "skyHorizonColour": "#e0713f",
+      "skyTopColour": "#2b2a48",
+      "exposure": 1.1
+    },
+    "midnight": {
+      "sunElevationDegrees": 38.0,
+      "sunAzimuthDegrees": 18.0,
+      "sunColourTemperatureKelvin": 9000,
+      "sunEnergy": 0.14,
+      "ambientEnergy": 0.045,
+      "ambientColour": "#1c2b3a",
+      "skyHorizonColour": "#0d1620",
+      "skyTopColour": "#050a11",
+      "exposure": 0.62
+    }
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "presentationOwner": "godot-gdscript",
+    "releaseLegal": true,
+    "notes": [
+      "Art direction, not a design decision the brief left Open: nothing in section 20 fixes a sun angle. Retuning the island's light is editing this file and no code.",
+      "Colour is authored as a temperature and converted once, in atmosphere.gd. An authored hex beside the kelvin would be two answers to one question.",
+      "Midnight's light is the moon: high, cold and nearly out. The warmth at night comes from the point lights at held buildings, which atmosphere.transitions owns."
+    ]
+  }
+}

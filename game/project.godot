@@ -11,6 +11,7 @@ CampaignSession="*res://scripts/campaign/campaign_session.gd"
 CrashLog="*res://scripts/diagnostics/crash_log.gd"
 GamePause="*res://scripts/campaign/game_pause.gd"
 ContentPackRegistry="*res://scripts/content/pack_registry.gd"
+Atmosphere="*res://scripts/atmosphere/atmosphere.gd"
 
 [display]
 window/size/viewport_width=1920

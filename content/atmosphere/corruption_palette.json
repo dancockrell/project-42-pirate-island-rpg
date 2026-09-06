@@ -1,0 +1,45 @@
+{
+  "id": "atmosphere.corruption_palette",
+  "kind": "atmosphere_corruption_palette",
+  "displayName": "Colour grade by corruption band",
+  "description": "One named grade per S9 CorruptionBand, keyed by the same lowercase word strategy/dungeon.rs spells. The snapshot carries corruption per cell as a band and never as the u8 it was banded from, so this table has four rows and can never have more.",
+  "bands": {
+    "untouched": {
+      "paletteName": "clean_light",
+      "saturation": 1.0,
+      "tintColour": "#ffffff",
+      "tintStrength": 0.0,
+      "contrast": 1.0
+    },
+    "touched": {
+      "paletteName": "verdigris_creep",
+      "saturation": 0.86,
+      "tintColour": "#7fae9b",
+      "tintStrength": 0.14,
+      "contrast": 1.02
+    },
+    "spreading": {
+      "paletteName": "ashen_bruise",
+      "saturation": 0.62,
+      "tintColour": "#6b6f92",
+      "tintStrength": 0.3,
+      "contrast": 1.06
+    },
+    "consumed": {
+      "paletteName": "drowned_violet",
+      "saturation": 0.3,
+      "tintColour": "#4a3a63",
+      "tintStrength": 0.52,
+      "contrast": 1.12
+    }
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "presentationOwner": "godot-gdscript",
+    "releaseLegal": true,
+    "notes": [
+      "Every band is named so a capture, a bug report and a test can all say which grade they mean without quoting a saturation number.",
+      "Desaturation only ever falls as corruption rises: a cell the island has lost must never read livelier than a clean one."
+    ]
+  }
+}
