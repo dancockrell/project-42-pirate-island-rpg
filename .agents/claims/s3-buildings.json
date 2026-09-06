@@ -3,7 +3,7 @@
   "task_id": "s3-buildings",
   "agent": "claude-code (lane S3)",
   "summary": "Buildings: standardized envelopes, sockets, tiers, construction, damage, capture and ruin, with every Open number a named constant marked needs decision.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -32,12 +32,26 @@
     "ExpeditionState.actor_sockets_at"
   ],
   "coordination": {
-    "depends_on": ["s1-faction-definition", "s2-ownership-and-influence"],
+    "depends_on": [
+      "s1-faction-definition",
+      "s2-ownership-and-influence"
+    ],
     "conflicts_with": [],
     "notes": "expedition.rs is touched in exactly two hunks (a `buildings` field appended at the end of the struct and its initialiser at the end of the literal in new()) plus the use; every ExpeditionState method this lane needs lives in an impl block inside strategy/building.rs, because other lanes are appending to the same tail. force.rs is not edited: S7's ForceArrived aims at a socket through actor_sockets_at(cell_id), exposed here for B11. content/buildings/ is C10's and is not authored here."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "420acb4",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml: passed (269 unit incl. 9 new strategy::building, 4 authored_world, 5 registry, 5 save_migration, 7 strategic_determinism, 1 vertical_slice)",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs: passed (200 stable IDs)",
+      "Done-when: overlap rejection -- a_cell_holds_only_as_much_building_as_its_capacity_allows: passed",
+      "Done-when: production rule -- a_michael_building_that_produces_a_person_does_not_load: passed",
+      "Done-when: tier upgrade -- a_building_climbs_one_tier_at_a_time_up_to_the_cap: passed",
+      "Bite proof: disabling the CELL_CAPACITY_CELLS comparison in place_building failed a_cell_holds_only_as_much_building_as_its_capacity_allows (the third envelope was admitted); restored and green",
+      "needs decision: TIER_CAP, CELL_CAPACITY_CELLS, CAPTURE_HP_RESTORED, BuildingDefinition.height_class, BuildingDefinition.maximum_slope, CaptureRules::NeedsDecision, RuinState::NeedsDecision -- brief section 20",
+      "blocked: content/buildings/ is C10's and is not authored here; no fixture-versus-records test exists yet"
+    ]
   }
 }
