@@ -3,7 +3,7 @@
   "task_id": "p9-audio",
   "agent": "claude-code (lane P9)",
   "summary": "Soundscape: a five-bus audio layout, ambience chosen from the snapshot by region x time segment x weather, one stable audio cue reference per battle event kind and per skill presentation cue, a four-state music machine, and a deterministic in-repo synth that renders every record as a marked procedural placeholder.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -28,10 +28,25 @@
   "coordination": {
     "depends_on": [],
     "conflicts_with": [],
-    "notes": "content/skills/*.json is touched for the audioCueId field only -- one stable reference per presentation cue, mirroring vfxId, held equal to the cue's existing free-text audio label by the validator so the two cannot drift. tools/src/validate.mjs takes one appended block plus that one skill-cue field. game/project.godot takes an appended autoload and an appended [audio] section. No Rust, no ui/, no battle/, no render/ file is touched: P6 calls Soundscape.on_battle_event and the surface calls Soundscape.set_music_state, and the API they call is documented in soundscape.gd's header."
+    "notes": "content/skills/*.json was touched for the audioCueId field only -- one stable reference per presentation cue, mirroring vfxId per docs/ARCHITECTURE.md's stable-reference rule, and held equal by the validator to the cue's existing free-text audio label so the two cannot drift into two answers. tools/src/validate.mjs took one appended block plus that one skill-cue field; game/project.godot an appended autoload and an appended [audio] section. No Rust, no ui/, no battle/, no render/ file was touched: the API P6 and the surface call is documented in soundscape.gd's header, and the settings keys P5 should put sliders on are documented there too."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "71b78ce",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (347 unit + 6 + 5 + 8 + 1 integration, unchanged by this lane): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (434 stable IDs; 101 audio cues and 20 ambience triples resolve, 110 audio records still procedural placeholders): passed",
+      "node tools/src/check-claims.mjs (55 claims, 105 ship-plan rows, 99 cards): passed",
+      "node tools/src/build-content-bundle.mjs && git diff --quiet game/generated/ on the committed tree (227 records, sha256:aa422c40d44ef4bc9a3fe0a630f79cda9e635e9b03cbb0fd4ae0335a7efb5095): passed",
+      "Godot 4.7.2 headless, game/tests/soundscape_test.gd -- 35 battle event kinds resolve to their own cue, every eventBinding of all 16 skills resolves to that skill's own beat cue, 77 presentation cues name a record that exists, 1 region x 4 segments x 5 weather resolve to an ambience record, 110 beds and cues render without failure and the synth is byte-identical on a second render, the five buses exist and send to Master, bus volumes round-trip through user://settings.cfg, and the music machine transitions by name: passed",
+      "Bite proof 1 (the suite): removing content/audio/cue.event.ward_line_triggered.json and rebuilding the bundle failed soundscape_test.gd on the right assertion -- 'FAILED: battle event ward_line_triggered resolves to its own cue, got \\'\\'' and 'FAILED: the audio records are present, found 109', exit 1; restored, exit 0 and 'Soundscape tests passed.': passed",
+      "Bite proof 2 (the validator): the same deletion failed node tools/src/validate.mjs with 'battle event ward_line_triggered has no cue record: content/audio/cue.event.ward_line_triggered.json is missing'; and changing one skill cue's audioCueId away from its audio label failed with 'presentation cue impact audioCueId must be audio.cue.mace_armor_impact, the stable record for the sound its audio label names'. Both restored and green: passed",
+      "Capture looked at, not only committed: docs/verification/captures/P9-71b78ce-placeholder-waveforms.png draws all 110 placeholders through the same synth. Every one is a real signal with a visible envelope; none is silent, none clips flat. Read back in this session before the claim was written: passed",
+      "Godot courtesy: one engine process at a time, --headless only, nice -n 10, timeout, ulimit -v 4000000, XDG dirs redirected to the scratchpad, nothing left running: passed",
+      "blocked: needs decision -- none. But the bridge does not project weather: ExpeditionState::weather holds S8's per-region WeatherState and godot_bridge.rs's state dictionary does not carry it. P3's card owns that hunk and this lane touches no Rust, so Soundscape reads snapshot.weather[region_id].condition when it exists and uses the named DEFAULT_WEATHER constant 'clear' until it does. Every one of the twenty triples is authored and tested; only the live 'storm' path waits on P3: not_run",
+      "One region only. content/world/ declares exactly one world_region, world.region.black_beach, so twenty ambience records is the whole cross product. The validator derives the region list from content/world/*.region.json rather than a second list, so a new region fails validation until its twenty records exist -- no region was invented here: passed",
+      "The card asked for AudioStreamGenerator. A generator fills a buffer on the audio thread while the sound plays and re-draws the same samples on every replay; the same parameters baked once into an AudioStreamWAV render each record exactly once, play from as many players as the scene wants, and are byte-identical run to run. That is what placeholder_synth.gd does, and its header says so and why: passed"
+    ]
   }
 }
