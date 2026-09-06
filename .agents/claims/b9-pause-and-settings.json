@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "task_id": "b9-pause-and-settings",
+  "agent": "claude-code (lane B9)",
+  "summary": "Pause becomes a Godot-side fact with one owner: a GamePause autoload holding a set of reasons, the single guard on the one call that advances campaign time, and a small accessibility settings surface that pauses while it is open.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "game/scripts/campaign/game_pause.gd",
+    "game/scripts/ui/settings_panel.gd",
+    "game/scenes/ui/settings_panel.tscn",
+    "game/tests/game_pause_test.gd",
+    "game/project.godot",
+    "game/scripts/campaign/campaign_session.gd"
+  ],
+  "symbols": [
+    "GamePause.pause",
+    "GamePause.resume",
+    "GamePause.is_paused",
+    "GamePause.pause_reasons",
+    "GamePause.pause_changed",
+    "SettingsPanel",
+    "CampaignSession.advance_refused_while_paused"
+  ],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [],
+    "notes": "Godot-only lane; no Rust file is touched. godot-rust/src/strategy/tick.rs already settles the design -- there is no `paused` field in ExpeditionState, no paused branch in the tick and no host clock, so a paused game is a game whose bridge is not calling. This lane therefore adds no second answer in Rust; it makes Godot the one caller that can be stopped. game/project.godot takes an append at the END of [autoload] only, per the parallel-lane keep-both-tails rule; two other lanes append there too. campaign_session.gd is touched in exactly two hunks -- one guard call inside the existing resolve_midnight wrapper and one new function beside it -- and B8 owns that file's save/load functions. The refusal reuses the session's existing unavailable_state() dictionary with its error replaced, so no second rejection shape enters the codebase."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
