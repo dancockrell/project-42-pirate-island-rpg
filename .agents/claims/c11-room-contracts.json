@@ -3,7 +3,7 @@
   "task_id": "c11-room-contracts",
   "agent": "claude-code (lane C11)",
   "summary": "Brief section 3's room contract as a required `contract` block on all nine world cells -- function, dimensions (the board block's footprint ID, never metres), circulation, slots (the building and machine records compatible with the room, by ID), landmarks, encounter space, material language and the avoid-list -- every value drawn from what the repository already says about that room with its source named and its evidence quoted verbatim, and one appended validator block that requires every field, resolves every ID, quotes the evidence back against its source and holds the derived fields equal to the record they are derived from.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -32,7 +32,44 @@
     "notes": "Branched from origin/backend/b0-expedition-state at dc22d75. The validator change is one block appended after P4's board block and nothing else; the nine content edits insert one `contract` object between `board` and `admission` and touch no existing field. No Rust reads a contract field, so godot-rust/tests/authored_world.rs is not touched; no GDScript reads one either. The avoid-list is NOT copied into the contract: `visualShell.prohibitedFeatures` stays its one owner and `contract.avoid` points at it, because two lists of what must not be placed in a room would drift."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "5681aa0",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (369 lib + 7 authored_world + 5 save_migration + 11 strategic_determinism + 1 vertical_slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (541 stable IDs; nine world cells each carrying a full contract block): passed",
+      "node tools/src/check-claims.mjs (73 claims, 114 ship-plan rows, 108 cards): passed",
+      "node tools/src/build-content-bundle.mjs && git diff --quiet game/generated/ (233 records, sha256:f366165caa91c2ecb621bab403642c3b143d6dae1380cb3578f1f4b02c3149f1; the builder run twice gives the same hash, and the committed bundle matches it): passed",
+      "Godot headless gate on the committed tree (GODOT=4.7.2-stable, tools/verify-godot.sh, exit 0): 'Godot headless verification passed. 5 review scenes, 30 suites.' with no ERROR line: passed",
+      "tools/capture-scenes.sh on the committed tree, one engine process under xvfb on the opengl3 driver: 'Captured 13 of 14 scenes at 1280x720; 1 skipped for carrying nothing that can draw' -- no scene regressed and nothing reads a contract field at runtime; captures not committed because this card changes no pixel: passed",
+      "CI Verify run 34038804156 on 5681aa0, all three jobs green -- Rust and content (fmt, tests, godot-ext, validate, check-claims, bundle freshness), Godot headless suites (real bridge proven, not the mock, packs built) and Scene captures: passed",
+      "Done-when 1, all nine cells carry the block: black_beach, damaged_estate, processional_ramp, reception_terrace, river_landing, tomb_threshold, tomb_reception, tomb_archive_core and tomb_service_passage each carry contract.{function, dimensions, circulation, slots, landmarks, encounterSpace, materialLanguage, avoid, needsDecision} and the validator requires every one of the nine keys and refuses a tenth: passed",
+      "Done-when 2, dimensions are the board block's footprint ID: contract.dimensions carries exactly footprintSizeId and the validator holds it equal to board.footprint.sizeId, so no room can write metres of its own while O3 is open: passed",
+      "Done-when 3, the D12 row can name what a room blockout must hold: every cell now names its function, its footprint entry, its entry anchors and tethers, the buildings and machines it may hold, its landmarks by name with the source that describes them, its battle entries with the habitat and site rules over them, and its P2 library materials: passed",
+      "Bite, drop a field: contract.avoid removed from black_beach failed with 'contract.avoid is missing; brief section 3 requires every room contract field, null with a needsDecision entry when nothing has decided it'; restored and green: passed",
+      "Bite, a slot pointing at an unknown record: buildingIds building.does_not_exist on tomb_reception failed twice by name -- the slot rule ('must be exactly the building records whose faction_compatibility accepts elves: building.ritual_anchor') and the stable-ID resolver ('contract.slots references missing stable ID building.does_not_exist'); restored and green: passed",
+      "Bite, a building the room's faction does not accept: building.machine_shop (michael) added to tomb_archive_core (elves) failed by name; restored and green: passed",
+      "Bite, a machine no route reaches: machine.steam_wagon (safe_road only) added to tomb_threshold failed with 'must be exactly the machine records whose valid_route_types reach this room (on_foot): machine.mechanical_dog'; restored and green: passed",
+      "Bite, dimensions written as metres: widthMetres/depthMetres in place of the footprint ID on river_landing failed with 'contract.dimensions must carry exactly footprintSizeId'; restored and green: passed",
+      "Bite, dimensions disagreeing with the board: footprint.expanse on damaged_estate (compound) failed by name; restored and green: passed",
+      "Bite, an invented landmark: 'a stone lion sits beside the plaques' on processional_ramp failed with 'quotes ... which does not appear in observation prose; a room contract may only say what this repository already says about the room'; restored and green: passed",
+      "Bite, a landmark quoted from the wrong source: the archive core's visual-shell phrase re-sourced to observation prose failed by name; restored and green: passed",
+      "Bite, a material the room never mentions: sea claimed on the estate's stone-track quotation failed with 'claims sea on evidence that never mentions it; the quotation must carry one of sea, tide, surf'; restored and green: passed",
+      "Bite, a material outside the P2 library: library 'marble' on tomb_threshold failed naming the eight library keys; restored and green: passed",
+      "Bite, the avoid-list copied instead of named: a literal features array in place of ownedBy failed with 'contract.avoid must carry exactly ownedBy'; restored and green: passed",
+      "Bite, circulation dropping a way out: one of tomb_reception's three tethers removed failed naming all three; restored and green: passed",
+      "Bite, the encounter space restating the ring: radiusMetres added to reception_terrace failed with 'contract.encounterSpace must carry exactly battleEntryIds, habitatIds, siteRuleIds'; restored and green: passed",
+      "Bite, the encounter space omitting its habitat: habitatIds emptied on reception_terrace failed twice -- the territory equality and 'omits habitat.black_beach.terrace_precinct, which battle entry battle_entry.reception_terrace.razorbeak binds to'; restored and green: passed",
+      "Bite, a site rule the cell does not declare: site_rule.tomb.seal_holds on tomb_threshold failed naming the two the cell declares; restored and green: passed",
+      "Bite, a null field with nobody named to decide it: needsDecision renamed on tomb_service_passage failed by name; restored and green: passed",
+      "Bite, a needsDecision entry naming no brief section: black_beach's reason reworded failed with 'must name the brief section that has to decide it'; restored and green: passed",
+      "Bite, a decided field still claiming a decision is owed: a materialLanguage entry added to tomb_threshold's empty needsDecision failed with 'must name exactly the fields this room leaves null: (none)'; restored and green: passed",
+      "Bite, a setpiece script that does not exist: source 'setpiece script game/scripts/world/tomb_component.gd' on reception_terrace failed by name; restored and green: passed",
+      "No Rust reads a contract field, so godot-rust/tests/authored_world.rs is untouched and its seven tests are unchanged; no GDScript reads one either, so no suite was added or changed. The bundle carries the block because content/world is already a bundled domain: passed",
+      "needs decision: slots.buildingIds is null on all five non-tomb cells (black_beach, damaged_estate, processional_ramp, reception_terrace, river_landing). Nothing in the repository gives those rooms an owning faction -- only the four tomb cells declare dungeonContext.ownerConceptKey (elves) -- and the validator REQUIRES the null rather than accepting a guess. Brief section 3, building or interaction slots: not_run",
+      "needs decision: materialLanguage is null on tomb_service_passage. Nothing that room carries -- its observation prose, its visual shell, its two site rules or its habitat -- names a surface, and no setpiece script exists for it. Brief section 3, material language: not_run",
+      "Left, on purpose: contract.avoid points at visualShell.prohibitedFeatures rather than restating it (AGENTS section 0 -- two lists of what must not be placed in a room would drift), so no room gains a second avoid-list; and only reception_terrace has a setpiece script, so the other eight rooms' landmarks and materials are quoted from their observation prose and their visual shell: not_run",
+      "Source vocabulary as run: the quoted fields accept 'observation prose', 'visual shell' and 'setpiece script <path under game/scripts/world>'. A habitat and a site rule say nothing about a room's function, its landmarks or its surfaces -- they say what happens in its encounter space -- so they are named in contract.encounterSpace as resolved stable IDs, held equal to the habitat that holds the cell as territory and to the cell's own dungeonContext.siteRuleIds, rather than as source strings on a sentence: not_run"
+    ]
   }
 }
