@@ -40,6 +40,19 @@
 //!   aggregate intact across the event is what makes that possible instead of
 //!   merely intended.
 //!
+//! ## S18: what an arrival *does* mean
+//!
+//! Materialisation is still B11's. What card S18 added is the other half of an
+//! arrival, the one that needs no actors on the ground:
+//! [`ExpeditionState::resolve_arrivals`] turns a force reaching a cell into a
+//! change of who **holds** that cell -- unheld or undefended ground changes
+//! hands through `ExpeditionState::set_control`, defended ground does not.
+//! That is a fact about the board, not a fact about the room, so it can be true
+//! before a single actor exists. It is also the line card S17 recorded as
+//! `failed`: nothing wrote `ExpeditionState::ownership` from a tick, so no
+//! faction could ever be pushed off its ground and brief section 16's recovery
+//! chain could never run out.
+//!
 //! ## Whose map a force walks
 //!
 //! [`Geography::next_step_toward`] takes the set of open gates -- the
@@ -100,6 +113,21 @@ pub const SUPPLY_COST_PER_HOP: u32 = 1;
 /// nothing reaches. S3/S13 own supply as an economy; this is the stand-in
 /// until a force can be provisioned from one.
 pub const SUPPLY_ON_RAISE: u32 = 24;
+
+/// **needs decision** -- whether a force arriving on ground its owner is
+/// standing on can take that ground.
+///
+/// `false`, and the falseness is the point rather than a balance choice. Brief
+/// section 20 leaves force-versus-force resolution undecided: there is no
+/// combat model for two aggregates, no casualties, no morale and no retreat,
+/// so every way of resolving a contested arrival here -- strength wins,
+/// attacker wins, defender wins -- would be this lane authoring the rule the
+/// brief has not written. So the arrival is recorded
+/// ([`StrategicEvent::ArrivalContested`]) and the board does not move. The lane
+/// that decides how two forces meet replaces this constant with that rule; it
+/// is a named `false` rather than an absent branch precisely so it can be
+/// found.
+pub const CONTESTED_ARRIVAL_RESOLVES_CONTROL: bool = false;
 
 /// The stable ID of one force: `force.<something>`, in the crate's one stable-ID
 /// shape (lowercase, dotted, no spaces).
@@ -461,6 +489,124 @@ impl ExpeditionState {
             .values()
             .filter(|force| force.position_cell_id == cell_id)
             .collect()
+    }
+
+    /// **S18: what an arrival means for who holds the ground.** The hour's
+    /// marching is handed back in, and every
+    /// [`StrategicEvent::ForceArrived`] in it is resolved against the board the
+    /// force landed on.
+    ///
+    /// Called from
+    /// [`ExpeditionState::strategic_tick`](crate::expedition::ExpeditionState::strategic_tick)
+    /// immediately after [`ExpeditionState::advance_forces`] and before S10's
+    /// elimination sweep -- so a faction pushed off its last cell this hour is
+    /// noticed this hour, which is the whole of what card S17 recorded as
+    /// `failed` and this card closes.
+    ///
+    /// Three rules, and they are the card's:
+    ///
+    /// 1. **Ground nobody holds is taken.** The arriving force's faction takes
+    ///    it through [`ExpeditionState::set_control`] -- the one writer of
+    ///    `ownership`, called rather than copied -- and
+    ///    [`StrategicEvent::ControlTaken`] says so with `from: None`.
+    /// 2. **Ground another faction holds with nothing of theirs standing on it
+    ///    changes hands the same way**, and `from` names the faction that lost
+    ///    it. A cell is not defended by being owned.
+    /// 3. **Ground another faction holds with a force of theirs standing on it
+    ///    does not change hands**, and [`StrategicEvent::ArrivalContested`]
+    ///    names the holder and every defending body. See
+    ///    [`CONTESTED_ARRIVAL_RESOLVES_CONTROL`] for why this lane refuses to
+    ///    decide it.
+    ///
+    /// A force arriving on ground its own faction already holds resolves to
+    /// nothing at all, and emits nothing: coming home is not news.
+    ///
+    /// **Captain Michael's cells and forces obey all three**, exactly as every
+    /// other faction's do. Brief section 5.9 gives the player his faction's
+    /// *decisions*, not an exemption from the board: a column of his that
+    /// marches onto unheld ground takes it, and a rival's column that reaches
+    /// an undefended cell of his takes that.
+    ///
+    /// **Buildings stand as they were.** `building_instance_ids` on the event
+    /// is `buildings_at` read the instant before the handover; nothing here
+    /// captures, ruins, damages or reassigns one, because capture-versus-
+    /// destruction by building type is Open (brief section 20). The event
+    /// carries the inputs so the lane that closes that decision has them.
+    ///
+    /// Deterministic and draw-free: the order is the order `advance_forces`
+    /// produced (`BTreeMap` over forces), the defenders and the buildings come
+    /// out of `BTreeMap`s, and nothing here reads a draw, a clock or a seed.
+    /// No purpose is added to
+    /// [`PURPOSES`](crate::strategy::tick::PURPOSES); an arrival is a
+    /// consequence of hops that were already paid for.
+    pub fn resolve_arrivals(
+        &mut self,
+        geography: &Geography,
+        marching: &[StrategicEvent],
+    ) -> Vec<StrategicEvent> {
+        let day = self.campaign_day;
+        let mut events = Vec::new();
+        for event in marching {
+            let StrategicEvent::ForceArrived {
+                force_id,
+                faction_id,
+                cell_id,
+                ..
+            } = event
+            else {
+                continue;
+            };
+            let holder = geography
+                .held_by(cell_id, &self.ownership)
+                .map(str::to_owned);
+            if holder.as_deref() == Some(faction_id.as_str()) {
+                continue;
+            }
+            // Defence is a body standing here, not a claim on the map. Read
+            // before anything moves, and read through `forces_at`, so "who is
+            // in this cell" has one owner.
+            let defender_force_ids: Vec<ForceId> = match &holder {
+                Some(holder) => self
+                    .forces_at(cell_id)
+                    .into_iter()
+                    .filter(|force| &force.faction_id == holder)
+                    .map(|force| force.id.clone())
+                    .collect(),
+                None => Vec::new(),
+            };
+            if !defender_force_ids.is_empty() && !CONTESTED_ARRIVAL_RESOLVES_CONTROL {
+                events.push(StrategicEvent::ArrivalContested {
+                    force_id: force_id.clone(),
+                    faction_id: faction_id.clone(),
+                    cell_id: cell_id.clone(),
+                    held_by: holder.expect("a defender was found, so somebody holds this cell"),
+                    defender_force_ids,
+                    day,
+                });
+                continue;
+            }
+            let building_instance_ids: Vec<String> = self
+                .buildings_at(cell_id)
+                .into_iter()
+                .map(|building| building.id.clone())
+                .collect();
+            match self.set_control(cell_id, Some(faction_id.clone()), geography) {
+                Ok(_) => events.push(StrategicEvent::ControlTaken {
+                    force_id: force_id.clone(),
+                    faction_id: faction_id.clone(),
+                    cell_id: cell_id.clone(),
+                    from: holder,
+                    building_instance_ids,
+                    day,
+                }),
+                // Unreachable in practice -- a force is standing in this cell,
+                // so the graph carries it, and the faction ID came off a record
+                // `raise_force` validated. Swallowed rather than panicked on:
+                // an hour of the island must not be able to abort.
+                Err(_) => continue,
+            }
+        }
+        events
     }
 }
 
@@ -1026,5 +1172,291 @@ mod tests {
         let force = &state.forces["force.test.column"];
         assert_eq!(force.position_cell_id, LANDING);
         assert_eq!(force.progress_minutes, 0);
+    }
+
+    // -----------------------------------------------------------------------
+    // S18: what an arrival means for who holds the ground
+    // -----------------------------------------------------------------------
+
+    /// Marches the one raised force to `destination` and hands back the hour's
+    /// events, arrival resolution included -- through `strategic_tick`, which
+    /// is the path the game itself runs, so these tests cannot pass on a call
+    /// order the island never uses.
+    fn march_to(
+        state: &mut ExpeditionState,
+        geography: &Geography,
+        force_id: &str,
+        destination: &str,
+    ) -> Vec<StrategicEvent> {
+        state
+            .dispatch_force(force_id, destination, geography)
+            .expect("the destination is on the slice");
+        let definitions = crate::strategy::faction::FactionDefinitions::new();
+        let mut events = Vec::new();
+        for _ in 0..8 {
+            events.extend(state.strategic_tick(
+                &geography.clone(),
+                &definitions,
+                &BuildingDefinitions::new(),
+                &MachineDefinitions::new(),
+            ));
+            if state.forces[force_id].position_cell_id == destination {
+                break;
+            }
+        }
+        assert_eq!(
+            state.forces[force_id].position_cell_id, destination,
+            "the force never got there, so there is no arrival to resolve"
+        );
+        events
+    }
+
+    fn control_taken(events: &[StrategicEvent]) -> Vec<&StrategicEvent> {
+        events
+            .iter()
+            .filter(|event| matches!(event, StrategicEvent::ControlTaken { .. }))
+            .collect()
+    }
+
+    /// Rule (a): ground nobody holds is taken by the force that reaches it.
+    #[test]
+    fn an_arrival_on_unheld_ground_takes_it() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = a_campaign();
+        raise(&mut state, &geography, BEACH);
+        assert_eq!(geography.held_by(ESTATE, &state.ownership), None);
+
+        let events = march_to(&mut state, &geography, "force.test.column", ESTATE);
+
+        assert_eq!(
+            geography.held_by(ESTATE, &state.ownership),
+            Some(ConceptKey::Pirates.faction_id().as_str()),
+            "the force that reached unheld ground holds it"
+        );
+        let taken = control_taken(&events);
+        assert_eq!(taken.len(), 1, "one arrival, one handover: {events:?}");
+        let StrategicEvent::ControlTaken {
+            faction_id,
+            cell_id,
+            from,
+            building_instance_ids,
+            ..
+        } = taken[0]
+        else {
+            unreachable!("filtered above")
+        };
+        assert_eq!(*faction_id, ConceptKey::Pirates.faction_id());
+        assert_eq!(cell_id, ESTATE);
+        assert_eq!(*from, None, "nobody lost ground nobody held");
+        assert!(building_instance_ids.is_empty(), "nothing stands there");
+    }
+
+    /// Rule (b): a cell is not defended by being owned. It changes hands, the
+    /// loser is named, and the buildings standing on it **stand as they were**
+    /// -- capture versus destruction is Open (brief section 20), so the event
+    /// carries their IDs and nothing else happens to them.
+    #[test]
+    fn an_arrival_on_an_undefended_rival_cell_takes_it_and_leaves_the_buildings_standing() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = a_campaign();
+        let colonial = ConceptKey::ColonialPowers.faction_id();
+        state
+            .set_control(ESTATE, Some(colonial.clone()), &geography)
+            .expect("the estate is on the slice");
+        let standing = crate::strategy::building::BuildingInstance {
+            id: "building_instance.test.post".to_owned(),
+            def_id: "building.coast_watch_post".to_owned(),
+            cell_id: ESTATE.to_owned(),
+            faction_id: colonial.clone(),
+            tier: 1,
+            hp: 40,
+            state: crate::strategy::building::BuildingState::Operational,
+            ..Default::default()
+        };
+        state
+            .buildings
+            .insert(standing.id.clone(), standing.clone());
+        raise(&mut state, &geography, BEACH);
+
+        let events = march_to(&mut state, &geography, "force.test.column", ESTATE);
+
+        assert_eq!(
+            geography.held_by(ESTATE, &state.ownership),
+            Some(ConceptKey::Pirates.faction_id().as_str())
+        );
+        let taken = control_taken(&events);
+        assert_eq!(taken.len(), 1, "{events:?}");
+        let StrategicEvent::ControlTaken {
+            from,
+            building_instance_ids,
+            ..
+        } = taken[0]
+        else {
+            unreachable!("filtered above")
+        };
+        assert_eq!(
+            *from,
+            Some(colonial.clone()),
+            "the event names the faction that lost the cell"
+        );
+        assert_eq!(
+            *building_instance_ids,
+            vec!["building_instance.test.post".to_owned()],
+            "the event carries what stands on the ground that changed hands"
+        );
+        assert_eq!(
+            state.buildings["building_instance.test.post"], standing,
+            "a building on a cell that changed hands is not captured, ruined or              reassigned: capture versus destruction is Open"
+        );
+    }
+
+    /// Rule (c): a force of the holder's standing on the cell means nothing
+    /// changes hands. See [`CONTESTED_ARRIVAL_RESOLVES_CONTROL`].
+    #[test]
+    fn an_arrival_on_a_defended_cell_changes_nothing_and_says_so() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = a_campaign();
+        let colonial = ConceptKey::ColonialPowers.faction_id();
+        state
+            .set_control(ESTATE, Some(colonial.clone()), &geography)
+            .expect("the estate is on the slice");
+        state
+            .raise_force(
+                "force.test.garrison",
+                &colonial,
+                ESTATE,
+                BTreeSet::new(),
+                a_composition(),
+                "assignment.test.hold",
+                &geography,
+            )
+            .expect("a garrison raises on the cell its faction holds");
+        raise(&mut state, &geography, BEACH);
+
+        let events = march_to(&mut state, &geography, "force.test.column", ESTATE);
+
+        assert_eq!(
+            geography.held_by(ESTATE, &state.ownership),
+            Some(colonial.as_str()),
+            "a defended cell does not change hands"
+        );
+        assert!(
+            control_taken(&events).is_empty(),
+            "nothing was taken: {events:?}"
+        );
+        let contested: Vec<&StrategicEvent> = events
+            .iter()
+            .filter(|event| matches!(event, StrategicEvent::ArrivalContested { .. }))
+            .collect();
+        assert_eq!(contested.len(), 1, "{events:?}");
+        let StrategicEvent::ArrivalContested {
+            faction_id,
+            cell_id,
+            held_by,
+            defender_force_ids,
+            ..
+        } = contested[0]
+        else {
+            unreachable!("filtered above")
+        };
+        assert_eq!(*faction_id, ConceptKey::Pirates.faction_id());
+        assert_eq!(cell_id, ESTATE);
+        assert_eq!(*held_by, colonial);
+        assert_eq!(
+            *defender_force_ids,
+            vec![ForceId::new("force.test.garrison").expect("a well-shaped force ID")],
+            "the record names who was standing there"
+        );
+        assert!(
+            !CONTESTED_ARRIVAL_RESOLVES_CONTROL,
+            "the day this constant is decided, this test is rewritten to the              rule that decides it"
+        );
+    }
+
+    /// Brief section 5.9 gives the player Captain Michael's *decisions*, not an
+    /// exemption from the board. Both directions, in one test: a rival's column
+    /// takes an undefended cell of his, and a column of his takes unheld ground
+    /// exactly as anybody else's does.
+    #[test]
+    fn michaels_cells_and_forces_obey_the_same_three_rules() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = a_campaign();
+        let michael = ConceptKey::Michael.faction_id();
+        state
+            .set_control(ESTATE, Some(michael.clone()), &geography)
+            .expect("the estate is on the slice");
+        raise(&mut state, &geography, BEACH);
+
+        let events = march_to(&mut state, &geography, "force.test.column", ESTATE);
+        let taken = control_taken(&events);
+        assert_eq!(taken.len(), 1, "{events:?}");
+        let StrategicEvent::ControlTaken { from, .. } = taken[0] else {
+            unreachable!("filtered above")
+        };
+        assert_eq!(
+            *from,
+            Some(michael.clone()),
+            "an undefended cell of Michael's falls like any other"
+        );
+
+        state
+            .raise_force(
+                "force.test.michaels_column",
+                &michael,
+                ESTATE,
+                BTreeSet::new(),
+                a_composition(),
+                "assignment.test.march",
+                &geography,
+            )
+            .expect("Michael's faction raises a body like any other");
+        let events = march_to(
+            &mut state,
+            &geography,
+            "force.test.michaels_column",
+            LANDING,
+        );
+        let taken = control_taken(&events);
+        assert_eq!(taken.len(), 1, "{events:?}");
+        let StrategicEvent::ControlTaken {
+            faction_id,
+            cell_id,
+            ..
+        } = taken[0]
+        else {
+            unreachable!("filtered above")
+        };
+        assert_eq!(*faction_id, michael);
+        assert_eq!(
+            cell_id, LANDING,
+            "and his column takes ground like any other"
+        );
+    }
+
+    /// Coming home is not news: an arrival on ground the force's own faction
+    /// already holds resolves to nothing and emits nothing.
+    #[test]
+    fn an_arrival_on_ground_the_faction_already_holds_reports_nothing() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = a_campaign();
+        let pirates = ConceptKey::Pirates.faction_id();
+        state
+            .set_control(ESTATE, Some(pirates.clone()), &geography)
+            .expect("the estate is on the slice");
+        raise(&mut state, &geography, BEACH);
+
+        let events = march_to(&mut state, &geography, "force.test.column", ESTATE);
+
+        assert!(control_taken(&events).is_empty(), "{events:?}");
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, StrategicEvent::ArrivalContested { .. })),
+            "{events:?}"
+        );
+        assert_eq!(
+            geography.held_by(ESTATE, &state.ownership),
+            Some(pirates.as_str())
+        );
     }
 }

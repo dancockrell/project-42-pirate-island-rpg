@@ -61,6 +61,7 @@ const PAUSE_REASON := "journal"
 ## simulation noise", which is on the avoid list rather than the feature list.
 const NOTABLE_KINDS: PackedStringArray = [
 	"force_arrived", "force_halted", "faction_eliminated", "recovery_link_lost", "control_changed",
+	"control_taken", "arrival_contested",
 ]
 
 ## Notable only when it is the player's own yard: another faction's production
@@ -68,11 +69,14 @@ const NOTABLE_KINDS: PackedStringArray = [
 ## every faction action -- the second entry on the brief's avoid list.
 const OWN_FACTION_NOTABLE_KINDS: PackedStringArray = [
 	"machine_produced", "production_yielded", "production_skipped", "building_started", "gathered",
+	"force_raised",
 ]
 
 ## Kinds at which a force reaching a place is the event. Used by the two Urgent
 ## rules that are about a place.
-const ARRIVAL_KINDS: PackedStringArray = ["force_arrived", "force_halted", "control_changed"]
+const ARRIVAL_KINDS: PackedStringArray = [
+	"force_arrived", "force_halted", "control_changed", "control_taken", "arrival_contested",
+]
 
 ## Who the player is, and what they have at stake. Empty by default: a surface
 ## that has been told nothing interrupts for nothing, which is the right failure.

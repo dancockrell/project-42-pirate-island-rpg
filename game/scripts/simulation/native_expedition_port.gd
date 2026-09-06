@@ -292,6 +292,26 @@ func resolve_midnight() -> Dictionary:
 	return bridge.resolve_midnight()
 
 
+## S18. Raises one offscreen force, forwarded verbatim. `composition` is
+## {actor id: count}; the bridge floors each value, the same coercion every
+## other number crossing here gets. The returned snapshot carries the
+## `force_raised` journal line in its `events` array; a refusal is the bridge's
+## own error dictionary naming the force module's error.
+func raise_force(force_id: String, faction_id: String, cell_id: String, composition: Dictionary, assignment: String) -> Dictionary:
+	if not is_available():
+		return unavailable_state()
+	return bridge.raise_force(force_id, faction_id, cell_id, composition, assignment)
+
+
+## S18. Sends a raised force at a cell, planning the whole road now, so an order
+## that cannot arrive is refused here rather than accepted and never completed.
+## The snapshot's `events` carries the `force_departed` line.
+func dispatch_force(force_id: String, destination_cell_id: String) -> Dictionary:
+	if not is_available():
+		return unavailable_state()
+	return bridge.dispatch_force(force_id, destination_cell_id)
+
+
 func unavailable_state() -> Dictionary:
 	return {"configured": false, "error": "native_expedition_bridge_unavailable", "metadata": {"source": "godot_adapter", "authoritative": false}}
 

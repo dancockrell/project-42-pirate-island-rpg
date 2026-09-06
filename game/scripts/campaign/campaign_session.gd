@@ -77,6 +77,31 @@ func resolve_midnight() -> Dictionary:
 	return latest_snapshot.duplicate(true)
 
 
+## S18. The player directing Captain Michael's faction (brief section 5.9):
+## raise a body, then send it somewhere. Both refuse while the game is paused,
+## through the one guard below -- an order given to the island is the island
+## moving, and a paused game does not move -- and both hand back the bridge's
+## own refusal otherwise.
+func raise_force(force_id: String, faction_id: String, cell_id: String, composition: Dictionary, assignment: String) -> Dictionary:
+	if expedition == null:
+		return unavailable_state()
+	var refusal := advance_refused_while_paused()
+	if not refusal.is_empty():
+		return refusal
+	latest_snapshot = expedition.raise_force(force_id, faction_id, cell_id, composition, assignment)
+	return latest_snapshot.duplicate(true)
+
+
+func dispatch_force(force_id: String, destination_cell_id: String) -> Dictionary:
+	if expedition == null:
+		return unavailable_state()
+	var refusal := advance_refused_while_paused()
+	if not refusal.is_empty():
+		return refusal
+	latest_snapshot = expedition.dispatch_force(force_id, destination_cell_id)
+	return latest_snapshot.duplicate(true)
+
+
 ## The single guard on advancing campaign time. Rust owns no pause: there is no
 ## `paused` field in `ExpeditionState` and no host clock, so a paused game is
 ## exactly a game whose bridge is not called, and this is the one call that
