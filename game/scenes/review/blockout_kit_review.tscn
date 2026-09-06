@@ -1,0 +1,16 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/review/blockout_kit_review.gd" id="1_review"]
+[ext_resource type="PackedScene" path="res://render/world_environment.tscn" id="2_environment"]
+[ext_resource type="PackedScene" path="res://render/camera_rig.tscn" id="3_camera_rig"]
+
+[node name="BlockoutKitReview" type="Node3D"]
+script = ExtResource("1_review")
+metadata/review_purpose = "D9 and D10 at gameplay distance: every authored building and machine record, built by the blockout kits from the record alone."
+metadata/render_contract = "Light comes from res://render/world_environment.tscn and the view is the fixed isometric rig at room distance. Neither is written here, and no subject in this scene carries a material this scene chose."
+
+[node name="IslandEnvironment" parent="." instance=ExtResource("2_environment")]
+
+[node name="ReviewCamera" parent="." instance=ExtResource("3_camera_rig")]
+frame_target_distance = 2
+metadata/camera_description = "The game's own isometric view -- 45 degree yaw, 30 degree pitch -- at room distance, so a blockout is judged at the distance it will be played at. The review script points it at whichever of the two views is showing."
