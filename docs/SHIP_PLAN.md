@@ -419,7 +419,7 @@ top of the document is never stale:
 | B16 | The bridge loads the building records and hands the registry to the tick; S10's sweep reads real buildings | C10, S10 | shipped 049bd45 2026-09-06 |
 | B17 | A battle is built from the campaign: bond ranks reach the fight | A10 | shipped b9c6ad5 2026-09-06 |
 | B19 | The bridge loads the machine records and hands the registry to the tick | C14, S16 | open — after S16 |
-| B18 | RTS controls: select, then order a move by tile, words or hotkey; route markers go | B14 | held: the front end is the owner's other tool's from 2026-09-06; this branch builds everything but the screens |
+| B18 | RTS controls: select, then order a move by tile, words or hotkey; route markers go | B14 | superseded by P7 — the owner returned the front end to this branch the same day |
 
 ### Lane C — Content and validator (`content/`, `tools/src/validate.mjs`)
 
@@ -477,6 +477,27 @@ top of the document is never stale:
 
 Cards at M4 from bible §14's backlog and the brief's calm-interface rules.
 G1 is the acceptance script; G2/G3 two external rounds.
+
+### Lane P — Presentation (`game/`, everything but the models)
+
+The owner's direction, 2026-09-06: *"make this game look great … except for
+the models, the rest is stuff you need to build right now. This should be a
+3A game from 2027, award winner in systems and art … keep going and
+iterating until you get there."* The models are the owner's; every other
+pixel is this lane's. Each card ends in a screenshot the owner can look at,
+captured by P1's gate, and no card claims a look it has not captured.
+
+| ID | Task | Depends on | Status |
+|---|---|---|---|
+| P1 | Screenshot gate: every review scene and screen rendered offscreen in CI and locally; the visual loop | E2 | open |
+| P2 | Render foundation: Forward+ with a compatibility fallback, the world environment, the material and shader library, the camera director | P1 | open |
+| P3 | Atmosphere from the simulation: time of day, weather, corruption and pressure read from the snapshot, never a clock | P2, S8 | open |
+| P4 | The isometric board (B11 + B12): room cells with board metadata, three distances, party miniatures, ownership tint, forces in motion | P2, S2, S7, O3 (provisional) | open |
+| P5 | The bronze-and-vellum grammar (D11) and the calm information surface (B13): one Theme, the card rail, the command grid, journal and directive surfaces, accessibility wired | S6, S11, B9 | open |
+| P6 | Battle presentation: skill VFX and camera beats from the registries, hit-stop, band motion, site-rule ambience, the paper rigs until models | A5, A7, C3 | open |
+| P7 | RTS controls on the board (B18 resumed): select, then order a move by tile, words or hotkey; the drawn markers go | B14 | open |
+| P8 | The shell: title, new game, continue, settings, pause, save slots, loading; one scene flow shell → expedition → battle and back | B8, B9 | open |
+| P9 | Audio: buses, ambience by region, time and weather, cues keyed to battle events, a music state machine; procedural placeholders until assets | P3 | open |
 
 ### Lane H — Docs and hygiene
 
@@ -2409,6 +2430,175 @@ stand.
 ---
 
 # Part III — Bookkeeping
+
+### Lane P — Presentation cards
+
+Rules that hold for every P card: the simulation is never read for
+presentation through anything but the snapshot; nothing here decides a
+game result; every number that is a design decision is a named constant or
+a content field marked `needs decision`; models are the owner's — placeholder
+geometry is procedural, clearly marked, and replaced by name when a model
+arrives; and every card's done-when ends in a captured image committed
+under `docs/verification/captures/` with its commit SHA in the filename, so
+the ledger can be *looked at*. Palette: the deep green, teal, cream and
+bronze the two prototypes already use (`DEEP`, `TEAL`, `CREAM`, `BRONZE`,
+`DANGER`) and Betty's locked teal-cream-bronze; one owner for those values
+after P5 (the Theme).
+
+### P1 · Screenshot gate and the visual loop
+Status: open · Depends on: E2
+Touches: `tools/capture-scenes.sh` (new), `game/tools/capture_review_scene.gd`
+(any scene, settle frames, optional viewport size), `.github/workflows/verify.yml`
+(a `captures` job), `docs/verification/captures/README.md`.
+Rendering offscreen works: Xvfb plus Mesa's software GL renders a review
+scene through the existing capture tool in this container, and
+`ubuntu-latest` can install `mesa-vulkan-drivers` for the Forward+ path.
+Build the loop everyone else iterates in: one script that renders every
+`scenes/review/*_review.tscn` and every screen under `scenes/world`,
+`scenes/battle`, `scenes/shell` to `work/captures/<scene>.png` at 1920×1080
+(and a 1280×720 thumbnail), on whichever driver the project declares
+(`--rendering-driver vulkan` under lavapipe when present, else `opengl3`);
+a CI job that runs it and uploads `captures-<sha>`; a documented local
+command. The gate fails on an `ERROR:` line the same way `verify-godot.sh`
+does. A capture that comes out black or uniform is a failure, not a pass
+(measure it).
+Done when: CI uploads captures for every scene on a green run; the local
+command produces the same set; the README says how to look.
+
+### P2 · Render foundation
+Status: open · Depends on: P1
+Touches: `game/project.godot` (`[rendering]`), `game/render/` (new:
+`world_environment.tres`, `camera_rig.tscn`, materials), `game/shaders/`
+(new), `game/scripts/render/` (new: `camera_director.gd`, `render_profile.gd`),
+the three review scenes (they adopt the environment and camera), one suite.
+The project renders on `gl_compatibility`, which caps lighting at what a
+2017 mobile game could do. Move the desktop target to **Forward+** with the
+compatibility method kept as the declared fallback (`rendering_method.mobile`
+and a `render_profile.gd` that reports which one is live and what it
+disables). One `WorldEnvironment` resource: AgX tonemapping, SSAO, SSIL or
+SDFGI where Forward+ allows, glow with a low threshold, depth fog tuned for
+the island, a colour-correction ramp toward the palette; a fixed isometric
+camera rig (the brief: fixed view, bold silhouettes at gameplay distance)
+with orthographic and near-orthographic modes and framing rules for the
+three distances. A material library the models will inherit: matte clay
+with an edge-light rim for blockouts, stylised water (sea and river, with
+shore foam), wind-moved foliage, wet stone, bronze, vellum, and a
+"placeholder" material that is visibly a placeholder. Every shader carries
+a compatibility path.
+Done when: the terrace review scene captured on both renderers looks like
+one intended image on each; a suite asserts the environment resource's
+values are the ones the card names; the captures are committed.
+
+### P3 · Atmosphere from the simulation
+Status: open · Depends on: P2, S8
+Touches: `game/scripts/atmosphere/` (new autoload `Atmosphere`), one suite.
+The snapshot carries `campaign_day`, `time_segment`, per-region weather
+(S8), corruption per cell and the Cthulhu heat band (S9's bands through the
+bridge if exposed; if not, add the read-only key to the state dictionary —
+one hunk in `godot_bridge.rs`). Drive the environment from those and
+nothing else: sun angle and colour by segment, night with warm points at
+held buildings, weather as fog density, rain and mist particles, wind
+strength into the foliage shader, corruption as a desaturating tint with a
+named palette per band, pressure as a slow sky shift the player feels
+before reading. Transitions are tweened between snapshots; no wall clock,
+no randomness outside the snapshot's own seed. Reduced motion (B9) stills
+the particles.
+Done when: four captures — dawn, dusk, night, storm — from four authored
+snapshots, committed; a suite asserts a snapshot maps to the named
+environment values.
+
+### P4 · The isometric board (B11 + B12)
+Status: open · Depends on: P2, S2, S7, O3 (provisional)
+Touches: `content/world/*.world_cell.json` (a `board` block),
+`tools/src/validate.mjs`, `game/scripts/board/` (new), `game/scenes/board/`
+(new), `game/scripts/simulation/native_expedition_port.gd` (forwarding),
+one suite, and a snapshot key for forces if the bridge lacks one.
+B11's shape with dr-companion's field names (`footprint`, `spawnPoints`,
+`tethers`); the exact dimensions are Open (O3), so the block carries named
+provisional values marked `needs decision` and the validator requires the
+mark. One scene graph, three distances: world (ownership and influence
+tint the cells from S2, routes drawn by control and risk from B14), route
+(forces and convoys from S7 visible in motion between cells), room (the
+setpiece, spawn sockets, exits, the encounter space). The party is a
+miniature that snaps between nodes on confirmed travel and never moves on
+a click. Entering an encounter opens the existing battle screen (O1's lens
+is Open; this is the stand-in and says so). Blockout geometry is
+procedural and marked.
+Done when: a suite drives travel across three cells and asserts the
+miniature's node each time; three captures, one per distance, committed.
+
+### P5 · The bronze-and-vellum grammar and the calm information surface
+Status: open · Depends on: S6, S11, B9
+Touches: `game/themes/bronze_vellum.tres` (new, the one owner of the
+palette and type scale), `game/scripts/ui/` (components: card, rail,
+command diamond, panel, notice, tooltip, journal entry), `game/scripts/surface/`
+(new: `information_surface.gd`), the settings panel (adopts the Theme),
+one suite. The two prototypes adopt the Theme in P6 and P7, not here.
+D11's card rail and command grid as reusable components; B13's three levels:
+Ambient (the world changes), Notable (a companion line or journal entry —
+no interruption), Urgent (interrupt only for the party, a major
+relationship, the core, or a final-stage threat), with S6's explanation
+shown before a directive is confirmed and S11's journal readable while
+paused. No flashing alerts, no red countdowns. B9's text scale, high
+contrast and reduced motion are read here and applied through the Theme.
+Done when: a suite feeds 100 strategic events and asserts ≤1 Urgent; the
+settings change the Theme live; captures of the surface at each level.
+
+### P6 · Battle presentation
+Status: open · Depends on: A5, A7, C3
+Touches: `game/scripts/battle/**`, `game/scenes/battle/**`, the presentation
+registries only if a record is missing a field the effect needs.
+`vfx.registry.json` and `camera.registry.json` already describe every
+skill's effect (palette, anchor, layer, blend, envelope, motion, lifetime,
+reduced-flash substitute); today they are read for labels. Render them:
+GPU particles and shaders per record, camera beats from the camera
+registry, hit-stop and a restrained shake, damage numbers with weight,
+the band rail moving actors with easing, Composure and Shaken readable at
+a glance, the ward line as a real line, grave watch as a visible pulse on
+hostiles, death as a dissolve. The paper rigs stay until the models arrive
+and get a lighting pass that makes them sit in the plate. Betty's and
+Ayla's kits both play. Reduced-flash substitutes honoured.
+Done when: a suite plays each of the fourteen skills through the live
+bridge and asserts the effect node named by the record was instantiated
+and cleaned up; six captures across a fight, committed.
+
+### P7 · RTS controls on the board (B18 resumed)
+Status: open · Depends on: B14
+The B18 card as written, on P4's board when it exists and on the current
+route board until then: left-click selects, right-click on a tile orders
+the move, the words and digit hotkeys issue the same order, the drawn
+markers and legend go; every path is `request_travel`. Owner's words in
+B18's card. Done when: B18's done-when; a capture with the markers gone.
+
+### P8 · The shell
+Status: open · Depends on: B8, B9
+Touches: `game/scenes/shell/` and `game/scripts/shell/` (new), `game/project.godot`
+(`run/main_scene`), one suite.
+Title, new game, continue (newest by the save's own clock, B8), save slots,
+settings (B9's panel), pause menu, loading between scenes, credits with the
+attribution the assets require; one scene flow shell → expedition → battle
+and back that holds the campaign in `CampaignSession` throughout. The shell
+looks like the game: the environment, the Theme, a slow atmosphere behind
+the title.
+Done when: a suite walks title → new game → expedition → battle → back →
+save → title → continue and asserts the same legal actions; captures of the
+title and the pause menu.
+
+### P9 · Audio
+Status: open · Depends on: P3
+Touches: `game/scripts/audio/` (new autoload `Soundscape`), `content/audio/`
+(new records: ambience by region/segment/weather, cue by battle event and
+skill, music states), `tools/src/validate.mjs`, the bundle, one suite.
+Buses (master, music, ambience, effects, voice) with the settings panel's
+volumes; ambience layers chosen from the snapshot the way P3 chooses light;
+cues keyed to the battle events the bridge emits and the skill's presentation
+record; a music state machine (calm, notable, battle, urgent) that follows
+P5's levels. No audio asset exists: every sound is a procedural placeholder
+generated at runtime (`AudioStreamGenerator`) and marked as such in its
+record, replaced by name when a real asset is admitted.
+Done when: a suite asserts every battle event and every skill resolves to
+a cue record and every region/segment/weather triple to an ambience record;
+the placeholder count is in the validator's summary line.
 
 ## 8. Claiming, finishing, and keeping this document true
 
