@@ -17,7 +17,7 @@ use project42_sim::geography::{
 };
 use project42_sim::strategy::building::{BuildingDefinition, BuildingDefinitions};
 use project42_sim::strategy::faction::{ConceptKey, FactionDefinition, FactionDefinitions};
-use project42_sim::strategy::production::MachineDefinitions;
+use project42_sim::strategy::production::{MachineDefinition, MachineDefinitions};
 use project42_sim::*;
 
 fn content(path: &str) -> String {
@@ -176,6 +176,63 @@ fn the_authored_buildings_reach_the_bridge_and_validate() {
         michaels,
         vec!["building.machine_shop"],
         "Michael's working core must reach the bridge"
+    );
+}
+
+/// Mirrors the same script's machine forwarding, on the same terms: every
+/// `machine.*` record out of the catalog, verbatim, into the `machines` array
+/// `ExpeditionConfiguration` reads. C14 authored them in
+/// `MachineDefinition`'s own field names, so nothing is renamed here either.
+fn machine_registry_as_godot_forwards_it() -> MachineDefinitions {
+    let forwarded = serde_json::Value::Array(bundle_records("machines"));
+    let definitions: Vec<MachineDefinition> =
+        serde_json::from_value(forwarded).expect("every forwarded record is a MachineDefinition");
+    let mut registry = MachineDefinitions::new();
+    for definition in definitions {
+        registry
+            .insert(definition)
+            .expect("the bridge admits every authored record");
+    }
+    registry
+}
+
+/// C14's two records reach Godot, survive the forwarding verbatim, and pass
+/// `MachineDefinition::validate` on the way into the bridge's registry.
+///
+/// `strategy/production.rs` already holds `content/machines/` equal to the
+/// schema on disk; this is the other half, and the half B19 needed: that the
+/// bundle Godot actually reads carries the records, that the authoring-only
+/// keys (`metadata`, `open_dimensions`, the prose fields) survive the JSON
+/// round trip through it, and that the registry the bridge hands to the tick
+/// is the one the harness runs on.
+#[test]
+fn the_authored_machines_reach_the_bridge_and_validate() {
+    let registry = machine_registry_as_godot_forwards_it();
+    let ids: Vec<&str> = registry.ids().collect();
+    assert_eq!(
+        ids,
+        vec!["machine.mechanical_dog", "machine.steam_wagon"],
+        "the Godot bundle must carry C14's two machine records, ascending by ID"
+    );
+
+    // The record survives whole, not just by name: the dog walks every way a
+    // person does and the wagon needs a made road, which is the authored
+    // contrast the two records exist for, and it is carried in a field the
+    // JSON round trip could have dropped without either ID changing.
+    let dog = registry
+        .get("machine.mechanical_dog")
+        .expect("the dog reached the bridge");
+    assert!(
+        dog.valid_route_types.contains("jungle_edge"),
+        "the dog's authored route vocabulary must survive the bundle"
+    );
+    let wagon = registry
+        .get("machine.steam_wagon")
+        .expect("the wagon reached the bridge");
+    assert_eq!(
+        wagon.valid_route_types.iter().collect::<Vec<_>>(),
+        vec!["safe_road"],
+        "the wagon needs a made way, and that is the whole reason two records exist"
     );
 }
 
@@ -462,7 +519,7 @@ fn the_salvage_anchor_leaves_the_legal_commands_when_spent_and_returns_at_midnig
             &habitats,
             &faction_registry_as_godot_forwards_it(),
             &building_registry_as_godot_forwards_it(),
-            &MachineDefinitions::new(),
+            &machine_registry_as_godot_forwards_it(),
         )
         .expect("no encounter is pending on the sand");
     assert!(

@@ -67,6 +67,10 @@ func _init() -> void:
 	check(projected_buildings.size() == 3, "the bridge must project the three authored building records it loaded")
 	for projected_building in projected_buildings:
 		check(str(projected_building).begins_with("building."), "every projected building must be a stable record ID")
+	# B19: and C14's two machine records made the same trip, on the same terms --
+	# registry IDs only, so a crew requirement or a fuel count never crosses here.
+	var projected_machines: Array = expedition.get_authoritative_snapshot().get("machines", [])
+	check(projected_machines.size() == 2 and str(projected_machines[0]) == "machine.mechanical_dog" and str(projected_machines[1]) == "machine.steam_wagon", "the bridge must project the two authored machine record IDs it loaded")
 	var salvage: Dictionary = expedition.request_anchor("anchor.black_beach.salvage_point")
 	check(bool(salvage.get("configured", false)), "the wreck must be salvageable through the native bridge")
 	check(int((salvage.get("anchor_outcome", {}) as Dictionary).get("rations_gained", 0)) >= 4, "salvaging the wreck must yield its authored floor of four rations")

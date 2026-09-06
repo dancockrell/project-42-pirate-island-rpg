@@ -157,6 +157,17 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 	var buildings: Array[Dictionary] = []
 	for building_id in catalog.ids_with_prefix("building."):
 		buildings.append(as_rust_integers(catalog.get_record(building_id)) as Dictionary)
+	# B19: C14's machine records, forwarded the same way and for the same
+	# reason. They are authored in MachineDefinition's own field names, and
+	# every number in one is a whole count -- footprint and clearance cells, a
+	# crew requirement, fuel and water, a salvage value -- so the same integer
+	# coercion the factions and buildings need applies here unchanged. Without
+	# this the engine ran S16's production hour against an empty registry: a
+	# machine rule that came due journaled a skip naming a record it could not
+	# find, while the Rust harness made the dog out of the same yard.
+	var machines: Array[Dictionary] = []
+	for machine_id in catalog.ids_with_prefix("machine."):
+		machines.append(as_rust_integers(catalog.get_record(machine_id)) as Dictionary)
 	# A7: the authored site-rule records, forwarded verbatim. They are authored
 	# in `AuthoredSiteRule`'s own field names -- `id`, `displayName`, `effect` --
 	# and the one number in an effect is a whole count, so they take the same
@@ -174,6 +185,7 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 		"encounter_triggers": encounter_triggers,
 		"factions": factions,
 		"buildings": buildings,
+		"machines": machines,
 		"site_rules": site_rules
 	}
 	var configured: Dictionary = bridge.configure(JSON.stringify(configuration))
@@ -182,18 +194,19 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 	# downstream of the record that caused it. The bridge already names the
 	# reason; say it once, where the payload was built.
 	if not bool(configured.get("configured", false)):
-		push_error("Native expedition bridge refused the catalog configuration: %s (%d cells, %d portals, %d factions, %d buildings)" % [
-			str(configured.get("error", "")), cells.size(), portals.size(), factions.size(), buildings.size()
+		push_error("Native expedition bridge refused the catalog configuration: %s (%d cells, %d portals, %d factions, %d buildings, %d machines)" % [
+			str(configured.get("error", "")), cells.size(), portals.size(), factions.size(), buildings.size(), machines.size()
 		])
 	return configured
 
 
 ## Every number in a forwarded record, back to an integer.
 ##
-## Neither `FactionDefinition` nor `BuildingDefinition` has a floating-point
-## field: every number in one is an `i16` weight or a whole count -- footprint
-## cells, construction hours, hit points -- and the authored records write them
-## as integers. Godot's JSON
+## No forwarded record type -- `FactionDefinition`, `BuildingDefinition`,
+## `MachineDefinition`, `AuthoredSiteRule` -- has a floating-point field: every
+## number in one is an `i16` weight or a whole count -- footprint cells,
+## construction hours, hit points, a crew requirement, fuel and water -- and the
+## authored records write them as integers. Godot's JSON
 ## round trip is what loses that -- a weight comes back out of `JSON.stringify`
 ## with a decimal point, and serde refuses the whole record rather than
 ## silently truncating it, which refused the whole configuration and left the
