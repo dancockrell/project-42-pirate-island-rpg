@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "task_id": "p5-grammar-and-surface",
+  "agent": "claude-code (lane P5)",
+  "summary": "P5: one owner for the bronze-and-vellum palette and type scale (game/themes/bronze_vellum.tres), the reusable UI components D11's rail and command grid become, and the calm information surface B13 asks for -- Ambient, Notable, Urgent by explicit rule, S6's explanation before a directive is confirmed, S11's journal readable while paused, and B9's three accessibility settings applied live through the Theme.",
+  "status": "completed",
+  "claimed_at": "2026-09-06T12:00:00Z",
+  "updated_at": "2026-09-06T13:45:00Z",
+  "paths": [
+    "docs/verification/captures/",
+    "game/project.godot",
+    "game/scenes/review/grammar_review.tscn",
+    "game/scenes/ui/",
+    "game/scripts/review/grammar_review.gd",
+    "game/scripts/surface/",
+    "game/scripts/ui/",
+    "game/tests/information_surface_test.gd",
+    "game/themes/",
+    "godot-rust/src/godot_bridge.rs"
+  ],
+  "symbols": [
+    "ThemeTokens",
+    "VellumPanel",
+    "VellumCard",
+    "VellumCardRail",
+    "VellumCommandDiamond",
+    "VellumCommandGrid",
+    "VellumNotice",
+    "VellumTooltip",
+    "VellumJournalEntry",
+    "InformationSurface",
+    "Project42ExpeditionBridge.strategic_surface"
+  ],
+  "coordination": {
+    "depends_on": [
+      "s6-directives",
+      "s11-event-journal",
+      "b9-pause-and-settings"
+    ],
+    "conflicts_with": [],
+    "notes": "game/project.godot takes one appended autoload at the END of [autoload]. godot_bridge.rs takes one read-only #[func] appended at the END of the Project42ExpeditionBridge impl block plus its projection helpers after the existing free functions; nothing existing is edited. settings_panel.gd keeps its whole public API (PAUSE_REASON, SETTINGS_PATH, text_scale, high_contrast, reduced_motion, set_*, load_settings, save_settings, close, close_button) and stops declaring its own hex values -- the Theme owns them after this card. The two prototypes (world/expedition_prototype.gd, battle/battle_prototype.gd, paper_card.gd, paper_skill_diamond.gd) are NOT edited: they adopt the Theme in P6 and P7. Shipped: the Theme is the one owner and a suite holds it so -- every StyleBox fill and border and every non-palette colour entry in bronze_vellum.tres must equal a named palette token, so a hex added to the resource by hand fails the gate the day it lands. ThemeTokens recolours for high contrast by colour-for-colour substitution rather than by a table of which box is painted in which token, so a StyleBox added tomorrow is recoloured correctly with no code change. InformationLevel is a separate class_name so the autoload (which cannot carry one) and the two components that draw a level share one vocabulary. NOT WIRED, and honestly so: no StrategicEvent names a character, so the two Urgent permissions that are about people (the party by name, a major relationship) are exercised by the suite and by any caller that builds an event with character_ids, and never by a bridge event today; the journal projection carries the key so the shape does not change on the day one does. The final-stage threat is read as brief section 16's recovery chain running out for the player's own faction, because that is the only final stage the simulation models. The two prototypes were not edited: they adopt the Theme in P6 and P7."
+  },
+  "completion": {
+    "commit": "5e01cd6",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (347 unit + 6 authored_world + 5 save_migration + 8 strategic_determinism + 1 vertical_slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (300 stable IDs): passed",
+      "node tools/src/check-claims.mjs: passed",
+      "node tools/src/build-content-bundle.mjs && git diff --quiet game/generated/ (no content changed; bundle byte-identical): passed",
+      "tools/verify-godot.sh with the pinned Godot 4.7.2 and the locally built GDExtension -- 4 review scenes, 22 suites, no ERROR line, 'Information surface tests passed.' among them: passed",
+      "Done-when 1: a hundred strategic events from an ordinary day produce exactly one Urgent -- test_hundred_events_produce_at_most_one_urgent, with 80 Ambient, 19 Notable and the one hostile force that reaches the cell the party is standing in: passed",
+      "Done-when 2: the settings change the Theme live -- test_settings_change_the_theme_live drives the real settings panel, asserts the type scale and the default font grow, the high-contrast token set swaps (deep becomes black), a StyleBox follows the palette into high contrast, reduced motion reaches the Theme constant, and the base resource is never mutated: passed",
+      "Done-when 3: captures of the surface at each level -- docs/verification/captures/P5-5e01cd6-grammar-and-surface.png shows Ambient (silent, stated), a Notable companion strip and an Urgent modal side by side, plus the journal and the directive confirmation; P5-5e01cd6-settings-and-accessibility.png shows the settings surface: passed",
+      "Bite proof 1: rule 3 widened so any arrival by another faction is Urgent -- the suite failed with 'a hundred strategic events must interrupt at most once, not 15 times', plus the two assertions that name the rule; restored and green: passed",
+      "Bite proof 2: one StyleBox fill in bronze_vellum.tres repainted in a hex no token names -- the suite failed with 'TooltipPanel/panel is filled with a colour no palette token names' and the same for VellumTooltip/panel; restored and green: passed",
+      "The level rules by example -- test_the_level_rules_by_example asserts each of the four Urgent permissions, that the player's own force coming home to its own core is not one, that another faction leaving the board is Notable rather than Urgent, that another faction's production is invisible, that an unrecognised kind never interrupts, and that a surface told nothing interrupts for nothing: passed",
+      "S6's explanation before confirmation -- test_the_explanation_comes_before_the_confirmation asserts all six explained fields reach the player, that an unexplained directive cannot be confirmed, and that no line carries a score or a weight (brief section 9): passed",
+      "S11's journal readable while paused -- test_the_journal_holds_the_island_while_it_is_read opens the journal, asserts GamePause holds the island under the journal's own reason, that opening twice does not stack a reason, and that closing releases it: passed",
+      "Every component instantiates under the Theme with no error line -- test_every_component_instantiates_under_the_theme builds the panel, rail, five cards, command grid, tooltip, journal entry and both notices; asserts a locked slot still names its rank, skill and stable id, that an Ambient level builds no notice at all, that a Notable line takes neither the mouse nor the keyboard, and that an Urgent one pauses and releases: passed",
+      "The bridge hunk through the live GDExtension -- test_the_bridge_carries_directives_and_the_journal configures a campaign, asserts a fresh one has no journal and no standing directive, resolves a midnight, then asserts the projected lines carry every key, carry prose written by Rust, name a kind the surface knows, classify as Ambient, honour the limit, clamp a limit past the window and return nothing for a limit of zero: passed",
+      "No StrategicEvent names a character today, so the Urgent permissions for the party by name and for a major relationship are proven by the suite and by callers that build events with character_ids, never by a bridge event: not_run",
+      "The two prototypes (world/expedition_prototype.gd, battle/battle_prototype.gd, paper_card.gd, paper_skill_diamond.gd) still declare their own palette constants; adopting the Theme is P6's and P7's card and was deliberately not done here: not_run",
+      "The Forward+ look is not proven: this container has no Vulkan driver, so both captures are the compatibility path (opengl3 under Xvfb). CI proves Forward+ once P1 installs mesa-vulkan-drivers: not_run",
+      "Follow-up dc6dc0a on the same branch: _pause_service built a fresh _NullPause every call on the review-scene path and never freed it; it is made once now. information_surface_test.gd re-run green on that tree: passed"
+    ]
+  }
+}

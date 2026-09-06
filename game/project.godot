@@ -14,6 +14,7 @@ ContentPackRegistry="*res://scripts/content/pack_registry.gd"
 Soundscape="*res://scripts/audio/soundscape.gd"
 Atmosphere="*res://scripts/atmosphere/atmosphere.gd"
 SceneFlow="*res://scripts/shell/scene_flow.gd"
+InformationSurface="*res://scripts/surface/information_surface.gd"
 
 [display]
 window/size/viewport_width=1920
