@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "task_id": "b19-machines-through-the-bridge",
+  "agent": "claude-opus-5-lane-b19",
+  "summary": "B19: the bridge loads content/machines/ and hands the validated MachineDefinitions to the tick, so S16's production hour reads C14's authored records instead of the empty registry the bridge hands it today",
+  "status": "active",
+  "claimed_at": "2026-09-06T08:00:00Z",
+  "updated_at": "2026-09-06T08:00:00Z",
+  "paths": [
+    "game/scripts/simulation/native_expedition_port.gd",
+    "game/tests/expedition_prototype_test.gd",
+    "godot-rust/src/godot_bridge.rs",
+    "godot-rust/tests/authored_world.rs"
+  ],
+  "symbols": [
+    "ExpeditionConfiguration.machines",
+    "Project42ExpeditionBridge.configure",
+    "Project42ExpeditionBridge.resolve_midnight",
+    "machine_error_code",
+    "NativeExpeditionPort.configure_from_catalog"
+  ],
+  "coordination": {
+    "depends_on": [
+      "C14",
+      "S16",
+      "B15",
+      "B16"
+    ],
+    "conflicts_with": [
+      "S17"
+    ],
+    "notes": "B15's and B16's shape, repeated for machines. S17 runs in parallel on godot-rust/tests/strategic_determinism.rs; this lane does not touch that file -- the harness already loads content/machines/ (the_authored_machines) and hands it to the hash claims, which is exactly what this card asked to confirm. Nothing under strategy/, content/, tools/ or docs/SHIP_PLAN.md is touched: the only production change is the bridge boundary."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
