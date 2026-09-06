@@ -255,6 +255,18 @@ jobs:
 
           echo "Real Rust bridge confirmed: all three native suites reported a pass."
 
+      # E9. Free here and nowhere else: this job has already downloaded and
+      # checksummed the pinned engine, and --export-pack needs no export
+      # template, so proving that every packs/<id>/ still exports to a .pck
+      # whose manifest lands at res://packs/<id>/pack.json costs two short
+      # headless runs per pack. The nightly workflow runs the same script and
+      # uploads what it builds; this one only checks that it still works, on
+      # every push, because a pack that stops building is a content change and
+      # content changes land here.
+      - name: Build and verify the presentation packs
+        shell: bash
+        run: node tools/src/build-pack.mjs
+
       - name: Upload the gate log
         if: always()
         uses: actions/upload-artifact@v4

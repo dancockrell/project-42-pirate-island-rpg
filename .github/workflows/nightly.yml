@@ -1,0 +1,257 @@
+name: Nightly
+
+# E5 and E9. Produces the things a person can actually run: a desktop build per
+# export preset, and one .pck per presentation pack, both uploaded as artifacts
+# named with the commit they came from.
+#
+# The adult-store build is the base build PLUS a pack. It is never a second
+# build of the game and there is no second branch, preset or workflow for it:
+# `packs` below emits `pack.<id>.pck`, and installing one beside a desktop build
+# (under `user://packs/` or `res://packs/`) is the whole mechanism —
+# `game/scripts/content/pack_registry.gd` mounts it at run time. That is why the
+# pack artifacts are uploaded beside the desktop artifacts from the same run and
+# the same SHA.
+#
+# The engine download, its SHA-512 pin and the version confirmation are the
+# steps from `verify.yml`'s `godot-suites` job, reused as they stand. Nightly
+# additionally needs the export templates, which the test gate does not, so
+# those are pinned the same way.
+
+on:
+  schedule:
+    # 06:17 UTC daily. Off the hour deliberately: GitHub's scheduler queues the
+    # top of the hour heavily, and a nightly that starts twenty minutes late is
+    # worse than one that starts seventeen minutes past.
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+env:
+  # Identical to verify.yml's pins. If one moves, both move.
+  GODOT_VERSION: 4.7.2-stable
+  GODOT_ASSET: Godot_v4.7.2-stable_linux.x86_64.zip
+  GODOT_SHA512: 9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65
+  # The line for Godot_v4.7.2-stable_export_templates.tpz in the same
+  # SHA512-SUMS.txt that the engine digest above was copied from, published in
+  # the 4.7.2-stable release of godotengine/godot-builds. Verified before the
+  # archive is unpacked; never skipped.
+  GODOT_TEMPLATES_ASSET: Godot_v4.7.2-stable_export_templates.tpz
+  GODOT_TEMPLATES_SHA512: ca4d71c4d7b81dfc15d1a98baa07534aa95b03fdda78a0075b06672e1648d2e5f40980c9adc28d23e1b92e732ee7bf3461997aa804af74ec2fcd7a93ccb84079
+
+jobs:
+  desktop:
+    name: Export ${{ matrix.preset }}
+    runs-on: ubuntu-latest
+    # Engine and templates download ~2 min, the release GDExtension build from a
+    # cold target directory ~1 min, one editor import pass and one export.
+    timeout-minutes: 45
+
+    strategy:
+      # One preset failing must not hide what the others did. The point of this
+      # workflow is to learn which desktop targets a Linux runner can honestly
+      # produce, so every one of them runs and reports for itself.
+      fail-fast: false
+      matrix:
+        include:
+          # `library` is the release library for this preset, at exactly the
+          # path game/bin/project42_sim.gdextension declares for it. E5's hard
+          # requirement: if it is not there, the export would produce a package
+          # that launches and cannot load a single rule, so the job stops.
+          - preset: Linux Desktop
+            slug: linux-desktop
+            artifact: project42.x86_64
+            library: game/bin/linux/project42_sim.linux.expedition_v5_release.x86_64.so
+            declared: linux.release.x86_64
+          - preset: Windows Desktop
+            slug: windows-desktop
+            artifact: project42.exe
+            library: game/bin/windows/project42_sim.windows.expedition_v5_release.x86_64.dll
+            declared: windows.release.x86_64
+          - preset: macOS
+            slug: macos-desktop
+            artifact: project42.zip
+            library: game/bin/macos/project42_sim.macos.expedition_v5_release.x86_64.dylib
+            declared: macos.release.x86_64
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install the Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache the Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: godot-rust
+
+      - name: Download and verify Godot ${{ env.GODOT_VERSION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/${GODOT_ASSET}"
+          echo "Downloading $url"
+          curl --fail --location --silent --show-error \
+               --retry 3 --retry-delay 5 --retry-all-errors \
+               --output "${RUNNER_TEMP}/godot.zip" "$url"
+          # Checked before anything is unpacked, let alone executed.
+          printf '%s  %s\n' "$GODOT_SHA512" "${RUNNER_TEMP}/godot.zip" \
+            | sha512sum --check --strict
+          unzip -q "${RUNNER_TEMP}/godot.zip" -d "${RUNNER_TEMP}/godot"
+          binary="${RUNNER_TEMP}/godot/Godot_v${GODOT_VERSION}_linux.x86_64"
+          if [[ ! -f "$binary" ]]; then
+            echo "The pinned archive did not contain $binary. Its contents were:" >&2
+            ls -la "${RUNNER_TEMP}/godot" >&2
+            exit 1
+          fi
+          chmod +x "$binary"
+          echo "GODOT=$binary" >> "$GITHUB_ENV"
+
+      - name: Confirm the engine runs and reports the pinned version
+        shell: bash
+        run: |
+          set -euo pipefail
+          reported="$("$GODOT" --headless --version)"
+          echo "Godot reports: $reported"
+          case "$reported" in
+            4.7.2.stable.official*) ;;
+            *)
+              echo "Expected a 4.7.2.stable.official build, got: $reported" >&2
+              exit 1
+              ;;
+          esac
+
+      # Godot looks for templates in a version directory named
+      # <major>.<minor>.<patch>.<status>, so 4.7.2-stable installs to
+      # 4.7.2.stable. The .tpz is a zip whose entries all sit under templates/;
+      # the files have to land directly in the version directory, not in a
+      # templates/ subdirectory of it.
+      - name: Download and verify the export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/${GODOT_TEMPLATES_ASSET}"
+          echo "Downloading $url"
+          curl --fail --location --silent --show-error \
+               --retry 3 --retry-delay 5 --retry-all-errors \
+               --output "${RUNNER_TEMP}/templates.tpz" "$url"
+          printf '%s  %s\n' "$GODOT_TEMPLATES_SHA512" "${RUNNER_TEMP}/templates.tpz" \
+            | sha512sum --check --strict
+          unzip -q "${RUNNER_TEMP}/templates.tpz" -d "${RUNNER_TEMP}/templates"
+          version_directory="${GODOT_VERSION/-/.}"
+          destination="${HOME}/.local/share/godot/export_templates/${version_directory}"
+          mkdir -p "$destination"
+          mv "${RUNNER_TEMP}/templates/templates/"* "$destination/"
+          echo "Installed $(ls -1 "$destination" | wc -l) template files into $destination"
+
+      # release, not debug: this is packaging, and the .gdextension resolves
+      # <platform>.release.x86_64 for an --export-release build. The matching
+      # debug library is not built here and the preset's include_filter simply
+      # does not find one to carry.
+      - name: Build the native bridge
+        shell: bash
+        run: bash tools/build-native-bridge.sh release
+
+      # E5's hard requirement, from E4's finding. game/bin/ holds only the
+      # Windows libraries; Linux and macOS are built, never committed, and
+      # build-native-bridge.sh builds for the host only. An export that runs
+      # without the library at the declared path packages a game with no
+      # simulation in it. Fail loudly here rather than ship a hollow build.
+      - name: Confirm the GDExtension library is installed where Godot looks
+        shell: bash
+        run: |
+          set -euo pipefail
+          library="${{ matrix.library }}"
+          declared="res://${library#game/}"
+          if ! grep -qF "${{ matrix.declared }} = \"$declared\"" game/bin/project42_sim.gdextension; then
+            echo "game/bin/project42_sim.gdextension no longer declares ${{ matrix.declared }} = $declared." >&2
+            exit 1
+          fi
+          if [[ ! -f "$library" ]]; then
+            echo "The ${{ matrix.preset }} export needs $library and it is not there." >&2
+            echo "Exporting now would package a build with no simulation in it. Refusing." >&2
+            exit 1
+          fi
+          ls -la "$library"
+
+      # Registers the GDExtension and imports every resource. The same
+      # invocation tools/verify-godot.sh opens with; an export against an
+      # unimported project exports nothing useful.
+      - name: Import the project
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GODOT" --headless --editor --path game --quit
+
+      - name: Export ${{ matrix.preset }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="${RUNNER_TEMP}/export/${{ matrix.slug }}"
+          mkdir -p "$output"
+          "$GODOT" --headless --path game \
+            --export-release "${{ matrix.preset }}" "$output/${{ matrix.artifact }}"
+          if [[ ! -s "$output/${{ matrix.artifact }}" ]]; then
+            echo "The export reported success but wrote no $output/${{ matrix.artifact }}." >&2
+            ls -la "$output" >&2
+            exit 1
+          fi
+          ls -la "$output"
+
+      - name: Upload the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: project42-${{ matrix.slug }}-${{ github.sha }}
+          path: ${{ runner.temp }}/export/${{ matrix.slug }}
+          if-no-files-found: error
+
+  packs:
+    name: Build the presentation packs
+    runs-on: ubuntu-latest
+    # No Rust and no export templates: --export-pack writes packed resources and
+    # never touches an export template, so this job is the engine download plus
+    # two short headless runs per pack.
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download and verify Godot ${{ env.GODOT_VERSION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/${GODOT_ASSET}"
+          echo "Downloading $url"
+          curl --fail --location --silent --show-error \
+               --retry 3 --retry-delay 5 --retry-all-errors \
+               --output "${RUNNER_TEMP}/godot.zip" "$url"
+          printf '%s  %s\n' "$GODOT_SHA512" "${RUNNER_TEMP}/godot.zip" \
+            | sha512sum --check --strict
+          unzip -q "${RUNNER_TEMP}/godot.zip" -d "${RUNNER_TEMP}/godot"
+          binary="${RUNNER_TEMP}/godot/Godot_v${GODOT_VERSION}_linux.x86_64"
+          if [[ ! -f "$binary" ]]; then
+            echo "The pinned archive did not contain $binary. Its contents were:" >&2
+            ls -la "${RUNNER_TEMP}/godot" >&2
+            exit 1
+          fi
+          chmod +x "$binary"
+          echo "GODOT=$binary" >> "$GITHUB_ENV"
+
+      # Builds one .pck per packs/<id>/ and then mounts each one to prove its
+      # manifest is inside it at res://packs/<id>/pack.json, which is where
+      # ContentPackRegistry reads it.
+      - name: Build and verify the packs
+        shell: bash
+        run: node tools/src/build-pack.mjs
+
+      - name: Upload the packs
+        uses: actions/upload-artifact@v4
+        with:
+          name: project42-packs-${{ github.sha }}
+          path: work/packs/*.pck
+          if-no-files-found: error
