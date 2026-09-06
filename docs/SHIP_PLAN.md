@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `abe9a5a`. If this line is older than
+- Last updated 2026-09-06 against trunk `252b3fb`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -471,7 +471,8 @@ top of the document is never stale:
 | E7 | Crash log with state snapshot; no silent telemetry | — | shipped 47fa829 2026-09-06 |
 | E8 | Claims enforcement in CI | E1 | shipped 528773b 2026-09-06 — both ledgers are a gate; it corrected 120-odd records on arrival |
 | E9 | Pack build script and pack artifact | C8, E5 | shipped ab23ab9 2026-09-06 |
-| E10 | macOS nightly on a macOS runner; the dylib built where it can be | E5 | open |
+| E10 | macOS nightly on a macOS runner; the dylib built where it can be | E5 | shipped 252b3fb 2026-09-06 — the job refuses by name until E11 lands |
+| E11 | The macOS export actually exports: arm64 rows in the `.gdextension`, a universal preset, the build script names the host architecture | E10 | open |
 
 ### Lane F — Audio · Lane G — QA
 
@@ -2375,7 +2376,33 @@ the desktop builds and as an eleven-second step in verify.yml's Godot job
 `tools/verify-godot.sh`'s pattern character for character.
 
 ### E10 · macOS nightly on a macOS runner
-Status: open · Depends on: E5
+Status: shipped `252b3fb` 2026-09-06 · Depends on: E5
+**Shipped:** a `macos` job on `macos-latest` with the macOS engine zip
+pinned by SHA-512 (taken from the published sums whose other lines match
+E5's pins, recomputed on a local fetch), the same templates, the Rust
+build, and E5's assertion tightened to ask for the architecture Godot
+actually resolves. **The export does not complete, and that is the
+finding:** the runner is Apple Silicon, `game/bin/project42_sim.gdextension`
+declares only `macos.*.x86_64`, and the preset asks for an `x86_64` template
+the official archive does not carry (it ships `universal` only). Two log
+lines, verbatim, in the claim. The job refuses by name rather than
+packaging a build with no simulation in it; E5's comment now points at the
+job and names both blockers. Fixing them is E4's files — E11.
+
+### E11 · The macOS export actually exports
+Status: open · Depends on: E10
+Touches: `game/bin/project42_sim.gdextension` (add `macos.debug.arm64`,
+`macos.release.arm64`, and `universal` rows pointing at the files the build
+produces), `game/export_presets.cfg` (macOS preset
+`binary_format/architecture="universal"`, `include_filter` lists the arm64
+dylibs), `tools/build-native-bridge.sh` (name the library by `uname -m`
+instead of a hard-coded `x86_64`, on every platform, and repair every path
+that names the old file: the `.gdextension` rows, the presets, verify.yml's
+and nightly.yml's assertions), `.github/workflows/nightly.yml` (the macOS
+assertion asks for the arm64 file; the "blockers" comment goes).
+Done when: a nightly proof run's macOS job exports and uploads
+`project42-macos-<sha>` whose zip contains the dylib at the path Godot
+resolves; Linux and Windows jobs unchanged and green; verify.yml green.
 Touches: `.github/workflows/nightly.yml` only.
 E5 refused to export macOS from a Linux runner because no Linux runner can
 build the dylib, and said the fix is a `macos-latest` runner. Add that job:
