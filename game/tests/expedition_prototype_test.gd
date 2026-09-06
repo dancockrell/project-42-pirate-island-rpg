@@ -10,6 +10,12 @@ extends SceneTree
 ## change to the rule that did not reach the screen fails here.
 const CONTESTED_RISK_MODIFIER := 2
 
+## The one road out of Black Beach, and where it ends. P7 compares the three
+## RTS controls against each other, so the road and the destination are named
+## once here rather than three times below.
+const BEACH_ROAD := "world.portal.black_beach_to_damaged_estate"
+const RTS_DESTINATION := "world.cell.damaged_estate"
+
 var failures := 0
 
 
@@ -132,7 +138,87 @@ func _init() -> void:
 	check("HOUSEHOLD RESULT" in reloaded_expedition.make_description(estate, estate_copy), "The Estate must project its authored response to the native household upgrade")
 	check("RIVER GATE ALARM" in reloaded_expedition.initial_status_message(estate_copy), "The Estate status must name the unlocked household change")
 	reloaded_expedition.queue_free()
+	await process_frame
+	await check_rts_controls(scene)
 	finish()
+
+
+## P7 (B18 resumed): the board is an RTS board. One unit, one order, three ways
+## to give it -- a right-click on the destination tile, the digit drawn on the
+## departure, and the words of the departure itself -- and all three must land
+## the party on the same cell. Each pass starts from a fresh campaign so the
+## three are compared against the same opening position and not against each
+## other's leftovers.
+func check_rts_controls(scene: PackedScene) -> void:
+	var by_right_click: ExpeditionPrototype = await fresh_expedition(scene)
+	check(by_right_click.get_legal_route_count() == 1, "the salvaged beach must still offer exactly one departure")
+	# Left-click is a look and a selection, never a move. Both the party's own
+	# tile and another one are tried, because the two branches of select_tile
+	# are the two ways a click could have travelled by mistake.
+	by_right_click.select_tile("world.cell.damaged_estate")
+	check(by_right_click.get_authoritative_snapshot().get("active_location_id") == "world.cell.black_beach", "a left-click on another tile must look at it and never travel")
+	by_right_click.select_tile("world.cell.black_beach")
+	check(by_right_click.get_authoritative_snapshot().get("active_location_id") == "world.cell.black_beach", "a left-click on the party's own tile must select it and never travel")
+	check(by_right_click.route_board.party_selected, "a left-click on the party's tile must select the party")
+	# An order to a tile no legal portal reaches is refused here and never
+	# reaches the bridge, so the whole snapshot must come back identical.
+	var before_refusal := JSON.stringify(by_right_click.get_authoritative_snapshot())
+	var refusal: Dictionary = by_right_click.order_move_to_tile("world.cell.processional_ramp")
+	check(not bool(refusal.get("ordered", true)), "a right-click on an unreachable tile must refuse the order")
+	check(str(refusal.get("reason", "")) == "no_legal_route", "the refusal must name the missing road")
+	check(JSON.stringify(by_right_click.get_authoritative_snapshot()) == before_refusal, "a refused order must leave the native snapshot untouched")
+	var right_clicked: Dictionary = by_right_click.order_move_to_tile("world.cell.damaged_estate")
+	check(bool(right_clicked.get("ordered", false)), "a right-click on a reachable tile must issue the order")
+	check(str(right_clicked.get("portal_id", "")) == BEACH_ROAD, "the order must run along the authored portal from the active cell")
+	check(by_right_click.get_authoritative_snapshot().get("active_location_id") == RTS_DESTINATION, "a right-click order must move the party through the native bridge")
+	by_right_click.queue_free()
+	await process_frame
+
+	var by_hotkey: ExpeditionPrototype = await fresh_expedition(scene)
+	var numbered := by_hotkey.route_hotkey_portal_ids()
+	check(numbered.size() == 1 and numbered[0] == BEACH_ROAD, "the departure list must number the one legal road as departure one")
+	check("[1]" in by_hotkey.get_route_button(BEACH_ROAD).text, "a hotkey the player cannot see is not a control: the digit must be drawn on the departure")
+	var no_such_departure: Dictionary = by_hotkey.press_route_hotkey(4)
+	check(not bool(no_such_departure.get("ordered", true)), "a digit with no departure behind it must refuse")
+	check(by_hotkey.get_authoritative_snapshot().get("active_location_id") == "world.cell.black_beach", "a refused hotkey must not move the party")
+	var hotkeyed: Dictionary = by_hotkey.press_route_hotkey(1)
+	check(bool(hotkeyed.get("ordered", false)), "the departure's digit must issue the order")
+	check(by_hotkey.get_authoritative_snapshot().get("active_location_id") == RTS_DESTINATION, "the hotkey must land the party where the right-click did")
+	by_hotkey.queue_free()
+	await process_frame
+
+	var by_words: ExpeditionPrototype = await fresh_expedition(scene)
+	# Brief section 14: a held game takes no orders. The pause is the owner's
+	# verdict, asked here through the same autoload the screen asks.
+	var game_pause: Node = root.get_node_or_null("/root/GamePause")
+	check(game_pause != null, "the pause autoload must be available to the expedition screen")
+	game_pause.pause("expedition_prototype_test")
+	var while_paused: Dictionary = by_words.order_move_to_tile(RTS_DESTINATION)
+	check(not bool(while_paused.get("ordered", true)), "a held game must take no move order")
+	check(str(while_paused.get("reason", "")) == "game_paused", "a refusal while paused must say so")
+	check(by_words.get_authoritative_snapshot().get("active_location_id") == "world.cell.black_beach", "a held game must leave the party where it stands")
+	game_pause.resume("expedition_prototype_test")
+	by_words.get_route_button(BEACH_ROAD).pressed.emit()
+	check(by_words.get_authoritative_snapshot().get("active_location_id") == RTS_DESTINATION, "the words must land the party where the right-click and the hotkey did")
+	by_words.queue_free()
+	await process_frame
+
+
+## A campaign at its opening position with the wreck already salvaged. Roads
+## cost rations and the party lands with none, so this is the earliest point at
+## which any of the three controls can be compared with the others.
+func fresh_expedition(scene: PackedScene) -> ExpeditionPrototype:
+	var session: Node = root.get_node_or_null("/root/CampaignSession")
+	check(session != null, "the campaign session autoload must be available")
+	if session != null:
+		session.reset_for_test()
+	var expedition := scene.instantiate() as ExpeditionPrototype
+	root.add_child(expedition)
+	await process_frame
+	check(expedition.get_authoritative_snapshot().get("active_location_id") == "world.cell.black_beach", "a reset campaign must open on Black Beach again")
+	var salvage: Dictionary = expedition.request_anchor("anchor.black_beach.salvage_point")
+	check(bool(salvage.get("configured", false)), "the reset campaign must be able to salvage the wreck for the rations a road costs")
+	return expedition
 
 
 func catalog_record(expedition: ExpeditionPrototype, record_id: String) -> Dictionary:

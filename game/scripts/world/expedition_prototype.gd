@@ -4,6 +4,20 @@ extends Control
 ## First chapter travel front end. Rust owns campaign state and legal portal
 ## commands. This screen resolves cell descriptions and route labels from the
 ## content catalog, then projects the native snapshot without adding rules.
+##
+## P7 (B18 resumed) makes the controls RTS controls. There is one unit -- the
+## party -- and three ways to give it the same order:
+##   * right-click a tile on the board,
+##   * press the digit shown on a departure in the list,
+##   * click the departure itself, the words.
+## All three end in `order_move_along`, which ends in `request_travel`, which is
+## the only call to the bridge. Left-click never travels: on the party's own
+## tile (or its card in the footer) it selects the party, and anywhere else it
+## is a look -- the place's name and what the road there would cost, read out of
+## the snapshot's `route_options`. Legality is never decided here; an order for
+## a tile the native `legal_route_commands` does not reach is refused in the
+## status line and no call is made. While `GamePause` holds the game, every one
+## of these is ignored.
 
 const RouteBoardScript = preload("res://scripts/world/expedition_route_board.gd")
 
@@ -16,6 +30,11 @@ const MUTED := Color("9eb0a7")
 const DANGER := Color("c24e45")
 const SEED := 42
 
+## Departures are numbered from one in the order the list draws them, and only
+## the first nine can carry a digit. A tenth road would still be clickable and
+## still be right-clickable on its tile; it simply has no key.
+const MAXIMUM_ROUTE_HOTKEYS := 9
+
 var catalog := ContentCatalog.new()
 var campaign_session: Node
 var latest_snapshot: Dictionary = {}
@@ -26,7 +45,9 @@ var description_label: RichTextLabel
 var route_list: VBoxContainer
 var action_list: VBoxContainer
 var status_label: Label
+var party_card: Button
 var route_board: ExpeditionRouteBoard
+var game_pause: Node
 
 
 func _ready() -> void:
@@ -34,6 +55,7 @@ func _ready() -> void:
 	if catalog.load_default() != OK:
 		show_startup_failure("The validated content bundle is unavailable. Rebuild content before running the expedition.")
 		return
+	game_pause = get_node_or_null("/root/GamePause")
 	campaign_session = get_node_or_null("/root/CampaignSession")
 	if campaign_session == null:
 		show_startup_failure("Campaign session is unavailable. This screen refuses to create a scene-local campaign state.")
@@ -67,6 +89,8 @@ func build_screen() -> void:
 	route_board.name = "ExpeditionRouteBoard"
 	route_board.custom_minimum_size = Vector2(1060, 700)
 	route_board.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	route_board.tile_selected.connect(select_tile)
+	route_board.move_ordered.connect(order_move_to_tile)
 	content_row.add_child(route_board)
 	content_row.add_child(build_location_panel())
 	page.add_child(build_footer())
@@ -115,7 +139,6 @@ func build_location_panel() -> Control:
 	route_list = VBoxContainer.new()
 	route_list.name = "LegalRouteList"
 	route_list.add_theme_constant_override("separation", 9)
-	route_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stack.add_child(route_list)
 	var action_heading := make_label("LEGAL ACTIONS HERE", 14, BRONZE)
 	stack.add_child(action_heading)
@@ -123,6 +146,13 @@ func build_location_panel() -> Control:
 	action_list.name = "LegalActionList"
 	action_list.add_theme_constant_override("separation", 9)
 	stack.add_child(action_list)
+	# The lists are as tall as what they contain; the slack goes here, so the
+	# status line sits at the foot of the panel instead of a hole opening
+	# between the departures and the actions.
+	var slack := Control.new()
+	slack.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	slack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(slack)
 	status_label = make_label("", 14, MUTED)
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(status_label)
@@ -132,9 +162,21 @@ func build_location_panel() -> Control:
 func build_footer() -> Control:
 	var footer := HBoxContainer.new()
 	footer.custom_minimum_size.y = 52
-	var party := make_label("PARTY  •  MICHAEL CORRIGAN  •  BETTY", 14, CREAM)
-	party.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(party)
+	# The party's card in the interface. Clicking it selects the party, exactly
+	# as clicking its tile does -- the owner's "or by clicking on the words in
+	# the interface", applied to the unit as well as to the roads.
+	party_card = Button.new()
+	party_card.name = "PartyCard"
+	party_card.text = "PARTY  •  MICHAEL CORRIGAN  •  BETTY"
+	party_card.tooltip_text = "Selects the party. Right-click a tile, click a departure, or press its number to march."
+	party_card.flat = true
+	party_card.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	party_card.add_theme_font_size_override("font_size", 14)
+	party_card.add_theme_color_override("font_color", CREAM)
+	party_card.add_theme_color_override("font_hover_color", TEAL)
+	party_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	party_card.pressed.connect(func() -> void: select_tile(str(latest_snapshot.get("active_location_id", ""))))
+	footer.add_child(party_card)
 	var authority := make_label("RUST EXPEDITION STATE  •  ARRIVAL SAVE BOUNDARY", 13, TEAL)
 	authority.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	footer.add_child(authority)
@@ -197,14 +239,30 @@ func estate_upgrades(snapshot: Dictionary) -> Dictionary:
 	return ids
 
 
+## What the screen says when it opens on a place. P7: the status line is the
+## party's voice, not the transaction log -- it says what happened on the island
+## rather than which native call returned. The one shouted phrase left is the
+## name of an authored household upgrade, which is a thing in the world with a
+## name of its own.
 func initial_status_message(snapshot: Dictionary) -> String:
 	if resolved_encounter_ids(snapshot).has("encounter.prototype.returning_names") and str(snapshot.get("active_location_id", "")) == "world.cell.reception_terrace":
-		return "TERRACE CLEAR  •  RAZORBEAK DRIVEN OFF  •  ROUTES OPEN"
+		return "The terrace is quiet. The razorbeaks are driven off and the roads out of it are open again."
 	if estate_upgrades(snapshot).has("estate_upgrade.river_gate_alarm") and str(snapshot.get("active_location_id", "")) == "world.cell.damaged_estate":
-		return "HOUSEHOLD UPGRADE  •  RIVER GATE ALARM READY"
+		return "The household has been at work: the RIVER GATE ALARM is strung and the water is watched."
 	if str(snapshot.get("active_location_id", "")) == "world.cell.black_beach":
 		return "Michael and Betty reach the black shore below the wreck of the Handsome Jack."
-	return "ARRIVAL STATE RESTORED  •  %s" % str(snapshot.get("active_location_id", "unknown_location")).replace("world.cell.", "").replace("_", " ").to_upper()
+	return "The expedition stands at %s. Select the party, then order a march." % place_name(str(snapshot.get("active_location_id", "")))
+
+
+## An authored place's name for the status line, in the words the content gives
+## it. A cell the catalog does not carry falls back to its own ID made readable,
+## which is a missing record on screen rather than a blank sentence.
+func place_name(cell_id: String) -> String:
+	var record := catalog.get_record(cell_id)
+	var display := str(record.get("displayName", ""))
+	if not display.is_empty():
+		return display
+	return cell_id.replace("world.cell.", "").replace("_", " ").capitalize()
 
 
 func populate_routes(cell: Dictionary, snapshot: Dictionary) -> void:
@@ -261,16 +319,21 @@ func populate_routes(cell: Dictionary, snapshot: Dictionary) -> void:
 		button.name = "Route_" + portal_id.replace(".", "_")
 		button.set_meta("portal_id", portal_id)
 		button.custom_minimum_size.y = 64
-		button.text = "%s\n%s  •  %s  •  ARRIVAL SAVE" % [str(target.get("displayName", "UNKNOWN DESTINATION")).to_upper(), travel_mode, risk_text]
+		# The digit is drawn on the entry because a hotkey nobody can see is not
+		# a control. It is the entry's position in this list and nothing else,
+		# so `route_hotkey_portal_ids` reads it back off the drawn list rather
+		# than keeping a second numbering beside it.
+		var key_prefix := "[%d]  " % visible_count if visible_count <= MAXIMUM_ROUTE_HOTKEYS else ""
+		button.text = "%s%s\n%s  •  %s  •  ARRIVAL SAVE" % [key_prefix, str(target.get("displayName", "UNKNOWN DESTINATION")).to_upper(), travel_mode, risk_text]
 		var contested_note := "  (contested: the endpoints are held by different parties)" if contested else ""
 		button.tooltip_text = "Authoritative portal: %s\nFrom: %s\nTo: %s\nTravel mode: %s\nRisk now: %d%s" % [portal_id, str(cell.get("id", "")), str(target.get("id", "")), travel_mode, risk_level, contested_note]
 		button.add_theme_font_size_override("font_size", 14)
 		button.add_theme_stylebox_override("normal", make_route_box(Color("1a322e"), BRONZE))
 		button.add_theme_stylebox_override("hover", make_route_box(Color("22443d"), TEAL))
-		button.pressed.connect(func() -> void: request_travel(portal_id))
+		button.pressed.connect(func() -> void: order_move_along(portal_id))
 		route_list.add_child(button)
 	if visible_count == 0:
-		route_list.add_child(make_label("No legal departure. A pending encounter or unfinished state is blocking travel.", 14, DANGER))
+		route_list.add_child(make_label("No road leaves this place right now. Something here has to be settled first.", 14, DANGER))
 
 
 ## B4: every "do something here" control, drawn from the native legal-command
@@ -331,19 +394,31 @@ func readable_id(stable_id: String) -> String:
 	return stable_id.replace(".", " ").replace("_", " ").strip_edges().to_upper()
 
 
-func request_travel(portal_id: String) -> void:
+## The one call to the bridge that moves the party. Every control on this screen
+## -- the right-click on a tile, the digit, the words in the departure list --
+## arrives here through `order_move_along` and nowhere else, so there is exactly
+## one place where travel happens and exactly one place it can be refused.
+func request_travel(portal_id: String) -> Dictionary:
 	if campaign_session == null:
-		return
+		return {"configured": false, "error": "campaign_session_unavailable"}
 	var result: Dictionary = campaign_session.travel(portal_id)
 	if not bool(result.get("configured", false)):
-		status_label.text = "TRAVEL REFUSED  •  %s" % str(result.get("error", "unknown_error")).to_upper()
-		return
+		status_label.text = "The party does not take that road: %s." % readable_refusal(str(result.get("error", "unknown_error")))
+		return result
 	var destination := catalog.get_record(str(result.get("active_location_id", "")))
 	var pending_encounter: Dictionary = result.get("pending_encounter", {})
-	var message := "ARRIVED  •  %s" % str(destination.get("displayName", "UNKNOWN LOCATION")).to_upper()
+	var message := "The party comes up at %s." % str(destination.get("displayName", "an unnamed place"))
 	if not pending_encounter.is_empty():
-		message = "CONTACT  •  %s" % str(pending_encounter.get("encounter_id", "UNKNOWN ENCOUNTER")).replace("encounter.", "").replace("_", " ").to_upper()
+		message = "Contact at %s — %s. Nothing else moves until it is settled." % [str(destination.get("displayName", "an unnamed place")), readable_id(str(pending_encounter.get("encounter_id", "")).trim_prefix("encounter.")).capitalize()]
 	project_snapshot(result, message)
+	return result
+
+
+## A machine-readable refusal, said out loud. The reason itself is the bridge's
+## and is never rewritten here; this only turns its underscores into a sentence
+## so the player reads a sentence.
+func readable_refusal(reason: String) -> String:
+	return reason.replace("_", " ")
 
 
 ## The one "do something here" verb, driven through the authoritative
@@ -354,10 +429,10 @@ func request_anchor(anchor_id: String) -> Dictionary:
 		return {"configured": false, "error": "campaign_session_unavailable"}
 	var result: Dictionary = campaign_session.use_anchor(anchor_id)
 	if not bool(result.get("configured", false)):
-		status_label.text = "ACTION REFUSED  •  %s" % str(result.get("error", "unknown_error")).to_upper()
+		status_label.text = "That cannot be done here: %s." % readable_refusal(str(result.get("error", "unknown_error")))
 		return result
 	var outcome: Dictionary = result.get("anchor_outcome", {})
-	project_snapshot(result, "%s  •  +%d RATIONS  +%d MEDICINE  +%d COIN" % [str(outcome.get("anchor_id", "")).replace("anchor.", "").replace("_", " ").to_upper(), int(outcome.get("rations_gained", 0)), int(outcome.get("medicine_gained", 0)), int(outcome.get("coin_gained", 0))])
+	project_snapshot(result, "The party works the %s: %d rations, %d medicine, %d coin." % [readable_id(str(outcome.get("anchor_id", "")).trim_prefix("anchor.")).to_lower(), int(outcome.get("rations_gained", 0)), int(outcome.get("medicine_gained", 0)), int(outcome.get("coin_gained", 0))])
 	return result
 
 
@@ -368,9 +443,9 @@ func request_inspect(observation_id: String) -> Dictionary:
 		return {"configured": false, "error": "campaign_session_unavailable"}
 	var result: Dictionary = campaign_session.inspect(observation_id)
 	if not bool(result.get("configured", false)):
-		status_label.text = "INSPECTION REFUSED  •  %s" % str(result.get("error", "unknown_error")).to_upper()
+		status_label.text = "There is nothing of that here: %s." % readable_refusal(str(result.get("error", "unknown_error")))
 		return result
-	project_snapshot(result, "RECORDED  •  %s" % readable_id(observation_id.trim_prefix("observation.")))
+	project_snapshot(result, "Noted: %s." % readable_id(observation_id.trim_prefix("observation.")).to_lower())
 	return result
 
 
@@ -381,18 +456,153 @@ func request_midnight() -> Dictionary:
 		return {"configured": false, "error": "campaign_session_unavailable"}
 	var result: Dictionary = campaign_session.resolve_midnight()
 	if not bool(result.get("configured", false)):
-		status_label.text = "MIDNIGHT REFUSED  •  %s" % str(result.get("error", "unknown_error")).to_upper()
+		status_label.text = "The day will not close yet: %s." % readable_refusal(str(result.get("error", "unknown_error")))
 		return result
 	var events: Array = result.get("events", [])
-	project_snapshot(result, "MIDNIGHT  •  DAY %d  •  %d WORLD EVENTS" % [int(result.get("campaign_day", 1)), events.size()])
+	project_snapshot(result, "The night passes. Day %d, and the island moved %d times in the dark." % [int(result.get("campaign_day", 1)), events.size()])
 	return result
 
 
 func enter_pending_battle() -> void:
 	if campaign_session == null or not campaign_session.has_pending_encounter():
-		status_label.text = "ENCOUNTER HANDOFF UNAVAILABLE"
+		status_label.text = "There is nothing waiting to be fought."
 		return
 	get_tree().change_scene_to_file("res://scenes/battle/battle_prototype.tscn")
+
+
+# ---------------------------------------------------------------------------
+# P7: the RTS controls.
+#
+# Three verbs and one order. `select_tile` is the left-click, `order_move_to_tile`
+# is the right-click, `press_route_hotkey` is the digit -- and the mouse and key
+# handlers call these very functions, so a suite that calls them is exercising
+# the same code the player's hand does rather than a parallel test path. Every
+# order funnels into `order_move_along`, and that is the only caller of
+# `request_travel`. Nothing here decides legality: `portal_from_active_cell_to`
+# is a lookup inside the native `legal_route_commands` list.
+# ---------------------------------------------------------------------------
+
+## Whether the game is held. Brief section 14 pauses local movement, so while a
+## reason stands, none of these controls does anything at all: no order, no
+## selection, no status line. `GamePause` is the one owner of the verdict and it
+## is asked, never mirrored.
+func controls_are_held() -> bool:
+	return game_pause != null and game_pause.is_paused()
+
+
+## Left-click. The party's own tile (or its card in the footer) selects the
+## party; any other tile is a look at that place and never a move.
+func select_tile(cell_id: String) -> void:
+	if controls_are_held() or route_board == null or cell_id.is_empty():
+		return
+	if cell_id == str(latest_snapshot.get("active_location_id", "")):
+		route_board.set_party_selected(true)
+		route_board.set_inspected_cell("")
+		status_label.text = "Michael and Betty stand ready at %s. Right-click a place to march, or press its number." % place_name(cell_id)
+		return
+	route_board.set_inspected_cell(cell_id)
+	status_label.text = describe_tile(cell_id)
+
+
+## What a look at a place says. The road's cost is the snapshot's own
+## `route_options` entry, read at the moment of the look; the screen keeps no
+## copy of a risk, so what the player is told and what the simulation would
+## charge are the same number by construction.
+func describe_tile(cell_id: String) -> String:
+	var here := place_name(str(latest_snapshot.get("active_location_id", "")))
+	var there := place_name(cell_id)
+	var portal_id := route_board.portal_from_active_cell_to(cell_id)
+	if portal_id.is_empty():
+		return "%s. No road runs there from %s." % [there, here]
+	var option: Dictionary = route_options(latest_snapshot).get(portal_id, {})
+	var line := "%s. The road from %s runs at risk %d" % [there, here, int(option.get("risk_level", 0))]
+	if bool(option.get("contested", false)):
+		line += ", and its far end is held against us"
+	return line + ". Right-click to march."
+
+
+## Right-click on a tile: the move order. Refused, in the status line and with
+## no call to the bridge, when the native command list does not carry a road
+## from where the party stands to that place.
+func order_move_to_tile(cell_id: String) -> Dictionary:
+	if controls_are_held():
+		return refused_order("game_paused")
+	if route_board == null or cell_id.is_empty():
+		return refused_order("no_such_tile")
+	var portal_id := route_board.portal_from_active_cell_to(cell_id)
+	if portal_id.is_empty():
+		status_label.text = "No road runs from %s to %s." % [place_name(str(latest_snapshot.get("active_location_id", ""))), place_name(cell_id)]
+		return refused_order("no_legal_route")
+	return order_move_along(portal_id)
+
+
+## The digit shown on a departure, one-based and in the order the list draws
+## them. Out of range is refused the same way an unreachable tile is.
+func press_route_hotkey(index: int) -> Dictionary:
+	if controls_are_held():
+		return refused_order("game_paused")
+	var portal_ids := route_hotkey_portal_ids()
+	if index < 1 or index > portal_ids.size():
+		status_label.text = "There is no departure %d." % index
+		return refused_order("no_such_departure")
+	return order_move_along(portal_ids[index - 1])
+
+
+## The one order. The words, the digit and the right-click all end here, and
+## this is the only caller of `request_travel`.
+func order_move_along(portal_id: String) -> Dictionary:
+	if controls_are_held():
+		return refused_order("game_paused")
+	if portal_id.is_empty():
+		return refused_order("no_legal_route")
+	request_travel(portal_id)
+	return {"ordered": true, "portal_id": portal_id, "reason": ""}
+
+
+func refused_order(reason: String) -> Dictionary:
+	return {"ordered": false, "portal_id": "", "reason": reason}
+
+
+## The portals the departure list is drawing, in the order it drew them. The
+## drawn controls are the numbering: a second list kept beside them would drift
+## the moment a road opened or closed.
+func route_hotkey_portal_ids() -> Array[String]:
+	var portal_ids: Array[String] = []
+	if route_list == null:
+		return portal_ids
+	for child in route_list.get_children():
+		if child.is_queued_for_deletion():
+			continue
+		var portal_id := str(child.get_meta("portal_id", ""))
+		if not portal_id.is_empty():
+			portal_ids.append(portal_id)
+		if portal_ids.size() >= MAXIMUM_ROUTE_HOTKEYS:
+			break
+	return portal_ids
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	var key := event as InputEventKey
+	if key == null or not key.pressed or key.echo or controls_are_held():
+		return
+	var index := route_hotkey_index(key.keycode)
+	if index == 0:
+		return
+	# Swallowed only once this screen has decided the key is one of its own and
+	# the game is not held, so a paused game leaves the digit for whatever
+	# surface is holding it.
+	get_viewport().set_input_as_handled()
+	press_route_hotkey(index)
+
+
+## Digits one to nine, from the number row or the keypad, as a one-based
+## departure index. Anything else is 0, meaning "not a departure key".
+func route_hotkey_index(keycode: Key) -> int:
+	if keycode >= KEY_1 and keycode <= KEY_9:
+		return int(keycode) - int(KEY_1) + 1
+	if keycode >= KEY_KP_1 and keycode <= KEY_KP_9:
+		return int(keycode) - int(KEY_KP_1) + 1
+	return 0
 
 
 func get_authoritative_snapshot() -> Dictionary:
