@@ -130,6 +130,19 @@ pub struct ExpeditionState {
     /// keeps this out of the bridge as anything but a stage word and a beat ID.
     #[serde(default)]
     pub recruitment: BTreeMap<String, RecruitmentState>,
+    /// S2: who holds each cell right now, keyed by `world.cell.*` ID and valued
+    /// with a `faction.<concept_key>` ID. This is the mutable truth about
+    /// control; the `Geography` is static content and carries only whatever an
+    /// authored starting map declares. A cell absent from this map falls back to
+    /// the graph's own `owner_faction_id`, and a cell held by nobody is simply
+    /// not a key -- there is no "unowned" sentinel string to get misspelled.
+    ///
+    /// Nothing derived from it is stored: a road's live danger is
+    /// `Geography::effective_risk`, recomputed from this map every time it is
+    /// asked. `serde(default)` so saves written before this field existed load
+    /// unchanged at the same `save_version`.
+    #[serde(default)]
+    pub ownership: BTreeMap<String, String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -214,6 +227,12 @@ pub enum ExpeditionError {
         character_id: String,
         milestone_id: String,
     },
+    /// S2: control was set on a cell the graph has never heard of. Refused
+    /// before anything mutates, so a typo cannot invent a place by writing to
+    /// it -- `ownership` is a map, and a bare insert would happily create one.
+    UnknownCell {
+        cell_id: String,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -221,6 +240,12 @@ pub struct TravelOutcome {
     pub arrived_at: String,
     pub time_cost_minutes: u32,
     pub supply_cost: u32,
+    /// S2: how dangerous this road actually was when the party walked it --
+    /// `Geography::effective_risk`, not the route's authored `risk_level`. The
+    /// two differ exactly when the road was contested. Reported rather than
+    /// stored, so the caller learns what it crossed without anyone keeping a
+    /// second copy of a number that changes whenever control does.
+    pub risk_level: u8,
 }
 
 /// What using an anchor actually produced. One outcome shape for every anchor
@@ -332,6 +357,9 @@ impl ExpeditionState {
             rng_seed: seed,
             factions: BTreeMap::new(),
             recruitment: BTreeMap::new(),
+            // S2: a fresh campaign starts with the island unclaimed. The static
+            // graph carries whatever an authored starting map declares.
+            ownership: BTreeMap::new(),
         };
         state.validate()?;
         Ok(state)
@@ -439,6 +467,9 @@ impl ExpeditionState {
         // anything moves -- not walked for free by a `saturating_sub` that
         // quietly floors an empty pack at zero.
         let supply_cost = self.effective_supply_cost(&route);
+        // S2: one owner for "how dangerous is this road right now". Read before
+        // the move, from the control standing when the party set out.
+        let risk_level = geography.effective_risk(&route, &self.ownership);
         if self.supplies.rations < supply_cost {
             return Err(ExpeditionError::InsufficientSupplies {
                 needed: supply_cost,
@@ -469,7 +500,73 @@ impl ExpeditionState {
             // What the party actually paid, not what the road lists: with the
             // field rig fitted these differ, and the caller wants the charge.
             supply_cost,
+            risk_level,
         })
+    }
+
+    /// S2: hand a cell to a faction, or release it with `None`. The single way
+    /// `ownership` changes.
+    ///
+    /// Rejects an unknown cell before any mutation, so a mistyped ID cannot
+    /// invent a place by being written to. Setting the control a cell already
+    /// has is a no-op that returns no events -- a change that changed nothing
+    /// is not news, and an event stream that repeats itself is one a listener
+    /// learns to distrust. Otherwise it returns the one
+    /// [`WorldEvent::ControlChanged`] describing the handover.
+    ///
+    /// Nothing about risk is written here. Every road touching this cell simply
+    /// answers `Geography::effective_risk` differently from the next call
+    /// onward, with no route record edited.
+    pub fn set_control(
+        &mut self,
+        cell_id: &str,
+        faction_id: Option<String>,
+        geography: &Geography,
+    ) -> Result<Vec<WorldEvent>, ExpeditionError> {
+        if geography.location(cell_id).is_none() {
+            return Err(ExpeditionError::UnknownCell {
+                cell_id: cell_id.to_owned(),
+            });
+        }
+        if let Some(faction_id) = &faction_id {
+            require_stable_id("faction_id", faction_id)?;
+        }
+        // The graph's authored owner is the standing answer for a cell that
+        // `ownership` has never named, so it is what a first claim moves *from*
+        // -- and what releasing a cell moves back *to*. `from` and `to` are
+        // therefore the effective controller either side of the change, which
+        // is the only reading under which a release is honest: dropping the
+        // override on a cell the graph gives an owner hands it back to that
+        // owner, and reporting `None` there would be a lie about the board.
+        // (Content authors no owners today, so that is unheld everywhere.)
+        let authored = geography.controller(cell_id).map(str::to_owned);
+        let from = self
+            .ownership
+            .get(cell_id)
+            .cloned()
+            .or_else(|| authored.clone());
+        let to = match &faction_id {
+            Some(faction_id) => Some(faction_id.clone()),
+            None => authored,
+        };
+        if from == to {
+            return Ok(Vec::new());
+        }
+        match &faction_id {
+            Some(faction_id) => {
+                self.ownership
+                    .insert(cell_id.to_owned(), faction_id.clone());
+            }
+            None => {
+                self.ownership.remove(cell_id);
+            }
+        }
+        Ok(vec![WorldEvent::ControlChanged {
+            cell_id: cell_id.to_owned(),
+            from,
+            to,
+            day: self.campaign_day,
+        }])
     }
 
     /// A3: the one "do something here" verb. Every anchor kind -- salvaging the
@@ -1130,6 +1227,7 @@ pub(crate) fn require_stable_id(field: &'static str, value: &str) -> Result<(), 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::geography::CONTESTED_RISK_MODIFIER;
 
     fn fixture() -> ExpeditionState {
         let mut state = ExpeditionState::new(
@@ -1190,6 +1288,145 @@ mod tests {
         let restored =
             ExpeditionState::from_json(&at_location.to_json()).expect("round trip parses");
         assert_eq!(before, restored.legal_next_commands());
+    }
+
+    /// S2's Done-when end to end: control of the river landing flips, and the
+    /// road the party would actually walk is more dangerous -- with the route
+    /// record untouched, and the change reported through `travel` rather than
+    /// stored anywhere.
+    #[test]
+    fn flipping_the_river_landing_changes_what_the_safe_road_costs_to_walk() {
+        let geography = Geography::black_beach_vertical_slice();
+        const SAFE_ROAD: &str = "world.portal.river_landing_to_reception_terrace_safe_road";
+        let authored_risk = geography
+            .route(SAFE_ROAD)
+            .expect("the fixture's safe road")
+            .risk_level;
+
+        let walk = |state: &mut ExpeditionState| {
+            state.active_location_id = "world.cell.river_landing".into();
+            state.supplies.rations = 20;
+            state
+                .travel(SAFE_ROAD, &geography)
+                .expect("the safe road is legal and affordable")
+                .risk_level
+        };
+
+        let mut uncontested = fixture();
+        assert_eq!(walk(&mut uncontested), authored_risk);
+
+        let mut contested = fixture();
+        let events = contested
+            .set_control(
+                "world.cell.river_landing",
+                Some("faction.pirates".into()),
+                &geography,
+            )
+            .expect("the river landing is a real cell");
+        assert_eq!(
+            events,
+            vec![WorldEvent::ControlChanged {
+                cell_id: "world.cell.river_landing".into(),
+                from: None,
+                to: Some("faction.pirates".into()),
+                day: contested.campaign_day,
+            }]
+        );
+        assert_eq!(
+            walk(&mut contested),
+            authored_risk + CONTESTED_RISK_MODIFIER
+        );
+
+        assert_eq!(
+            geography
+                .route(SAFE_ROAD)
+                .expect("the safe road is still there")
+                .risk_level,
+            authored_risk,
+            "no route record may be edited to make a road contested"
+        );
+    }
+
+    #[test]
+    fn setting_control_is_idempotent_and_releasable() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+        state
+            .set_control(
+                "world.cell.river_landing",
+                Some("faction.pirates".into()),
+                &geography,
+            )
+            .expect("a real cell");
+        assert!(
+            state
+                .set_control(
+                    "world.cell.river_landing",
+                    Some("faction.pirates".into()),
+                    &geography,
+                )
+                .expect("a real cell")
+                .is_empty(),
+            "handing a cell to the faction already holding it is not news"
+        );
+        let events = state
+            .set_control("world.cell.river_landing", None, &geography)
+            .expect("a real cell");
+        assert_eq!(
+            events,
+            vec![WorldEvent::ControlChanged {
+                cell_id: "world.cell.river_landing".into(),
+                from: Some("faction.pirates".into()),
+                to: None,
+                day: state.campaign_day,
+            }]
+        );
+        assert!(
+            state.ownership.is_empty(),
+            "a released cell leaves no key behind"
+        );
+    }
+
+    #[test]
+    fn setting_control_rejects_an_unknown_cell_before_mutating() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+        let error = state
+            .set_control(
+                "world.cell.nowhere",
+                Some("faction.pirates".into()),
+                &geography,
+            )
+            .unwrap_err();
+        assert_eq!(
+            error,
+            ExpeditionError::UnknownCell {
+                cell_id: "world.cell.nowhere".into()
+            }
+        );
+        assert!(state.ownership.is_empty(), "a rejected set wrote nothing");
+    }
+
+    #[test]
+    fn ownership_survives_a_round_trip_and_older_saves_load_without_it() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+        state
+            .set_control(
+                "world.cell.river_landing",
+                Some("faction.pirates".into()),
+                &geography,
+            )
+            .expect("a real cell");
+        let restored = ExpeditionState::from_json(&state.to_json()).expect("round trip parses");
+        assert_eq!(restored.ownership, state.ownership);
+
+        let without = state.to_json().replace(
+            ",\"ownership\":{\"world.cell.river_landing\":\"faction.pirates\"}",
+            "",
+        );
+        let older = ExpeditionState::from_json(&without).expect("a save without ownership loads");
+        assert!(older.ownership.is_empty());
     }
 
     #[test]

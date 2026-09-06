@@ -584,6 +584,11 @@ fn expedition_error_code(value: &ExpeditionError) -> &'static str {
         // stage word and the current authored beat ID, never a disposition.
         ExpeditionError::UnknownRecruit { .. } => "unknown_recruit",
         ExpeditionError::MilestoneAlreadyRecorded { .. } => "milestone_already_recorded",
+        // S2 added `UnknownCell` and this match is exhaustive, so its code
+        // belongs here now -- the same one-line obligation A3 and A4 recorded
+        // above. Projecting `set_control` and effective route risk to Godot is
+        // B3's card, not this edit; this arm adds no bridge surface.
+        ExpeditionError::UnknownCell { .. } => "unknown_cell",
     }
 }
 
