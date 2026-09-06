@@ -3,7 +3,7 @@
   "task_id": "e12-third-party-attribution",
   "agent": "claude-code lane E12",
   "summary": "The engine, the bindings and every Rust crate compiled into the GDExtension get an admission record: content/art/third_party_ledger.json carries name, pinned version, SPDX id, canonical URL and the verbatim notice text read from the crate's own licence file (or noticeText null with needsReview when no licence file exists in this environment); the validator holds the ledger equal to godot-rust/Cargo.lock in both directions; the credits page carries the notices and the shell suite holds the page equal to the ledger.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -12,7 +12,8 @@
     "game/scripts/shell/credits.gd",
     "game/tests/shell_flow_test.gd",
     "docs/SHARED_ASSET_PLATFORM.md",
-    "docs/verification/captures/"
+    "docs/verification/captures/E12-69d95be-credits.png",
+    "docs/verification/captures/E12-69d95be-notices.png"
   ],
   "symbols": [
     "CreditsScreen.THIRD_PARTY_LEDGER",
@@ -24,10 +25,21 @@
       "p8-the-shell"
     ],
     "conflicts_with": [],
-    "notes": "Branched from origin/backend/b0-expedition-state at 04bdd7a. P11 is re-theming the shell in shell_style.gd, so this lane adds no colour or font code to credits.gd -- only new blocks built from the ShellStyle helpers that already exist. No Rust, no world/board/battle/ui script, no other content file touched."
+    "notes": "Branched from origin/backend/b0-expedition-state at 04bdd7a. P11 is re-theming the shell in shell_style.gd, so this lane adds no colour or font code to credits.gd -- only new blocks built from the ShellStyle helpers that already exist. No Rust, no world/board/battle/ui script, no other content file touched. The card named tools/verify-godot.sh as the engine's version pin; it is not -- that script takes whatever GODOT or PATH gives it and pins nothing. The pin lives in .github/workflows/verify.yml (GODOT_VERSION 4.7.2-stable with its SHA-512) and the templates' in nightly.yml, so those are the files the records name and the validator checks exist. The card also expected the engine and the bindings to be credited with their notices; neither notice text can be read from any file in this environment -- the crates publish none and the pinned engine zip holds only the executable -- so both stand as noticeText null with needsReview true, which is the case the card itself provisions for. Getting those eight notices is the follow-up work, and STILL_OWED on the page says so."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "69d95be",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (364 lib + 7 + 5 + 11 + 1, unchanged by this lane): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs -- 541 stable IDs; '22 third-party components credited against 26 locked crates with 8 notices pending': passed",
+      "node tools/src/check-claims.mjs (68 claims, 110 ship-plan rows, 104 cards): passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/ -- 233 records, sha256:1347ad72...; content/art/ is not a bundle domain so the bundle is unmoved: passed",
+      "bash tools/build-native-bridge.sh debug then bash tools/verify-godot.sh with GODOT set, nice -n 10, timeout, ulimit -v 4000000 -- 'Godot headless verification passed. 4 review scenes, 28 suites', no ERROR line: passed",
+      "Bite (validator), memchr's record removed from the ledger: 'content/art/third_party_ledger.json: memchr 2.8.3 is in godot-rust/Cargo.lock and is credited by nothing; add its record or declare it in buildOnlyPackages' and 'noticeBodies names mit_andrew_gallant, which no component carries'; restored, validator green: failed",
+      "Bite (suite), the same record removed: shell_flow_test.gd printed 'ERROR: the credits must carry every third-party component: 21 in the ledger, 22 credited' and 'ERROR: third_party.crate.memchr is credited on the page and has no record in the ledger'; restored, 'Shell flow tests passed': failed",
+      "Captures E12-69d95be-credits.png (the whole third-party block) and E12-69d95be-notices.png (the licence bodies), rendered through the compatibility path and read: passed"
+    ]
   }
 }
