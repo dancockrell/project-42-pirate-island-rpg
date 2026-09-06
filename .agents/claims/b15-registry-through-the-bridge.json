@@ -5,7 +5,7 @@
   "summary": "B15: the bridge loads content/factions/ and hands the registry to the simulation, so Godot and the Rust harness run the same island; S5's registry seam closes",
   "status": "completed",
   "claimed_at": "2026-09-06T04:04:12Z",
-  "updated_at": "2026-09-06T04:20:00Z",
+  "updated_at": "2026-09-06T04:26:00Z",
   "paths": [
     "tools/src/build-content-bundle.mjs",
     "game/generated/content_bundle.json",
@@ -41,7 +41,7 @@
     "notes": "Three lanes share godot-rust/src/expedition.rs and two share strategy/tick.rs. B15 changes exactly one signature in expedition.rs (resolve_midnight_in) plus its callers, and touches only the body of run_hour in tick.rs; the ExpeditionState struct tail, strategic_tick's body and StrategicEvent's variant list are left alone for S6/S7. utility.rs is not touched (S6 owns it). Left standing and reported to the integrator: today's authored records are all placeholder-neutral (resource_priorities is one resource.open.needs_decision key at weight 0 and the validator refuses any other namespace; relationship_tendencies is empty), so every signal GoalWeights::from_definition reads is zero and nudge_weight(0) is exactly NEUTRAL_WEIGHT. The loaded registry therefore scores identically to an empty one, and the card's literal assertion -- authored-registry hash != empty-registry hash -- cannot hold without content answering an Open brief question or utility.rs widening (S6 owns it, and this lane was told not to widen from_definition). the_authored_registry_changes_the_tick pins that equality as an honest negative and proves the wiring against a probe record with one Open question answered; reverting run_hour fails it."
   },
   "completion": {
-    "commit": "408d402",
+    "commit": "55288b2",
     "checks": [
       "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
       "cargo test --manifest-path godot-rust/Cargo.toml -- 232 unit + 5 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice: passed",
@@ -50,7 +50,8 @@
       "node tools/src/build-content-bundle.mjs -- 39 records, sha256:91385154330e62e1ee553b64fef2157b7954b08c82922f01dc37c8b681a6b14d, git diff --quiet game/generated/ clean on the committed tree: passed",
       "bite: run_hour reverted to GoalWeights::default() -- the_authored_registry_changes_the_tick failed on its assert_ne, restored and green: passed",
       "bite: factions dropped from build-content-bundle.mjs domain list -- the_six_authored_factions_reach_the_bridge_as_six_distinct_ids failed, restored and green: passed",
-      "CI Verify run 34010976511 on 408d402 (pushed): see notes"
+      "CI Verify run 34011321508 on 55288b2 -- \"Rust and content\" and \"Godot headless suites\" both green, including the Godot gate that exercises the six-faction snapshot assertion: passed",
+      "CI Verify runs 34010976511 and 34011005707 failed the Godot job first: Godot returns the authored i16 weight from JSON.stringify with a decimal point, serde refused the record, and the whole configuration was refused. Fixed in 55288b2 by coercing the forwarded record back to integers; the port now also says why a configuration was refused, and the bridge names serde's own message."
     ]
   }
 }
