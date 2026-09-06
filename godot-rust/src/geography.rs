@@ -1450,6 +1450,12 @@ mod tests {
     /// authored cells now, so the three tolerances this test used to carry for
     /// `world.cell.tomb_*` -- in the cell set, in the gate check and in the
     /// per-cell portal set -- are gone, and the equality is total.
+    ///
+    /// B7 closed the last gap in it. `encounter_eligible` was the one field
+    /// this test did not compare, because content had no way to say "the
+    /// habitat that holds this ground fights here"; a battle entry's
+    /// `habitatId` is that spelling, so the field is compared now and every
+    /// authored binding is held against the habitat registry as well.
     #[test]
     fn fixture_matches_the_authored_world_cells() {
         use std::collections::BTreeSet;
@@ -1467,9 +1473,9 @@ mod tests {
         let mut authored_workshop_requirement: Option<String> = None;
         let mut authored_portal_ids_by_cell: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         // B7: eligibility and the habitat each live entry is bound to, read
-        // through `AuthoredCell` -- the same struct and the same rule the
-        // bridge runs, so the test cannot pass on a reading of content the
-        // game does not share.
+        // through `AuthoredBattleEntry` and `AuthoredBattleEntry::is_live` --
+        // the same struct and the same rule the bridge runs, so the test
+        // cannot pass on a reading of content the game does not share.
         let mut authored_encounter_eligible: BTreeMap<String, bool> = BTreeMap::new();
         let mut authored_habitat_bindings: Vec<(String, String)> = Vec::new();
         #[allow(clippy::type_complexity)]
