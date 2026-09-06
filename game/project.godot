@@ -23,6 +23,13 @@ window/stretch/mode="canvas_items"
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/default_filters/use_nearest_mipmap_filter=false
+; E11. Required by the macOS export, not a look decision: Godot refuses a
+; universal or arm64 macOS export outright while this is off -- "Cannot export
+; for universal or arm64 if ETC2 ASTC texture format is disabled." -- and
+; universal is the only macOS binary format the official template archive can
+; satisfy. It adds an ETC2/ASTC copy at import time and changes nothing about
+; how the desktop renderer draws.
+textures/vram_compression/import_etc2_astc=true
 
 [input]
 confirm={"deadzone":0.5,"events":[Object(InputEventKey,"physical_keycode":32)]}
