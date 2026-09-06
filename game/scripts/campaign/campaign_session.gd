@@ -267,13 +267,17 @@ func save_to_slot(slot: String) -> Dictionary:
 
 ## Every slot on disk with what its own save says about it.
 ##
-## Exactly three facts are read out of each document -- `save_version`,
-## `campaign_day` and the strategic `hour_of_day` -- because those are the only
-## ones `continue_newest` needs to choose between slots. Everything else about
-## a save stays the simulation's business. A slot that cannot be read or does
-## not parse is listed rather than hidden, with `readable` false and the reason
-## in `error`, so a player is told a slot is broken instead of watching it
-## vanish.
+## Four facts are read out of each document -- `save_version`, `campaign_day`,
+## the strategic `hour_of_day` and `active_location_id`. The first three are the
+## ones `continue_newest` needs to choose between slots; the fourth is the one a
+## load screen has to show, because a row that says only "day 3" cannot be told
+## from another row that says "day 3". Everything else about a save stays the
+## simulation's business, and the location crosses as the stable cell ID only:
+## the screen resolves its display name through the content catalog, so this
+## function still understands nothing about what a save means. A slot that
+## cannot be read or does not parse is listed rather than hidden, with
+## `readable` false and the reason in `error`, so a player is told a slot is
+## broken instead of watching it vanish.
 func list_slots() -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
 	if not DirAccess.dir_exists_absolute(SAVE_DIRECTORY):
@@ -295,12 +299,10 @@ func list_slots() -> Array[Dictionary]:
 ## campaign but not its timestamp, and a clock the player cannot see must not
 ## decide which campaign they resume.
 ##
-## The chosen document goes to the bridge unexamined, so a corrupted or
-## future-versioned slot is refused by the same validation the Rust save
-## migration tests hold, with the bridge's own reason. A refusal leaves this
-## session exactly as it was -- `latest_snapshot` is only replaced once the
-## load has been accepted -- so continuing from a broken slot never quietly
-## becomes a new game.
+## Choosing the slot is all this function does; loading it is `continue_slot`
+## below, which is the one load path in the session. A load screen that lets the
+## player pick a row and this button therefore do exactly the same thing to the
+## bridge, and there is no second idea of what continuing means.
 func continue_newest() -> Dictionary:
 	if expedition == null:
 		return session_error("campaign_session_uninitialized")
@@ -311,7 +313,23 @@ func continue_newest() -> Dictionary:
 	for entry in slots:
 		if slot_is_newer(entry, newest):
 			newest = entry
-	var loaded: Dictionary = expedition.load_json(read_slot(str(newest.get("path", ""))))
+	return continue_slot(str(newest.get("slot", "")))
+
+
+## Loads one named slot into this session.
+##
+## The document goes to the bridge unexamined, so a corrupted or
+## future-versioned slot is refused by the same validation the Rust save
+## migration tests hold, with the bridge's own reason. A refusal leaves this
+## session exactly as it was -- `latest_snapshot` is only replaced once the
+## load has been accepted -- so continuing from a broken slot never quietly
+## becomes a new game.
+func continue_slot(slot: String) -> Dictionary:
+	if expedition == null:
+		return session_error("campaign_session_uninitialized")
+	if not is_valid_slot_name(slot):
+		return session_error("invalid_slot_name")
+	var loaded: Dictionary = expedition.load_json(read_slot(slot_path(slot)))
 	if not bool(loaded.get("configured", false)):
 		return loaded
 	latest_snapshot = loaded
@@ -328,6 +346,7 @@ func describe_slot(slot: String) -> Dictionary:
 		"save_version": 0,
 		"campaign_day": 0,
 		"hour_of_day": 0,
+		"active_location_id": "",
 		"error": ""
 	}
 	var text := read_slot(path)
@@ -355,6 +374,7 @@ func describe_slot(slot: String) -> Dictionary:
 	entry["readable"] = true
 	entry["save_version"] = int(document.get("save_version", 0))
 	entry["campaign_day"] = int(document.get("campaign_day", 0))
+	entry["active_location_id"] = str(document.get("active_location_id", ""))
 	if clock is Dictionary:
 		entry["hour_of_day"] = int((clock as Dictionary).get("hour_of_day", 0))
 	return entry
