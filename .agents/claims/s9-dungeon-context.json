@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "task_id": "s9-dungeon-context",
+  "agent": "claude-code (lane S9)",
+  "summary": "DungeonContext with brief section 19's fields and a signature folded over every one of them, so the same context always yields the same rooms and a different owner or tier never collides; plus the reward budget repeated farming draws down.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/dungeon.rs",
+    "godot-rust/src/strategy/building.rs"
+  ],
+  "symbols": [
+    "DungeonContext",
+    "DungeonContext::of",
+    "dungeon_signature",
+    "room_seed",
+    "CorruptionBand",
+    "HeatBand",
+    "WorldEpoch",
+    "presents_a_dungeon",
+    "DungeonError",
+    "BuildingInstance.stored_value",
+    "ExpeditionState.dungeon_context_at",
+    "ExpeditionState.draw_dungeon_reward"
+  ],
+  "coordination": {
+    "depends_on": [
+      "s3-buildings",
+      "s8-dual-clocks"
+    ],
+    "conflicts_with": [],
+    "notes": "building.rs: exactly one field appended at the END of BuildingInstance's field list (stored_value, serde(default)) plus its initialiser in place_building. Other lanes appending their own fields to the same tail merge with this. Everything else S9 owns lives in strategy/dungeon.rs, including the impl ExpeditionState block. No change to tick.rs, expedition.rs, save_migration.rs (the new field is nested inside ExpeditionState.buildings, so EXPECTED_CURRENT_KEYS is unaffected)."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
