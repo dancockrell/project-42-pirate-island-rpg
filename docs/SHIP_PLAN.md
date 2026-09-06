@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `419f64c`. If this line is older than
+- Last updated 2026-09-06 against trunk `eba030a`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -439,7 +439,7 @@ top of the document is never stale:
 | C12 | One recruitable woman's arc (records only; identity per O2) | C6, S12, O2 | blocked: needs decision O2 |
 | C13 | Content can declare a discovery ID; the tidal cut's gate authored | A4 | shipped 3c85451 2026-09-05 — plus the bridge wire it turned out to need |
 | C14 | Machine records: the eight families with brief §18's fields | S13 | shipped 6d2aa16 2026-09-06 |
-| C15 | Habitats and their creatures as content: the two rostered creatures with no record, then `content/habitats/` | B7 | open |
+| C15 | Habitats and their creatures as content: the two rostered creatures with no record, then `content/habitats/` | B7 | shipped eba030a 2026-09-06 |
 
 ### Lane D — Art (`content/art/`, `work/art/`, `game/assets/`)
 
@@ -2061,7 +2061,7 @@ roster); no yard makes the wagon yet; every dimension `blocked: needs
 decision` (§20).
 
 ### C15 · Habitats and their creatures as content
-Status: open · Depends on: B7
+Status: shipped `eba030a` 2026-09-06 · Depends on: B7
 Touches: `content/enemies/boar.thunderback.json` and
 `content/enemies/razorbeak.crested.json` (new, read from the Rust roster
 verbatim), `content/habitats/*.json` (new), `tools/src/validate.mjs` (one
@@ -2082,6 +2082,21 @@ number that is not already in the fixture.
 Done when: `habitat.` is no longer an external prefix; the equality test
 bites when a roster entry is removed from either side; validator and
 bundle green.
+**Shipped:** the seven enemy records renamed to the registry's spelling
+(`.prototype` gone from IDs and filenames; the validator now refuses the
+suffix) with every reference repaired; `razorbeak.crested` derives from the
+razorbeak and overrides only what the fixture overrides, resolved once in
+`tools/src/derived-records.mjs` for both validator and bundle; the
+thunderback carries placeholders the validator *requires* for the five
+numbers nothing has decided. Three habitat records in `HabitatRecord`'s own
+field names; `habitat.` is no longer an external prefix;
+`fixture_matches_the_authored_habitats` holds the registry equal field for
+field. Six bites proven. Stable IDs 264 → 270; bundle 54 → 59. **Left, on
+purpose:** the vertical-slice battle fixture (battle.rs, protocol.rs, the
+mock port and five Godot suites) still spells its hostile
+`enemy.raptor.razorbeak.prototype` — a hand-built instance ID nothing
+resolves against content; it is renamed when A7's battle.rs work lands, not
+in parallel with it.
 
 ### Lane D — new cards
 
