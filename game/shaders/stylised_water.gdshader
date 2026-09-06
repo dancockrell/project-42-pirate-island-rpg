@@ -1,15 +1,23 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_always, cull_back, diffuse_burley, specular_schlick_ggx;
+render_mode blend_mix, depth_draw_never, cull_back, diffuse_burley, specular_schlick_ggx;
 
 // Sea and river. One shader, two setups: the sea is wide, slow and deep, the
 // river is narrow, fast and shallow, and the difference is uniforms rather
 // than a second shader.
 //
-// Two-tone depth colour, a normal that moves with the global wind, and shore
-// foam measured against the depth buffer. The ripple normal comes from a
-// seamless NoiseTexture2D generated in-repo by FastNoiseLite -- declared in
-// the material resource, never a file on disk, so nothing here is an asset of
-// uncertain provenance and nothing has to be baked.
+// Two-tone depth colour, a normal that moves with the global wind, a fresnel
+// lift toward the sea haze at grazing angles, and shore foam measured against
+// the depth buffer.
+//
+// The water never writes depth (depth_draw_never). It cannot: the depth
+// texture it reads to find the bottom is the opaque scene's depth, and a
+// water surface that wrote into it would measure its own distance from
+// itself, find zero everywhere, and come out as one sheet of foam.
+//
+// The ripple normal comes from a seamless NoiseTexture2D generated in-repo by
+// FastNoiseLite -- declared in the material resource, never a file on disk, so
+// nothing here is an asset of uncertain provenance and nothing has to be
+// baked.
 //
 // Renderer split. The depth-buffer foam and the two-tone depth ramp run on
 // both methods. Screen-space refraction runs on Forward+ only: on
@@ -57,6 +65,13 @@ uniform vec4 sun_glint_color : source_color = vec4(1.0, 0.90, 0.72, 1.0);
 uniform float sun_glint_strength : hint_range(0.0, 4.0) = 0.6;
 uniform float surface_alpha : hint_range(0.0, 1.0) = 0.92;
 
+// What the water becomes at a grazing angle: the sea haze on the horizon.
+// Without this a stylised sea reads as a dark hole, because at this camera
+// angle almost nothing is reflected back into it.
+uniform vec4 horizon_color : source_color = vec4(0.478, 0.671, 0.667, 1.0);
+uniform float horizon_strength : hint_range(0.0, 1.0) = 0.7;
+uniform float horizon_sharpness : hint_range(1.0, 8.0) = 2.2;
+
 uniform sampler2D depth_texture : hint_depth_texture, repeat_disable, filter_nearest;
 
 #if CURRENT_RENDERER == RENDERER_FORWARD_PLUS
@@ -83,9 +98,20 @@ float ripple_height(vec2 uv, vec2 drift) {
 
 // Metres of water between this fragment and whatever is behind it, read off
 // the depth buffer and reconstructed in view space.
+//
+// The one place the two renderers genuinely disagree about a number rather
+// than about a feature: Vulkan's clip space runs z from 0 to 1, OpenGL's from
+// -1 to 1, so the same depth sample has to be remapped differently before it
+// can go back through the inverse projection. Getting this wrong does not
+// look like a small error -- the reconstruction collapses, every fragment
+// measures no water at all, and the whole sea comes out as one sheet of foam.
 float water_thickness(vec2 screen_uv, vec3 view_position, mat4 inverse_projection) {
 	float raw = texture(depth_texture, screen_uv).r;
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+	vec3 ndc = vec3(screen_uv * 2.0 - 1.0, raw * 2.0 - 1.0);
+#else
 	vec3 ndc = vec3(screen_uv * 2.0 - 1.0, raw);
+#endif
 	vec4 behind = inverse_projection * vec4(ndc, 1.0);
 	behind.xyz /= behind.w;
 	return max(0.0, -behind.z + view_position.z);
@@ -102,10 +128,10 @@ void fragment() {
 	float height = ripple_height(base_uv, drift);
 	// Finite differences on the same field, so the bump and the highlight
 	// agree with each other.
-	float step_size = 0.02;
+	float step_size = 0.06;
 	float hx = ripple_height(base_uv + vec2(step_size, 0.0), drift);
 	float hz = ripple_height(base_uv + vec2(0.0, step_size), drift);
-	vec3 ripple_normal = normalize(vec3((height - hx) * ripple_strength * 12.0, 1.0, (height - hz) * ripple_strength * 12.0));
+	vec3 ripple_normal = normalize(vec3((height - hx) * ripple_strength * 3.0, 1.0, (height - hz) * ripple_strength * 3.0));
 	NORMAL = normalize((VIEW_MATRIX * vec4(ripple_normal, 0.0)).xyz);
 
 	float thickness = water_thickness(SCREEN_UV, VERTEX, INV_PROJECTION_MATRIX);
@@ -115,7 +141,7 @@ void fragment() {
 	float foam_noise = texture(ripple_noise, world_position.xz * foam_noise_scale - drift * 0.5).r;
 	float near_band = 1.0 - smoothstep(0.0, max(foam_width, 0.0001), thickness);
 	float outer_band = 1.0 - smoothstep(0.0, max(foam_outer_width, 0.0001), thickness);
-	float foam = clamp(pow(near_band, foam_sharpness) * (0.55 + foam_noise * 0.9) + outer_band * outer_band * 0.22, 0.0, 1.0);
+	float foam = clamp(pow(near_band, foam_sharpness) * (0.7 + foam_noise * 0.55) + outer_band * outer_band * 0.18, 0.0, 1.0);
 
 	vec3 surface = mix(body, foam_color.rgb, foam);
 
@@ -132,9 +158,17 @@ void fragment() {
 	surface = mix(surface, shallow_color.rgb * 1.25, (1.0 - depth_mix) * 0.35 * (1.0 - foam));
 #endif
 
+	// Grazing angles go to haze. This is the single term that stops a
+	// stylised sea from reading as a black hole under an isometric camera.
+	float grazing = pow(1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), horizon_sharpness);
+	surface = mix(surface, horizon_color.rgb, grazing * horizon_strength * (1.0 - foam));
+
 	ALBEDO = surface;
 	METALLIC = mix(water_metallic, 0.0, foam);
 	ROUGHNESS = mix(water_roughness, 0.85, foam);
-	EMISSION = sun_glint_color.rgb * pow(clamp(height, 0.0, 1.0), 6.0) * sun_glint_strength * (1.0 - foam);
+	// Glint only on the top of a wave, and only a little: a broad emission
+	// term over noise is white speckle, not sun on water.
+	float crest = smoothstep(0.88, 1.0, height);
+	EMISSION = sun_glint_color.rgb * crest * sun_glint_strength * (1.0 - foam);
 	ALPHA = mix(surface_alpha, 1.0, max(foam, depth_mix));
 }

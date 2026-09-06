@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
+render_mode depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
 
 // Bronze, in the two states this island has it in: struck and polished on the
 // raised faces, and gone to verdigris everywhere the rain sits. It is the

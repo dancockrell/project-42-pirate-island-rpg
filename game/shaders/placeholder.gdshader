@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_back, unshaded;
+render_mode depth_draw_opaque, cull_back, unshaded;
 
 // Deliberately ugly, and that is the whole specification.
 //

@@ -74,7 +74,7 @@ func _make_materials() -> void:
 	water = SetpieceMeshFactory.library_material(SetpieceMeshFactory.SEA)
 	# Turf and painted trim are not foliage: they must not sway. Only the
 	# canopies below get the wind shader.
-	green = SetpieceMeshFactory.material(Color("315937"), 0.0, 1.0)
+	green = _wet_stone(Color("315937"), Color("1a3222"), 0.4)
 	sea_green = SetpieceMeshFactory.material(Color("267d73"), 0.03, 0.7)
 	canopy = _foliage(Color("2a5c3a"), Color("4a7a45"))
 	brass = _bronze(Color("ad7c32"))
@@ -122,6 +122,12 @@ func _canvas(dye: Color) -> Material:
 func _build_environment() -> void:
 	var section := _section("Environment", "lighting, sea plane, ground mass and town edge")
 	SetpieceMeshFactory.box(section, "TownGround", Vector3(134.0, 0.5, 96.0), Vector3(0.0, -0.3, -8.0), green)
+	# The harbour needs a bottom before it can be shallow: without one the
+	# water shader measures no depth behind itself anywhere and the whole
+	# harbour comes out as the open-ocean tone. A dredged channel a little
+	# over two metres down, shelving up to the quay.
+	SetpieceMeshFactory.box(section, "HarborBed", Vector3(140.0, 1.2, 52.0), Vector3(0.0, -3.1, 62.0), sand)
+	SetpieceMeshFactory.box(section, "HarborShelf", Vector3(140.0, 1.2, 14.0), Vector3(0.0, -1.55, 41.0), sand)
 	SetpieceMeshFactory.box(section, "HarborWater", Vector3(134.0, 0.18, 45.0), Vector3(0.0, -0.48, 61.0), water)
 	SetpieceMeshFactory.box(section, "ShoreBand", Vector3(132.0, 0.24, 8.0), Vector3(0.0, -0.25, 36.0), sand)
 	# The island's light, not a second copy of it. The town used to build its

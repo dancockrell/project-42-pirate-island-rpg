@@ -17,11 +17,11 @@
 [sub_resource type="ProceduralSkyMaterial" id="IslandSkyMaterial"]
 sky_top_color = Color(0.098, 0.278, 0.337, 1)
 sky_horizon_color = Color(0.639, 0.757, 0.729, 1)
-sky_curve = 0.19
+sky_curve = 0.1
 sky_energy_multiplier = 1.0
 ground_bottom_color = Color(0.031, 0.071, 0.067, 1)
-ground_horizon_color = Color(0.161, 0.271, 0.251, 1)
-ground_curve = 0.08
+ground_horizon_color = Color(0.169, 0.298, 0.302, 1)
+ground_curve = 0.35
 ground_energy_multiplier = 1.0
 sun_angle_max = 26.0
 sun_curve = 0.11
@@ -50,7 +50,7 @@ sky = SubResource("IslandSky")
 ambient_light_source = 3
 ambient_light_color = Color(0.404, 0.573, 0.573, 1)
 ambient_light_sky_contribution = 1.0
-ambient_light_energy = 1.0
+ambient_light_energy = 0.75
 reflected_light_source = 2
 ; AgX. Chosen over Filmic and ACES because it holds hue through a bright sky
 ; and a specular glint without the magenta shift ACES puts on saturated teal,
@@ -113,14 +113,14 @@ fog_density = 0.0075
 fog_aerial_perspective = 0.45
 fog_sky_affect = 0.35
 fog_depth_curve = 1.2
-fog_depth_begin = 18.0
-fog_depth_end = 340.0
+fog_depth_begin = 30.0
+fog_depth_end = 200.0
 volumetric_fog_enabled = false
 ; Colour correction and a light grade. Saturation slightly up, contrast
 ; slightly up: the ramp does the hue work, these two keep it from going flat.
 ; No vignette anywhere in this file: the board's edges are information.
 adjustment_enabled = true
 adjustment_brightness = 1.0
-adjustment_contrast = 1.06
+adjustment_contrast = 1.12
 adjustment_saturation = 1.08
 adjustment_color_correction = SubResource("IslandColorCorrection")

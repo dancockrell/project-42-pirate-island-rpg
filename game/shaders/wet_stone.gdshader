@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
+render_mode depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
 
 // The island is wet. This is the clay grammar with the two things rain does
 // to stone: upward faces hold a film of water, so they darken and go glossy,
@@ -54,7 +54,7 @@ void fragment() {
 	base = mix(base, wet_color.rgb, film);
 
 	float wrap = island_sky_wrap(world_normal);
-	base = mix(base, base * sky_wrap_color.rgb * 2.0, sky_wrap_strength * wrap * (1.0 - film));
+	base = mix(base, base * sky_wrap_color.rgb * 1.35, sky_wrap_strength * wrap * (1.0 - film));
 
 	ALBEDO = base;
 	METALLIC = 0.0;

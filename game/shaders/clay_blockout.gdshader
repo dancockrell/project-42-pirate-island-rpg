@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
+render_mode depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
 
 // The placeholder grammar. Every procedural blockout in the game wears this:
 // a matte base, a rim light that separates a silhouette from the plate, and a
@@ -11,6 +11,14 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
 // the standard PBR terms, so a bronze fitting and a wet slab differ here the
 // same way they would differ under StandardMaterial3D, and a model dropped
 // beside a blockout sits in the same light.
+//
+// This shader never writes ALPHA, and that is deliberate rather than an
+// omission. A spatial shader that assigns ALPHA at all is put in the
+// transparent pass, where it stops writing depth and is sorted per object
+// instead of per fragment -- which, on a blockout made of hundreds of boxes,
+// means a distant sea plane painting over the trees in front of it. Every
+// opaque material in this library leaves ALPHA alone; only the water writes
+// it, because only the water is really transparent.
 //
 // Compiles unchanged on Forward+ and gl_compatibility: no Forward+-only
 // built-in appears below.
@@ -35,12 +43,12 @@ uniform float rim_sharpness : hint_range(1.0, 8.0) = 3.2;
 // over wet ground actually does.
 uniform vec4 sky_wrap_color : source_color = vec4(0.55, 0.74, 0.78, 1.0);
 uniform vec4 ground_bounce_color : source_color = vec4(0.24, 0.19, 0.13, 1.0);
-uniform float sky_wrap_strength : hint_range(0.0, 1.0) = 0.22;
+uniform float sky_wrap_strength : hint_range(0.0, 1.0) = 0.15;
 
 // Surface break-up. Large, low-contrast, and in world space, so neighbouring
 // boxes do not repeat the same patch and the blockout stops looking tiled.
-uniform float grain_scale : hint_range(0.01, 4.0) = 0.35;
-uniform float grain_strength : hint_range(0.0, 0.6) = 0.12;
+uniform float grain_scale : hint_range(0.01, 4.0) = 0.22;
+uniform float grain_strength : hint_range(0.0, 0.6) = 0.18;
 
 varying vec3 world_position;
 varying vec3 world_normal;
@@ -53,7 +61,7 @@ void vertex() {
 void fragment() {
 	float wrap = island_sky_wrap(world_normal);
 	vec3 ambient_tint = mix(ground_bounce_color.rgb, sky_wrap_color.rgb, wrap);
-	vec3 base = mix(albedo.rgb, albedo.rgb * ambient_tint * 2.0, sky_wrap_strength);
+	vec3 base = mix(albedo.rgb, albedo.rgb * ambient_tint * 1.35, sky_wrap_strength);
 
 	// Triplanar-ish grain: the dominant axis picks the plane, which is enough
 	// break-up for box and cylinder blockouts and costs one noise call.
@@ -73,5 +81,4 @@ void fragment() {
 
 	float rim = island_rim(NORMAL, VIEW, rim_sharpness);
 	EMISSION = emission_color.rgb * emission_energy + rim_color.rgb * rim * rim_strength;
-	ALPHA = albedo.a;
 }

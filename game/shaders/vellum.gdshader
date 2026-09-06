@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_lambert_wrap, specular_disabled;
+render_mode depth_draw_opaque, cull_disabled, diffuse_lambert_wrap, specular_disabled;
 
 // Vellum: sailcloth, charts, awnings, the paper rigs the battle screen uses
 // until models arrive, and the physical stock the interface's bronze-and-
@@ -61,5 +61,4 @@ void fragment() {
 
 	float rim = island_rim(NORMAL, VIEW, rim_sharpness);
 	EMISSION = rim_color.rgb * rim * rim_strength;
-	ALPHA = stock_color.a;
 }

@@ -1,12 +1,21 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/review/betty_3d_candidate_review.gd" id="1_review"]
 [ext_resource type="PackedScene" path="res://assets/candidates/betty_3d/betty_candidate_v1.glb" id="2_betty"]
 [ext_resource type="PackedScene" path="res://render/world_environment.tscn" id="3_environment"]
-[ext_resource type="Material" path="res://render/materials/wet_stone.tres" id="4_wet_stone"]
+[ext_resource type="Shader" path="res://shaders/wet_stone.gdshader" id="4_wet_stone"]
+
+[sub_resource type="ShaderMaterial" id="ReviewFloor"]
+shader = ExtResource("4_wet_stone")
+shader_parameter/dry_color = Color(0.153, 0.196, 0.188, 1)
+shader_parameter/wet_color = Color(0.055, 0.086, 0.09, 1)
+shader_parameter/wetness = 0.85
+shader_parameter/lichen_amount = 0.08
+shader_parameter/puddle_scale = 1.1
+shader_parameter/rim_strength = 0.2
 
 [sub_resource type="PlaneMesh" id="FloorMesh"]
-material = ExtResource("4_wet_stone")
+material = SubResource("ReviewFloor")
 size = Vector2(22, 14)
 
 [node name="Betty3DCandidateReview" type="Node3D"]

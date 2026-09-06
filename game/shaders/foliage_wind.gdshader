@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_burley, specular_schlick_ggx;
+render_mode depth_draw_opaque, cull_disabled, diffuse_burley, specular_schlick_ggx;
 
 // Jungle mass. The clay grammar plus a vertex sway driven by the global
 // `wind` parameter, so every plant on the island leans the same way at the
@@ -78,7 +78,7 @@ void fragment() {
 	float wrap = island_sky_wrap(world_normal);
 	float variation = island_fbm(world_position.xz * 0.6 + world_position.y * 0.2);
 	vec3 base = mix(albedo.rgb, tip_color.rgb, clamp(height_factor + variation * 0.4, 0.0, 1.0));
-	base = mix(base, base * sky_wrap_color.rgb * 2.0, sky_wrap_strength * wrap);
+	base = mix(base, base * sky_wrap_color.rgb * 1.35, sky_wrap_strength * wrap);
 
 	ALBEDO = base;
 	METALLIC = 0.0;
@@ -88,5 +88,4 @@ void fragment() {
 
 	float rim = island_rim(NORMAL, VIEW, rim_sharpness);
 	EMISSION = rim_color.rgb * rim * rim_strength;
-	ALPHA = albedo.a;
 }
