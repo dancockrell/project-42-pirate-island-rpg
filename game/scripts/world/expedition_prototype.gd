@@ -467,7 +467,7 @@ func enter_pending_battle() -> void:
 	if campaign_session == null or not campaign_session.has_pending_encounter():
 		status_label.text = "There is nothing waiting to be fought."
 		return
-	get_tree().change_scene_to_file("res://scenes/battle/battle_prototype.tscn")
+	get_node("/root/SceneFlow").enter_battle()
 
 
 # ---------------------------------------------------------------------------

@@ -722,7 +722,7 @@ func is_command_enabled(skill_id: String) -> bool:
 func return_to_expedition() -> void:
 	if not is_campaign_encounter:
 		return
-	get_tree().change_scene_to_file("res://scenes/world/expedition_prototype.tscn")
+	get_node("/root/SceneFlow").return_to_expedition()
 
 func make_color_rect(color: Color, node_name: String) -> ColorRect:
 	var rect := ColorRect.new()

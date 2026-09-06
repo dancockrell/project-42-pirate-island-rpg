@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "task_id": "p8-shell",
+  "agent": "claude-code (lane P8)",
+  "summary": "The game's front door: a title screen with new game, continue, load, settings, credits and quit; one SceneFlow autoload that owns every transition between title, expedition and battle with a fade and a threaded loading veil; a pause menu on Escape; and a suite that walks the whole round trip through the live bridge.",
+  "status": "completed",
+  "claimed_at": "2026-09-06T12:00:00Z",
+  "updated_at": "2026-09-06T15:05:00Z",
+  "paths": [
+    "game/scenes/shell/",
+    "game/scripts/shell/",
+    "game/project.godot",
+    "game/tests/shell_flow_test.gd",
+    "game/scripts/world/expedition_prototype.gd",
+    "game/scripts/battle/battle_prototype.gd",
+    "game/scripts/campaign/campaign_session.gd",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "SceneFlow",
+    "TitleScreen",
+    "PauseMenu",
+    "CreditsScreen",
+    "SlotList",
+    "CampaignSession.continue_slot",
+    "CampaignSession.describe_slot"
+  ],
+  "coordination": {
+    "depends_on": [
+      "b8-save-slots-continue",
+      "b9-pause-and-settings"
+    ],
+    "conflicts_with": [],
+    "notes": "game/project.godot takes an append at the END of [autoload] plus the run/main_scene line, per the keep-both-tails rule for parallel lanes. expedition_prototype.gd and battle_prototype.gd each take exactly ONE changed line -- the get_tree().change_scene_to_file call becomes the SceneFlow call that owns that transition -- because P7 owns the former and P6 the latter this round; a conflict there is a keep-both tail on one line. campaign_session.gd is extended, not forked: describe_slot gains the active_location_id a save screen has to show, and continue_newest is split so that continue_slot(slot) is the one load path and continue_newest picks a slot and delegates to it. No second save reader enters the tree. SHIPPED: SceneFlow owns all four transitions and the two prototypes carry one changed line each (the change_scene_to_file call became the SceneFlow call). Escape is handled by SceneFlow rather than by a hook in either prototype, so the pause menu cost those two files nothing beyond that one line. An autoload's name is not a compile-time identifier in a `--script` run -- the whole project already reaches its autoloads through get_node_or_null for that reason -- so the shell does the same and preloads scene_flow.gd only where a static reader is needed. tools/../game/tools/capture_review_scene.gd was extended (a list of scene/output pairs rendered in ONE engine process, and a pair may name several scenes stacked into one frame) under the owner's Godot-courtesy instruction of 2026-09-06, which asks for exactly that batching; card P1 owns that file and this is an additive change to it."
+  },
+  "completion": {
+    "commit": "da987fe",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check (no Rust file is touched by this lane): passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (347 lib + 6 + 5 + 8 + 1 integration): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (300 stable IDs): passed",
+      "node tools/src/check-claims.mjs (55 claims, 105 ship-plan rows, 99 cards): passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/ (no content changed; bundle unchanged): passed",
+      "tools/verify-godot.sh on the committed tree with the locally built debug bridge, Godot 4.7.2 headless: 'Godot headless verification passed. 3 review scenes, 22 suites.', exit 0, and zero ERROR/SCRIPT ERROR/backtrace lines in the whole gate log: passed",
+      "Done-when (the card's walk): shell_flow_test.gd drives title -> New Game -> expedition -> the authored Reception Terrace encounter -> battle -> back -> pause menu -> save -> Return to Title (confirmed) -> Continue, through the live native bridge, and asserts legal_commands are identical either side of the round trip: passed",
+      "The pause menu stops the clock, asserted by B9's own pattern: with the menu open, five resolve_midnight calls each return error 'game_paused' and the LIVE native snapshot's campaign_day and time_segment are unmoved; closing it releases the reason and the tree unpauses: passed",
+      "Continue is dark until a slot exists and names the campaign it would resume ('RECEPTION TERRACE' asserted in the title's own line); the listed slot carries the active_location_id its save records: passed",
+      "Keyboard and gamepad: the title grabs focus on open and the focus chain walks the column and stops at both ends rather than wrapping, asserted on the first and last rows: passed",
+      "Credits held equal to the ledgers: the suite reads content/art/shared_asset_ledger.json, content/art/placeholders.json and work/art/vendor/magnific/betty-3d/N2cYw4m6D9/manifest.json off disk and asserts every credited creator, SPDX licence, canonical URL, candidate status and provenance sentence is the record's own, that the ledger holds no record the page omits, and that every credited asset file is actually in the build: passed",
+      "Bite: reverting the expedition's one hook line to get_tree().change_scene_to_file made shell_flow_test.gd fail by name -- 'ERROR: the flow never landed on res://scenes/battle/battle_prototype.tscn' -- exit 1; restoring the line returned 'Shell flow tests passed.' exit 0 with a clean working tree: passed",
+      "Captures, looked at and iterated three times before they were kept: docs/verification/captures/P8-da987fe-title.png and P8-da987fe-pause.png, 1280x720, rendered offscreen under Xvfb on the compatibility renderer in one engine process, the pause menu over the running expedition screen. First pass had the atmosphere's silhouettes hidden behind their own sky (a child draws over its parent), the second had a hard seam at the waterline and a menu floating over a readable board; the kept pass has the headlands, the cutter and the embers in front of the weather, a soft sunline, and the menu on a plate: passed",
+      "P2 has not published a branch (git ls-remote showed no origin/lane/P2-render-foundation), so the title carries the 2D treatment the card names as the alternative. The atmosphere script says in its own header that P2's environment replaces it and that this becomes the compatibility fallback: not_run",
+      "No palette owner exists yet (card P5): game/scripts/shell/shell_style.gd states DEEP, PANEL, BRONZE, TEAL, CREAM, MUTED and DANGER once, exactly as the prototypes and the settings panel already carry them, plus two shell-only tones (NIGHT, HAIRLINE) named as belonging to bronze_vellum.tres when it lands. No new palette hex was invented for anything else: not_run",
+      "needs decision: none. Nothing in this card required an Open number, a faction proper name or an Open design decision, and none was invented. The credits page states in words that the engine and other third-party components have no admission record in this repository yet, rather than inventing attribution text for them: not_run",
+      "No asset file was added: the title's weather is a canvas shader and `_draw` calls, seeded by a named constant (SEED 42) rather than by randi(), and reduced motion stills the shader clock and freezes the embers where they stand: passed",
+      "CI on lane/P8-shell, run 34031154188 on dfb4f9a -- the shipped tree plus its captures: completed with conclusion success, both jobs green ('Rust and content' and 'Godot headless suites', including 'Run the Godot headless gate' and 'Prove the real bridge loaded, not the mock'): passed",
+      "Follow-up commit 8a1ac3e deletes SceneFlow's transition_started and scene_changed signals, which nothing subscribed to. Comment-only elsewhere; shell_flow_test.gd re-run locally on that tree: 'Shell flow tests passed.' exit 0: passed"
+    ]
+  }
+}
