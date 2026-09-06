@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "task_id": "p11-palette-adopted",
+  "agent": "claude-code (lane P11)",
+  "summary": "The Theme is the one owner of the palette and the type scale, and the battle, the shell, the atmosphere and the audio sheet adopt it: BattlePalette and ShellStyle become thin readers, every UI hex literal is deleted, a game colour survives only where it is marked as one, and a suite refuses the rest.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "game/themes/bronze_vellum.tres",
+    "game/scripts/ui/theme_tokens.gd",
+    "game/scripts/battle/battle_palette.gd",
+    "game/scripts/battle/battle_prototype.gd",
+    "game/scripts/battle/battle_stage.gd",
+    "game/scripts/battle/paper_card.gd",
+    "game/scripts/battle/paper_doll.gd",
+    "game/scripts/battle/paper_stage.gd",
+    "game/scripts/battle/paper_skill_diamond.gd",
+    "game/scripts/battle/paper_betty_rig.gd",
+    "game/scripts/battle/paper_razorbeak_rig.gd",
+    "game/scripts/battle/placeholder_action_presenter.gd",
+    "game/scripts/battle/vfx_factory.gd",
+    "game/scripts/shell/shell_style.gd",
+    "game/scripts/shell/title.gd",
+    "game/scripts/shell/pause_menu.gd",
+    "game/scripts/shell/credits.gd",
+    "game/scripts/shell/shell_chooser.gd",
+    "game/scripts/shell/scene_flow.gd",
+    "game/scripts/shell/title_atmosphere.gd",
+    "game/scripts/atmosphere/atmosphere.gd",
+    "game/scripts/atmosphere/environment_atmosphere_target.gd",
+    "game/scripts/audio/placeholder_waveform_sheet.gd",
+    "game/scripts/render/island_environment.gd",
+    "game/tests/palette_owner_test.gd"
+  ],
+  "symbols": [
+    "ThemeTokens.adopt",
+    "ThemeTokens.TOKENS",
+    "ThemeTokens.STEPS",
+    "BattlePalette.color",
+    "BattlePalette.effect_colors",
+    "ShellStyle.menu_box",
+    "ShellStyle.label",
+    "ShellStyle.rule",
+    "Palette/colors/night",
+    "Palette/colors/hairline",
+    "TypeScale/font_sizes/wordmark",
+    "TypeScale/font_sizes/subtitle"
+  ],
+  "coordination": {
+    "depends_on": [
+      "p5-bronze-vellum-grammar",
+      "p6-battle-presentation",
+      "p8-shell"
+    ],
+    "conflicts_with": [],
+    "notes": "game/scripts/world/ and game/scripts/board/ are lane P10's this round and are not touched here; their constants are named in the completion checks so P10 can finish the adoption. game/themes/bronze_vellum.tres is card P5's owner and takes additive entries only -- two palette tokens the shell needs and the Theme lacked (night, hairline), two type-scale steps (wordmark, subtitle), and a MenuRow Button variation -- with no rename and no value change to anything P5 authored."
+  }
+}
