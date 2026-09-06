@@ -84,6 +84,12 @@ func resolve_midnight() -> Dictionary:
 ## advance, and the session's own refusal dictionary -- the same shape every
 ## other refusal here uses -- while it may not.
 func advance_refused_while_paused() -> Dictionary:
+	# A session outside the active scene tree has no autoloads and so no
+	# pause; asking for an absolute path from there is an engine error, and
+	# the gate reads any ERROR line as a failed suite. Same guard the crash-log
+	# hand-off below uses.
+	if not is_inside_tree():
+		return {}
 	var game_pause := get_node_or_null("/root/GamePause")
 	if game_pause == null or not game_pause.is_paused():
 		return {}
