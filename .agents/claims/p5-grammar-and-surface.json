@@ -5,7 +5,7 @@
   "summary": "P5: one owner for the bronze-and-vellum palette and type scale (game/themes/bronze_vellum.tres), the reusable UI components D11's rail and command grid become, and the calm information surface B13 asks for -- Ambient, Notable, Urgent by explicit rule, S6's explanation before a directive is confirmed, S11's journal readable while paused, and B9's three accessibility settings applied live through the Theme.",
   "status": "completed",
   "claimed_at": "2026-09-06T12:00:00Z",
-  "updated_at": "2026-09-06T13:30:00Z",
+  "updated_at": "2026-09-06T13:45:00Z",
   "paths": [
     "docs/verification/captures/",
     "game/project.godot",
@@ -62,7 +62,8 @@
       "The bridge hunk through the live GDExtension -- test_the_bridge_carries_directives_and_the_journal configures a campaign, asserts a fresh one has no journal and no standing directive, resolves a midnight, then asserts the projected lines carry every key, carry prose written by Rust, name a kind the surface knows, classify as Ambient, honour the limit, clamp a limit past the window and return nothing for a limit of zero: passed",
       "No StrategicEvent names a character today, so the Urgent permissions for the party by name and for a major relationship are proven by the suite and by callers that build events with character_ids, never by a bridge event: not_run",
       "The two prototypes (world/expedition_prototype.gd, battle/battle_prototype.gd, paper_card.gd, paper_skill_diamond.gd) still declare their own palette constants; adopting the Theme is P6's and P7's card and was deliberately not done here: not_run",
-      "The Forward+ look is not proven: this container has no Vulkan driver, so both captures are the compatibility path (opengl3 under Xvfb). CI proves Forward+ once P1 installs mesa-vulkan-drivers: not_run"
+      "The Forward+ look is not proven: this container has no Vulkan driver, so both captures are the compatibility path (opengl3 under Xvfb). CI proves Forward+ once P1 installs mesa-vulkan-drivers: not_run",
+      "Follow-up dc6dc0a on the same branch: _pause_service built a fresh _NullPause every call on the review-scene path and never freed it; it is made once now. information_surface_test.gd re-run green on that tree: passed"
     ]
   }
 }
