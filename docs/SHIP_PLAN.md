@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 (S16 and S17 are additions outside the bracket) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `7abf1cf`. If this line is older than
+- Last updated 2026-09-06 against trunk `5375229`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -497,7 +497,7 @@ captured by P1's gate, and no card claims a look it has not captured.
 | P5 | The bronze-and-vellum grammar (D11) and the calm information surface (B13): one Theme, the card rail, the command grid, journal and directive surfaces, accessibility wired | S6, S11, B9 | open |
 | P6 | Battle presentation: skill VFX and camera beats from the registries, hit-stop, band motion, site-rule ambience, the paper rigs until models | A5, A7, C3 | open |
 | P7 | RTS controls on the board (B18 resumed): select, then order a move by tile, words or hotkey; the drawn markers go | B14 | shipped 1a03dd7 2026-09-06 |
-| P8 | The shell: title, new game, continue, settings, pause, save slots, loading; one scene flow shell → expedition → battle and back | B8, B9 | open |
+| P8 | The shell: title, new game, continue, settings, pause, save slots, loading; one scene flow shell → expedition → battle and back | B8, B9 | shipped `5375229` 2026-09-06 |
 | P9 | Audio: buses, ambience by region, time and weather, cues keyed to battle events, a music state machine; procedural placeholders until assets | P3 | shipped 174f029 2026-09-06 |
 
 ### Lane H — Docs and hygiene
@@ -2659,7 +2659,7 @@ snapshot byte-identical; a left-click never travels; proven to bite. Captures
 `P7-a954666-{before,after}.png`.
 
 ### P8 · The shell
-Status: open · Depends on: B8, B9
+Status: shipped `5375229` 2026-09-06 · Depends on: B8, B9
 Touches: `game/scenes/shell/` and `game/scripts/shell/` (new), `game/project.godot`
 (`run/main_scene`), one suite.
 Title, new game, continue (newest by the save's own clock, B8), save slots,
@@ -2671,6 +2671,26 @@ the title.
 Done when: a suite walks title → new game → expedition → battle → back →
 save → title → continue and asserts the same legal actions; captures of the
 title and the pause menu.
+**Shipped:** `SceneFlow` autoload owns all four transitions (fade and a
+threaded loading veil); the two prototypes each changed one line (the
+`change_scene_to_file` call became the SceneFlow call); Escape opens the pause
+menu through `GamePause` so the clock stops (five `resolve_midnight` calls
+refused `game_paused`, native day unmoved); `CampaignSession.continue_slot`
+is the one load path and `continue_newest` delegates to it; `describe_slot`
+carries `active_location_id`; Continue is dark until a slot exists and names
+the campaign it resumes; focus chain stops at both ends; credits are held
+equal to the art ledgers by the suite. `shell_flow_test.gd` walks the round
+trip through the live bridge and asserts identical `legal_commands`; bite:
+reverting the expedition hook line fails by name. Captures
+`P8-da987fe-{title,pause}.png`, read and iterated three times. The title's
+weather is a seeded canvas shader (no asset added; reduced motion stills it).
+Not done here: the engine and third-party components have no admission
+record in this repository, and the credits page says so in words rather than
+inventing attribution (`needs decision`: an engine attribution record);
+`shell_style.gd` restates the seven prototype tones once until P5's Theme
+lands (P5 is next to merge). Integration: P8's batching of the capture tool
+was superseded by trunk's reconciled tool, which already carried it as
+`a.tscn,b.tscn`; `[autoload]` tail keep-both, `SceneFlow` last.
 
 ### P9 · Audio
 Status: shipped `174f029` 2026-09-06 · Depends on: P3
