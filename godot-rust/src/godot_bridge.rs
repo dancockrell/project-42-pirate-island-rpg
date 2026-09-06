@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use godot::prelude::*;
 
 use crate::battle::{
@@ -17,6 +19,7 @@ use crate::strategy::dungeon::{CorruptionBand, HeatBand};
 use crate::strategy::faction::{
     FactionDefinition, FactionDefinitions, FactionError, StrategicState,
 };
+use crate::strategy::force::ForceError;
 use crate::strategy::journal::JournalEntry;
 use crate::strategy::production::{MachineDefinition, MachineDefinitions, ProductionError};
 use crate::strategy::site_rule::{AuthoredSiteRule, AuthoredSiteRuleError, SiteRules};
@@ -814,6 +817,170 @@ impl Project42ExpeditionBridge {
         result.set("journal", &journal);
         result
     }
+
+    /// **S18: the player raises a body.** Brief section 5.9 gives Captain
+    /// Michael's strategic intent to the player, and until this verb existed
+    /// nothing outside the crate could act on that intent at all: `raise_force`
+    /// and `dispatch_force` were Rust methods with no `#[func]`, so a live
+    /// campaign's `forces` array was always empty and card P4 shipped
+    /// `blocked: needs a bridge verb`.
+    ///
+    /// **Not restricted to Michael's faction**, and deliberately so: `faction_id`
+    /// is the caller's, exactly as it is on `set_control`, because the engine
+    /// side already arranges the board for the fiction (the authored holders of
+    /// the tomb and the landing) and a second, narrower rule here would be a
+    /// second answer to who may be named. What the *simulation* will not do is
+    /// act for Michael on its own -- `act_on_goals` refuses -- and that refusal
+    /// is where brief section 5.9 lives.
+    ///
+    /// `composition` is `{actor id: count}`; Godot writes every number with a
+    /// decimal point, so each value is read as a float and floored, the same
+    /// coercion the port makes on the way in. Refusals come back as the error
+    /// dictionary every other verb uses, with the force module's own error name
+    /// -- an ID that is not a `force.` ID, one this campaign already carries, a
+    /// cell the graph does not know, a body with nobody in it.
+    ///
+    /// **Where "refuse while paused" lives, and why it is not here.** Brief
+    /// section 17 is kept by pause not being a state: there is no `paused`
+    /// field in `ExpeditionState` and no host clock, so a paused game is
+    /// exactly a game whose bridge is not called, and the one guard is
+    /// `CampaignSession.advance_refused_while_paused` -- the same guard
+    /// `resolve_midnight` goes through. Nor is this verb refused while an
+    /// encounter is pending, and that is deliberate rather than an omission:
+    /// `travel` and `resolve_midnight` are refused there because they *advance*
+    /// the world, and raising a body advances nothing. It stands where it was
+    /// raised until an hour runs, and a pending encounter is already what stops
+    /// an hour from running.
+    #[func]
+    fn raise_force(
+        &mut self,
+        force_id: GString,
+        faction_id: GString,
+        cell_id: GString,
+        composition: VarDictionary,
+        assignment: GString,
+    ) -> VarDictionary {
+        let Some(state) = self.state.as_mut() else {
+            return expedition_error_dictionary("expedition_not_configured");
+        };
+        let mut heads: BTreeMap<String, u32> = BTreeMap::new();
+        for (key, value) in composition.iter_shared() {
+            let Ok(actor_id) = key.try_to::<GString>() else {
+                return expedition_error_dictionary("force_composition_malformed");
+            };
+            // Godot writes an integer with a decimal point as often as not,
+            // so both readings are accepted and floored -- the same coercion
+            // the port makes on every other number crossing here. Neither is
+            // preferred: whichever the dictionary actually carries is read.
+            let count = match value.try_to::<i64>() {
+                Ok(count) => count as f64,
+                Err(_) => match value.try_to::<f64>() {
+                    Ok(count) => count,
+                    Err(_) => {
+                        return expedition_error_dictionary("force_composition_malformed");
+                    }
+                },
+            };
+            if !count.is_finite() || count < 0.0 {
+                return expedition_error_dictionary("force_composition_malformed");
+            }
+            heads.insert(actor_id.to_string(), count.floor() as u32);
+        }
+        let force_id = force_id.to_string();
+        let faction_id = faction_id.to_string();
+        let cell_id = cell_id.to_string();
+        // Roles are content's open vocabulary and nothing in the crate reads
+        // one yet, so none is invented at this boundary.
+        let raised = match state.raise_force(
+            &force_id,
+            &faction_id,
+            &cell_id,
+            Default::default(),
+            heads,
+            &assignment.to_string(),
+            &self.geography,
+        ) {
+            Ok(id) => id,
+            Err(error) => return expedition_error_dictionary(force_error_code(&error)),
+        };
+        let strength = state.forces[raised.as_str()].strength;
+        // An order given from outside the hour is journalled by whoever gave
+        // it, exactly as S7's departure and S13's machine are.
+        let event = crate::strategy::tick::StrategicEvent::ForceRaised {
+            force_id: raised,
+            faction_id,
+            cell_id,
+            strength,
+            day: state.campaign_day,
+        };
+        let day = state.campaign_day;
+        let hour = state.strategic_clock.hour_of_day;
+        state
+            .strategic_journal
+            .push(JournalEntry::new(day, hour, event.clone()));
+        self.expedition_snapshot_with_strategic_events(&[event])
+    }
+
+    /// **S18: the player sends it somewhere.** The whole road is planned now,
+    /// through `ExpeditionState::dispatch_force` -- so an order that cannot
+    /// arrive is refused here rather than accepted and quietly never completed,
+    /// and the refusal carries the force module's own error name
+    /// (`force_unreachable`, `force_unknown`, `force_unknown_cell`).
+    ///
+    /// The `ForceDeparted` it produces rides back on the snapshot's `events`
+    /// array and is written to S11's journal, so a player's order reads in the
+    /// journal like any faction's act. The force then marches on the hours the
+    /// campaign already runs; nothing here advances a clock.
+    #[func]
+    fn dispatch_force(&mut self, force_id: GString, destination_cell_id: GString) -> VarDictionary {
+        let Some(state) = self.state.as_mut() else {
+            return expedition_error_dictionary("expedition_not_configured");
+        };
+        let day = state.campaign_day;
+        let hour = state.strategic_clock.hour_of_day;
+        let departed = match state.dispatch_force(
+            &force_id.to_string(),
+            &destination_cell_id.to_string(),
+            &self.geography,
+        ) {
+            Ok(event) => event,
+            Err(error) => return expedition_error_dictionary(force_error_code(&error)),
+        };
+        state
+            .strategic_journal
+            .push(JournalEntry::new(day, hour, departed.clone()));
+        self.expedition_snapshot_with_strategic_events(&[departed])
+    }
+
+    /// The campaign as `snapshot` gives it, plus the strategic events a verb
+    /// just produced, projected through the same `journal_entry_dictionary`
+    /// the strategic surface reads -- so an order's report and the journal's
+    /// line for it are one projection rather than two.
+    fn expedition_snapshot_with_strategic_events(
+        &self,
+        events: &[crate::strategy::tick::StrategicEvent],
+    ) -> VarDictionary {
+        let state = self.state.as_ref().expect("the caller just held the state");
+        let day = state.campaign_day;
+        let hour = state.strategic_clock.hour_of_day;
+        let mut projected = Array::<VarDictionary>::new();
+        for event in events {
+            projected.push(&journal_entry_dictionary(&JournalEntry::new(
+                day,
+                hour,
+                event.clone(),
+            )));
+        }
+        let mut result = expedition_state_dictionary(
+            state,
+            &self.geography,
+            &self.factions,
+            &self.buildings,
+            &self.machines,
+        );
+        result.set("events", &projected);
+        result
+    }
 }
 
 fn expedition_battle_records(
@@ -1214,6 +1381,23 @@ fn world_event_dictionary(event: &WorldEvent) -> VarDictionary {
             "day" => i64::from(*day),
             "monster_count" => *monster_count as i64,
         },
+    }
+}
+
+/// What went wrong raising or dispatching a force, named. Exhaustive on
+/// purpose, like every other projection in this file: a new `ForceError` cannot
+/// be added without this boundary being told what to call it. A malformed ID is
+/// deferred to the crate's own `ExpeditionError` name rather than given a
+/// second one, because ID shape has one owner.
+fn force_error_code(value: &ForceError) -> &'static str {
+    match value {
+        ForceError::MalformedId(error) => expedition_error_code(error),
+        ForceError::IdIsNotAForceId { .. } => "force_id_is_not_a_force_id",
+        ForceError::DuplicateForce { .. } => "force_already_exists",
+        ForceError::UnknownForce { .. } => "force_unknown",
+        ForceError::UnknownCell { .. } => "force_unknown_cell",
+        ForceError::Unreachable { .. } => "force_unreachable",
+        ForceError::EmptyComposition { .. } => "force_composition_empty",
     }
 }
 
@@ -2046,6 +2230,29 @@ fn journal_entry_dictionary(entry: &JournalEntry) -> VarDictionary {
                 String::new(),
                 String::new(),
             ),
+            ControlTaken {
+                force_id,
+                faction_id,
+                cell_id,
+                ..
+            }
+            | ArrivalContested {
+                force_id,
+                faction_id,
+                cell_id,
+                ..
+            }
+            | ForceRaised {
+                force_id,
+                faction_id,
+                cell_id,
+                ..
+            } => (
+                faction_id.clone(),
+                cell_id.clone(),
+                String::new(),
+                force_id.as_str().to_owned(),
+            ),
         };
     let character_ids = Array::<GString>::new();
     let mut result = vdict! {
@@ -2163,6 +2370,41 @@ fn journal_prose(entry: &JournalEntry) -> String {
             serde_name(goal),
             serde_variant_name(reason)
         ),
+        ControlTaken {
+            faction_id,
+            cell_id,
+            from,
+            building_instance_ids,
+            ..
+        } => {
+            let standing = match building_instance_ids.len() {
+                0 => String::new(),
+                1 => " One building there stands as it was.".to_owned(),
+                count => format!(" {count} buildings there stand as they were."),
+            };
+            match from {
+                Some(from) => {
+                    format!("A force of {faction_id} took {cell_id} from {from}.{standing}")
+                }
+                None => {
+                    format!("A force of {faction_id} took {cell_id}, which nobody held.{standing}")
+                }
+            }
+        }
+        ArrivalContested {
+            faction_id,
+            cell_id,
+            held_by,
+            ..
+        } => format!(
+            "A force of {faction_id} reached {cell_id} and found {held_by} standing there; nothing changed hands."
+        ),
+        ForceRaised {
+            faction_id,
+            cell_id,
+            strength,
+            ..
+        } => format!("{faction_id} raised a body of {strength} at {cell_id}."),
     }
 }
 

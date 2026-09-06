@@ -122,20 +122,23 @@ func _init() -> void:
 			drawn_routes += 1
 	check(drawn_routes == board.tethers.size(), "every authored road must be drawn, legal or not")
 
-	# S7's forces, drawn. No bridge verb raises or marches a force yet, so the
-	# only honest way to put one on the live island is through the bridge's own
-	# save round trip; `BoardVerificationCampaign` owns that and says why. What
-	# is asserted here is the board's half: a force partway down a road stands
-	# partway down that road, and the reading comes from the snapshot.
+	# S7's forces, drawn. S18 gave the bridge `raise_force` and `dispatch_force`,
+	# so the column is raised and sent through those verbs;
+	# `BoardVerificationCampaign` owns that campaign and says why. A dispatch
+	# plans the whole road and marches none of it -- the hours belong to the
+	# strategic clock and no verb here turns one -- so the force stands at the
+	# head of its road, and what is asserted is the board's half: it stands
+	# where the snapshot says it stands, and the reading comes from the
+	# snapshot.
 	var marched: Dictionary = BoardVerificationCampaign.add_marching_force(campaign_session)
-	check(bool(marched.get("configured", false)), "the bridge must accept a save carrying one marching force")
+	check(bool(marched.get("configured", false)), "the bridge must raise and dispatch the column through its own verbs: %s" % str(marched.get("error", "")))
 	var projected_forces: Array = marched.get("forces", [])
 	check(projected_forces.size() == 1, "the snapshot must project the one force the campaign now holds")
 	if projected_forces.size() == 1:
 		var force: Dictionary = projected_forces[0]
 		check(str(force.get("position_cell_id", "")) == "world.cell.river_landing", "the force must stand where the save put it")
 		check(str(force.get("next_cell_id", "")) == "world.cell.reception_terrace", "the snapshot must name the cell the force's next hop reaches")
-		check(absf(float(force.get("progress", 0.0)) - 0.45) < 0.001, "progress must be the marched minutes over the road's own cost")
+		check(absf(float(force.get("progress", 0.0))) < 0.001, "a dispatched force has marched none of its road until an hour runs")
 		for key in force.keys():
 			var field := str(key)
 			check(not (field in ["strength", "readiness", "supply", "composition", "roles", "assignment", "evidence"]), "an aggregate's strength must not cross the bridge: %s" % field)
@@ -145,7 +148,7 @@ func _init() -> void:
 	if force_pawn != null:
 		var from_point: Vector3 = board.stand_point(board.cells["world.cell.river_landing"])
 		var to_point: Vector3 = board.stand_point(board.cells["world.cell.reception_terrace"])
-		check(force_pawn.position.is_equal_approx(from_point.lerp(to_point, 0.45)), "the miniature must stand as far down the road as the snapshot says it has marched")
+		check(force_pawn.position.is_equal_approx(from_point.lerp(to_point, 0.0)), "the miniature must stand as far down the road as the snapshot says it has marched")
 		check(force_pawn.position != board.party_miniature.position, "a force is not the party and does not stand on it")
 
 	board.queue_free()

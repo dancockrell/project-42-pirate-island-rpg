@@ -293,6 +293,61 @@ pub enum StrategicEvent {
         reason: ActionSkipReason,
         day: u32,
     },
+    /// S18: a force's arrival took the cell it reached, and `from` names who
+    /// held it before -- `None` for ground nobody held.
+    ///
+    /// Emitted by
+    /// [`ExpeditionState::resolve_arrivals`](crate::expedition::ExpeditionState::resolve_arrivals),
+    /// which calls `set_control` and reports the strategic half of what that
+    /// did. The world-scale `WorldEvent::ControlChanged` is the same handover
+    /// seen from `world.rs`; there is one writer of `ownership` and this event
+    /// does not become a second one.
+    ///
+    /// `building_instance_ids` are the buildings standing on the cell **at the
+    /// moment it changed hands**, and they are carried rather than acted on:
+    /// brief section 20 leaves capture-versus-destruction Open, so nothing here
+    /// captures, ruins or reassigns one. The day that rule is decided, the
+    /// journal already holds its inputs.
+    ControlTaken {
+        force_id: ForceId,
+        faction_id: String,
+        cell_id: String,
+        from: Option<String>,
+        building_instance_ids: Vec<String>,
+        day: u32,
+    },
+    /// S18: a force arrived on ground another faction holds **and a force of
+    /// that faction was standing there**, so nothing changed hands.
+    ///
+    /// Not a battle and not a stalemate: how two forces on one cell resolve is
+    /// a decision the brief has not made (see
+    /// [`CONTESTED_ARRIVAL_RESOLVES_CONTROL`](crate::strategy::force::CONTESTED_ARRIVAL_RESOLVES_CONTROL)),
+    /// and inventing an outcome here would be this lane writing the combat
+    /// model. The record says who reached whom, and stops.
+    ArrivalContested {
+        force_id: ForceId,
+        faction_id: String,
+        cell_id: String,
+        held_by: String,
+        defender_force_ids: Vec<ForceId>,
+        day: u32,
+    },
+    /// S18: a body was raised, through the bridge, by the player directing
+    /// Captain Michael's faction (brief section 5.9).
+    ///
+    /// The simulation raises forces too -- S17's `march` does, on the way to a
+    /// dispatch -- and journals nothing for it, because the departure is the
+    /// act and the body is its means. An order given from *outside* the hour
+    /// has no departure to stand for it until it is dispatched, so raising is
+    /// recorded on its own: a player's act on the island is in the journal like
+    /// any faction's.
+    ForceRaised {
+        force_id: ForceId,
+        faction_id: String,
+        cell_id: String,
+        strength: u32,
+        day: u32,
+    },
 }
 
 /// The draws one faction is entitled to make in one hour, in the order it

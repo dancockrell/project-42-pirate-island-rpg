@@ -1102,10 +1102,20 @@ fn the_authored_island_acts_and_still_reproduces_byte_for_byte() {
         "a faction raised something the authored registry does not carry: {}",
         raised.def_id
     );
-    assert_eq!(
-        geography.held_by(&raised.cell_id, &first.ownership),
-        Some(raised.faction_id.as_str()),
-        "a building stands on the ground of the faction that raised it"
+    // **S18 changed what can be asserted here, and the change is the rule.**
+    // `place_building` refuses a cell its faction does not hold, so the
+    // instance existing is the proof that it was raised on the raiser's own
+    // ground. What is *not* true any more is that it still is: an arrival can
+    // take the cell out from under a standing building, and the building stands
+    // as it was, because capture versus destruction is Open (brief section 20).
+    // So the assertion is the one that survives that rule -- the building is on
+    // real ground, and somebody holds it.
+    assert!(
+        geography
+            .held_by(&raised.cell_id, &first.ownership)
+            .is_some(),
+        "a building was raised on a cell nobody holds at all: {}",
+        raised.cell_id
     );
     assert_ne!(
         raised.faction_id,
@@ -1163,146 +1173,264 @@ const M3_RIVAL_CELLS: [&str; 3] = [
     "world.cell.processional_ramp",
 ];
 
-/// S17's Done-when, second half -- **and it does not pass, on purpose.**
+/// **The M3 done-when, and it passes now.** Card S18.
 ///
-/// The M3 done-when is "one faction eliminated with its recovery chain
-/// demonstrably exhausted in a 100-day run". This test ran that opening and the
-/// weak faction was **not** eliminated, and the card's instruction for that
-/// case is to say exactly which link never fell and why rather than tuning a
-/// constant until it does. So:
+/// S17 shipped this test as its own honest negative: the M3 opening eliminated
+/// nobody, because `RecoveryLink::ControlledSettlement` could never fall --
+/// `ExpeditionState::ownership` was written by `set_control` alone and no lane
+/// called it from a tick, so a faction that could not be pushed off its ground
+/// kept that link, and `ValidConstructionSite` with it, forever. S18 gives an
+/// arrival its consequence (`ExpeditionState::resolve_arrivals`), and the board
+/// moves. So this is the card's test now, in two claims -- one that passes and
+/// one that still says what is missing, because the second gap is real and
+/// naming it is worth more than hiding it.
 ///
-/// **`RecoveryLink::ControlledSettlement` never falls, because nothing in the
-/// crate can take a cell.** `ExpeditionState::ownership` is written by
-/// `ExpeditionState::set_control` and by nothing else, and no lane calls it
-/// from a tick: S7's forces march to a rival's cell and *stand* on it, because
-/// turning an arrival into actors on the ground is B11's spawn sockets and O3's
-/// room metadata, and card S17 is explicitly told not to materialise. A faction
-/// that cannot be pushed off its ground keeps `ControlledSettlement` forever,
-/// keeps `ValidConstructionSite` with it (a held cell with room *is* one), and
-/// keeps `ResourceReserve` too once S17's `Goal::Recover` trickle has landed a
-/// single unit in its stockpile. Three links standing is not an exhausted
-/// chain, and brief section 16 is right to refuse to eliminate on one.
+/// **Claim 1, the done-when: a faction is eliminated with its recovery chain
+/// demonstrably exhausted, well inside a hundred days, byte-identically
+/// twice.** The faction is Captain Michael's, and *which* faction it is is the
+/// point rather than a convenience: brief section 5.9 gives his strategic
+/// intent to the player, `act_on_goals` therefore takes no autonomous act for
+/// him, and a harness has no player in it. So his faction is the one on this
+/// island that holds ground and does nothing about it -- it never gathers,
+/// never builds and never raises a body -- and a rival's column walks onto his
+/// undefended cell and takes it. Every link he had goes with it, S10's sweep
+/// finds the chain empty in the same hour, and he is off the board. That is
+/// brief section 16 working end to end: an arrival, a change of control, a
+/// chain read link by link, one elimination and no respawn.
 ///
-/// Nothing here is tuned to hide that. [`GATHER_PER_HELD_CELL_PER_HOUR`] is
-/// not lowered, [`RESOURCE_RESERVE_FLOOR`] is not raised, and the opening is
-/// the one the card describes. The test asserts what is true, and the second
-/// claim isolates the gap to exactly one missing owner: when the *board* moves
-/// -- which is the thing no lane can do yet -- the chain exhausts and the
-/// elimination the card asks for happens on the next hour, journalled link by
-/// link. The lane that resolves a force's arrival into a change of control is
-/// the lane that turns this test's first claim into the card's.
+/// **Scripted, and this is the card's "say so".** Content authors no owner for
+/// any cell, so the imbalance is put on the board by hand: one cell to the
+/// faction that will lose it, [`M3_RIVAL_CELLS`] to the faction that will take
+/// it, every stockpile and every relationship cleared. Nothing else is
+/// arranged and no constant is tuned.
+///
+/// **Claim 2, the link that still never falls: `ResourceReserve`, because
+/// nothing in this crate can lower a stockpile.** Run the same opening with an
+/// *autonomous* faction in the weak seat and it loses its cell exactly as
+/// Michael's does -- and it is still not eliminated, because in the hours
+/// before the column arrived it gathered S17's trickle, and there the units
+/// stay: the authored buildings all cost zero to raise, no production rule of
+/// theirs is affordable, and taking a cell deliberately does **not** take the
+/// stockpile that cell earned (capture versus destruction is Open, brief
+/// section 20). One unit is [`RESOURCE_RESERVE_FLOOR`] and a chain with one
+/// link is not exhausted, so brief section 16 is right to refuse. Nothing is
+/// tuned to hide it: [`GATHER_PER_HELD_CELL_PER_HOUR`] is not lowered and the
+/// floor is not raised. The lane that gives a faction a way to *spend* -- or
+/// that decides what a captured cell hands over -- is the lane that turns
+/// claim 2 into claim 1.
+///
+/// The bite: make `resolve_arrivals` leave a held cell alone (drop the `from`
+/// arm that takes an undefended rival's ground) and claim 1 fails on
+/// "nothing took the cell out of the hands of the faction that never defended
+/// it".
 ///
 /// [`GATHER_PER_HELD_CELL_PER_HOUR`]: project42_sim::strategy::action::GATHER_PER_HELD_CELL_PER_HOUR
+/// [`RESOURCE_RESERVE_FLOOR`]: project42_sim::strategy::elimination::RESOURCE_RESERVE_FLOOR
 #[test]
-fn the_m3_opening_does_not_eliminate_anybody_and_names_the_link_that_never_falls() {
-    let (geography, _habitats) = island();
+fn the_m3_opening_eliminates_a_faction_with_its_recovery_chain_exhausted() {
+    let (geography, habitats) = island();
     let factions = the_authored_registry();
     let buildings = the_authored_buildings();
-    let weak = ConceptKey::FoxPeople.faction_id();
+    let machines = the_authored_machines();
     let rival = ConceptKey::ColonialPowers.faction_id();
 
-    let mut state = a_campaign();
-    // "no stockpile" and "no history" literally: `a_campaign` seeds both to
-    // spread S5's signals, and the M3 opening is about a faction that has
-    // nothing.
-    for faction in state.factions.values_mut() {
-        faction.resources.clear();
-        faction.relationships.clear();
-    }
-    state
-        .set_control(M3_WEAK_CELL, Some(weak.clone()), &geography)
-        .expect("the weak faction's one cell is on the slice");
-    for cell_id in M3_RIVAL_CELLS {
-        state
-            .set_control(cell_id, Some(rival.clone()), &geography)
-            .expect("every rival cell is on the slice");
+    // ---- Claim 1: the done-when.
+    let undefended = ConceptKey::Michael.faction_id();
+    let mut state = m3_opening(&geography, &undefended, &rival);
+    let mut events = Vec::new();
+    let mut eliminated_on_day = None;
+    for day in 0..100u32 {
+        events.extend(one_day_of_hours(
+            &mut state, &geography, &habitats, &factions, &buildings, &machines,
+        ));
+        if eliminated_on_day.is_none() && state.factions[&undefended].eliminated {
+            eliminated_on_day = Some(day);
+        }
     }
 
-    // A hundred days, through the path the game itself runs.
-    run_hours(&mut state, 100 * u64::from(HOURS_PER_DAY), &factions);
-
-    // Claim 1: the honest negative, pinned.
     assert!(
-        !state.factions[&weak].eliminated,
-        "the M3 opening now eliminates the weak faction -- rewrite this test as \
-         the card's done-when and say which lane made a cell changeable"
-    );
-    let chain = recovery_chain(&state, &weak, &geography, &buildings);
-    assert_eq!(
-        chain,
-        vec![
-            RecoveryLink::ResourceReserve,
-            RecoveryLink::ControlledSettlement,
-            RecoveryLink::ValidConstructionSite,
-        ],
-        "these are the three links a hundred days could not take away, and \
-         ControlledSettlement is the one the other two hang from"
-    );
-    assert_eq!(
-        geography.held_by(M3_WEAK_CELL, &state.ownership),
-        Some(weak.as_str()),
-        "nothing in a hundred days of hours can move a cell out of a faction's \
-         hands: no lane writes ownership from a tick"
-    );
-    assert!(
-        state.factions[&weak].has_ever_held,
-        "the chain was read and the faction is on the board -- so an empty \
-         chain would eliminate it, and the chain is simply not empty"
+        eliminated_on_day.is_some(),
+        "a hundred days of the M3 opening eliminated nobody: {:?}",
+        recovery_chain(&state, &undefended, &geography, &buildings)
     );
 
-    // Claim 2: the gap is exactly one owner wide. The harness takes the ground
-    // and the stockpile that ground earned -- standing in for the capture no
-    // lane owns yet -- and the very next hour the sweep exhausts the chain and
-    // eliminates the faction, link by journalled link.
-    let lost_before: BTreeSet<RecoveryLink> = state.factions[&weak].recovery_links_held.clone();
-    state
-        .set_control(M3_WEAK_CELL, None, &geography)
-        .expect("the cell can be released");
-    state
-        .factions
-        .get_mut(&weak)
-        .expect("the campaign carries the weak faction")
-        .resources
-        .clear();
-    let force_ids: Vec<String> = state
-        .forces
-        .values()
-        .filter(|force| force.faction_id == weak)
-        .map(|force| force.id.to_string())
+    // It was an arrival that did it, and the event names the loser.
+    let took_the_cell: Vec<&StrategicEvent> = events
+        .iter()
+        .filter(|event| {
+            matches!(
+                event,
+                StrategicEvent::ControlTaken { cell_id, from, .. }
+                    if cell_id == M3_WEAK_CELL && from.as_deref() == Some(undefended.as_str())
+            )
+        })
         .collect();
-    for id in force_ids {
-        state.forces.remove(&id);
-    }
+    assert_eq!(
+        took_the_cell.len(),
+        1,
+        "nothing took the cell out of the hands of the faction that never \
+         defended it, so nothing can have exhausted its chain"
+    );
+    let StrategicEvent::ControlTaken {
+        faction_id: taker, ..
+    } = took_the_cell[0]
+    else {
+        unreachable!("filtered above")
+    };
+    assert_eq!(
+        *taker, rival,
+        "the faction that marched is the faction that holds it"
+    );
 
-    let events = state.strategic_tick(&geography, &factions, &buildings, &the_authored_machines());
+    // The chain is exhausted, link by journalled link, and the elimination is
+    // reported exactly once. Brief section 16 has no "returned" event and this
+    // asserts there is none.
     let lost: BTreeSet<RecoveryLink> = events
         .iter()
         .filter_map(|event| match event {
-            StrategicEvent::RecoveryLinkLost { faction_id, link } if *faction_id == weak => {
+            StrategicEvent::RecoveryLinkLost { faction_id, link } if *faction_id == undefended => {
                 Some(*link)
             }
             _ => None,
         })
         .collect();
     assert_eq!(
-        lost, lost_before,
-        "every link the faction was holding is reported lost, in brief section \
-         16's own vocabulary"
+        lost,
+        BTreeSet::from([
+            RecoveryLink::ControlledSettlement,
+            RecoveryLink::ValidConstructionSite,
+        ]),
+        "every way back the faction actually held is reported lost, in brief \
+         section 16's own vocabulary"
     );
-    let eliminations: Vec<&StrategicEvent> = events
+    let eliminations = events
         .iter()
         .filter(|event| {
-            matches!(event, StrategicEvent::FactionEliminated { faction_id, .. } if *faction_id == weak)
+            matches!(event, StrategicEvent::FactionEliminated { faction_id, .. } if *faction_id == undefended)
         })
-        .collect();
+        .count();
     assert_eq!(
-        eliminations.len(),
-        1,
-        "an exhausted chain eliminates once and only once: {events:?}"
+        eliminations, 1,
+        "an exhausted chain eliminates once and only once"
     );
-    assert!(state.factions[&weak].eliminated);
     assert!(
-        recovery_chain(&state, &weak, &geography, &buildings).is_empty(),
+        recovery_chain(&state, &undefended, &geography, &buildings).is_empty(),
         "and there is demonstrably nothing left"
     );
+    assert!(state.factions[&undefended].has_ever_held);
+
+    // Byte-identical twice: an island that can take ground is still an island
+    // that reproduces.
+    let mut again = m3_opening(&geography, &undefended, &rival);
+    for _ in 0..100 {
+        again
+            .resolve_midnight_in(&geography, &habitats, &factions, &buildings, &machines)
+            .expect("nothing in this opening blocks midnight");
+    }
+    assert_eq!(
+        again.to_json(),
+        state.to_json(),
+        "a hundred days of the M3 opening stopped being reproducible"
+    );
+    assert_eq!(hash_of(&again), hash_of(&state));
+
+    // ---- Claim 2: the link that still never falls.
+    let autonomous = ConceptKey::FoxPeople.faction_id();
+    let mut state = m3_opening(&geography, &autonomous, &rival);
+    for _ in 0..100 {
+        state
+            .resolve_midnight_in(&geography, &habitats, &factions, &buildings, &machines)
+            .expect("nothing in this opening blocks midnight");
+    }
+    assert_eq!(
+        geography.held_by(M3_WEAK_CELL, &state.ownership),
+        Some(rival.as_str()),
+        "the weak cell falls for an autonomous faction exactly as it does for \
+         the one nobody directs"
+    );
+    assert!(!state.factions[&autonomous].eliminated);
+    assert_eq!(
+        recovery_chain(&state, &autonomous, &geography, &buildings),
+        vec![RecoveryLink::ResourceReserve],
+        "one link stands, and it is the stockpile: nothing in this crate lowers \
+         one, and a taken cell does not hand its stockpile over"
+    );
+    assert!(
+        state.factions[&autonomous]
+            .resources
+            .values()
+            .any(|held| *held > 0),
+        "the units it gathered while it still had ground are what keep it alive"
+    );
+}
+
+/// The scripted M3 opening: one cell to the faction that will lose it, three to
+/// the faction that will take it, and every stockpile and relationship cleared
+/// -- "no stockpile" and "no history" literally, because `a_campaign` seeds both
+/// to spread S5's signals and the M3 opening is about a faction that has
+/// nothing.
+fn m3_opening(geography: &Geography, weak: &str, rival: &str) -> ExpeditionState {
+    let mut state = a_campaign();
+    for faction in state.factions.values_mut() {
+        faction.resources.clear();
+        faction.relationships.clear();
+    }
+    state
+        .set_control(M3_WEAK_CELL, Some(weak.to_owned()), geography)
+        .expect("the weak faction's one cell is on the slice");
+    for cell_id in M3_RIVAL_CELLS {
+        state
+            .set_control(cell_id, Some(rival.to_owned()), geography)
+            .expect("every rival cell is on the slice");
+    }
+    state
+}
+
+/// One whole day, run the way the game runs one, with the day's strategic
+/// events kept.
+///
+/// `resolve_midnight_in` is the only path the game ever advances the clock by
+/// and it returns the midnight's *world* events, not the hours' strategic ones;
+/// S11's journal, which does hold them, is deliberately bounded and a single
+/// acting day overflows its window. So the day's twenty-four hours are replayed
+/// on a clone -- the same `strategic_tick` calls midnight itself makes, from
+/// the same state -- and then the real state is advanced through midnight. The
+/// two are asserted to agree on the board and on who is off it, so the replay
+/// cannot become a second, quieter island.
+fn one_day_of_hours(
+    state: &mut ExpeditionState,
+    geography: &Geography,
+    habitats: &Habitats,
+    factions: &FactionDefinitions,
+    buildings: &BuildingDefinitions,
+    machines: &MachineDefinitions,
+) -> Vec<StrategicEvent> {
+    let mut replay = state.clone();
+    let mut events = Vec::new();
+    for _ in 0..HOURS_PER_DAY {
+        events.extend(replay.strategic_tick(geography, factions, buildings, machines));
+    }
+    state
+        .resolve_midnight_in(geography, habitats, factions, buildings, machines)
+        .expect("nothing in this opening blocks midnight");
+    assert_eq!(
+        replay.ownership, state.ownership,
+        "the replayed day and the day the island actually ran disagree about \
+         who holds the board"
+    );
+    let eliminated = |campaign: &ExpeditionState| -> BTreeSet<String> {
+        campaign
+            .factions
+            .iter()
+            .filter(|(_, faction)| faction.eliminated)
+            .map(|(id, _)| id.clone())
+            .collect()
+    };
+    assert_eq!(
+        eliminated(&replay),
+        eliminated(state),
+        "the replayed day and the day the island actually ran disagree about \
+         who is off the board"
+    );
+    events
 }

@@ -1600,8 +1600,9 @@ impl ExpeditionState {
     /// the authored machine registry a production rule's `output_key` names
     /// (S13). An hour advances the clock, makes each present faction's fixed
     /// sequence of draws, **runs that faction's production timers on its
-    /// `strategic.economy` draw** (S16), marches its forces, notices any faction
-    /// that has run out of ways back, and reports the hour that ran.
+    /// `strategic.economy` draw** (S16), marches its forces, **resolves what
+    /// those marches arrived at into who holds the ground** (S18), notices any
+    /// faction that has run out of ways back, and reports the hour that ran.
     ///
     /// **The hour still does not build.** S16 gave the hour production, not
     /// construction: nothing here places a building, raises a tier or spends a
@@ -1630,7 +1631,17 @@ impl ExpeditionState {
         let mut events = tick::run_hour(self, geography, factions, buildings, machines);
         // S7: the hour's marching, after the hour's draws are made and before
         // the hour is journalled, so a hop is recorded in the hour it happened.
-        events.extend(self.advance_forces(geography));
+        let marching = self.advance_forces(geography);
+        // S18: and what the hour's arrivals mean for who holds the ground.
+        // Between the marching and S10's sweep, and that position is the whole
+        // point: a faction pushed off its last cell by an arrival loses
+        // `ControlledSettlement` in the same hour the sweep reads its chain,
+        // which is the gap card S17 recorded as `failed`. The marching events
+        // are journalled before their consequences, as `HourPassed` is before
+        // both.
+        let taken = self.resolve_arrivals(geography, &marching);
+        events.extend(marching);
+        events.extend(taken);
         // S10: and the hour notices any faction whose recovery chain has just
         // run out. After the marching, because a force reaching or leaving a
         // cell is one of the things that empties a chain.

@@ -8,23 +8,20 @@ extends RefCounted
 ## the wreck, climb to the estate, drop to the river, take the safe road -- then
 ## hands two cells to the factions the fiction already gives them.
 ##
-## ## The one stand-in here, and why
+## ## The force on the road, and where it comes from
 ##
-## S7's forces are real state and `expedition_state_dictionary` projects them,
-## but **no bridge verb raises or marches a force yet**: `raise_force`,
-## `dispatch_force` and `strategic_tick` exist in Rust and none of them is a
-## `#[func]`. So through the live bridge the island's `forces` array is always
-## empty, and the board's route distance would have nothing to draw.
+## It comes from the bridge's own verbs. S18 gave `raise_force` and
+## `dispatch_force` a `#[func]` each and the port a line each, so the column
+## below is raised and sent through the same calls the player uses to direct
+## Captain Michael's faction (brief section 5.9) -- the save round trip this
+## file used to do instead is gone, as its own note said it must be the day a
+## verb landed.
 ##
-## Rather than fake a snapshot, this puts a real marching force into the real
-## campaign the only honest way available: it takes the bridge's own
-## `save_json`, adds a force to it, and hands it back through `load_json` --
-## the same parse, the same `validate` and the same save-version gate every
-## slot meets. The force that comes back is `ExpeditionState::forces` as Rust
-## built it, not a dictionary this file invented.
-##
-## **Delete this method the day a bridge verb raises a force**, and let the
-## proofs drive that verb instead.
+## The column therefore stands at the head of the road it was sent down rather
+## than part of the way along it: a dispatch plans the whole route and marches
+## none of it, and the hours that would march it belong to the strategic clock,
+## which no verb here turns. `progress` is 0.0 and `next_cell_id` is the cell
+## the first hop reaches, which is what the board draws.
 
 const OPENING_SALVAGE := "anchor.black_beach.salvage_point"
 const OPENING_TRAVEL := [
@@ -40,11 +37,13 @@ const HELD_CELLS := [
 	["world.cell.tomb_reception", "faction.elves"]
 ]
 
-## The force this file adds through the save. A pirate column marching the safe
-## road it now holds one end of, most of the way there.
+## The force this file raises. A pirate column on the safe road it now holds one
+## end of. Concept keys and content's own actor ID; nothing invented here.
 const MARCHING_FORCE_ID := "force.pirates.landing_column"
-const MARCHING_ROUTE := "world.portal.river_landing_to_reception_terrace_safe_road"
-const MARCHING_PROGRESS_MINUTES := 27
+const MARCHING_FROM := "world.cell.river_landing"
+const MARCHING_TO := "world.cell.reception_terrace"
+const MARCHING_COMPOSITION := {"enemy.pirate.deckhand": 6}
+const MARCHING_ASSIGNMENT := "assignment.board_verification.march"
 
 
 ## Plays the opening, or the first `steps` legs of it. Stopping one leg short is
@@ -66,33 +65,16 @@ static func take_control(session: Node) -> Dictionary:
 	return snapshot
 
 
-## Puts one marching force into the live campaign through a save round trip, as
-## the class comment explains. Returns the snapshot the reloaded campaign gives,
-## or an empty dictionary when the round trip was refused.
+## Raises one pirate column and sends it down the safe road, through the bridge
+## verbs and nothing else. Returns the snapshot the dispatch gives, or an empty
+## dictionary when either order was refused.
 static func add_marching_force(session: Node) -> Dictionary:
-	var document: String = session.expedition.save_json()
-	if document.is_empty():
+	var raised: Dictionary = session.raise_force(
+		MARCHING_FORCE_ID, "faction.pirates", MARCHING_FROM, MARCHING_COMPOSITION, MARCHING_ASSIGNMENT
+	)
+	if not bool(raised.get("configured", false)):
 		return {}
-	var parsed: Variant = JSON.parse_string(document)
-	if not parsed is Dictionary:
+	var dispatched: Dictionary = session.dispatch_force(MARCHING_FORCE_ID, MARCHING_TO)
+	if not bool(dispatched.get("configured", false)):
 		return {}
-	var save: Dictionary = parsed
-	var forces: Dictionary = save.get("forces", {})
-	forces[MARCHING_FORCE_ID] = {
-		"id": MARCHING_FORCE_ID,
-		"faction_id": "faction.pirates",
-		"origin_cell_id": "world.cell.river_landing",
-		"position_cell_id": "world.cell.river_landing",
-		"route": [MARCHING_ROUTE],
-		"destination_cell_id": "world.cell.reception_terrace",
-		"progress_minutes": MARCHING_PROGRESS_MINUTES,
-		"readiness": 100,
-		"supply": 24,
-		"strength": 6,
-		"composition": {"enemy.pirate.deckhand": 6}
-	}
-	save["forces"] = forces
-	# Godot writes every integer with a decimal point; serde refuses the whole
-	# document rather than truncating. This is the same coercion the port makes
-	# on the way in, reused rather than written a second time.
-	return session.expedition.load_json(JSON.stringify(NativeExpeditionPort.as_rust_integers(save)))
+	return dispatched
