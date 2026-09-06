@@ -3,7 +3,7 @@
   "task_id": "p12-blockout-kits",
   "agent": "claude-code (lane P12)",
   "summary": "Blockout kits (D9 + D10): a building's cube or multi-cube envelope and a machine's riveted-iron blockout built from the C10 and C14 records alone, through SetpieceMeshFactory, with every socket and pivot the record names as an empty Node3D a rig can find, and a review scene that shows all five at gameplay distance under the island environment.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -11,7 +11,8 @@
     "game/scenes/review/blockout_kit_review.tscn",
     "game/scripts/review/blockout_kit_review.gd",
     "game/tests/blockout_kit_test.gd",
-    "docs/verification/captures/"
+    "docs/verification/captures/",
+    "game/tests/capture_blockout_kits.gd"
   ],
   "symbols": [
     "BuildingBlockoutKit.build",
@@ -21,12 +22,32 @@
     "BlockoutMarks.mark"
   ],
   "coordination": {
-    "depends_on": ["p2-render-foundation", "c10-building-records", "c14-machine-records"],
+    "depends_on": [
+      "p2-render-foundation",
+      "c10-building-records",
+      "c14-machine-records"
+    ],
     "conflicts_with": [],
     "notes": "Reads content/buildings/*.json and content/machines/*.json through ContentCatalog and content/presentation/board.registry.json by entry ID; authors no content. Does not touch game/scripts/world/ (SetpieceMeshFactory is called, not edited), game/scripts/board/ (P10), game/scripts/ui/ (P11), godot-rust/ or tools/. Placement on the board is P10's or a later card's; this card ships the kits and the build(record) -> Node3D seam."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "7f9795c",
+    "checks": [
+      "bash tools/verify-godot.sh with GODOT set to the pinned 4.7.2 binary -- 'Godot headless verification passed. 5 review scenes, 29 suites', blockout_kit_review.tscn among the review scenes and 'Blockout kit tests passed.' among the suites, no ERROR or SCRIPT ERROR line anywhere in the run: passed",
+      "bash tools/build-native-bridge.sh debug (the gate needs the bridge registered) -- 'Built native bridge: game/bin/linux/project42_sim.linux.expedition_v5_debug.x86_64.so': passed",
+      "node tools/src/validate.mjs -- 518 stable IDs, 3 building records, 2 machine records; no content was authored by this card: passed",
+      "node tools/src/check-claims.mjs -- 68 claims, 110 ship-plan rows, 104 cards: passed",
+      "Done-when 1: blockout_kit_test.gd builds every authored building and machine record read out of the generated bundle (never a fixture), and asserts the Envelope subtree's extents equal BuildingBlockoutKit.envelope_metres for the record to within a millimetre: passed",
+      "Done-when 2: every socket the record names exists as a child by name -- entrance, road, actor and delivery sockets for the three buildings, repair sockets for the two machines -- each carrying its authored ID verbatim in socket_id, each inside the declared envelope (brief section 8), and the socket group holding one node per authored socket and no others: passed",
+      "Done-when 3: every pivot exists as a child by name and names the authored repair socket it was derived from; the mechanical dog stands on four pivots and the steam wagon on its two axles, asserted by name: passed",
+      "Bite proof: clamping removed from the roof cap's width (minf(top_shrink * 1.08, 1.0) -> top_shrink * 1.08) so a single-tier building's cap overhangs the box; blockout_kit_test.gd failed with 'building.ritual_anchor: the built envelope's extents must equal the record's declared envelope'. Restored, re-run green: passed",
+      "The needs-decision rule is asserted, not merely written: both kits carry an OPEN_DIMENSIONS map, the suite asserts it names exactly the constants the kit invents and that each entry still begins 'needs decision', and asserts on the record side that machine.mechanical_dog and machine.steam_wagon still hold operational_footprint_cells at 0 with their open_dimensions naming the decision: passed",
+      "Captures: docs/verification/captures/P12-7f9795c-buildings.png and P12-7f9795c-machines.png, both views of scenes/review/blockout_kit_review.tscn rendered offscreen under xvfb on the compatibility renderer from one engine process, looked at and iterated seven times (row axis turned to the screen's horizontal so three buildings stop occluding one another, the clearance changed from a filled placeholder pad to an outline, cornices and a ground footprint line added so a stack of cubes reads as storeys, the iron's metal colour and rust tuned three times, the machines row pushed clear of the buildings and framed at a working share of the reference room): passed",
+      "blocked: needs decision -- every metre either kit writes down. BuildingBlockoutKit.STOREY_METRES (no C10 record carries a height: height_class is a placeholder in all three), REFERENCE_ROOM_FOOTPRINT_ID (which O3 room a record's cell share is measured against), TIER_SETBACK, FOOTING_SHARE, ROOF_CAP_SHARE, CORNICE_SHARE, CLEARANCE_LINE_SHARE, FOOTPRINT_LINE_METRES, SOCKET_INNER_SHARE, the two socket-marker sizes, and MachineBlockoutKit.FAMILY_ENVELOPE_METRES and PIVOT_PLAN. Brief section 20 leaves the exact standard dimensions Open; no content was authored to close any of them: not_run",
+      "blocked: needs a bridge verb -- BuildingBlockoutKit.CELL_CAPACITY_CELLS is a mirror of CELL_CAPACITY_CELLS in godot-rust/src/strategy/building.rs. Nothing exposes it through the bridge, so GDScript cannot be held equal to Rust here; the constant carries the mirror in a comment and the suite marks it as a decision. A bridge verb that reads it deletes the constant: not_run",
+      "Riveted iron (brief section 5.3) is P2's own bronze shader carrying iron's values through SetpieceMeshFactory.library_material -- a cold grey metal, an oxide rather than a verdigris patina, almost no polish. No material file was added to game/render/materials/ and no second material door exists. If a riveted_iron.tres ever joins the library, BlockoutKit.IRON_PARAMETERS becomes one key: passed",
+      "Everything is procedural and marked: every node either kit makes goes through BoardBlockout.mark (P4's vocabulary, called rather than copied) and carries blockout_placeholder, replaced_by and generated metadata. No mesh, texture, material or audio file was added by this lane: passed",
+      "Not done, on purpose: placement on the board is P10's or a later card's. Nothing places a building or a machine in a cell; the card's seam is build(record) -> Node3D and that is all that shipped. game/scripts/world/, game/scripts/board/, game/scripts/ui/, godot-rust/, content/ and tools/ are untouched: not_run"
+    ]
   }
 }
