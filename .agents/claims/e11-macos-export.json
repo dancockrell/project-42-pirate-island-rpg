@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "task_id": "e11-macos-export",
+  "agent": "claude-code (lane E11)",
+  "summary": "Name the GDExtension library by the architecture of the host that builds it -- tools/build-native-bridge.sh from uname -m (aarch64 mapped to arm64) and tools/build-native-bridge.ps1 from the Windows processor architecture -- and repair every path that named the hard-coded x86_64 file: the macos arm64 rows in game/bin/project42_sim.gdextension, the macOS preset's universal binary_format and both architectures' dylibs in its include_filter, and the host-architecture assertions in verify.yml and nightly.yml. The end of it is E10's macOS job exporting and uploading a macOS artifact whose zip carries the dylib at the path Godot resolves.",
+  "status": "active",
+  "claimed_at": "2026-09-06T11:05:00Z",
+  "updated_at": "2026-09-06T11:05:00Z",
+  "paths": [
+    "tools/build-native-bridge.sh",
+    "tools/build-native-bridge.ps1",
+    "game/bin/project42_sim.gdextension",
+    "game/export_presets.cfg",
+    ".github/workflows/nightly.yml",
+    ".github/workflows/verify.yml"
+  ],
+  "symbols": [],
+  "coordination": {
+    "depends_on": [
+      "e10-macos-nightly"
+    ],
+    "conflicts_with": [],
+    "notes": "E10 recorded two blockers in game/ and refused to fake around them; this lane fixes them at their root, which is the build script's hard-coded x86_64 file name rather than the .gdextension alone. game/export_presets.cfg is touched on the macOS preset lines only (binary_format/architecture and include_filter); verify.yml on its library assertion step only. Nothing under godot-rust/src, game/scripts, content or docs/SHIP_PLAN.md."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
