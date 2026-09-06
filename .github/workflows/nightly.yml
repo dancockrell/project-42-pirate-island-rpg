@@ -36,6 +36,10 @@ on:
     # worse than one that starts seventeen minutes past.
     - cron: '17 6 * * *'
   workflow_dispatch:
+  # TEMPORARY (E11 proof). Removed before the completion commit.
+  push:
+    branches:
+      - lane/E11-macos-export
 
 env:
   # Identical to verify.yml's pins. If one moves, both move.
