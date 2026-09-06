@@ -355,8 +355,8 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
-- **M3** shipped 14/16 — **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it)
-- Last updated 2026-09-06 against trunk `c745181`. If this line is older than
+- **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it)
+- Last updated 2026-09-06 against trunk `245aa5c`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -392,7 +392,7 @@ top of the document is never stale:
 | S10 | Elimination and the recovery chain | S3, S7 | shipped c745181 2026-09-06 |
 | S11 | Event journal and the strategic save fields | S4 | shipped 8c79fde 2026-09-06 |
 | S12 | `RecruitmentState` for women (not a numeric romance UI) | S1 | shipped 83658e5 2026-09-06 |
-| S13 | Michael's faction production: machines, not people | S3 | open |
+| S13 | Michael's faction production: machines, not people | S3 | shipped 245aa5c 2026-09-06 |
 | S14 | Founding sequence: shipwreck to first strategic core | S13, O5 | open |
 | S15 | Two Provisional doctrines approved and encoded | S1, human | blocked: needs approval of brief §6.x doctrines |
 
@@ -1210,7 +1210,7 @@ because naming one would author content — a woman who never joins stays at
 `Contact`. Decide the rung when C6 lands.
 
 ### S13 · Michael's faction production: machines, not people
-Status: open · Depends on: S3
+Status: shipped `245aa5c` 2026-09-06 · Depends on: S3
 `ActorKit` entries for Michael's faction are machines only; families from
 brief §5.4 as keys (`mechanical_dog`, `mechanical_cavalry`, `mechanical_bear`,
 `mechanical_elephant`, `walker`, `steam_wagon`, `rocket`, `airship`) with the
@@ -1222,6 +1222,26 @@ as a cost for this faction.
 Done when: production of a human role by a Michael building is rejected (S3
 test extended); a machine unit is produced from a building tier with fuel
 deducted.
+**Shipped:** `strategy/production.rs` — `MachineFamily` closed at the
+brief's eight; `MachineDefinition` with §18's fields verbatim and a
+`MachineDefinitions` registry; `ActorKit` with `ExposurePolicy::MachinesFirst`
+derived from `ConceptKey::Michael` (a fact about the record, never a stored
+copy that could disagree with it); `MachineInstance`; `produce_machine`
+refuses a non-operational building, a rule below tier, a non-machine on a
+Michael kit, and unpaid cost, then deducts the cost the rule names and hands
+back a `MachineProduced` event for the caller to journal. `ProductionOutput::
+Machine` now carries `{ family }` and `ProductionRule` gains `cost`;
+`BuildingInstance.machines_produced` and `ExpeditionState.machines` appended.
+Proven to bite (deleting the deduction fails on the fuel assertion). **At the
+merge** the integrator reconciled the new shape with C10's `machine_shop`
+record (bare `"machine"` → `{ "machine": { "family": "mechanical_dog" } }`)
+and S10's fixture, and the validator now refuses the bare string exactly as
+serde does — two refusals proven. **Left, on purpose:** nothing calls
+`produce_machine` on a timer (the `strategic.economy` draw is still
+unconsumed); the utility AI has no human-exposure term — that is S5's
+weights and B15's seam, not this card's; a `Captured` building does not
+produce because inheriting a line is part of §20's capture rules;
+`content/machines/` is a C card still to write.
 
 ### S14 · Founding sequence: shipwreck to first strategic core
 Status: open · Depends on: S13, O5
