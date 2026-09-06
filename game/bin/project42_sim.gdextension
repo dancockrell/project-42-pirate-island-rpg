@@ -3,10 +3,23 @@ entry_symbol = "gdext_rust_init"
 compatibility_minimum = "4.2"
 reloadable = false
 
+; E11. One row per architecture the bridge can be built for, because Godot
+; resolves <platform>.<configuration>.<architecture of the host it is running
+; on> and takes only that row. tools/build-native-bridge.sh and its PowerShell
+; twin name the file they install with the same token, from `uname -m` (and the
+; Windows equivalent), so a row and the file it names always agree. Rows whose
+; file no host has built yet are not dead weight: the Intel Mac or ARM Windows
+; build that produces one needs no edit here.
 [libraries]
 windows.debug.x86_64 = "res://bin/windows/project42_sim.windows.expedition_v5_debug.x86_64.dll"
 windows.release.x86_64 = "res://bin/windows/project42_sim.windows.expedition_v5_release.x86_64.dll"
+windows.debug.arm64 = "res://bin/windows/project42_sim.windows.expedition_v5_debug.arm64.dll"
+windows.release.arm64 = "res://bin/windows/project42_sim.windows.expedition_v5_release.arm64.dll"
 linux.debug.x86_64 = "res://bin/linux/project42_sim.linux.expedition_v5_debug.x86_64.so"
 linux.release.x86_64 = "res://bin/linux/project42_sim.linux.expedition_v5_release.x86_64.so"
+linux.debug.arm64 = "res://bin/linux/project42_sim.linux.expedition_v5_debug.arm64.so"
+linux.release.arm64 = "res://bin/linux/project42_sim.linux.expedition_v5_release.arm64.so"
 macos.debug.x86_64 = "res://bin/macos/project42_sim.macos.expedition_v5_debug.x86_64.dylib"
 macos.release.x86_64 = "res://bin/macos/project42_sim.macos.expedition_v5_release.x86_64.dylib"
+macos.debug.arm64 = "res://bin/macos/project42_sim.macos.expedition_v5_debug.arm64.dylib"
+macos.release.arm64 = "res://bin/macos/project42_sim.macos.expedition_v5_release.arm64.dylib"

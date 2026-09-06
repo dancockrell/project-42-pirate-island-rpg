@@ -175,17 +175,34 @@ jobs:
       # First half of the anti-mock proof, and the cheap half: if the library is
       # not on disk under the exact name game/bin/project42_sim.gdextension
       # declares, Godot cannot possibly have loaded it.
+      #
+      # E11: the name is asked for, not assumed. Godot resolves
+      # linux.debug.<architecture of the host it runs on> and
+      # tools/build-native-bridge.sh names the file it installs after that same
+      # host, so this step derives the token the same way the script does --
+      # `uname -m`, with aarch64 spelled arm64 the way Godot spells it. On this
+      # x86_64 runner that is x86_64 and nothing about the check changes; on an
+      # arm64 runner it would follow rather than fail for the wrong reason.
       - name: Confirm the GDExtension library is installed where Godot looks
         shell: bash
         run: |
           set -euo pipefail
-          library="game/bin/linux/project42_sim.linux.expedition_v5_debug.x86_64.so"
-          declared="res://bin/linux/project42_sim.linux.expedition_v5_debug.x86_64.so"
+          case "$(uname -m)" in
+            x86_64|amd64)   architecture="x86_64" ;;
+            aarch64|arm64)  architecture="arm64" ;;
+            *)
+              echo "Unsupported runner architecture for the native bridge: $(uname -m)" >&2
+              exit 1
+              ;;
+          esac
+          echo "Runner architecture: $(uname -m) -> Godot token $architecture"
+          library="game/bin/linux/project42_sim.linux.expedition_v5_debug.${architecture}.so"
+          declared="res://bin/linux/project42_sim.linux.expedition_v5_debug.${architecture}.so"
           if [[ ! -f "$library" ]]; then
             echo "The native bridge build did not install $library." >&2
             exit 1
           fi
-          if ! grep -qF "linux.debug.x86_64 = \"$declared\"" game/bin/project42_sim.gdextension; then
+          if ! grep -qF "linux.debug.${architecture} = \"$declared\"" game/bin/project42_sim.gdextension; then
             echo "game/bin/project42_sim.gdextension no longer declares $declared." >&2
             echo "The suites would silently fall back to MockSimulationPort. Refusing to run." >&2
             exit 1

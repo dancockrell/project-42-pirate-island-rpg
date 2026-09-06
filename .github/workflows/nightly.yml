@@ -21,10 +21,13 @@ name: Nightly
 # the only host that can build the macOS dylib. It is a job of its own rather
 # than a third `desktop` matrix leg: `runs-on` would have to move into the
 # matrix, and the archive layout, the binary path inside it, the checksum tool
-# and the export-templates directory all differ from the Linux ones. It builds
-# the dylib and stops at its own assertion; the two things still standing
-# between it and a macOS artifact are recorded on the job itself and are both
-# in game/, not here.
+# and the export-templates directory all differ from the Linux ones.
+#
+# E11. Every library assertion below derives the architecture token from the
+# host rather than hard-coding x86_64, exactly as tools/build-native-bridge.sh
+# now names the file it installs. That is what let the macOS job finish: an
+# Apple Silicon runner builds an arm64 dylib, Godot asks for macos.arm64, and
+# the name, the .gdextension row and the assertion all agree on arm64.
 
 on:
   schedule:
@@ -78,8 +81,12 @@ jobs:
           - preset: Linux Desktop
             slug: linux-desktop
             artifact: project42.x86_64
-            library: game/bin/linux/project42_sim.linux.expedition_v5_release.x86_64.so
-            declared: linux.release.x86_64
+            platform: linux
+            library_extension: so
+            # Built here, on this runner, so the architecture is the runner's:
+            # `host` tells the assertion to read it the way
+            # tools/build-native-bridge.sh does.
+            library_architecture: host
           # Windows exports from this Linux runner because the Windows
           # libraries are the ones game/bin/ actually carries, and Godot copies
           # the .dll next to the exported .exe. Nothing needs Wine or rcedit:
@@ -87,20 +94,21 @@ jobs:
           - preset: Windows Desktop
             slug: windows-desktop
             artifact: project42.exe
-            library: game/bin/windows/project42_sim.windows.expedition_v5_release.x86_64.dll
-            declared: windows.release.x86_64
+            platform: windows
+            library_extension: dll
+            # NOT the runner's architecture: the Windows libraries are the ones
+            # committed under game/bin/windows/, built on an x86_64 Windows
+            # machine, and nothing on this Linux runner rebuilds them. The token
+            # is literal because the file is.
+            library_architecture: x86_64
           #
           # macOS is not a leg of this matrix because it is not a Linux target.
           # tools/build-native-bridge.sh builds for the host it runs on, so no
-          # Linux runner can produce
-          # project42_sim.macos.expedition_v5_release.x86_64.dylib, and when E5
-          # tried it anyway the assertion below refused the export (run
-          # 34023865769) rather than let Godot write a .zip with no simulation
-          # inside it. E5's comment named its own exit condition -- a
-          # macos-latest runner -- and E10 supplied it: the `macos` job below
-          # does this same work there, and it does build the dylib. What it
-          # cannot yet do is finish the export, for two reasons that live in
-          # E4's files rather than in this workflow. Both are named on that job.
+          # Linux runner can produce the macOS dylib, and when E5 tried it
+          # anyway the assertion below refused the export (run 34023865769)
+          # rather than let Godot write a .zip with no simulation inside it.
+          # E5's comment named its own exit condition -- a macos-latest runner
+          # -- and E10 supplied it as the `macos` job below.
 
     steps:
       - name: Check out the repository
@@ -190,10 +198,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          library="${{ matrix.library }}"
+          # E11. Godot resolves <platform>.release.<architecture>, and for a
+          # library this runner built that architecture is the runner's. Read
+          # the same way tools/build-native-bridge.sh reads it, so the name it
+          # writes and the name asked for here cannot drift apart.
+          architecture="${{ matrix.library_architecture }}"
+          if [[ "$architecture" == "host" ]]; then
+            case "$(uname -m)" in
+              x86_64|amd64)   architecture="x86_64" ;;
+              aarch64|arm64)  architecture="arm64" ;;
+              *)
+                echo "Unsupported runner architecture for the native bridge: $(uname -m)" >&2
+                exit 1
+                ;;
+            esac
+          fi
+          echo "${{ matrix.preset }} library architecture: $architecture (runner is $(uname -m))"
+          declared_row="${{ matrix.platform }}.release.${architecture}"
+          library="game/bin/${{ matrix.platform }}/project42_sim.${{ matrix.platform }}.expedition_v5_release.${architecture}.${{ matrix.library_extension }}"
           declared="res://${library#game/}"
-          if ! grep -qF "${{ matrix.declared }} = \"$declared\"" game/bin/project42_sim.gdextension; then
-            echo "game/bin/project42_sim.gdextension no longer declares ${{ matrix.declared }} = $declared." >&2
+          if ! grep -qF "$declared_row = \"$declared\"" game/bin/project42_sim.gdextension; then
+            echo "game/bin/project42_sim.gdextension no longer declares $declared_row = $declared." >&2
+            grep -n "${{ matrix.platform }}\." game/bin/project42_sim.gdextension >&2
             exit 1
           fi
           if [[ ! -f "$library" ]]; then
@@ -240,35 +266,8 @@ jobs:
     # can build the dylib that game/bin/project42_sim.gdextension declares, so
     # the macOS build lives on a macOS runner and nowhere else.
     #
-    # This job is red today, and the red is the finding rather than a bug in
-    # it. Everything through the Rust build works: the pinned macOS engine
-    # verifies, the templates install, tools/build-native-bridge.sh produces
-    # game/bin/macos/project42_sim.macos.expedition_v5_release.x86_64.dylib on
-    # the runner. Two things in game/ then stop the export, and neither can be
-    # fixed from this file:
-    #
-    #   1. macos-latest is Apple Silicon. game/bin/project42_sim.gdextension
-    #      declares only macos.debug.x86_64 and macos.release.x86_64, so Godot
-    #      says "No GDExtension library found for current OS and architecture
-    #      (macos.arm64) in configuration file:
-    #      res://bin/project42_sim.gdextension" and would export a build with
-    #      no simulation in it. The assertion below refuses instead, by name.
-    #      (Run 34025105405.)
-    #   2. game/export_presets.cfg's macOS preset sets
-    #      binary_format/architecture="x86_64", and the official template
-    #      archive ships only godot_macos_release.universal and
-    #      godot_macos_debug.universal -- there is no per-architecture macOS
-    #      template. Godot answered "Export: Requested template binary
-    #      \"godot_macos_release.x86_64\" not found. It might be missing from
-    #      your template archive." and then "Project export for preset
-    #      \"macOS\" failed." (Run 34025105405, before the assertion below was
-    #      tightened to catch 1 first.)
-    #
-    # Both live in E4's files. The fix is one architecture value in the preset
-    # and a dylib the .gdextension declares for the architecture Godot asks
-    # for -- which for a universal build means two host builds merged, and one
-    # runner builds one architecture. Nothing here is provisional: the moment
-    # those two are right, this job exports and uploads.
+    # E11 removed the two blockers E10 recorded here -- the missing arm64 row
+    # and the x86_64 macOS binary format -- and this job exports and uploads.
     runs-on: macos-latest
     timeout-minutes: 45
 
@@ -360,14 +359,23 @@ jobs:
       # game with no simulation in it, so the job stops here rather than ship
       # a hollow build. The architecture is asked for rather than assumed:
       # Godot resolves macos.release.<arch of the host it runs on>, and
-      # tools/build-native-bridge.sh builds for its host too, so on an Apple
-      # Silicon runner both of those are arm64 while the declared row and the
-      # file name both say x86_64.
+      # tools/build-native-bridge.sh names the file it installs after that same
+      # host -- E11's whole point -- so the token is read here the way the
+      # script reads it and the two cannot drift apart.
       - name: Confirm the GDExtension library is installed where Godot looks
         shell: bash
         run: |
           set -euo pipefail
-          library="game/bin/macos/project42_sim.macos.expedition_v5_release.x86_64.dylib"
+          case "$(uname -m)" in
+            x86_64|amd64)   architecture="x86_64" ;;
+            aarch64|arm64)  architecture="arm64" ;;
+            *)
+              echo "Unsupported runner architecture for the native bridge: $(uname -m)" >&2
+              exit 1
+              ;;
+          esac
+          echo "Runner architecture: $(uname -m) -> Godot token $architecture"
+          library="game/bin/macos/project42_sim.macos.expedition_v5_release.${architecture}.dylib"
           declared="res://${library#game/}"
           if [[ ! -f "$library" ]]; then
             echo "The macOS export needs $library and it is not there." >&2
@@ -375,22 +383,18 @@ jobs:
             exit 1
           fi
           ls -la "$library"
-          # Honest about what one runner can produce: the script builds for its
-          # host, so this dylib carries that architecture alone whatever the
-          # file name says. Reported after the existence check, never before,
-          # or a missing library would be named by lipo instead of by the
-          # refusal above.
-          architecture="$(uname -m)"
-          echo "Runner architecture: $architecture"
+          # Reported after the existence check, never before, or a missing
+          # library would be named by lipo instead of by the refusal above.
+          # One runner builds one architecture; the file name now says which.
           lipo -archs "$library"
           file "$library"
           if ! grep -qF "macos.release.${architecture} = \"$declared\"" game/bin/project42_sim.gdextension; then
             echo "game/bin/project42_sim.gdextension declares no macos.release.${architecture} row." >&2
             echo "Godot on this runner asks for macos.${architecture} and reports \"No GDExtension library found for current OS and architecture (macos.${architecture})\", so the exported build would carry no simulation. Refusing." >&2
-            echo "The dylib built above is at $library. It is game/bin/project42_sim.gdextension -- E4's file, not this workflow -- that has to declare it for this architecture." >&2
             grep -n macos game/bin/project42_sim.gdextension >&2
             exit 1
           fi
+          echo "DYLIB_ARCHITECTURE=$architecture" >> "$GITHUB_ENV"
 
       - name: Import the project
         shell: bash
@@ -422,11 +426,29 @@ jobs:
         run: |
           set -euo pipefail
           archive="${GITHUB_WORKSPACE}/work/macos-desktop/project42.zip"
-          if ! unzip -l "$archive" | grep -F "project42_sim.macos.expedition_v5_release.x86_64.dylib"; then
+          library="project42_sim.macos.expedition_v5_release.${DYLIB_ARCHITECTURE}.dylib"
+          if ! unzip -l "$archive" | grep -F "$library"; then
             echo "$archive does not contain the macOS GDExtension library." >&2
             unzip -l "$archive" >&2
             exit 1
           fi
+
+      # E11. Not just "the name occurs somewhere in the zip": where it sits
+      # inside the .app bundle, which is the path Godot resolves at run time
+      # after the exporter rewrites the .gdextension for the packaged build.
+      # Printed rather than asserted against a fixed path -- the engine owns
+      # that layout, and a listing that shows it is worth more than an
+      # assertion that guesses it.
+      - name: List the dylib inside the exported .app
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="${GITHUB_WORKSPACE}/work/macos-desktop/project42.zip"
+          echo "Every entry of $archive naming the GDExtension:"
+          unzip -l "$archive" | grep -E 'project42_sim|\.dylib|\.gdextension'
+          echo ""
+          echo "Top of the bundle:"
+          unzip -l "$archive" | head -20
 
       # Unsigned and unnotarised is the honest state of this build: the preset
       # sets codesign/codesign=0 and notarization/notarization=0, and no signing
@@ -458,9 +480,12 @@ jobs:
             echo "Architecture: the GDExtension library inside was built by"
             echo "tools/build-native-bridge.sh on this runner, which builds for its"
             echo "own host, so it carries that host's architecture alone --"
-            echo "$(uname -m) -- despite the x86_64 in its file name and in the"
-            echo "preset's binary_format/architecture. A universal build needs both"
-            echo "architectures built and merged, which one host build cannot do."
+            echo "${DYLIB_ARCHITECTURE} -- and its file name now says so. The engine"
+            echo "binary from the official template is universal, because that is the"
+            echo "only macOS template the template archive ships; the simulation"
+            echo "library beside it is not. A universal library would need both"
+            echo "architectures built and merged, which one host build cannot do, so"
+            echo "this build runs on ${DYLIB_ARCHITECTURE} Macs and nothing else."
           } > "$output/README.txt"
           cat "$output/README.txt"
 
