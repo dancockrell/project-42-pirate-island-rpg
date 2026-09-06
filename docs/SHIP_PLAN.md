@@ -356,7 +356,7 @@ top of the document is never stale:
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; B8 in flight
 - **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `649852a`. If this line is older than
+- Last updated 2026-09-06 against trunk `2f2b355`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -409,7 +409,7 @@ top of the document is never stale:
 | B7 | Battle-entry sockets bound to habitat holders | B3 | open |
 | B8 | New game, save slots, continue | E6 | open |
 | B9 | Settings, accessibility, and **pause** | — | shipped 649852a 2026-09-06 |
-| B10 | `ContentPackRegistry` and the presentation override pack | C8 | open |
+| B10 | `ContentPackRegistry` and the presentation override pack | C8 | shipped 2f2b355 2026-09-06 |
 | B11 | Room cells carry board metadata (footprint, spawn sockets, tethers) | A2, O3 | open |
 | B12 | The isometric board: world / route / room distances | B11, S2, O1 | open |
 | B13 | Calm information surface: ambient / notable / urgent | S6, B12 | open |
@@ -1425,7 +1425,7 @@ need no separate guard because none advances outside the midnight call —
 the simulation side has no clock (S4).
 
 ### B10 · `ContentPackRegistry` and the presentation override pack
-Status: open · Depends on: C8
+Status: shipped `2f2b355` 2026-09-06 · Depends on: C8
 Autoload scanning `user://packs/` and `res://packs/`;
 `ProjectSettings.load_resource_pack()` per `.pck`; read `pack.json`; merge
 overrides by scene ID in load order. The scene player asks the registry for
@@ -1433,6 +1433,17 @@ the highest `presentationLevel` available for a scene; absent a pack, base.
 One headless test with a fixture pack: level switches with the pack present,
 falls back without. The simulation never reads presentation.
 Done when: the test passes both ways.
+**Shipped:** `ContentPackRegistry` autoload; `scan(root)` mounts `.pck`
+files and loads plain directories carrying `pack.json` (so C8's fixture works
+with no export and is not copied under `game/`); overrides merge by scene ID
+in load order, later wins, the winning pack rides on the override; one
+ordering table `fade_to_black < explicit`; the catalog already carried scene
+records, so no accessor was needed. The suite proves the level switches with
+a temporary `user://` pack at `explicit` (nothing explicit is authored), the
+later pack wins a shared scene, an untouched scene keeps base, and a pack
+with a missing asset is refused. Run locally on the pinned 4.7.2 engine and
+in CI. Two bites proven. **Not proved:** the `.pck` branch — no pack is
+built until E9, which must land each manifest at `res://packs/<id>/pack.json`.
 
 ### B11 · Room cells carry board metadata
 Status: open · Depends on: A2, O3
