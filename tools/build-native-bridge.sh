@@ -69,7 +69,7 @@ esac
 # library.
 declare -a build_plan
 if [[ "$platform" == "macos" ]]; then
-    build_plan=(":$architecture")  # BITE: host only, the defect this card fixed
+    build_plan=("aarch64-apple-darwin:arm64" "x86_64-apple-darwin:x86_64")
 else
     build_plan=(":$architecture")
 fi
