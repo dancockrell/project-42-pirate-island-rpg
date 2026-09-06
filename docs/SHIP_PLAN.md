@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 (S16, S17 and S18 are additions outside the bracket; S18 made the M3 100-day elimination pass for a faction that does not act; an autonomous faction still cannot fall while its stockpile never lowers) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `106e25a`. If this line is older than
+- Last updated 2026-09-06 against trunk `477447e`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -502,7 +502,7 @@ captured by P1's gate, and no card claims a look it has not captured.
 | P8 | The shell: title, new game, continue, settings, pause, save slots, loading; one scene flow shell → expedition → battle and back | B8, B9 | shipped `5375229` 2026-09-06 |
 | P9 | Audio: buses, ambience by region, time and weather, cues keyed to battle events, a music state machine; procedural placeholders until assets | P3 | shipped 174f029 2026-09-06 |
 | P10 | The expedition screen is the board: P7's RTS controls on P4's isometric board, the 2D route board retired, one owner of travel on screen | P4, P7 | shipped `106e25a` 2026-09-06 |
-| P11 | One palette owner, adopted: battle, shell, settings and review scenes take colour and type from the Theme; the restated hexes deleted | P5, P6, P8 | open |
+| P11 | One palette owner, adopted: battle, shell, settings and review scenes take colour and type from the Theme; the restated hexes deleted | P5, P6, P8 | shipped `477447e` 2026-09-06 |
 | P12 | Blockout kits for buildings and machines (D9 + D10): procedural envelopes from the C10 and C14 records in the library's riveted iron and clay, reviewed at gameplay distance | P2, C10, C14 | shipped `76f09ac` 2026-09-06 |
 
 ### Lane H — Docs and hygiene
@@ -3076,7 +3076,7 @@ stands at the road mouth (`FORCE_STAND_OFFSET_METRES`) so it never stands
 on the party (S18's verbs made that case real).
 
 ### P11 · One palette owner, adopted
-Status: open · Depends on: P5, P6, P8
+Status: shipped `477447e` 2026-09-06 · Depends on: P5, P6, P8
 Touches: `game/scripts/battle/battle_palette.gd`, `game/scripts/shell/shell_style.gd`,
 `game/scripts/battle/**` and `game/scripts/shell/**` where they read a
 colour or a font size, `game/scripts/review/**`, `game/scripts/atmosphere/**`
@@ -3099,6 +3099,32 @@ Done when: a suite walks every `.gd` under `game/scripts/` except `world/`
 and `board/` and refuses an unmarked `Color(` or `Color.` hex literal, and
 asserts the battle and the title re-theme when `apply_settings` is called;
 captures of the battle and the title under high contrast at 1.3× text.
+**Shipped:** `ThemeTokens.adopt(screen)` is the one door: a screen's
+Theme comes from `InformationSurface` and the same call subscribes its
+`_on_theme_rebuilt`. Every Label on the title, pause menu, credits, chooser
+and battle HUD names a Theme variation; every menu row is the Theme's new
+`MenuRow` variation; what a variation cannot carry (flat fills, StyleBoxes
+built in code, `_draw`) is rebuilt from tokens on rebuild.
+`battle_palette.gd` keeps only the vocabulary `vfx.registry.json` authors
+in, resolved to tokens, with the true game colours marked; `shell_style.gd`
+declares no colour; `SceneFlow`'s veil, the waveform sheet, damage numbers
+and every hard-coded font size on both screens went with them; the title's
+sky shader and ridge silhouettes take the palette, so high contrast reaches
+the weather. The Theme gained tokens `night` and `hairline`, two type
+steps, five `MenuRow` boxes and six label variations, additively.
+`palette_owner_test.gd` scans every script under `game/scripts/` except
+`world/` (the board joined at integration after P10: 71 scripts, zero
+unmarked literals) and instances the title and the battle on the live tree
+under `apply_settings(1.3, true, false)`, asserting both re-theme. Bites: a
+renamed listener fails four checks by name; one restored hex fails the
+scan by file and line. Captures
+`P11-1907073-{battle-high-contrast,title-high-contrast,battle-default}.png`
+(the first title pass had four menu rows off the glass at 1.3×; the
+layout now closes its gaps in proportion). Not done: a roster card's status
+line overflows the copy column at every scale and the skill-diamond labels
+truncate at 1.3× (P6's layout); Ayla's colours stay Open. Integration
+`477447e`: E12's credits lines moved to the variation API; P12's seven material
+values marked as game colours.
 
 ### P12 · Blockout kits for buildings and machines (D9 + D10)
 Status: shipped `76f09ac` 2026-09-06 · Depends on: P2, C10, C14
