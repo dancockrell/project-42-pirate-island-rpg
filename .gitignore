@@ -17,6 +17,10 @@ work/__pycache__/
 /work/windows-desktop/
 /work/linux-desktop/
 /work/macos-desktop/
+# E9: tools/src/build-pack.mjs generates a throwaway Godot project per pack and
+# writes the built .pck. Both are build output, rebuilt from packs/ every run.
+/work/pack-build/
+/work/packs/
 *.zip
 .git-empty-backup-*/
 .gh-auth/
