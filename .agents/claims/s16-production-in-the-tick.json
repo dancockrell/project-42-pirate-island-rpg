@@ -5,7 +5,7 @@
   "summary": "S16: an operational building's interval production rules count down every strategic hour and fire on the economy draw -- machines through produce_machine, capacity and services journalled, the rule's cost paid from the faction stockpile or skipped with a journalled reason and never a negative number.",
   "status": "completed",
   "claimed_at": "2026-09-06T09:00:00Z",
-  "updated_at": "2026-09-06T16:10:00Z",
+  "updated_at": "2026-09-06T16:35:00Z",
   "paths": [
     "godot-rust/src/strategy/production.rs",
     "godot-rust/src/strategy/tick.rs",
@@ -54,7 +54,7 @@
       "node tools/src/build-content-bundle.mjs && git diff --quiet game/generated/ -- 93 records, sha256:ec74b6166340c55d085348d6843d6b985ace8711c8cb4d4fa973f67a7becff32, no diff (this lane touches no content): passed",
       "bite: `let due = remaining <= 1` replaced with `let due = true` (the countdown removed) fails a_stocked_machine_shop_turns_out_a_machine_on_the_authored_interval at tests/strategic_determinism.rs:920 with 'hour 1 of 24 produced a machine early: [HourPassed { day: 1, hour: 0 }, MachineProduced { faction_id: \"faction.michael\", family: MechanicalDog, building_instance_id: \"building_instance.s16.machine_shop\", day: 1 }]'; restored, the test passes: passed",
       "manual: no HashMap/HashSet, no rand, no SystemTime/Instant, no unsafe, no std::process added; the two new StrategicEvent variants are appended at the END of the enum; production_countdown is appended #[serde(default)] on BuildingInstance (not on ExpeditionState, so EXPECTED_CURRENT_KEYS is unchanged): passed",
-      "CI verify.yml (godot-suites included) on lane/S16-production-in-the-tick, at the moment this claim was written: not_run"
+      "CI verify.yml run 234 on lane/S16-production-in-the-tick (b2e6266) -- 'Rust and content' and 'Godot headless suites' both green, bundle-staleness step included: passed"
     ]
   }
 }
