@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "task_id": "e8-claims-enforcement",
+  "agent": "claude-code-agent-E8",
+  "summary": "E8: tools/src/check-claims.mjs makes the claims ledger and the ship-plan ledger a CI gate",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "tools/src/check-claims.mjs",
+    ".github/workflows/verify.yml",
+    ".agents/README.md",
+    ".agents/claims/",
+    "docs/SHIP_PLAN.md"
+  ],
+  "symbols": [],
+  "coordination": {
+    "depends_on": ["e1-ci-rust-and-content"],
+    "conflicts_with": [],
+    "notes": "Touches docs/SHIP_PLAN.md only to correct a status/sha mismatch the new script proves wrong, and .agents/claims/*.json only to correct records the script proves wrong. No scope or prose changes. Touches nothing under godot-rust/, content/ or game/."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
