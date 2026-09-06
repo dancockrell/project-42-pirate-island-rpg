@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `ab23ab9`. If this line is older than
+- Last updated 2026-09-06 against trunk `419f64c`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -427,7 +427,7 @@ top of the document is never stale:
 | C2 | Portal cost fields (the location IDs were fixed by A2) | — | shipped ab17bfa 2026-09-05 — its costs first reached the engine under C13; the port had dropped them |
 | C3 | `ayla.json` and seven Ayla skill records | A7 | open |
 | C4 | Captain Michael's skill records and a `self` target rule | — | shipped ab17bfa 2026-09-05 |
-| C5 | The tomb as a faction-specific dungeon: twelve spaces | B6, S9 | open |
+| C5 | The tomb as a faction-specific dungeon: twelve spaces | B6, S9 | shipped 419f64c 2026-09-06 |
 | C6 | Relationship scene records and schema | — | shipped 3857ffa 2026-09-06 — five scenes, fade-to-black by rule, the pack's seam left open |
 | C7 | Placeholder deprecation migration | D4 | open |
 | C8 | Scene `presentationLevel` and the pack manifest schema | C6 | shipped a579ff9 2026-09-06 |
@@ -1770,9 +1770,24 @@ binding referenced, pointing a cue at a nonexistent camera, and listing an
 unwritten skill — and watching all five failures appear.
 
 ### C5 · The tomb as a faction-specific dungeon **(brief)**
+Status: shipped `419f64c` 2026-09-06 · Depends on: B6, S9
 As the first edition (twelve spaces per bible §3.13) plus: the tomb's cells
 carry `site_rule_ids` and a `dungeonContext` block; S9 selects rules by
 owning faction (elves by default; corrupted variant when Cthulhu holds it).
+**Shipped:** `content/dungeons/tomb_of_returning_names.json` — the bible's
+twelve spaces, six realised by a world cell today and six carrying
+`worldCellId: null` with a note; the default (elves) and corrupted (Cthulhu)
+site-rule sets, disjoint by test; each tomb cell's `dungeonContext` mirrors
+its space and exactly its rules. `strategy/dungeon_content.rs` reads the
+record (a reader is a different responsibility from S9's signature, so
+`dungeon.rs` is untouched) and `select_site_rules` brings the corrupted set
+only when the Cthulhu concept key holds the ground. Same context, same
+rules; owner change, different rules — the card's done-when, plus the
+record held equal to what the reader loads. Three bites proven. Stable IDs
+225 → 264 (the dungeon, twelve spaces, twenty-six `site_rule.*` IDs).
+**Left, on purpose:** site rules are opaque IDs — A7 owns what a rule does
+and no registry exists; a third owner's rule set and what corruption does to
+a space are `blocked: needs decision`.
 
 ### C6 · Relationship scene records and schema
 Status: shipped `3857ffa` 2026-09-06 · Depends on: —
