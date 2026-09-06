@@ -47,6 +47,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::expedition::ExpeditionState;
 use crate::geography::Geography;
+use crate::strategy::elimination::RecoveryLink;
 use crate::strategy::faction::FactionDefinitions;
 use crate::strategy::force::{ForceId, HaltReason};
 use crate::strategy::utility::{BoardView, GoalWeights, choose_goals, recompute_strategic_state};
@@ -186,6 +187,18 @@ pub enum StrategicEvent {
         cell_id: String,
         reason: HaltReason,
     },
+    /// S10: a faction lost one of brief section 16's ways back. Emitted the
+    /// hour the link stops being there, so the journal carries the *order* a
+    /// faction was taken apart in rather than only the fact that it was.
+    RecoveryLinkLost {
+        faction_id: String,
+        link: RecoveryLink,
+    },
+    /// S10: a faction's recovery chain ran out and it is off the board, on
+    /// `day`. There is no matching "returned" variant, and that absence is the
+    /// design: brief section 16's "the eliminated faction does not
+    /// automatically respawn".
+    FactionEliminated { faction_id: String, day: u32 },
 }
 
 /// The draws one faction is entitled to make in one hour, in the order it

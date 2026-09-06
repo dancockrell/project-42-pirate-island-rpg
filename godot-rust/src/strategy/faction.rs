@@ -43,6 +43,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 
 use crate::expedition::{ExpeditionError, require_stable_id};
+use crate::strategy::elimination::RecoveryLink;
 use crate::strategy::utility::Goal;
 
 /// The prefix every faction's stable ID carries. IDs are
@@ -416,6 +417,31 @@ pub struct FactionState {
     /// number beyond the ones S1 declared.
     #[serde(default)]
     pub current_goals: Vec<Goal>,
+    /// S10: whether this faction has ever held a recovery link.
+    ///
+    /// Appended, `#[serde(default)]`, per the `ExpeditionState` rule
+    /// (`docs/SHIP_PLAN.md` section 9).
+    ///
+    /// The one thing that separates *having nothing* from *having lost
+    /// everything*, and the reason a fresh campaign -- where content authors
+    /// no ownership, so nobody holds a cell, a building or a force -- does not
+    /// eliminate the whole island on hour one.
+    /// [`crate::strategy::elimination::ExpeditionState::eliminate_if_exhausted`]
+    /// sets it the first hour the chain is non-empty and nothing ever clears
+    /// it; an empty chain is exhaustion only once it is set.
+    #[serde(default)]
+    pub has_ever_held: bool,
+    /// S10: the recovery links this faction held when the chain was last read.
+    ///
+    /// Appended, `#[serde(default)]`, per the same rule. Saved rather than
+    /// recomputed because a *loss* is a comparison between two readings, and
+    /// the earlier one has to survive the tick -- and the save -- for
+    /// [`crate::strategy::tick::StrategicEvent::RecoveryLinkLost`] to be
+    /// emitted once, in the hour the link went, rather than every hour
+    /// afterwards. Written only by the elimination check, in brief section
+    /// 16's order, and read by nothing else.
+    #[serde(default)]
+    pub recovery_links_held: BTreeSet<RecoveryLink>,
 }
 
 impl FactionState {

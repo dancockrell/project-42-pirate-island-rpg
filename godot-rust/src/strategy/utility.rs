@@ -1705,8 +1705,15 @@ mod tests {
                 "eliminated",
                 "relationships",
                 "current_goals",
+                // S10's two, and the reason they are not scores: `has_ever_held`
+                // is the yes-or-no that separates "never held anything" from
+                // "lost everything", and `recovery_links_held` is a set of brief
+                // section 16's link *names*. Neither is a quantity, and this
+                // assertion still fails the moment one becomes one.
+                "has_ever_held",
+                "recovery_links_held",
             ]),
-            "S5 may add current_goals and nothing else; a score field fails here"
+            "S5 may add current_goals and S10 its two history fields; a score field fails here"
         );
 
         assert_eq!(
