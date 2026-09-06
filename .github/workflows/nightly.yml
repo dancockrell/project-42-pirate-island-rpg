@@ -24,6 +24,9 @@ on:
     # worse than one that starts seventeen minutes past.
     - cron: '17 6 * * *'
   workflow_dispatch:
+  # TEMPORARY PROOF TRIGGER -- removed before this lane is completed.
+  push:
+    branches: [lane/E5-E9-nightly-and-pack]
 
 env:
   # Identical to verify.yml's pins. If one moves, both move.
