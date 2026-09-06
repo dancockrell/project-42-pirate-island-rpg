@@ -3,7 +3,7 @@
   "task_id": "c10-c8-buildings-and-pack-manifest",
   "agent": "claude-code (lane C10+C8)",
   "summary": "Author content/buildings/ to S3's contract and the presentation-override pack manifest schema, with the two validator blocks and the Rust equality test that hold them.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -27,7 +27,22 @@
     "notes": "building.rs is touched in exactly one hunk -- a single test appended at the END of the test module -- because three other lanes are appending fields and tests to the same file and an end-of-module append merges. validate.mjs gains two blocks (buildings, packs) and no existing block is edited. Packs are validated but deliberately NOT bundled: they are separate artifacts (E9 builds the .pck), so build-content-bundle.mjs gains buildings only. packs/pack.presentation.fixture/ is a FIXTURE that proves the schema at targetLevel fade_to_black; the adult pack is not authored in this repository and no explicit content exists here."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "70ebb0c",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (272 unit incl. the new strategy::building test, plus 5 + 5 + 7 + 1 integration): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (214 stable IDs; 3 building records, 1 presentation pack carrying 2 scene overrides): passed",
+      "node tools/src/check-claims.mjs (36 claims, 86 ship-plan rows, 80 cards): passed",
+      "node tools/src/build-content-bundle.mjs && git diff --quiet game/generated/ (47 records, sha256:8d41828484ad587e1d2c4a3e64fe5f87a4cced8a4a71395bfc22ccf63ad533af): passed",
+      "Done-when: every_authored_building_record_loads_and_validates reads content/buildings/ through the real validate and BuildingDefinitions::insert: passed",
+      "Bite: a human_role production rule added to building.machine_shop (concept key michael) failed the validator (production[3] produces a human role on a record compatible with concept key michael) and failed every_authored_building_record_loads_and_validates at validate; restored and green: passed",
+      "Bite: deleting capture_rules from building.coast_watch_post failed the validator (capture_rules is missing ... brief section 20) and failed the Rust test at deserialization (missing field capture_rules), because S3 gives the field no serde default; restored and green: passed",
+      "Bite: a top-level \"skill\" key added to packs/pack.presentation.fixture/pack.json failed the validator (a presentation pack may not carry a skill key); restored and green: passed",
+      "Bite: renaming an override key to scene.betty.a_scene_nobody_wrote failed the validator (overrides targets ..., which no record in content/relationships/ declares); restored and green: passed",
+      "needs decision: height_class on all three records; construction_cost and every production output_key at resource.open.needs_decision; requirement.open.needs_decision.*, role.open.needs_decision.*, service.open.needs_decision.* and recruitment_support.open.needs_decision.* keys; allowed_terrain empty; maximum_slope 0 -- brief section 20: not_run",
+      "Packs are validated but deliberately not bundled; E9 builds the .pck and B10 discovers it at runtime, so no pack reaches game/generated/content_bundle.json: not_run",
+      "The adult pack itself is not authored here and no explicit content exists in this repository; packs/pack.presentation.fixture/ carries targetLevel fade_to_black and fixture prose: not_run"
+    ]
   }
 }
