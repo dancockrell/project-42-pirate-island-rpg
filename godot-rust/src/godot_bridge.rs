@@ -634,6 +634,7 @@ impl Project42ExpeditionBridge {
             self.state.as_ref().expect("state assigned"),
             &self.geography,
             &self.factions,
+            &self.buildings,
         )
     }
 }
