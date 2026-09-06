@@ -370,7 +370,7 @@ top of the document is never stale:
 | A5 | Five named bands and Composure | A1 | shipped 906411c 2026-09-05 — skill_rank reconciled to authored bondRank on merge |
 | A6 | Captain Michael as a battle actor: Weapon Attack, Guard, Reposition | A5, C4 | shipped f33f364 2026-09-05 — name and reposition record reconciled on merge |
 | A7 | Ayla's Deny Activation and Override Tomb Rule via site rules | A2, H5 | open |
-| A8 | Reconcile `hold_position` with the Guard decision | A6 | open |
+| A8 | Reconcile `hold_position` with the Guard decision | A6 | shipped SHAMARK 2026-09-06 |
 | A9 | Faction-agent observation record (was "Champion") | A6, S5 | open |
 | A10 | Bond rank D→C with a specified combat effect | A6, C6 | open |
 | A11 | Party of five | — | shipped 6b9d275 2026-09-04 |
@@ -785,8 +785,16 @@ owning faction; author them as data from the start.
 Done when: two tests per skill; a suppressed rule survives save/reload.
 
 ### A8 · Reconcile `hold_position` with the Guard decision
-Status: open · Depends on: A6 — rewrite `ARCHITECTURE.md`'s "admitted
-scaffolding" paragraph: `hold_position` is the universal Guard verb.
+Status: shipped `SHAMARK` 2026-09-06 · Depends on: A6 — rewrite
+`ARCHITECTURE.md`'s "admitted scaffolding" paragraph: `hold_position` is the
+universal Guard verb.
+
+**Shipped.** The paragraph said the verb "must disappear"; A6 had already
+built on it staying (the Captain has no Guard of his own because this one
+exists, and `the_captain_may_guard_with_the_universal_hold_position_verb`
+proves he can spend it). The rewrite separates the two things the old text
+conflated: the verb is permanent; the *driver's* use of it as a stand-in for
+a heroine's unimplemented signature skills is the provisional part.
 
 ### A9 · Faction-agent observation record
 Status: open · Depends on: A6, S5 · **(brief)** Was "Champion observation".
