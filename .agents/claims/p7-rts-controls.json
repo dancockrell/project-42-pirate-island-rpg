@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "task_id": "p7-rts-controls",
+  "agent": "claude-code (lane P7)",
+  "summary": "RTS controls on the 2D expedition route board: the drawn portal lines, the teal midpoint dots and the route legend are deleted, tiles are isometric glyphs that tint by reachability, left-click selects or inspects, right-click orders the move, and the route words and digits 1-9 issue the same order through the one request_travel path.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "game/scripts/world/expedition_route_board.gd",
+    "game/scripts/world/expedition_prototype.gd",
+    "game/tests/expedition_prototype_test.gd",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "ExpeditionRouteBoard.reachable_portal_ids",
+    "ExpeditionRouteBoard.selected_cell_id",
+    "ExpeditionRouteBoard.portal_from_active_cell_to",
+    "ExpeditionRouteBoard.tile_at_point",
+    "ExpeditionRouteBoard.tile_selected",
+    "ExpeditionRouteBoard.move_ordered",
+    "ExpeditionPrototype.select_tile",
+    "ExpeditionPrototype.order_move_to_tile",
+    "ExpeditionPrototype.press_route_hotkey",
+    "ExpeditionPrototype.route_hotkey_portal_ids"
+  ],
+  "coordination": {
+    "depends_on": [
+      "b14-control-and-risk-surface",
+      "b3-b4-legal-commands-and-controls",
+      "b9-pause-and-settings"
+    ],
+    "conflicts_with": [],
+    "notes": "P7 is B18 resumed; the stopped B18 lane pushed a claim and no code, so this claim replaces it rather than joining it. Branched from origin/backend/b0-expedition-state at f5d26d1. Godot-only lane: no Rust, no port, no campaign_session.gd, no content, no docs/SHIP_PLAN.md. draw_portal and its midpoint dot are deleted rather than hidden -- move 3, the feature goes -- and the reachability those lines carried becomes the tint on the tile, which is the same snapshot fact drawn once instead of twice. Legality stays where it is: the native legal_route_commands list is the only judge, and portal_from_active_cell_to is a lookup inside that list, not a second check. The board owns the cell-to-portal mapping because it already builds the catalog portal list; the prototype asks it rather than keeping a second copy. request_travel remains the single path to the bridge -- the words, the right-click and the hotkey all end in it -- and the mouse and key handlers call the same three hooks a suite calls, so there is one code path per order and not two. Reduced motion is read from SettingsPanel's own SETTINGS_PATH and SECTION constants rather than copied, and no file under game/scripts/ui/ is edited. P4 is building the 3D board in parallel and will adopt these controls through the same three functions."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
