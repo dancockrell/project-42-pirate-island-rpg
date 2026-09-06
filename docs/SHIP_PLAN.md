@@ -351,12 +351,11 @@ top of the document is never stale:
   victory pays), **A4** (the estate's rooms are anchor actions; one way to act
   at a place), **A5** (five named bands, Composure, the Shaken gate) and
   **A6** (Michael is a playable actor: Weapon Attack, Guard, Reposition)
-- **M2** shipped 8/9 (E8 is listed for the record but sits outside the bracket) — **B8** (save slots and continue through the bridge; newest by in-world time), **B9** (pause is one Godot fact; settings persist), **E7** (a crash log on the player's disk; nothing leaves the machine, proven), **E8** (both ledgers a CI gate), **E1** (CI live and green on GitHub), **E2** (Godot
+- **M2** shipped 9/9 (E8 is listed for the record but sits outside the bracket) — **E5** (nightly Linux and Windows builds that refuse to ship hollow; macOS honestly absent), **B8** (save slots and continue through the bridge; newest by in-world time), **B9** (pause is one Godot fact; settings persist), **E7** (a crash log on the player's disk; nothing leaves the machine, proven), **E8** (both ledgers a CI gate), **E1** (CI live and green on GitHub), **E2** (Godot
   suites, first run executed and green), **E3** portable gates, **E4** desktop
-  export presets, **E6** save-migration fixtures; E5 open with a hard
-  build-before-export requirement
+  export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `6d2aa16`. If this line is older than
+- Last updated 2026-09-06 against trunk `ab23ab9`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -464,11 +463,11 @@ top of the document is never stale:
 | E2 | Godot headless suites in CI | E1, E3 | shipped 7b8f698 2026-09-05 — executed and green; **hardened 5107113 2026-09-06**: the gate now fails any step that prints an ERROR line, after a suite's exit-code hole let a missing scene anchor through a green run |
 | E3 | Shell equivalents of the two PowerShell gates | — | shipped 5344b7b 2026-09-05 |
 | E4 | Desktop export presets for Windows, Linux, macOS | — | shipped 838824e 2026-09-05 |
-| E5 | Nightly build artifacts per platform | E2, E4 | open — **must build the native library before exporting**, see its card |
+| E5 | Nightly build artifacts per platform | E2, E4 | shipped ab23ab9 2026-09-06 — Linux and Windows; macOS refused honestly, see its card |
 | E6 | Save-version migration fixtures | — | shipped 85413f0 2026-09-05 — **blind spot closed 095f3ac 2026-09-06**: the expected key set is a literal now |
 | E7 | Crash log with state snapshot; no silent telemetry | — | shipped 47fa829 2026-09-06 |
 | E8 | Claims enforcement in CI | E1 | shipped 528773b 2026-09-06 — both ledgers are a gate; it corrected 120-odd records on arrival |
-| E9 | Pack build script and pack artifact | C8, E5 | open |
+| E9 | Pack build script and pack artifact | C8, E5 | shipped ab23ab9 2026-09-06 |
 
 ### Lane F — Audio · Lane G — QA
 
@@ -2102,7 +2101,7 @@ did not. And the shape of the *first* failing suite decided whether the gate
 could see at all.
 
 ### E5 · Nightly build artifacts
-Status: open · Depends on: E2, E4
+Status: shipped `ab23ab9` 2026-09-06 · Depends on: E2, E4
 A scheduled workflow that exports all three desktop presets and uploads them
 as artifacts named with the commit SHA.
 
@@ -2118,6 +2117,18 @@ Note the distinction from E2: E2 is genuinely unblocked, because its CI job
 builds the `.so` itself at run time via the same script — confirmed by its
 first green run, which built the library and loaded it. It is *release
 packaging* that the missing committed binaries affect, not the test job.
+**Shipped:** `.github/workflows/nightly.yml` — daily schedule plus dispatch;
+engine and 4.7.2 export templates pinned by SHA-512 exactly as verify.yml
+pins the engine; `tools/build-native-bridge.sh release` first, then the
+assertion that the library exists at the path the `.gdextension` names, then
+the export; artifacts `project42-linux-desktop-<sha>` and
+`project42-windows-desktop-<sha>` (both from the Linux runner) plus the
+packs. Proven to bite: with the native build no-op'd the job refused at the
+assertion by name. **macOS is not in the matrix, on purpose:** no Linux
+runner can build the dylib, so the export would package a build with no
+simulation in it; the workflow carries the reason and the evidence run.
+Adding it needs a macOS runner or a cross-compiled dylib. `workflow_dispatch`
+registers once this file is on the default branch.
 
 ### E6 · Save-version migration fixtures
 Status: shipped `85413f0` 2026-09-05, blind spot closed `095f3ac` 2026-09-06
@@ -2201,8 +2212,17 @@ here. Every correction is listed in the claim. From here the integrator runs
 ledger commit.
 
 ### E9 · Pack build script and pack artifact — `tools/src/build-pack.mjs`
+Status: shipped `ab23ab9` 2026-09-06 · Depends on: C8, E5
 runs `godot --headless --export-pack` on `packs/<id>/`; CI uploads the `.pck`
 beside the nightly; the adult-store build is base + pack, never a second build.
+**Shipped:** one `.pck` per `packs/<id>/`, exported from a throwaway project
+whose whole `res://` is the pack directory so the manifest lands at
+`res://packs/<id>/pack.json` — the path B10's registry reads. Each built pack
+is mounted into an empty probe project and its manifest and every declared
+asset read back; the probe's own words go to the log. Runs nightly beside
+the desktop builds and as an eleven-second step in verify.yml's Godot job
+(no template needed for `--export-pack`). Error detection reuses
+`tools/verify-godot.sh`'s pattern character for character.
 
 ### Lane H — cards for this pass
 
