@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "task_id": "s17-goals-become-actions",
+  "agent": "claude-code (lane S17)",
+  "summary": "S17: the hour's chosen goals become acts -- Develop places a compatible building on held ground with room, Recover gathers an open-keyed trickle, Expand and Pressure dispatch a force along a real route, Consolidate and Withdraw journal a skip; Michael's faction acts only for the player and takes no autonomous action.",
+  "status": "completed",
+  "claimed_at": "2026-09-06T18:00:00Z",
+  "updated_at": "2026-09-06T12:15:00Z",
+  "paths": [
+    "godot-rust/src/strategy/action.rs",
+    "godot-rust/src/strategy/mod.rs",
+    "godot-rust/src/strategy/tick.rs",
+    "godot-rust/tests/strategic_determinism.rs"
+  ],
+  "symbols": [
+    "act_on_goals",
+    "ActionSkipReason",
+    "GATHER_PER_HELD_CELL_PER_HOUR",
+    "GATHERED_RESOURCE_KEY",
+    "FORCE_COMPOSITION_ACTOR_KEY",
+    "FORCE_COMPOSITION_HEADS",
+    "MAX_STANDING_FORCES_PER_FACTION",
+    "StrategicEvent::BuildingStarted",
+    "StrategicEvent::Gathered",
+    "StrategicEvent::ActionSkipped",
+    "tick::run_hour"
+  ],
+  "coordination": {
+    "depends_on": [
+      "s16-production-in-the-tick",
+      "s5-utility-and-states",
+      "s7-offscreen-forces",
+      "b16-buildings-through-the-tick"
+    ],
+    "conflicts_with": [],
+    "notes": "New file strategy/action.rs plus one declaration line in strategy/mod.rs; tick.rs takes three StrategicEvent variants at the END of the enum and one call inside run_hour's existing per-faction loop. No new PURPOSES entry: Develop and Recover spend the strategic.economy draw the loop already makes and folds, Expand and Pressure spend strategic.force, so the hash contract is where S4 left it. B19 is editing godot_bridge.rs and the Godot port in parallel and neither is touched here. No faction proper name and no section 6 doctrine: the branch table is keyed on Goal alone and reads no concept key except the one refusal brief section 5.9 requires (faction.michael is directed by the player)."
+  },
+  "completion": {
+    "commit": "6101316",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml -- 360 lib (9 new strategy::action), 6 authored_world, 5 save_migration, 11 strategic_determinism (2 new), 1 vertical_slice, 0 doc-tests, 0 failed: passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs -- 434 stable IDs, 3 building records, 2 machine records, 15 placeholders tracked: passed",
+      "node tools/src/check-claims.mjs -- 59 claims, 105 ship-plan rows, 99 cards: passed",
+      "node tools/src/build-content-bundle.mjs && git diff --quiet game/generated/ -- no diff (this lane touches no content): passed",
+      "Done-when 1 (the 2,400-hour harness acts and still reproduces) -- the_authored_island_acts_and_still_reproduces_byte_for_byte: on the scripted opening (three concepts each given one cell; content authors no owner for any cell, so an imbalance has to be put on the board) at least one faction places a building out of content/buildings/ on ground it holds and at least one raises and dispatches a force along real roads; the whole 2,400 hours from seed 7 reproduces byte-identically on a second run and a save taken at hour 1,200 reloads into the same hour 2,400: passed",
+      "Bite: `Goal::Develop => develop(...)` replaced with `Err(ActionSkipReason::NoActionAuthoredYet)` (the Develop branch removed) fails that test at tests/strategic_determinism.rs:1091 with \"2,400 hours of factions holding ground raised no building at all\"; restored, green: passed",
+      "Done-when 2 (the M3 100-day elimination) -- the_m3_opening_does_not_eliminate_anybody_and_names_the_link_that_never_falls: the card's opening (one faction holding one cell with no stockpile, a rival holding three) runs 100 days and eliminates NOBODY. RecoveryLink::ControlledSettlement never falls, because nothing in the crate writes ExpeditionState::ownership from a tick: set_control is its only writer and no lane calls it from the hour, so a force sent at a rival cell marches there and stands on it (materialisation is B11/O3 and card S17 is told not to materialise). ValidConstructionSite hangs off the same held cell, and ResourceReserve follows once the Recover trickle lands one unit. Three links standing is not an exhausted chain. NO constant was tuned to force it -- GATHER_PER_HELD_CELL_PER_HOUR and RESOURCE_RESERVE_FLOOR are untouched -- and the test asserts what is true: failed",
+      "The gap is exactly one owner wide, proven in the same test: when the harness itself takes the ground and the stockpile that ground earned (standing in for the capture no lane owns), the very next hour reports RecoveryLinkLost for every link the faction held and FactionEliminated exactly once, and the chain reads empty afterwards: passed",
+      "Michael takes no autonomous action (brief section 5.9): michaels_faction_takes_no_autonomous_action drives all six goals on ground he holds and asserts no event, no building, no force and no resource: passed",
+      "manual: no HashMap/HashSet, no rand, no SystemTime/Instant, no unsafe, no std::process; no new PURPOSES entry (Develop and Recover spend the strategic.economy draw, Expand and Pressure the strategic.force draw, both already made and folded unconditionally); the three new StrategicEvent variants are appended at the END of the enum; no ExpeditionState field, so tests/save_migration.rs EXPECTED_CURRENT_KEYS is unchanged and its 5 fixtures still pass; no faction proper name and no section 6 doctrine (nothing outside the one section 5.9 refusal reads ConceptKey): passed",
+      "CI verify.yml run 274 on lane/S17-goals-become-actions (6101316): \"Rust and content\" green end to end (fmt, tests, godot-ext check, validate, claims, bundle staleness): passed",
+      "CI verify.yml run 274 \"Godot headless suites\": RED, and NOT this lane. The only failing suite is game/tests/paper_razorbeak_rig_test.gd (\"an individual Razorbeak must recoil from Betty's impact\" / \"the hit reaction must visibly open the Razorbeak jaw\"); every other suite passed, native_simulation_port_test.gd (the live-bridge proof) and expedition_prototype_test.gd included. This lane changes no file under game/ (git diff --name-only origin/backend/b0-expedition-state...HEAD is four Rust files and this claim), and lane B19 reproduced the same failure on trunk a1869b8 with its own commit checked out of the way. Not investigated further here and no Godot process was started from this lane: two other lanes were already running the engine: failed",
+      "needs decision: GATHER_PER_HELD_CELL_PER_HOUR (the per-held-cell hourly trickle), GATHERED_RESOURCE_KEY (resource.open.gathered -- one open key, not a resource category; brief section 20), FORCE_COMPOSITION_ACTOR_KEY (actor.open.needs_decision -- content owns actor IDs and authors no faction rank-and-file), FORCE_COMPOSITION_HEADS, and MAX_STANDING_FORCES_PER_FACTION (one, because nothing in the crate disbands a force and a faction allowed to raise one an hour would fill a save with armies nothing can remove): not_run",
+      "Honest gap, stated in the module header rather than papered over: advance_construction still has no caller on a clock (S3 wrote that deliberately), so a building this card places stands UnderConstruction until a lane spends the hours. Card S17 asks for placement and placement is what it does: not_run",
+      "Card wording reconciled, twice, and both are recorded in strategy/action.rs: (1) the card says \"Supply/Recover gather a trickle\", but Goal carries no Supply -- Supply is S6 Intent vocabulary -- so gathering is Goal::Recover and all six goals are covered exactly once; (2) the card gives act_on_goals a `machines` parameter and nothing in the branch table needs one (Michael, the only faction with machine production, is refused at the top), so it is not taken: an unread parameter would be the noodle-to-nowhere AGENTS.md forbids: not_run"
+    ]
+  }
+}

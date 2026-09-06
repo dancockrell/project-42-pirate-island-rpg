@@ -39,13 +39,13 @@
 //! it (`the_authored_registry_changes_the_tick`, which replaced
 //! `the_registry_cannot_change_a_tick_yet`).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use project42_sim::habitat::Habitats;
 use project42_sim::strategy::building::{
     BuildingDefinition, BuildingDefinitions, CELL_CAPACITY_CELLS, ProductionOutput,
 };
-use project42_sim::strategy::elimination::RecoveryLink;
+use project42_sim::strategy::elimination::{RecoveryLink, recovery_chain};
 use project42_sim::strategy::faction::{
     ConceptKey, FactionDefinition, FactionDefinitions, FactionState, Relationship,
 };
@@ -1017,4 +1017,292 @@ fn a_stocked_machine_shop_turns_out_a_machine_on_the_authored_interval() {
     }
     assert_eq!(state.machines_of(&michael).len(), 1);
     assert_eq!(state.factions[&michael].resources[PROBE_FUEL], 0);
+}
+
+// ---------------------------------------------------------------------------
+// S17: the hour's goals become acts
+// ---------------------------------------------------------------------------
+
+/// **A scripted opening, and this comment is the card's "say so".** Nothing in
+/// `content/` authors an owner for any cell -- `Geography::from_authored` says
+/// as much, and `a_campaign` above therefore starts on a board nobody holds. A
+/// faction with no ground cannot build on it, gather from it or march out of
+/// it, so an island that is never given one would prove only that every branch
+/// of S17 refuses. These three assignments are the board the probes act on and
+/// nothing more: no doctrine, no proper name, no preference between concepts,
+/// and Captain Michael deliberately absent because brief section 5.9 gives his
+/// faction to the player and `act_on_goals` refuses to act for it.
+const SCRIPTED_OPENING: [(ConceptKey, &str); 3] = [
+    (ConceptKey::Pirates, "world.cell.black_beach"),
+    (ConceptKey::ColonialPowers, "world.cell.river_landing"),
+    (ConceptKey::Elves, "world.cell.tomb_reception"),
+];
+
+/// [`a_campaign`] with [`SCRIPTED_OPENING`] on the board.
+fn a_campaign_with_ground(geography: &Geography) -> ExpeditionState {
+    let mut state = a_campaign();
+    for (concept, cell_id) in SCRIPTED_OPENING {
+        state
+            .set_control(cell_id, Some(concept.faction_id()), geography)
+            .expect("every cell in the scripted opening is on the slice");
+    }
+    state
+}
+
+/// S17's Done-when, first half: on the authored island with every authored
+/// registry, the factions **act** -- and the island is still reproducible.
+///
+/// Four claims:
+///
+/// 1. **Something was built.** At least one faction acted on `Goal::Develop`,
+///    paid a real record's `construction_cost` out of its stockpile and raised
+///    a real record on ground it holds, and it is still standing at hour 2,400.
+///    The **board** is the evidence rather than the journal: S11's window is
+///    bounded, an acting island fills it in about half an in-world day, and the
+///    hours the cells were first built on have long since folded into the
+///    digest by hour 2,400. The event itself -- its faction, its record, its
+///    cell and the stockpile it came out of -- is asserted field for field by
+///    `strategy::action`'s own tests.
+/// 2. **Something marched.** At least one faction acted on `Goal::Expand` or
+///    `Goal::Pressure`, and the body it raised was dispatched along real roads
+///    -- `origin_cell_id` is where it was sent from and `position_cell_id` is
+///    where it got to, so a force that has moved has moved through S7's hops
+///    and cannot have teleported.
+/// 3. **Byte-identical from seed 7.** The whole of it, twice, hashing the same:
+///    acting is not allowed to bring a host-dependent number into the island.
+/// 4. **Save-transparent at hour 1,200.** The half-way save reloads into the
+///    same hour 2,400 -- so a building half-built, a force half-way down a road
+///    and a stockpile half-gathered all survive the round trip.
+///
+/// The bite: remove the `Goal::Develop` branch from `strategy/action.rs` and
+/// claim 1 fails on the building assertion.
+#[test]
+fn the_authored_island_acts_and_still_reproduces_byte_for_byte() {
+    let (geography, _habitats) = island();
+    let factions = the_authored_registry();
+    let buildings = the_authored_buildings();
+
+    let mut first = a_campaign_with_ground(&geography);
+    run_hours(&mut first, TOTAL_HOURS, &factions);
+    assert_eq!(first.strategic_clock.total_hours, TOTAL_HOURS);
+
+    // Claim 1: a faction built something, out of the authored registry, on
+    // ground it holds.
+    assert!(
+        !first.buildings.is_empty(),
+        "2,400 hours of factions holding ground raised no building at all"
+    );
+    let raised = first
+        .buildings
+        .values()
+        .next()
+        .expect("just asserted non-empty");
+    assert!(
+        buildings.get(&raised.def_id).is_some(),
+        "a faction raised something the authored registry does not carry: {}",
+        raised.def_id
+    );
+    assert_eq!(
+        geography.held_by(&raised.cell_id, &first.ownership),
+        Some(raised.faction_id.as_str()),
+        "a building stands on the ground of the faction that raised it"
+    );
+    assert_ne!(
+        raised.faction_id,
+        ConceptKey::Michael.faction_id(),
+        "the player directs Michael's faction; the simulation built for him"
+    );
+
+    // Claim 2: a faction marched.
+    assert!(
+        !first.forces.is_empty(),
+        "2,400 hours of factions holding ground raised no force at all"
+    );
+    assert!(
+        first
+            .forces
+            .values()
+            .any(|force| force.is_marching() || force.position_cell_id != force.origin_cell_id),
+        "a force was raised and never sent anywhere: {:?}",
+        first.forces
+    );
+
+    // Claim 3: and the whole of it reproduces.
+    let mut second = a_campaign_with_ground(&geography);
+    run_hours(&mut second, TOTAL_HOURS, &factions);
+    assert_eq!(
+        first.to_json(),
+        second.to_json(),
+        "an acting island stopped being reproducible"
+    );
+    assert_eq!(hash_of(&first), hash_of(&second));
+
+    // Claim 4: and survives the half-way save.
+    let mut saved = a_campaign_with_ground(&geography);
+    run_hours(&mut saved, SAVE_AT_HOUR, &factions);
+    let midpoint_json = saved.to_json();
+    let mut reloaded =
+        ExpeditionState::from_json(&midpoint_json).expect("the halfway save reloads");
+    assert_eq!(reloaded.to_json(), midpoint_json);
+    run_hours(&mut reloaded, TOTAL_HOURS - SAVE_AT_HOUR, &factions);
+    assert_eq!(
+        hash_of(&reloaded),
+        hash_of(&first),
+        "reloading a halfway save changed an acting island's future"
+    );
+}
+
+/// The weak opening the M3 done-when describes: one faction holding one cell
+/// with nothing stockpiled, against a rival holding three. **Scripted, and this
+/// is the card's "say so"** -- content authors no owner for any cell, so an
+/// imbalance has to be put on the board for anything to be measured against it.
+const M3_WEAK_CELL: &str = "world.cell.damaged_estate";
+const M3_RIVAL_CELLS: [&str; 3] = [
+    "world.cell.river_landing",
+    "world.cell.reception_terrace",
+    "world.cell.processional_ramp",
+];
+
+/// S17's Done-when, second half -- **and it does not pass, on purpose.**
+///
+/// The M3 done-when is "one faction eliminated with its recovery chain
+/// demonstrably exhausted in a 100-day run". This test ran that opening and the
+/// weak faction was **not** eliminated, and the card's instruction for that
+/// case is to say exactly which link never fell and why rather than tuning a
+/// constant until it does. So:
+///
+/// **`RecoveryLink::ControlledSettlement` never falls, because nothing in the
+/// crate can take a cell.** `ExpeditionState::ownership` is written by
+/// `ExpeditionState::set_control` and by nothing else, and no lane calls it
+/// from a tick: S7's forces march to a rival's cell and *stand* on it, because
+/// turning an arrival into actors on the ground is B11's spawn sockets and O3's
+/// room metadata, and card S17 is explicitly told not to materialise. A faction
+/// that cannot be pushed off its ground keeps `ControlledSettlement` forever,
+/// keeps `ValidConstructionSite` with it (a held cell with room *is* one), and
+/// keeps `ResourceReserve` too once S17's `Goal::Recover` trickle has landed a
+/// single unit in its stockpile. Three links standing is not an exhausted
+/// chain, and brief section 16 is right to refuse to eliminate on one.
+///
+/// Nothing here is tuned to hide that. [`GATHER_PER_HELD_CELL_PER_HOUR`] is
+/// not lowered, [`RESOURCE_RESERVE_FLOOR`] is not raised, and the opening is
+/// the one the card describes. The test asserts what is true, and the second
+/// claim isolates the gap to exactly one missing owner: when the *board* moves
+/// -- which is the thing no lane can do yet -- the chain exhausts and the
+/// elimination the card asks for happens on the next hour, journalled link by
+/// link. The lane that resolves a force's arrival into a change of control is
+/// the lane that turns this test's first claim into the card's.
+///
+/// [`GATHER_PER_HELD_CELL_PER_HOUR`]: project42_sim::strategy::action::GATHER_PER_HELD_CELL_PER_HOUR
+#[test]
+fn the_m3_opening_does_not_eliminate_anybody_and_names_the_link_that_never_falls() {
+    let (geography, _habitats) = island();
+    let factions = the_authored_registry();
+    let buildings = the_authored_buildings();
+    let weak = ConceptKey::FoxPeople.faction_id();
+    let rival = ConceptKey::ColonialPowers.faction_id();
+
+    let mut state = a_campaign();
+    // "no stockpile" and "no history" literally: `a_campaign` seeds both to
+    // spread S5's signals, and the M3 opening is about a faction that has
+    // nothing.
+    for faction in state.factions.values_mut() {
+        faction.resources.clear();
+        faction.relationships.clear();
+    }
+    state
+        .set_control(M3_WEAK_CELL, Some(weak.clone()), &geography)
+        .expect("the weak faction's one cell is on the slice");
+    for cell_id in M3_RIVAL_CELLS {
+        state
+            .set_control(cell_id, Some(rival.clone()), &geography)
+            .expect("every rival cell is on the slice");
+    }
+
+    // A hundred days, through the path the game itself runs.
+    run_hours(&mut state, 100 * u64::from(HOURS_PER_DAY), &factions);
+
+    // Claim 1: the honest negative, pinned.
+    assert!(
+        !state.factions[&weak].eliminated,
+        "the M3 opening now eliminates the weak faction -- rewrite this test as \
+         the card's done-when and say which lane made a cell changeable"
+    );
+    let chain = recovery_chain(&state, &weak, &geography, &buildings);
+    assert_eq!(
+        chain,
+        vec![
+            RecoveryLink::ResourceReserve,
+            RecoveryLink::ControlledSettlement,
+            RecoveryLink::ValidConstructionSite,
+        ],
+        "these are the three links a hundred days could not take away, and \
+         ControlledSettlement is the one the other two hang from"
+    );
+    assert_eq!(
+        geography.held_by(M3_WEAK_CELL, &state.ownership),
+        Some(weak.as_str()),
+        "nothing in a hundred days of hours can move a cell out of a faction's \
+         hands: no lane writes ownership from a tick"
+    );
+    assert!(
+        state.factions[&weak].has_ever_held,
+        "the chain was read and the faction is on the board -- so an empty \
+         chain would eliminate it, and the chain is simply not empty"
+    );
+
+    // Claim 2: the gap is exactly one owner wide. The harness takes the ground
+    // and the stockpile that ground earned -- standing in for the capture no
+    // lane owns yet -- and the very next hour the sweep exhausts the chain and
+    // eliminates the faction, link by journalled link.
+    let lost_before: BTreeSet<RecoveryLink> = state.factions[&weak].recovery_links_held.clone();
+    state
+        .set_control(M3_WEAK_CELL, None, &geography)
+        .expect("the cell can be released");
+    state
+        .factions
+        .get_mut(&weak)
+        .expect("the campaign carries the weak faction")
+        .resources
+        .clear();
+    let force_ids: Vec<String> = state
+        .forces
+        .values()
+        .filter(|force| force.faction_id == weak)
+        .map(|force| force.id.to_string())
+        .collect();
+    for id in force_ids {
+        state.forces.remove(&id);
+    }
+
+    let events = state.strategic_tick(&geography, &factions, &buildings, &the_authored_machines());
+    let lost: BTreeSet<RecoveryLink> = events
+        .iter()
+        .filter_map(|event| match event {
+            StrategicEvent::RecoveryLinkLost { faction_id, link } if *faction_id == weak => {
+                Some(*link)
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        lost, lost_before,
+        "every link the faction was holding is reported lost, in brief section \
+         16's own vocabulary"
+    );
+    let eliminations: Vec<&StrategicEvent> = events
+        .iter()
+        .filter(|event| {
+            matches!(event, StrategicEvent::FactionEliminated { faction_id, .. } if *faction_id == weak)
+        })
+        .collect();
+    assert_eq!(
+        eliminations.len(),
+        1,
+        "an exhausted chain eliminates once and only once: {events:?}"
+    );
+    assert!(state.factions[&weak].eliminated);
+    assert!(
+        recovery_chain(&state, &weak, &geography, &buildings).is_empty(),
+        "and there is demonstrably nothing left"
+    );
 }

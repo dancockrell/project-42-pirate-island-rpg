@@ -16,6 +16,10 @@
 //!   `BTreeSet` everywhere a map or set is serialized.
 //! - Pause is not a state. The bridge simply does not call the tick.
 
+/// S17: the hour's goals become acts -- a building raised, a trickle gathered,
+/// a force sent, or a journalled reason why not. No doctrine and no proper
+/// name; Captain Michael's faction is the player's to direct.
+pub mod action;
 /// S3: buildings -- envelopes, sockets, tiers, capture and ruin. Shapes are
 /// the deliverable; every Open number is a named constant marked needs decision.
 pub mod building;

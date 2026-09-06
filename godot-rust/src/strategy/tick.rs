@@ -47,6 +47,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::expedition::ExpeditionState;
 use crate::geography::Geography;
+use crate::strategy::action::{ActionSkipReason, act_on_goals};
 use crate::strategy::building::BuildingDefinitions;
 use crate::strategy::elimination::RecoveryLink;
 use crate::strategy::faction::FactionDefinitions;
@@ -54,7 +55,9 @@ use crate::strategy::force::{ForceId, HaltReason};
 use crate::strategy::production::{
     MachineDefinitions, MachineFamily, ProductionSkipReason, advance_production,
 };
-use crate::strategy::utility::{BoardView, GoalWeights, choose_goals, recompute_strategic_state};
+use crate::strategy::utility::{
+    BoardView, Goal, GoalWeights, choose_goals, recompute_strategic_state,
+};
 use crate::world::mix_seed;
 
 /// Hours in an in-world day. The one place the number lives; `resolve_midnight_in`
@@ -250,6 +253,44 @@ pub enum StrategicEvent {
         building_instance_id: String,
         rule_id: String,
         reason: ProductionSkipReason,
+        day: u32,
+    },
+    /// S17: a faction acted on [`Goal::Develop`] and founded a building. The
+    /// record it was raised from and the cell it stands on are both here, so a
+    /// reader of the journal knows what went up and where without resolving the
+    /// instance against the save.
+    ///
+    /// *Started*, not finished: `place_building` raises it
+    /// [`UnderConstruction`](crate::strategy::building::BuildingState::UnderConstruction)
+    /// for its authored hours, and nothing puts hours into it on a clock yet.
+    BuildingStarted {
+        faction_id: String,
+        building_instance_id: String,
+        def_id: String,
+        cell_id: String,
+        day: u32,
+    },
+    /// S17: a faction acted on [`Goal::Recover`] and took an hour's trickle off
+    /// the ground it holds. The key is carried rather than assumed: brief
+    /// section 20 leaves the resource list Open, so the journal names the key
+    /// the stockpile actually moved under.
+    Gathered {
+        faction_id: String,
+        resource_key: String,
+        amount: u32,
+        day: u32,
+    },
+    /// S17: a faction wanted something this hour and did not get it, and why.
+    ///
+    /// Emitted for every goal that does not become an act -- including the two
+    /// this card authors no action for. A faction that cannot build, cannot
+    /// march or has nowhere to go says so once an hour rather than falling
+    /// silent, which is what makes "nothing happened" tellable from "nothing
+    /// was tried".
+    ActionSkipped {
+        faction_id: String,
+        goal: Goal,
+        reason: ActionSkipReason,
         day: u32,
     },
 }
@@ -449,6 +490,23 @@ pub(crate) fn run_hour(
             machines,
             economy_draw,
         ));
+
+        // S17: and then the hour's *acting*, after the goals above are written
+        // and the standing economy above has run, and before the clock
+        // advances -- so a goal is acted on in the hour it was chosen, and a
+        // yard founded this hour is not asked to produce in the hour it was
+        // founded.
+        //
+        // The whole hour's draws are handed over rather than one of them: the
+        // `PURPOSES` table already reserves `strategic.economy` for
+        // construction and `strategic.force` for movement, and `act_on_goals`
+        // spends exactly those two. **No purpose is added.** All seven are made
+        // and folded into the witness above, unconditionally, exactly as they
+        // were before this card, so the hash contract is where S4 left it and
+        // no save written since has changed meaning.
+        produced.extend(act_on_goals(
+            state, faction_id, geography, buildings, &draws,
+        ));
     }
 
     state.strategic_clock.advance_one_hour();
@@ -491,6 +549,15 @@ mod tests {
         assert_eq!(state.strategic_clock.day_from_hours(), state.campaign_day);
     }
 
+    /// The hour reports itself first, and then what it did.
+    ///
+    /// S17 is why the second half of this assertion exists. Before it, an hour
+    /// on an unclaimed board reported exactly one event, because nothing acted;
+    /// now every faction acts on the goals S5 chose for it, and on a board
+    /// where nobody holds anything every one of those goals is a journalled
+    /// refusal. So the claim is the one that was always meant: the hour is the
+    /// hour's first event, and everything after it is something a faction did
+    /// or could not do -- never an invented one.
     #[test]
     fn an_hour_reports_the_hour_that_ran_and_then_the_clock_has_moved() {
         let geography = Geography::black_beach_vertical_slice();
@@ -503,7 +570,13 @@ mod tests {
             &BuildingDefinitions::new(),
             &MachineDefinitions::new(),
         );
-        assert_eq!(events, vec![StrategicEvent::HourPassed { day: 1, hour: 0 }]);
+        assert_eq!(events[0], StrategicEvent::HourPassed { day: 1, hour: 0 });
+        assert!(
+            events[1..]
+                .iter()
+                .all(|event| matches!(event, StrategicEvent::ActionSkipped { .. })),
+            "nobody holds anything, so every goal this hour is a refusal: {events:?}"
+        );
         assert_eq!(state.strategic_clock.hour_of_day, 1);
         assert_eq!(state.strategic_clock.total_hours, 1);
 
@@ -513,7 +586,7 @@ mod tests {
             &BuildingDefinitions::new(),
             &MachineDefinitions::new(),
         );
-        assert_eq!(events, vec![StrategicEvent::HourPassed { day: 1, hour: 1 }]);
+        assert_eq!(events[0], StrategicEvent::HourPassed { day: 1, hour: 1 });
         assert_eq!(state.strategic_clock.hour_of_day, 2);
     }
 
