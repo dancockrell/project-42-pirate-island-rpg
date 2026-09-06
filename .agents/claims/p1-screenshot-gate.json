@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "task_id": "p1-screenshot-gate",
+  "agent": "claude-code (lane P1)",
+  "summary": "The visual loop every other presentation card iterates in: the capture tool renders any scene at a chosen size after a chosen settle, refuses a black or uniform frame, and writes a thumbnail; tools/capture-scenes.sh and its PowerShell twin render every scene under scenes/review, scenes/world, scenes/battle and scenes/shell; a captures job in CI uploads the set; docs/verification/captures/ says how to look and carries the first set.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "game/tools/capture_review_scene.gd",
+    "tools/capture-scenes.sh",
+    "tools/capture-scenes.ps1",
+    ".github/workflows/verify.yml",
+    ".gitignore",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "capture_review_scene.capture",
+    "capture_review_scene.uniformity_of",
+    "capture-scenes.sh"
+  ],
+  "coordination": {
+    "depends_on": [
+      "e2-godot-ci-gate"
+    ],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at f5d26d1. .github/workflows/verify.yml is touched only by appending a new captures job; rust-and-content and godot-suites are not edited. No game/scripts, no scenes, no project.godot, no Rust, no content, no docs/SHIP_PLAN.md. The capture tool is extended in place rather than copied: one tool answers 'render this scene to a PNG' and every P lane calls it."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
