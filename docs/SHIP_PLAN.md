@@ -355,8 +355,8 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
-- **M3** shipped 5/16 — **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
-- Last updated 2026-09-06 against trunk `fefed40`. If this line is older than
+- **M3** shipped 6/16 — **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
+- Last updated 2026-09-06 against trunk `8c79fde`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -390,7 +390,7 @@ top of the document is never stale:
 | S8 | Weather, corruption, and the dual clocks (world time vs patience/heat) | S4 | open |
 | S9 | `DungeonContext` and generation signature | S3, S8 | open |
 | S10 | Elimination and the recovery chain | S3, S7 | open |
-| S11 | Event journal and the strategic save fields | S4 | open |
+| S11 | Event journal and the strategic save fields | S4 | shipped 8c79fde 2026-09-06 |
 | S12 | `RecruitmentState` for women (not a numeric romance UI) | S1 | shipped 83658e5 2026-09-06 |
 | S13 | Michael's faction production: machines, not people | S3 | open |
 | S14 | Founding sequence: shipwreck to first strategic core | S13, O5 | open |
@@ -1027,13 +1027,25 @@ Done when: a test exhausts every link and asserts elimination; a test with
 one allied refuge left asserts survival.
 
 ### S11 · Event journal and the strategic save fields
-Status: open · Depends on: S4
+Status: shipped `8c79fde` 2026-09-06 · Depends on: S4
 `ExpeditionState.strategic_journal: Vec<StrategicEvent>` (append-only,
 capped by a rolling window whose evicted prefix is folded into
 `strategic_history_digest`) plus every field brief §17 lists that S1–S10
 introduce. Save-boundary autosave includes them. `CURRENT_SAVE_VERSION`
 stays 1 while every new field is `#[serde(default)]`.
 Done when: E6's fixture for v1 still loads; a strategic save round-trips.
+
+**Shipped.** A rolling window (`JOURNAL_WINDOW = 256`, provisional and said
+so) of `JournalEntry` — a `StrategicEvent` plus day and hour, nothing else —
+with every evicted entry folded into `history_digest` in the shape S4's
+`draw_digest` uses. Window + digest + evicted count is the complete record;
+two histories differing only before the window are different saves. Proven
+to bite: an unfolded eviction fails four tests. The 2,400-hour harness
+carries 2,400 pushes under the hash and still matches. `strategic_tick`
+journals what `run_hour` returns, stamped before the clock advances.
+`JournalEntry::event` deliberately has no serde default: an invented event
+on a corrupt save is worse than a load failure. `CURRENT_SAVE_VERSION`
+stays 1; the v1 fixture loads with an empty journal.
 
 ### S12 · `RecruitmentState` for women
 Status: shipped `83658e5` 2026-09-06 · Depends on: S1
