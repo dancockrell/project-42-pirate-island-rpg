@@ -35,7 +35,7 @@
     {"id": "world.portal.tomb_service_passage_to_tomb_threshold", "fromAnchorId": "entry.tomb_service_passage.threshold", "targetCellId": "world.cell.tomb_threshold", "targetAnchorId": "entry.tomb_threshold.service_passage", "travelMode": "on_foot", "returnRule": "always", "timeCostMinutes": 15, "supplyCost": 0, "riskLevel": 2}
   ],
   "battleEntries": [
-    {"id": "battle_entry.tomb_service_passage.working_lane", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [1.0, 0.0, 0.5], "returnAnchorId": "entry.tomb_service_passage.reception", "safeRetreatAnchorId": "entry.tomb_service_passage.threshold", "status": "future_spawn_socket"}
+    {"id": "battle_entry.tomb_service_passage.working_lane", "encounterId": "encounter.prototype.returning_names", "worldPositionMetres": [1.0, 0.0, 0.5], "returnAnchorId": "entry.tomb_service_passage.reception", "safeRetreatAnchorId": "entry.tomb_service_passage.threshold", "status": "habitat_holder", "habitatId": "habitat.black_beach.terrace_precinct"}
   ],
   "explorationActions": [
     {"id": "action.tomb_service_passage.inspect_grave_goods", "type": "inspect", "result": "discover.returning_names.disturbed_goods", "once": true},
