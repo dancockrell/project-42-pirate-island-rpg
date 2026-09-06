@@ -5,7 +5,7 @@
   "summary": "The game's front door: a title screen with new game, continue, load, settings, credits and quit; one SceneFlow autoload that owns every transition between title, expedition and battle with a fade and a threaded loading veil; a pause menu on Escape; and a suite that walks the whole round trip through the live bridge.",
   "status": "completed",
   "claimed_at": "2026-09-06T12:00:00Z",
-  "updated_at": "2026-09-06T14:40:00Z",
+  "updated_at": "2026-09-06T15:05:00Z",
   "paths": [
     "game/scenes/shell/",
     "game/scripts/shell/",
@@ -54,7 +54,8 @@
       "No palette owner exists yet (card P5): game/scripts/shell/shell_style.gd states DEEP, PANEL, BRONZE, TEAL, CREAM, MUTED and DANGER once, exactly as the prototypes and the settings panel already carry them, plus two shell-only tones (NIGHT, HAIRLINE) named as belonging to bronze_vellum.tres when it lands. No new palette hex was invented for anything else: not_run",
       "needs decision: none. Nothing in this card required an Open number, a faction proper name or an Open design decision, and none was invented. The credits page states in words that the engine and other third-party components have no admission record in this repository yet, rather than inventing attribution text for them: not_run",
       "No asset file was added: the title's weather is a canvas shader and `_draw` calls, seeded by a named constant (SEED 42) rather than by randi(), and reduced motion stills the shader clock and freezes the embers where they stand: passed",
-      "CI on lane/P8-shell: recorded below once the run reported: not_run"
+      "CI on lane/P8-shell, run 34031154188 on dfb4f9a -- the shipped tree plus its captures: completed with conclusion success, both jobs green ('Rust and content' and 'Godot headless suites', including 'Run the Godot headless gate' and 'Prove the real bridge loaded, not the mock'): passed",
+      "Follow-up commit 8a1ac3e deletes SceneFlow's transition_started and scene_changed signals, which nothing subscribed to. Comment-only elsewhere; shell_flow_test.gd re-run locally on that tree: 'Shell flow tests passed.' exit 0: passed"
     ]
   }
 }
