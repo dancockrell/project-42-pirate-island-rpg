@@ -3,9 +3,9 @@
   "task_id": "p4-isometric-board",
   "agent": "claude-code (lane P4)",
   "summary": "B11's board block on every world cell and B12's one 3D scene graph at three distances: world cells tinted by control with routes drawn by risk, forces and the party as miniatures on the tethers, and the room distance showing a cell's footprint, spawn sockets and exits.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T12:00:00Z",
-  "updated_at": "2026-09-06T12:00:00Z",
+  "updated_at": "2026-09-06T12:40:00Z",
   "paths": [
     "content/world/black_beach.world_cell.json",
     "content/world/damaged_estate.world_cell.json",
@@ -21,17 +21,20 @@
     "game/generated/content_bundle.json",
     "game/scripts/simulation/native_expedition_port.gd",
     "game/scripts/board/",
-    "game/scenes/board/",
+    "game/scenes/board/isometric_board.tscn",
     "game/tests/isometric_board_test.gd",
+    "game/tests/board_verification_campaign.gd",
+    "game/tests/capture_board_distances.gd",
     "godot-rust/src/godot_bridge.rs",
     "docs/verification/captures/"
   ],
   "symbols": [
     "IsometricBoard",
-    "BoardCatalog",
-    "BoardCamera",
     "BoardBlockout",
+    "BoardCamera",
+    "BoardPalette",
     "EncounterLens",
+    "NativeExpeditionPort.board_for",
     "expedition_state_dictionary.forces"
   ],
   "coordination": {
@@ -41,10 +44,30 @@
       "s2-ownership-and-influence"
     ],
     "conflicts_with": [],
-    "notes": "The board block is content-side only: no AuthoredCell field is added, because the B6/B7 equality test in godot-rust/tests/authored_world.rs builds the wire cell field by field rather than mirroring the whole record, and AuthoredCell does not deny unknown fields. godot_bridge.rs takes exactly one read-only hunk (a `forces` array on the state dictionary: id, faction, cell, next cell, progress -- names only, no strength, readiness or supply). game/scripts/world/expedition_* is P7's and is not touched; the 2D ExpeditionRouteBoard stays the owner of the 2D board this round and the 3D board replaces it by a later card, not by a fork. P2's camera director and clay material are not on origin yet, so this lane carries a local fixed-isometric BoardCamera with the named angles and a local marked StandardMaterial3D; both are marked in comments for P2 to absorb."
+    "notes": "Content owns the room, the board draws it, the snapshot says what is true now. No AuthoredCell field was added: AuthoredCell does not deny unknown fields and the B6/B7 equality test in godot-rust/tests/authored_world.rs builds the wire cell field by field rather than mirroring a whole record, so the board block reaches Godot and stops there. godot_bridge.rs took exactly one read-only hunk, a `forces` array on the state dictionary (id, faction, cell, next cell, progress) plus its one `result.set`; no strength, readiness, supply or composition crosses that boundary. tools/src/validate.mjs took two hunks for one feature: the board_footprint_registry branch in the presentation dispatch (the footprint table's owner) and one block after it holding every cell's board against that table. game/scripts/world/expedition_* is P7's and was not touched; the 2D ExpeditionRouteBoard stays the owner of the 2D board this round and a later card retires it against this one rather than a fork. P2 had not pushed a branch, so BoardCamera and BoardBlockout.clay carry local fixed-isometric angles and a local StandardMaterial3D, both marked in place as P2's to absorb; SetpieceMeshFactory was reused rather than duplicated. blocked: needs decision -- O3 (the six standard footprints, marked in content and required to be marked by the validator) and O1 (the encounter lens: EncounterLens opens the existing battle screen and says the decision is Open). blocked: needs a bridge verb -- no #[func] raises, dispatches or ticks a force, so through the live bridge the island's `forces` array is always empty; game/tests/board_verification_campaign.gd puts one marching force into the live campaign through the bridge's own save_json/load_json round trip and says in place that it must be deleted the day such a verb lands."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "a878ad2",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (347 unit, 6 authored_world, 5 save_migration, 8 strategic_determinism, 1 vertical_slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (379 stable IDs, up from 300 -- 72 spawn points, 6 footprint entries and the registry itself): passed",
+      "node tools/src/check-claims.mjs: passed",
+      "node tools/src/build-content-bundle.mjs && git diff --quiet game/generated/ (94 records, sha256:f4c2e8f8...): passed",
+      "Local Godot 4.7.2 headless gate, tools/verify-godot.sh with the pinned engine: 3 review scenes, 22 suites, exit 0, zero ERROR/SCRIPT ERROR/GDScript backtrace lines, zero fallback markers, and all four live-bridge lines present including \"Isometric board tests passed.\": passed",
+      "Done-when 1 (B12): game/tests/isometric_board_test.gd drives travel across three cells through the live bridge -- salvage the wreck, the estate climb, the river gate, the safe road -- and asserts the party miniature's node against stand_point(active_location_id) each time: passed",
+      "Bite proof (main test): replacing apply_party's `party_cell_id()` with the first cell in the catalog made the suite fail three times by name -- \"the miniature must snap to world.cell.damaged_estate\", \"... river_landing\", \"... reception_terrace\" -- and nothing else; restored and green: passed",
+      "Bite proof (validator, the O3 mark): removing needsDecision from presentation.board.footprint.hall failed validation with \"presentation.board.footprint.hall must be marked needsDecision O3\"; restored and green: passed",
+      "Bite proof (validator, the socket count): deleting two spawn points from tomb_service_passage failed with \"board.spawnPoints must offer at least 7 sockets\" and \"must include at least one player socket\"; restored and green: passed",
+      "Done-when 2 (B11): the validator requires the O3 mark, at least seven sockets and one of every role, each role's own rigSocket, one tether per portal, the tether kind this file's table gives the portal's travelMode, an anchor on the footprint edge facing the target cell, every entry anchor and spawn point inside the declared footprint, and no two rooms' footprints overlapping: passed",
+      "Ownership and risk, drawn: the suite asserts an unheld cell is the unheld clay, that set_control(river_landing, faction.pirates) changes the tile's tint to the concept key's own, and that releasing puts it back; every authored road is drawn whether legal or not: passed",
+      "S7's forces, drawn: one marching force put into the live campaign through save_json/load_json is projected with position, next cell and progress 27/60, carries no strength/readiness/supply/composition, and stands at exactly 0.45 of the way along its road: passed",
+      "Three captures at 1280x720, one engine process, offscreen under xvfb with the compatibility renderer, read and iterated on five times before they were committed -- docs/verification/captures/P4-a878ad2-{world,route,room}.png, committed in 8c0151a: passed",
+      "O1 is Open: EncounterLens loads res://scenes/battle/battle_prototype.tscn unchanged and carries no camera move, transition or framing opinion, because those are the choices O1 owns: not_run",
+      "O3 is Open: all six footprints in content/presentation/board.registry.json are provisional and marked; every framing number in game/scripts/board/ that is a design decision (tile spacing, miniature scale, socket post heights, orthographic frame sizes, encounter-space radius, the risk ceiling) is a named constant marked needs decision: not_run",
+      "blocked: no bridge verb raises, dispatches or ticks a force, so a live campaign's forces array is empty until one lands; the route distance's force miniatures are driven and proven, but from a save round trip rather than from the strategic tick: not_run",
+      "CI Verify run 34031564564 on 8c0151a, both jobs success: \"Rust and content\" passed (fmt, 367 Rust tests, the godot-ext build, validate.mjs, check-claims.mjs and the stale-bundle gate) and \"Godot headless suites\" passed, including \"Prove the real bridge loaded, not the mock\" -- no fallback marker and every required live-bridge line present: passed"
+    ]
   }
 }
