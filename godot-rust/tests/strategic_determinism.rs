@@ -955,6 +955,15 @@ fn a_stocked_machine_shop_turns_out_a_machine_on_the_authored_interval() {
     assert_eq!(standing[0].def_id, AUTHORED_DOG);
     assert_eq!(standing[0].built_by_building_instance_id, SHOP);
     assert_eq!(state.buildings[SHOP].machines_produced, 1);
+    // The instance ID is derived from the campaign, not from a clock the host
+    // owns: the yard, the rule, the day and hour it came due on, the yard's
+    // machine count and the hour's economy draw. Nothing here is a wall time,
+    // so the same seed replayed names the same machine.
+    assert!(
+        standing[0].id.contains(".d1h23."),
+        "the machine names the day and hour it was made on: {}",
+        standing[0].id
+    );
     // Claim 2: it was paid for.
     assert_eq!(
         state.factions[&michael].resources[PROBE_FUEL], 0,

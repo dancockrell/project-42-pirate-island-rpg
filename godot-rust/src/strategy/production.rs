@@ -865,10 +865,18 @@ fn charge_production_cost(
 
 /// The instance ID one yield gets, derived and never invented.
 ///
-/// Four parts, and no clock among them: the yard that made it, the rule that
-/// made it, how many machines that yard had already made (the counter that
-/// makes the ID unique -- `machines_produced` rises with every success and
-/// never falls), and the hour's `strategic.economy` draw.
+/// Six parts, and **no wall clock among them**: the yard that made it (whose
+/// own ID names the faction that owns it), the rule of that yard's record that
+/// made it, the campaign day and the hour of that day it was made on, how many
+/// machines that yard had already made, and the hour's `strategic.economy`
+/// draw. Every one of them is a number the save already carries, so the same
+/// campaign replayed from the same seed names the same machine, and no
+/// `SystemTime` is anywhere near it.
+///
+/// The ordinal is what makes it unique rather than merely descriptive:
+/// `machines_produced` rises with every success and never falls, so two rules
+/// of one yard coming due in one hour take consecutive ordinals rather than
+/// colliding.
 ///
 /// The draw is in there because it is what this lane was given. [`PURPOSES`]
 /// reserves one draw per faction per hour for production, S4 folds it into the
@@ -882,13 +890,15 @@ fn charge_production_cost(
 fn machine_instance_id(
     building_instance_id: &str,
     rule_index: usize,
+    day: u32,
+    hour: u8,
     ordinal: u32,
     draw: u64,
 ) -> String {
     let yard = building_instance_id
         .strip_prefix(BUILDING_INSTANCE_ID_PREFIX)
         .unwrap_or(building_instance_id);
-    format!("{MACHINE_INSTANCE_ID_PREFIX}{yard}.{rule_index}.{ordinal}.{draw:016x}")
+    format!("{MACHINE_INSTANCE_ID_PREFIX}{yard}.{rule_index}.d{day}h{hour}.{ordinal}.{draw:016x}")
 }
 
 /// **S16: one hour of one faction's production.** Every timer-driven rule of
@@ -960,6 +970,10 @@ pub(crate) fn advance_production(
     draw: u64,
 ) -> Vec<StrategicEvent> {
     let day = state.campaign_day;
+    // The hour that is *running*: `run_hour` calls this before
+    // `StrategicClock::advance_one_hour`, so this is the same hour the hour's
+    // own `HourPassed` reports and the same hour the draw above was made under.
+    let hour = state.strategic_clock.hour_of_day;
     let mut events = Vec::new();
     // The buildings are read once, in `BTreeMap` order, before anything is
     // written: a production must not be able to change which buildings this
@@ -1024,8 +1038,14 @@ pub(crate) fn advance_production(
             match rule.output {
                 ProductionOutput::Machine { .. } => {
                     let ordinal = state.buildings[&building_instance_id].machines_produced;
-                    let instance_id =
-                        machine_instance_id(&building_instance_id, rule_index, ordinal, draw);
+                    let instance_id = machine_instance_id(
+                        &building_instance_id,
+                        rule_index,
+                        day,
+                        hour,
+                        ordinal,
+                        draw,
+                    );
                     match state.produce_machine(
                         &instance_id,
                         &building_instance_id,
