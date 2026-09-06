@@ -356,7 +356,7 @@ top of the document is never stale:
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
 - **M3** shipped 3/16 — **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
-- Last updated 2026-09-06 against trunk `27d777b`. If this line is older than
+- Last updated 2026-09-06 against trunk `9090284`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -402,8 +402,8 @@ top of the document is never stale:
 |---|---|---|---|
 | B1 | Rewire the campaign bridge from `RouteGraph` to `Geography` | A1 | shipped 6b9d275 2026-09-04 |
 | B2 | `native_expedition_port.gd` sends cells and portal costs | B1, C2 | shipped 3c85451 2026-09-05 — landed inside C13, which found the port dropping every cost and gate |
-| B3 | Expose midnight, anchors, inspect and full legal commands | B1, A3 | open — **wire shipped under C13** (`use_anchor` through bridge, session and scene; cells and anchors forwarded); B3 owes the drawn control |
-| B4 | Route board shows anchor and estate commands | B3 | open |
+| B3 | Expose midnight, anchors, inspect and full legal commands | B1, A3 | shipped 9090284 2026-09-06 — S2's control/risk surface is the next B item |
+| B4 | Route board shows anchor and estate commands | B3 | shipped 9090284 2026-09-06 |
 | B5 | Battle screen: Michael's card unfolds; bands and Composure drawn | A5, A6 | open — the mock/bridge actor-dict divergence A5 opened is closed (`band_name`, `composure`); B5 draws them |
 | B6 | World cells for the tomb interior | A2 | open |
 | B7 | Battle-entry sockets bound to habitat holders | B3 | open |
@@ -1071,6 +1071,38 @@ powers — both coastal, both give the contested route and port front M4
 needs), get explicit approval, then encode their `FactionDefinition`s (C9).
 
 ### Lane B — new cards
+
+### B3 · Expose midnight, anchors, inspect and full legal commands
+Status: shipped `9090284` 2026-09-06 · Depends on: B1, A3
+The bridge projects what `legal_next_commands_with_geography` already
+produced — travel, inspect and anchor actions — as `legal_commands` beside the
+unchanged `legal_route_commands`, plus `discoveries`; `inspect` and
+`resolve_midnight` are bridge verbs, and midnight's `WorldEvent`s go through
+an exhaustive projection.
+
+**Shipped.** The exhaustive projection is how the merge caught that S2's
+`ControlChanged` had landed while B3 was in flight: the tree would not
+compile under `--features godot-ext` until the arm existed, and the
+integrator added it in the shape S2 specified. The lane's own push ran green
+through the hardened gate. **Flagged, left in its owner's file:**
+`ExpeditionState::inspect` records every observation at the cell, not the one
+named; the bridge validates the name against the legal list and then records
+the cell. Per-observation recording is expedition.rs's rule to change.
+**Next B item, from S2:** `set_control`, `controller_of` (effective, never
+raw `ownership`), `effective_risk(portal)`, route projections carrying
+effective risk plus `contested: bool` and never the authored base as a
+second number, and the `ControlChanged` case is already projected.
+
+### B4 · Route board shows anchor and estate commands
+Status: shipped `9090284` 2026-09-06 · Depends on: B3
+A `LegalActionList` below the route list: one button per `anchor_action:` and
+per `inspect:` command in `legal_commands`, and a midnight control when no
+encounter is pending.
+
+**Shipped.** Nothing is drawn from the catalog alone — it supplies labels for
+commands Rust already called legal — so a spent anchor or a locked door is
+never a button, the invariant the route list already kept. The prototype
+suite gained nine assertions and kept every existing one.
 
 ### B9 · Settings, accessibility, and pause **(brief)**
 Adds to the first edition: a global pause that stops the character scene,
