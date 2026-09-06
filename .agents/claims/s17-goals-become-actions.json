@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "task_id": "s17-goals-become-actions",
+  "agent": "claude-code (lane S17)",
+  "summary": "S17: the hour's chosen goals become acts -- Develop places a compatible building on held ground with room, Recover gathers an open-keyed trickle, Expand and Pressure dispatch a force along a real route, Consolidate and Withdraw journal a skip; Michael's faction acts only for the player and takes no autonomous action.",
+  "status": "active",
+  "claimed_at": "2026-09-06T18:00:00Z",
+  "updated_at": "2026-09-06T18:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/action.rs",
+    "godot-rust/src/strategy/mod.rs",
+    "godot-rust/src/strategy/tick.rs",
+    "godot-rust/tests/strategic_determinism.rs"
+  ],
+  "symbols": [
+    "act_on_goals",
+    "ActionSkipReason",
+    "GATHER_PER_HELD_CELL_PER_HOUR",
+    "GATHERED_RESOURCE_KEY",
+    "FORCE_COMPOSITION_ACTOR_KEY",
+    "FORCE_COMPOSITION_HEADS",
+    "MAX_STANDING_FORCES_PER_FACTION",
+    "StrategicEvent::BuildingStarted",
+    "StrategicEvent::Gathered",
+    "StrategicEvent::ActionSkipped",
+    "tick::run_hour"
+  ],
+  "coordination": {
+    "depends_on": [
+      "s16-production-in-the-tick",
+      "s5-utility-and-states",
+      "s7-offscreen-forces",
+      "b16-buildings-through-the-tick"
+    ],
+    "conflicts_with": [],
+    "notes": "New file strategy/action.rs plus one declaration line in strategy/mod.rs; tick.rs takes three StrategicEvent variants at the END of the enum and one call inside run_hour's existing per-faction loop. No new PURPOSES entry: Develop and Recover spend the strategic.economy draw the loop already makes and folds, Expand and Pressure spend strategic.force, so the hash contract is where S4 left it. B19 is editing godot_bridge.rs and the Godot port in parallel and neither is touched here. No faction proper name and no section 6 doctrine: the branch table is keyed on Goal alone and reads no concept key except the one refusal brief section 5.9 requires (faction.michael is directed by the player)."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
