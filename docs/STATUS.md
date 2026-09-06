@@ -331,3 +331,41 @@ by the P cards that delivered them.
 **Summary:** a stranger can now open the title, start, walk the island on a
 lit board, fight with effects and a camera, pause, save and continue, and
 the island's factions build, gather and march while they do it.
+
+## 2026-09-06, late afternoon — five lanes in one round, and the island fights back
+
+Integrated with the full chain and the gate green on trunk before each row
+moved: **E12** (22 third-party components in a ledger the credits read;
+eight notices honestly pending), **P12** (procedural building and machine
+kits from the C10 and C14 records; every metre a named `needs decision`),
+**S18** (an arriving force takes unheld or undefended ground; `raise_force`
+and `dispatch_force` through the bridge; the M3 100-day elimination now
+passes for a faction that does not act), **P10** (the expedition screen is
+the isometric board, P7's controls on it, the 2D route board deleted,
+`BoardPalette` with no hex), **P11** (one palette owner adopted by the
+battle, the shell and the settings; a scan of 71 scripts finds zero
+unmarked colour literals; high contrast and 1.3× text reach the title's
+weather and the battle's dock).
+
+- **Four cross-lane seams found at merge and fixed on trunk:** P12's kits
+  read P4's palette constants that P10 had replaced with Theme reads; a
+  freshly dispatched column (S18: marches nothing until an hour runs)
+  stood on the party's miniature, so a waiting column now stands at the
+  road mouth; E12's credits lines used the label signature P11 retired;
+  P11's scan read P12's iron, timber and canvas as UI colours, so they
+  carry the game-colour marker with their reasons, and the scan now covers
+  `board/` too.
+- **Rows D9, D10, B11, B12, B13 and D11 are closed by the P cards that
+  delivered them.** The gate is 5 review scenes / 30 suites in about 30 s.
+- **Honest gaps, all on their cards:** an autonomous faction still cannot
+  be eliminated because nothing lowers a stockpile (S19 next); the board
+  shows no building or machine yet (P13 next); a roster card's status line
+  overflows and the diamond labels truncate at 1.3× (P14 next); eight
+  licence notices are pending (E13 next); C11's room contracts are
+  unauthored; Ayla's colours and kit submission stay Open; `spend_composure`
+  has no caller and the brief gives no rule for one.
+
+**Summary:** the game opens on a title, walks a lit board with the party
+selected and a column marching, fights with effects, and factions take
+ground from each other while the player reads about it in one calm
+surface.

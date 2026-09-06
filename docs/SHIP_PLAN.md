@@ -397,6 +397,7 @@ top of the document is never stale:
 | S16 | Production runs in the tick: interval rules produce on the economy draw | S13, B16 | shipped 7a715f7 2026-09-06 |
 | S17 | Goals become actions: Develop places a building, Supply gathers, Expand and Pressure dispatch a force | S16, S5, S7, B16 | shipped `24b1332` 2026-09-06 |
 | S18 | Arrival resolves control: an arriving force takes an unheld or undefended cell, stands contested against a defender; the player's own forces raised and dispatched through the bridge | S17, S7, S2 | shipped `cca20f2` 2026-09-06 |
+| S19 | Stockpiles are spent: machines burn the fuel and water their records name, construction runs on the clock, a faction that cannot feed its yard says so | S16, S17, S18, C14 | open |
 
 ### Lane B — Bridge, board and Godot
 
@@ -454,8 +455,8 @@ top of the document is never stale:
 | D6 | Razorbeak rigged GLB (open) and clips (blocked) | D3, animation tool | open / blocked |
 | D7 | Reception Terrace dressed; first admitted shared assets | — | open |
 | D8 | Record the measured per-actor asset bill | D4, D6 | open |
-| D9 | Building blockout kit for Michael's faction (standard envelopes) | C10 | open |
-| D10 | First machine family blockouts (one animal-form automaton, one steam wagon) | S13 | open |
+| D9 | Building blockout kit for Michael's faction (standard envelopes) | C10 | shipped `76f09ac` 2026-09-06 as P12 |
+| D10 | First machine family blockouts (one animal-form automaton, one steam wagon) | S13 | shipped `76f09ac` 2026-09-06 as P12 |
 | D11 | Card rail and command grid in the bronze-and-vellum grammar | — | shipped `c7f0e74` 2026-09-06 as P5 |
 | D12 | Room blockouts for the Demo region | C11 | open |
 
@@ -475,6 +476,7 @@ top of the document is never stale:
 | E10 | macOS nightly on a macOS runner; the dylib built where it can be | E5 | shipped 252b3fb 2026-09-06 — the job refuses by name until E11 lands |
 | E11 | The macOS export actually exports: arm64 rows in the `.gdextension`, a universal preset, the build script names the host architecture | E10 | shipped `10ee623` 2026-09-06 |
 | E12 | Third-party attribution as content: the engine, the bindings and every bundled component in a ledger the credits read and a test holds equal | P8 | shipped `101b838` 2026-09-06 |
+| E13 | The eight pending notices read from their upstream licence files, or recorded as unreachable with the URL tried | E12 | open |
 
 ### Lane F — Audio · Lane G — QA
 
@@ -504,6 +506,8 @@ captured by P1's gate, and no card claims a look it has not captured.
 | P10 | The expedition screen is the board: P7's RTS controls on P4's isometric board, the 2D route board retired, one owner of travel on screen | P4, P7 | shipped `106e25a` 2026-09-06 |
 | P11 | One palette owner, adopted: battle, shell, settings and review scenes take colour and type from the Theme; the restated hexes deleted | P5, P6, P8 | shipped `477447e` 2026-09-06 |
 | P12 | Blockout kits for buildings and machines (D9 + D10): procedural envelopes from the C10 and C14 records in the library's riveted iron and clay, reviewed at gameplay distance | P2, C10, C14 | shipped `76f09ac` 2026-09-06 |
+| P13 | The island develops on screen: building and machine instances cross the bridge read-only and P12's kits stand on the board where the simulation put them | P10, P12, S17, B19 | open |
+| P14 | The battle at every text scale: card and dock layouts that never clip or overflow at 1.0× and 1.3×; the roster status line and the diamond labels | P6, P11 | open |
 
 ### Lane H — Docs and hygiene
 
@@ -1482,6 +1486,38 @@ Open); claim 2 of the same test asserts exactly that (`needs decision`).
 P4's `blocked: needs a bridge verb` is closed and its save round-trip helper
 deleted.
 
+### S19 · Stockpiles are spent
+Status: open · Depends on: S16, S17, S18, C14
+Touches: `godot-rust/src/strategy/production.rs` (consumption), `strategy/building.rs`
+(only if `advance_construction` needs a caller-facing change), `strategy/tick.rs`
+(two calls in `run_hour` after `advance_production`; new `StrategicEvent`
+variants at the END), `godot_bridge.rs` (an arm per new variant in both
+journal matches), `game/scripts/surface/information_surface.gd` (kind lists
+only), `godot-rust/tests/strategic_determinism.rs`.
+S18 shipped with `RecoveryLink::ResourceReserve` never falling: nothing in
+the crate lowers a stockpile. The brief says factions gather *and consume*
+(§ "Gather and consume resources"; fuel and water consumption under
+machines), and C14's two records already carry `fuel_requirement`,
+`fuel_resource_key`, `water_requirement`, `water_resource_key`: content
+owns the rates. Each hour every standing machine of a faction draws its
+fuel and water from the faction's stockpile by those keys
+(`MachineFed`); a machine whose keys the stockpile cannot cover is
+`MachineStarved { key, held, needed }` and stops counting as standing for
+production until fed again (it does not vanish — what a starved machine
+becomes is Open, `needs decision`, named). Construction runs on the clock:
+`advance_construction(1)` is called each hour and a finished building
+journals `BuildingFinished`. `Goal::Recover`'s trickle stays as S17 left it
+(`needs decision` there). Michael's machines obey the same rule, which is
+how the player learns a yard is starving through the journal and the
+surface (Notable for the player's own faction). No new `PURPOSES` entry,
+no new state field; the 2,400-hour hash changes and its expected value is
+updated in the same commit with the reason.
+Done when: the M3 test's second claim (S18's) flips: an autonomous faction
+whose cell is taken and whose machines drain its reserve is eliminated
+inside 100 days, byte-identical twice; a test proves a fed machine and a
+starved one differ only by the stockpile; the harness shows at least one
+`BuildingFinished`.
+
 ### B19 · The bridge loads the machine records and hands the registry to the tick
 Status: shipped `1fca984` 2026-09-06 · Depends on: C14, S16
 Touches: `game/scripts/simulation/native_expedition_port.gd`,
@@ -2135,9 +2171,30 @@ Rust. Stable IDs 210 → 214; bundle 44 → 47 records. **Left, on purpose:**
 `ProductionOutput::Machine` carries no machine family (S13 may extend);
 `role.*`, `service.*` and `recruitment_support.*` have no authored vocabulary.
 
-### C11 · Room contract fields on world cells — brief §3's list (function,
-dimensions, circulation, slots, landmarks, encounter space, material
-language, avoid-list) as required fields; the five existing cells filled in.
+### C11 · Room contract fields on world cells
+Status: open · Depends on: B11 (shipped as P4)
+Touches: `content/world/*.world_cell.json` (a `contract` block), `tools/src/validate.mjs`
+(one block), `godot-rust/tests/authored_world.rs` (one equality test if a
+field is read by Rust; none is expected to be), one GDScript suite only if
+a screen reads a field.
+Brief §3's list as required fields on every world cell: function,
+dimensions (by the O3 footprint ID the `board` block already names, never
+metres of its own), circulation (which sockets and tethers connect, in
+words), slots (what the room can hold: the building and machine records
+compatible with it, by ID), landmarks (the named set pieces the room's own
+setpiece script or observation prose already describes, by name), the
+encounter space (the board block's ring, referenced not restated), material
+language (the P2 library names the room's surfaces use), and an avoid-list
+(what must not be placed here, from the brief's rules for that site). Every
+value is drawn from what the repository already says about the room — its
+observation prose, its setpiece script, its site rules, its habitat — and
+the record names its source; nothing new is invented about a room, and a
+field with no source is `null` with `needsDecision` naming the brief
+section. The validator requires every field, resolves every ID, and holds
+the dimensions equal to the board block's footprint.
+Done when: the validator bites (drop a field, point a slot at an unknown
+record → fails by name); all nine cells carry the block; the D12 row can
+name what a room blockout must hold.
 
 ### C12 · One recruitable woman's arc — blocked: needs decision O2.
 
@@ -2588,6 +2645,25 @@ suite by name. Captures `E12-69d95be-{credits,notices}.png`, read. The card
 was wrong about where the engine is pinned (verify.yml's `GODOT_VERSION`,
 not the gate script); the records name the true files. Follow-up: the eight
 pending notices need their texts read from upstream files.
+
+### E13 · The pending notices
+Status: open · Depends on: E12
+Touches: `content/art/third_party_ledger.json` (the eight records),
+`docs/SHARED_ASSET_PLATFORM.md` §8 (the pending count).
+E12 left eight records `noticeText: null, needsReview: true`: the five
+godot-rust crates, the engine, its export templates and Mesa. Read each
+licence text from its upstream canonical file (the Web fetch tool against
+the project's own repository URL the record already names; never from
+memory) and paste it verbatim, recording the URL fetched and the SHA-256
+of the bytes in the record's `noticeSources`, flipping `needsReview`.
+Where the fetch fails in this environment, leave the record pending and
+record the URL tried and the failure in `reviewNote`, so the follow-up is
+a URL and not a search. The validator and the credits suite already hold
+the page to the ledger, so a filled notice appears on the page in the same
+change and the pending count constant in `credits.gd` moves with it (that
+one line is yours).
+Done when: the validator and `shell_flow_test.gd` green with the new count;
+a capture of the notices page.
 
 ### Lane H — cards for this pass
 
@@ -3169,6 +3245,53 @@ every C14 dimension is zero, so every metre is a named constant in each
 kit's `OPEN_DIMENSIONS`, asserted to still say so. `CELL_CAPACITY_CELLS` is
 a mirror of the Rust constant until a bridge verb exposes it. Nothing
 places a kit on the board yet (P10 or a later card).
+
+### P13 · The island develops on screen
+Status: open · Depends on: P10, P12, S17, B19
+Touches: `godot-rust/src/godot_bridge.rs` (two read-only keys on the state
+dictionary, `building_instances` and `machine_instances`, beside the
+registry-ID arrays B16 and B19 left there), `game/scripts/simulation/native_expedition_port.gd`
+(pass-through and the mock's shape), `game/scripts/board/isometric_board.gd`
+and `game/scripts/board/` (placement), `game/scripts/blockouts/` (only the
+`build` seam's callers), one suite, captures.
+S17 places buildings and S16/B19 make machines, and the board shows
+neither. Each building instance crosses as id, `def_id`, `cell_id`,
+`faction_id`, state (`under_construction` / `standing` / whatever
+`BuildingState` serialises to) and hours remaining; each machine instance as
+id, `def_id`, `faction_id`, `cell_id` and its state name. Nothing else: no
+cost, no rule. At the world and route distances the board stands P12's
+building kit on the holding cell's tile (a building under construction is
+the kit's first tier in the placeholder material; standing is the full
+kit) and the machine kit at the yard's cell, tinted by the faction's wash
+through `BoardPalette`; at the room distance the same nodes stand inside
+the footprint at the socket the record names. Placement order and spacing
+inside a cell are named constants marked `needs decision` (O3). The suite
+drives a campaign in which the player's own yard produces a machine and a
+building is raised through the live bridge (S17's verbs and the tick) and
+asserts the node by name per instance, and that a snapshot with the
+instance gone frees the node.
+Done when: that suite; captures at world and route distance with at least
+one building and one machine standing.
+
+### P14 · The battle at every text scale
+Status: open · Depends on: P6, P11
+Touches: `game/scripts/battle/paper_card.gd`, the command dock and skill
+diamond scripts under `game/scripts/battle/`, `game/tests/battle_presentation_test.gd`
+(layout assertions appended), captures.
+P11 found, and did not fix because the layout is P6's: a roster card's
+status line is wider than the copy column `PaperCard` gives it and overflows
+the card at every text scale, and at 1.3× the skill diamonds' labels
+truncate inside their plates ("GUARDED STRI"). Fix the layouts, not the
+words: the card's copy column and the dock's plate width derive from the
+Theme's type scale so they grow with it; a name that still does not fit
+wraps or ellipsises by the Theme's own rule, never by clipping. Every size
+is a Theme value or a named constant marked `needs decision`. A suite
+instances the battle at 1.0× and 1.3× (P11's pattern) and asserts no Label
+in a card or plate reports `get_minimum_size().x` wider than its container
+and no diamond label is truncated. Ayla's colours stay Open; do not touch
+`battle_palette.gd`'s game colours or any file outside `battle/`.
+Done when: that suite bites (restore the fixed column width → fails by
+name); captures of the battle at 1.0× and 1.3× high contrast.
 
 ### One lane, one clean checkout
 
