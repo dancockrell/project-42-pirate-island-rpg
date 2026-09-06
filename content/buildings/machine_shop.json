@@ -91,7 +91,7 @@
   "production": [
     {
       "id": "production.machine_shop.automaton_frames",
-      "output": "machine",
+      "output": { "machine": { "family": "mechanical_dog" } },
       "output_key": "resource.open.needs_decision",
       "amount": 1,
       "interval_hours": 24,

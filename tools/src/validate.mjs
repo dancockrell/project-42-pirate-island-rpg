@@ -226,7 +226,13 @@ const socketFieldForKind = {
   storage: "delivery_sockets"
 };
 const socketFields = ["entrance_sockets", "road_sockets", "actor_sockets", "delivery_sockets"];
-const simpleProductionOutputs = new Set(["machine", "capacity", "service"]);
+// Mirrors `ProductionOutput` in godot-rust/src/strategy/building.rs. S13 made
+// `machine` a struct variant carrying a `family`, so the bare string is refused
+// here exactly as serde refuses it; the eight families are `MachineFamily::ALL`
+// in strategy/production.rs (brief section 5.4), and the Rust equality test over
+// content/buildings/ is what keeps this list honest.
+const simpleProductionOutputs = new Set(["capacity", "service"]);
+const machineFamilies = new Set(["mechanical_dog", "mechanical_cavalry", "mechanical_bear", "mechanical_elephant", "walker", "steam_wagon", "rocket", "airship"]);
 let buildingCount = 0;
 for (const { file, value } of await readJsonDirectory("buildings")) {
   buildingCount += 1;
@@ -318,10 +324,24 @@ for (const { file, value } of await readJsonDirectory("buildings")) {
       if (typeof rule?.output_key !== "string") fail(file, `${where}.output_key must be a string`);
       else if (rule.output_key !== "" && !rule.output_key.startsWith("resource.open.")) fail(file, `${where}.output_key ${rule.output_key} invents a resource category; brief section 20 leaves the resource list Open, so keys stay under resource.open.`);
 
+      if (rule?.cost !== undefined) {
+        if (rule.cost === null || typeof rule.cost !== "object" || Array.isArray(rule.cost)) fail(file, `${where}.cost must be an object of resource key to count`);
+        else for (const [key, count] of Object.entries(rule.cost)) {
+          if (!key.startsWith("resource.open.")) fail(file, `${where}.cost key ${key} invents a resource category; brief section 20 leaves the resource list Open, so keys stay under resource.open.`);
+          if (!Number.isInteger(count) || count < 0) fail(file, `${where}.cost.${key} must be a non-negative integer`);
+        }
+      }
+
       const output = rule?.output;
-      const isHumanRole = output !== null && typeof output === "object" && !Array.isArray(output) && Object.keys(output).length === 1 && Object.keys(output)[0] === "human_role";
+      const isSingleKeyObject = output !== null && typeof output === "object" && !Array.isArray(output) && Object.keys(output).length === 1;
+      const isHumanRole = isSingleKeyObject && Object.keys(output)[0] === "human_role";
+      const isMachine = isSingleKeyObject && Object.keys(output)[0] === "machine";
       if (typeof output === "string") {
-        if (!simpleProductionOutputs.has(output)) fail(file, `${where}.output ${output} is not a ProductionOutput: ${[...simpleProductionOutputs].join(", ")}, or { "human_role": { "role": "..." } }`);
+        if (output === "machine") fail(file, `${where}.output "machine" names no family; since S13 a machine rule is { "machine": { "family": "<one of ${[...machineFamilies].join(", ")}>" } }`);
+        else if (!simpleProductionOutputs.has(output)) fail(file, `${where}.output ${output} is not a ProductionOutput: ${[...simpleProductionOutputs].join(", ")}, { "machine": { "family": "..." } }, or { "human_role": { "role": "..." } }`);
+      } else if (isMachine) {
+        const family = output.machine?.family;
+        if (typeof family !== "string" || !machineFamilies.has(family)) fail(file, `${where}.output.machine.family ${JSON.stringify(family)} is not one of brief section 5.4's families: ${[...machineFamilies].join(", ")}`);
       } else if (isHumanRole) {
         if (typeof output.human_role?.role !== "string" || output.human_role.role.trim() === "") fail(file, `${where}.output.human_role.role must name the role, as a non-empty string`);
         // Brief section 5.6, and section 20's rejected list. Michael's faction
@@ -336,7 +356,7 @@ for (const { file, value } of await readJsonDirectory("buildings")) {
           if (!supportsRecruitment) fail(file, `${where} produces a human role on a record whose recruitment_support is empty; the only reading under which the rule is legal is that this building helps recruitment happen, so the record must say what the support is`);
         }
       } else {
-        fail(file, `${where}.output must be one of ${[...simpleProductionOutputs].join(", ")}, or { "human_role": { "role": "..." } }`);
+        fail(file, `${where}.output must be one of ${[...simpleProductionOutputs].join(", ")}, { "machine": { "family": "..." } }, or { "human_role": { "role": "..." } }`);
       }
     }
   }

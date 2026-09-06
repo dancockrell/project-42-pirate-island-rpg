@@ -524,6 +524,7 @@ mod tests {
         ProductionRule, RuinState, SocketKind, TierState,
     };
     use crate::strategy::faction::{FactionDefinitions, FactionState, Relationship};
+    use crate::strategy::production::MachineFamily;
 
     const BEACH: &str = "world.cell.black_beach";
 
@@ -577,11 +578,14 @@ mod tests {
         BuildingDefinition {
             production: vec![ProductionRule {
                 id: "rule.test.output".into(),
-                output: ProductionOutput::Machine,
+                output: ProductionOutput::Machine {
+                    family: MachineFamily::default(),
+                },
                 output_key: "machine.example".into(),
                 amount: 1,
                 interval_hours: 6,
                 minimum_tier: FIRST_TIER,
+                cost: BTreeMap::new(),
             }],
             ..a_definition(PRODUCER, 0)
         }
