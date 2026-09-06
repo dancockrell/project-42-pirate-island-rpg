@@ -3,7 +3,7 @@
   "task_id": "p11-palette-adopted",
   "agent": "claude-code (lane P11)",
   "summary": "The Theme is the one owner of the palette and the type scale, and the battle, the shell, the atmosphere and the audio sheet adopt it: BattlePalette and ShellStyle become thin readers, every UI hex literal is deleted, a game colour survives only where it is marked as one, and a suite refuses the rest.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -31,7 +31,8 @@
     "game/scripts/atmosphere/environment_atmosphere_target.gd",
     "game/scripts/audio/placeholder_waveform_sheet.gd",
     "game/scripts/render/island_environment.gd",
-    "game/tests/palette_owner_test.gd"
+    "game/tests/palette_owner_test.gd",
+    "docs/verification/captures/P11-1907073-battle-high-contrast.png"
   ],
   "symbols": [
     "ThemeTokens.adopt",
@@ -54,6 +55,26 @@
       "p8-shell"
     ],
     "conflicts_with": [],
-    "notes": "game/scripts/world/ and game/scripts/board/ are lane P10's this round and are not touched here; their constants are named in the completion checks so P10 can finish the adoption. game/themes/bronze_vellum.tres is card P5's owner and takes additive entries only -- two palette tokens the shell needs and the Theme lacked (night, hairline), two type-scale steps (wordmark, subtitle), and a MenuRow Button variation -- with no rename and no value change to anything P5 authored."
+    "notes": "game/scripts/world/ and game/scripts/board/ are lane P10's this round and are not touched here; their constants are named in the completion checks so P10 can finish the adoption. game/themes/bronze_vellum.tres is card P5's owner and takes additive entries only -- two palette tokens the shell needs and the Theme lacked (night, hairline), two type-scale steps (wordmark, subtitle), and a MenuRow Button variation -- with no rename and no value change to anything P5 authored. Shipped: `ThemeTokens.adopt(screen)` is the one door -- the screen's Theme comes from InformationSurface and the same call subscribes its `_on_theme_rebuilt`. BattlePalette kept only the vfx.registry.json palette vocabulary (five words resolve to a token, the rest are marked game colours); ShellStyle declares no colour at all. The Theme took additive entries only: `night` and `hairline` with high-contrast twins, `wordmark` and `subtitle` type steps, five MenuRow StyleBoxes and six label variations. Left for lane P10, named: `board_palette.gd` restates DEEP, TEAL, CREAM, BRONZE, DANGER, MUTED and PANEL and adds CLAY and SEA (19 literals in that file); `board_blockout.gd` carries ROCK and LAND (2); `isometric_board.gd` states its own ambient, fog, sun and fill colours (4); and on the world side `expedition_route_board.gd` (26, deleted by P10), `expedition_prototype.gd` (13), `reception_terrace_component.gd` (16), `elizabethan_port_town_set.gd` (17) and `reception_terrace_lighting_kit.gd` (3). `palette_owner_test.gd` names `res://scripts/world` and `res://scripts/board` in one constant, `NOT_OURS_YET`, so P10 deletes two strings and the scan covers the whole of scripts/."
+  },
+  "completion": {
+    "commit": "1907073",
+    "checks": [
+      "bash tools/verify-godot.sh with GODOT set, on the committed tree: 'Godot headless verification passed. 4 review scenes, 29 suites.' -- 0 ERROR lines in the whole run: passed",
+      "Done-when 1, the scan: palette_owner_test.gd walks every .gd under res://scripts/ except world/ and board/ -- 'Palette scan: 61 scripts read, 0 unmarked colour literals.': passed",
+      "Done-when 2, the re-theme: the suite instances TitleScreen and BattlePrototype on the live tree and calls InformationSurface.apply_settings(1.3, true, false); both take the rebuilt Theme, both grow their type, the title's palette and the weather behind it move, and the battle's ground, its command dock's own StyleBox and its VfxFactory's palette move with it -- 'Palette owner tests passed.': passed",
+      "Done-when 3, the captures: docs/verification/captures/P11-1907073-{battle-high-contrast,title-high-contrast,battle-default}.png, taken at 1.3x text scale with high contrast written into user://settings.cfg (the same file the settings panel writes), read and iterated twice: passed",
+      "Bite 1 (the re-theme half): renaming TitleScreen._on_theme_rebuilt so ThemeTokens.adopt finds no listener failed four assertions by name -- 'the title must take the rebuilt Theme, not keep the one it opened with', '1.3x text scale must reach the title's type: it was 15 and stayed 15', 'high contrast must reach the title's palette', 'high contrast must reach the weather behind the title, not only the lettering'. Restored and green: passed",
+      "Bite 2 (the scan half): restoring one hex in paper_card.gd's Composure pip failed with 'a colour must come from the Theme, or be marked as a game colour with a reason. Unmarked: paper_card.gd:121', exit 1, scan reporting 1 unmarked literal. Restored and green: passed",
+      "P5's own grammar suite still holds the Theme: information_surface_test.gd's test_theme_owns_the_palette walks every StyleBox and every colour in the resource and refuses one no palette token names -- it caught the two MenuRow boxes when they were first authored with a transparent fill, which is why they carry draw_center = false over a named token instead: passed",
+      "node tools/src/validate.mjs (518 stable IDs): passed",
+      "node tools/src/check-claims.mjs (68 claims, 110 ship-plan rows, 104 cards): passed",
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "No Rust changed in this card, so the crate's own suites were not re-run beyond fmt: not_run",
+      "The .tres is card P5's owner and took additive entries only: two palette tokens with high-contrast twins, two type-scale steps, five MenuRow StyleBoxes, six label variations. Nothing P5 authored was renamed and no value it authored was changed: passed",
+      "Left, said plainly: a roster card's status line ('VIT 100/100 - GRD 0 - READY') is wider than the 114px copy column PaperCard gives it and overflows past the card at every text scale, including 100%. That is P6's card layout, not this card's, and clipping it was tried and reverted because it loses the word READY at the default scale too. Named here so the roster card's next pass can widen the column or shorten the line: not_run",
+      "Left, said plainly: at 1.3x the skill diamonds' labels truncate inside their 118px plates ('GUARDED STRI', 'CONDITION CL'). draw_string clips rather than overflowing, so the degradation is contained, but the dock's column width is P6's and was not changed here: not_run",
+      "Left, said plainly: content/presentation/vfx.registry.json's palette words `white`, `black`, `amber`, `dust_brown` and `warm_skin` stay stated colours in BattlePalette, marked as game colours -- they are an effect's own light rather than an interface colour and the Theme has no token for any of them. Ayla's colours stay Open (needs decision: her identity lock) and her nine records still resolve to the neutral cream the rest of the screen owns: not_run"
+    ]
   }
 }
