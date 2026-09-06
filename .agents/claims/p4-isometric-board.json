@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "task_id": "p4-isometric-board",
+  "agent": "claude-code (lane P4)",
+  "summary": "B11's board block on every world cell and B12's one 3D scene graph at three distances: world cells tinted by control with routes drawn by risk, forces and the party as miniatures on the tethers, and the room distance showing a cell's footprint, spawn sockets and exits.",
+  "status": "active",
+  "claimed_at": "2026-09-06T12:00:00Z",
+  "updated_at": "2026-09-06T12:00:00Z",
+  "paths": [
+    "content/world/black_beach.world_cell.json",
+    "content/world/damaged_estate.world_cell.json",
+    "content/world/processional_ramp.world_cell.json",
+    "content/world/reception_terrace.world_cell.json",
+    "content/world/river_landing.world_cell.json",
+    "content/world/tomb_archive_core.world_cell.json",
+    "content/world/tomb_reception.world_cell.json",
+    "content/world/tomb_service_passage.world_cell.json",
+    "content/world/tomb_threshold.world_cell.json",
+    "content/presentation/board.registry.json",
+    "tools/src/validate.mjs",
+    "game/generated/content_bundle.json",
+    "game/scripts/simulation/native_expedition_port.gd",
+    "game/scripts/board/",
+    "game/scenes/board/",
+    "game/tests/isometric_board_test.gd",
+    "godot-rust/src/godot_bridge.rs",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "IsometricBoard",
+    "BoardCatalog",
+    "BoardCamera",
+    "BoardBlockout",
+    "EncounterLens",
+    "expedition_state_dictionary.forces"
+  ],
+  "coordination": {
+    "depends_on": [
+      "b14-control-and-risk-surface",
+      "s7-offscreen-forces",
+      "s2-ownership-and-influence"
+    ],
+    "conflicts_with": [],
+    "notes": "The board block is content-side only: no AuthoredCell field is added, because the B6/B7 equality test in godot-rust/tests/authored_world.rs builds the wire cell field by field rather than mirroring the whole record, and AuthoredCell does not deny unknown fields. godot_bridge.rs takes exactly one read-only hunk (a `forces` array on the state dictionary: id, faction, cell, next cell, progress -- names only, no strength, readiness or supply). game/scripts/world/expedition_* is P7's and is not touched; the 2D ExpeditionRouteBoard stays the owner of the 2D board this round and the 3D board replaces it by a later card, not by a fork. P2's camera director and clay material are not on origin yet, so this lane carries a local fixed-isometric BoardCamera with the named angles and a local marked StandardMaterial3D; both are marked in comments for P2 to absorb."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
