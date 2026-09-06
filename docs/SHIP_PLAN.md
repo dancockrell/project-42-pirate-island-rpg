@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 (S16 and S17 are additions outside the bracket; S17 shipped with the M3 100-day elimination `failed` until a tick writes ownership, B11/O3) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `101b838`. If this line is older than
+- Last updated 2026-09-06 against trunk `76f09ac`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -503,7 +503,7 @@ captured by P1's gate, and no card claims a look it has not captured.
 | P9 | Audio: buses, ambience by region, time and weather, cues keyed to battle events, a music state machine; procedural placeholders until assets | P3 | shipped 174f029 2026-09-06 |
 | P10 | The expedition screen is the board: P7's RTS controls on P4's isometric board, the 2D route board retired, one owner of travel on screen | P4, P7 | open |
 | P11 | One palette owner, adopted: battle, shell, settings and review scenes take colour and type from the Theme; the restated hexes deleted | P5, P6, P8 | open |
-| P12 | Blockout kits for buildings and machines (D9 + D10): procedural envelopes from the C10 and C14 records in the library's riveted iron and clay, reviewed at gameplay distance | P2, C10, C14 | open |
+| P12 | Blockout kits for buildings and machines (D9 + D10): procedural envelopes from the C10 and C14 records in the library's riveted iron and clay, reviewed at gameplay distance | P2, C10, C14 | shipped `76f09ac` 2026-09-06 |
 
 ### Lane H — Docs and hygiene
 
@@ -3052,7 +3052,7 @@ asserts the battle and the title re-theme when `apply_settings` is called;
 captures of the battle and the title under high contrast at 1.3× text.
 
 ### P12 · Blockout kits for buildings and machines (D9 + D10)
-Status: open · Depends on: P2, C10, C14
+Status: shipped `76f09ac` 2026-09-06 · Depends on: P2, C10, C14
 Touches: `game/scripts/blockouts/` (new: `building_blockout_kit.gd`,
 `machine_blockout_kit.gd`), `game/scenes/review/blockout_kit_review.tscn`
 (new review scene), `game/scripts/review/blockout_kit_review.gd`, one suite.
@@ -3075,6 +3075,25 @@ P10's or a later card's; this card ships kits and the seam
 Done when: a suite builds every authored building and machine record,
 asserts the envelope's extents equal the record's and every named
 socket/pivot exists as a child by name; captures of the review scene.
+**Shipped:** `game/scripts/blockouts/` — a shared `blockout_kit.gd`
+(material language, socket vocabulary, placeholder marking, bounds),
+`building_blockout_kit.gd` (`build(record, room_footprint, tier)`: footing,
+one box per authored tier stepped back as it rises, cornices, a roof cap
+clamped to the box, footprint line, clearance outline, every socket as an
+empty `Node3D` inside the envelope) and `machine_blockout_kit.gd`
+(`build(record)`: the dog in iron with slung boiler and rod legs, the wagon
+with frame, bed, boiler, stack, tank, axles and wheels, every repair socket
+and pivot as a named empty). Iron is the library's metal shader with one
+named value set, no new material file. `blockout_kit_review.tscn` shows all
+five records under the island environment twice, the second with massing
+hidden so the sockets read. The suite holds every envelope equal to its
+record and every socket by name; bite: an unclamped roof cap fails
+`building.ritual_anchor` by name. Captures `P12-7f9795c-{buildings,machines}.png`,
+seven rounds. `blocked: needs decision`: no C10 record carries a height and
+every C14 dimension is zero, so every metre is a named constant in each
+kit's `OPEN_DIMENSIONS`, asserted to still say so. `CELL_CAPACITY_CELLS` is
+a mirror of the Rust constant until a bridge verb exposes it. Nothing
+places a kit on the board yet (P10 or a later card).
 
 ### One lane, one clean checkout
 
