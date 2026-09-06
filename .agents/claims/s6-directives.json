@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "task_id": "s6-directives",
+  "agent": "claude-opus-5-lane-s6",
+  "summary": "S6: StrategicDirective, its ten intents, the plain-language Explanation produced before confirmation, and the directive term made real in S5's scoring",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/directive.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/strategy/utility.rs",
+    "godot-rust/tests/save_migration.rs"
+  ],
+  "symbols": [
+    "StrategicDirective",
+    "Intent",
+    "DirectiveStatus",
+    "Explanation",
+    "ExpeditionState.issue_directive",
+    "ExpeditionState.supersede_directive",
+    "ExpeditionState.cancel_directive",
+    "ExpeditionState.mark_directive",
+    "ExpeditionState.explain_directive",
+    "BoardView.directives",
+    "GoalWeights.player_directives"
+  ],
+  "coordination": {
+    "depends_on": [
+      "S5"
+    ],
+    "conflicts_with": [],
+    "notes": "expedition.rs is shared with two other lanes this round, so S6 makes exactly two edits there: the `directives` field appended at the END of the ExpeditionState field list and its initialiser at the end of new()'s struct literal, plus the use. Every method this lane needs lives in an impl ExpeditionState block inside strategy/directive.rs. tick.rs, force.rs, godot_bridge.rs, game/, content/, tools/ and docs/SHIP_PLAN.md are untouched; run_hour picks directives up for free because BoardView::of reads them."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
