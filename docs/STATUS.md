@@ -47,3 +47,77 @@ This branch (`backend/b0-expedition-state`, PR #3) is now the unified spine. The
 - **Code:** `ExpeditionState::validate` now accepts a party of five (was four). Tests still 110/110 + 1/1 after the change. The strategic layer (factions, buildings, ownership, directives, forces, weather, corruption, journal) does **not** exist yet in Rust, content or Godot — see Ship Plan Lane S.
 - **Docs reconciled in this pass:** `GAME_BUILD_PLAN.md` C2 roster and E2 exit test (four women; Betty and Ayla established; two open), `§4.1` party cap; the bible's `req.scope.cast.core` and `req.scope.campaign.duration` marked SUPERSEDED, protagonist = Captain Michael, a current-authority callout at its top; `THREE_D_PRODUCTION_PLAN.md` and `BETTY_3D_ASSET_CONTRACT.md` say rigging is a generator switch and clips wait for the animation tool; `RUNBOOK.md` no longer says "commissioning". The design bible `.docx` in `outputs/` is **stale** until regenerated (needs `python-docx`; Ship Plan H8).
 - **Not decided (brief §20 / Ship Plan §4):** the other two women; battle presentation (side-view theatre as the encounter lens is the Provisional recommendation); board-contract ownership between this repository and dr-companion; merge authority; Michael's exact history.
+
+## 2026-09-05 and 2026-09-06
+
+Three parallel rounds on `backend/b0-expedition-state` (PR #3), each lane in
+its own worktree with a `.agents/claims/` manifest, integrated only after the
+four proofs were re-run on the trunk. The live ledger is `docs/SHIP_PLAN.md`;
+this entry records what was *verified*, not what was planned.
+
+- **CI exists and is trusted.** `.github/workflows/verify.yml` runs two jobs:
+  Rust and content (fmt, tests, `--features godot-ext`, validator, bundle
+  freshness) and the Godot headless gate (editor import, main scene, three
+  review scenes, seventeen suites) against the real GDExtension, with an
+  anti-mock step that fails unless three live-bridge lines are present. Both
+  are green on trunk `205fec2`. **Two ways the gate could pass falsely were
+  found by reading green logs and closed:** the anti-mock proof (E2), and on
+  2026-09-06 a suite-shape hole — fifteen suites ended in an unconditional
+  `quit(0)` that erased an earlier `quit(1)` — closed at two levels: both
+  gate scripts now fail any step that prints an `ERROR:` line, and the seven
+  suites with that shape count failures. The same day the migration suite was
+  found to take its expected keys from the serializer under test; it is a
+  literal list now (E6).
+- **The slice holds through the engine, not only in Rust.** The port had
+  forwarded only a portal's id, endpoints and travel mode, so C2's authored
+  road costs and any gate never reached Godot. Found when A4's authored tidal
+  cut turned the Godot job red; fixed under C13 — costs, gates, cells and
+  anchors forwarded, `use_anchor` on the bridge, the prototype and campaign
+  suites salvaging the wreck before they walk, as the Rust slice does.
+  `godot-rust/tests/authored_world.rs` performs the port's translation field
+  for field and drives the prototype's opening on it.
+- **Character simulation (M1 7/12):** the supply loop closes (A3: anchors
+  produce, rations bite, victory pays; loot values owned by
+  `content/loot/`, held equal by a test); the estate's rooms are anchor
+  actions and `rest_at_estate` is gone (A4); five named bands and Composure
+  with the Shaken gate (A5; bond ranks owned by content, held equal); Captain
+  Michael is a battle actor with Weapon Attack, Guard and Reposition (A6; his
+  display name owned by `content/characters/captain.json`); Hold Position is
+  the universal Guard verb and the architecture doc says so (A8).
+- **Strategic simulation (M3 3/16), which did not exist before 2026-09-06:**
+  `godot-rust/src/strategy/` — `FactionDefinition`/`FactionState` with a
+  closed six-key concept enum and no field a proper name could live in (S1);
+  ownership and influence on the graph with `effective_risk` as the single
+  owner of a road's live danger, contested = authored base + 2 (S2);
+  `RecruitmentState` moved only by authored milestones, never surfaced as
+  numbers — structurally, `Disposition` has no accessor outside its file
+  (S12). Pursuit respects gates: a hunter never takes a door the party has
+  not opened (found by A4, fixed on merge).
+- **Bridge and screen:** the full legal-command list, `inspect`,
+  `resolve_midnight`, `use_anchor`; the screen draws anchor, inspect and
+  midnight controls only from the legal list, so a spent anchor or a locked
+  door is never a button (B3, B4). `inspect` records one observation, not the
+  whole cell. Cells, anchors and portal costs forwarded (B2, inside C13).
+- `cargo test --manifest-path godot-rust/Cargo.toml`: **183 unit + 3
+  authored-world + 5 save-migration + 1 integration pass**. `cargo check
+  --features godot-ext`: passes, no warnings. `cargo fmt -- --check`: clean.
+- `node tools/src/validate.mjs`: passes — **194 stable IDs** (178 → 194: ten
+  observation IDs, five anchors and one discovery it previously could not
+  see), 9 skills, 47 presentation cues, 15 video reels, 6 creature plates, 5
+  shared asset records, 33 source collections, 12 tracked placeholders.
+- **Recurring defect class, three times in one day:** a lane mirrored
+  authored content in Rust with nothing holding the two equal (loot yields,
+  bond ranks, the Captain's name). Each is now content-owned with an
+  equality test; the rule is in every lane brief. **Rows without cards** in
+  the ledger were found and fixed four times (C1/C2/C4, E5, E6, B3/B4).
+- **Not decided, unchanged (brief §20):** the other two women (O2); battle
+  presentation (O1); resource categories; faction display names (C9 authors
+  placeholders that the validator requires to say "needs decision").
+- **In flight at the time of writing:** S4 (strategic tick and the
+  determinism harness), C9 (faction records), B14 (control and risk through
+  the bridge).
+
+**Summary:** one spine, green through both CI jobs, the first-chapter slice
+playable through the engine with real costs and gates, and the strategic
+layer begun. Next: S4/S8 (the tick and the dual clocks), S5 (utility AI)
+once S4 lands, and C6/C12 when O2 is decided.
