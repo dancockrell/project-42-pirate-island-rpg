@@ -356,7 +356,7 @@ top of the document is never stale:
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
 - **M3** shipped 3/16 — **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
-- Last updated 2026-09-06 against trunk `ce32cc2`. If this line is older than
+- Last updated 2026-09-06 against trunk `3598628`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -427,7 +427,7 @@ top of the document is never stale:
 | C6 | Relationship scene records and schema | — | open |
 | C7 | Placeholder deprecation migration | D4 | open |
 | C8 | Scene `presentationLevel` and the pack manifest schema | C6 | open |
-| C9 | Faction records (no proper names) | S1 | open |
+| C9 | Faction records (no proper names) | S1 | shipped 3598628 2026-09-06 — the validator refuses a real name until one is approved |
 | C10 | Building records with envelopes | S3 | open |
 | C11 | Room contract fields on world cells | B11 | open |
 | C12 | One recruitable woman's arc (records only; identity per O2) | C6, S12, O2 | blocked: needs decision O2 |
@@ -1240,10 +1240,22 @@ a pack may not carry rules, skill, character, faction or building records.
 Done when: validator green with a fixture pack; a pack carrying a skill fails.
 
 ### C9 · Faction records
-Status: open · Depends on: S1 — `content/factions/<concept_key>.json`, one per
+Status: shipped `3598628` 2026-09-06 · Depends on: S1
 faction, `displayName` **left as a placeholder marked `needs decision`** (no
 proper names). Validator block registers `faction.<key>` and checks every
 S1 field exists.
+
+**Shipped.** Six records, `id` exactly `faction.<concept_key>`, `displayName`
+a placeholder the validator **requires** to contain "needs decision" — proven
+to bite on a real-looking name. `resource_priorities` is one
+`resource.open.needs_decision` key at weight zero and the validator refuses any
+other namespace, so the Open resource list is Open in the data too. Doctrine
+is Provisional prose no code reads. Every empty field's notes name the Open
+item it waits on; political form has no field. Held equal to S1's types by
+`every_authored_faction_record_loads_and_validates`. **Left, deliberately:**
+`build-content-bundle.mjs`'s domain list omits `factions`, so they do not
+reach the Godot bundle; nothing in Godot reads them. One line when a consumer
+exists.
 
 ### C10 · Building records — `content/buildings/*.json` per S3's fields;
 validator checks envelope integers and socket lists.
