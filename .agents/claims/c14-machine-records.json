@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "task_id": "c14-machine-records",
+  "agent": "claude-code (lane C14)",
+  "summary": "Author content/machines/ -- machine.mechanical_dog and machine.steam_wagon with brief section 18's fields, every Open dimension a needs-decision placeholder -- mirror the eight families and the authored travelMode vocabulary in the validator, point building.machine_shop's machine rule at a machine that exists, and hold MachineDefinitions equal to the directory in Rust.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "content/machines/",
+    "content/buildings/machine_shop.json",
+    "tools/src/validate.mjs",
+    "tools/src/build-content-bundle.mjs",
+    "game/generated/content_bundle.json",
+    "godot-rust/src/strategy/production.rs"
+  ],
+  "symbols": [
+    "MachineDefinition",
+    "MachineDefinitions",
+    "ExpeditionState.produce_machine"
+  ],
+  "coordination": {
+    "depends_on": ["s13-machines-not-people", "c10-building-records"],
+    "conflicts_with": [],
+    "notes": "S13's last check spells this card's contract. Rust is confined to the END of production.rs's test module because lane S16 is editing that file's hourly logic and building.rs at the same time; no existing test, type or function is restructured. content/buildings/machine_shop.json is touched in exactly one place -- the automaton_frames rule's output_key, which C10 left at the resource placeholder because no machine record existed to name. The validator change to the buildings block is narrow: a machine rule's output_key is a machine.<...> reference, every other output_key stays under resource.open."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
