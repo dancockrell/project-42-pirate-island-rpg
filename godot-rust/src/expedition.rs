@@ -3726,4 +3726,85 @@ mod tests {
         assert!(loaded.weather.is_empty());
         assert!(loaded.corruption.is_empty());
     }
+
+    /// B17, the seam the A10 card named: a battle built from a campaign refuses
+    /// a command ranked above where that campaign's Betty actually stands, and
+    /// the authored beat that raises her is what opens it.
+    ///
+    /// Nothing here is a fixture rank. The campaign starts her at the floor,
+    /// `content/relationships/betty.the_wreck_dead_are_buried.json` is the
+    /// record that carries `raisesBondRankTo: "C"`, and both battles are built
+    /// from `bond_ranks` by the same constructor the bridge's
+    /// `begin_pending_battle` calls.
+    #[test]
+    fn the_burial_scene_opens_betty_s_rank_c_command_in_the_campaign_s_next_battle() {
+        use crate::battle::{ActorId, Battle, BattleError, SkillCommand};
+        use crate::strategy::recruitment::{AuthoredScene, Disposition, RecruitmentStage};
+
+        const BETTY: &str = "character.heroine.betty";
+        let cleanse = || SkillCommand {
+            command_id: "command.b17.cleanse".into(),
+            actor_id: ActorId(BETTY.into()),
+            skill_id: "skill.betty.condition_cleanse".into(),
+            target_ids: vec![ActorId("character.heroine.vix".into())],
+        };
+
+        let mut state = ExpeditionState::new(
+            42,
+            vec!["character.protagonist.captain".into(), BETTY.into()],
+            "world.cell.black_beach",
+        )
+        .expect("fixture campaign is legal");
+        assert_eq!(
+            state.bond_ranks[BETTY], "D",
+            "a fresh campaign stands her at the floor"
+        );
+
+        let mut betty = RecruitmentState::new(BETTY);
+        betty.recruitment_stage = RecruitmentStage::Interested;
+        betty.trust_in_michael = Disposition::new(75);
+        let scene_path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../content/relationships/betty.the_wreck_dead_are_buried.json"
+        );
+        let scene: AuthoredScene = serde_json::from_str(
+            &std::fs::read_to_string(scene_path).expect("the authored burial scene is readable"),
+        )
+        .expect("the authored burial scene is an AuthoredScene");
+        betty
+            .adopt_authored_scenes(std::slice::from_ref(&scene))
+            .expect("the authored milestone ID is a stable ID");
+        state.recruitment.insert(BETTY.into(), betty);
+
+        let mut before = Battle::prototype_vertical_slice_from_bond_ranks(&state.bond_ranks);
+        before.start();
+        assert_eq!(
+            before.submit(cleanse()).unwrap_err(),
+            BattleError::BondRankTooLow {
+                skill_id: "skill.betty.condition_cleanse".into(),
+                required: "C".into(),
+                current: "D".into(),
+            },
+            "the campaign has not raised her, so her rank C command is not hers yet"
+        );
+
+        state
+            .record_recruitment_milestone(BETTY, &scene.grants_milestone_id)
+            .expect("the authored beat plays");
+        assert_eq!(state.bond_ranks[BETTY], "C");
+
+        let mut after = Battle::prototype_vertical_slice_from_bond_ranks(&state.bond_ranks);
+        after.start();
+        after
+            .submit(cleanse())
+            .expect("the same command, once the burial scene has been played");
+        assert!(
+            after
+                .actor(&ActorId("character.heroine.vix".into()))
+                .expect("Vix stands in the slice")
+                .statuses
+                .is_empty(),
+            "the cleanse resolved: Vix's authored poison is gone"
+        );
+    }
 }

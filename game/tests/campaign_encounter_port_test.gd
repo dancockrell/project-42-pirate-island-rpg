@@ -44,11 +44,22 @@ func _init() -> void:
 	check(port.is_available(), "campaign encounter adapter must accept the armed session")
 	var snapshot := port.create_debug_battle()
 	check(snapshot.get("battle_id") == "battle.prototype.returning_names", "campaign adapter must create the battle declared by the encounter")
+	# B17: the battle the campaign arms carries the campaign's bond ranks, not the
+	# review fixture's. This session is fresh, so Betty stands at the floor and her
+	# rank C Condition Cleanse is not hers yet.
+	check(campaign_betty(snapshot).get("bond_rank", "") == "D", "a fresh campaign's Betty must reach the fight at bond rank D, not at the review fixture's SSS")
 	var started := port.start()
 	check(not started.is_empty() and started[0].get("kind") == "battle_started", "campaign encounter must start through the native retained bridge")
 	check(campaign_session.has_pending_encounter(), "battle start must not erase the pending encounter before an outcome")
 	campaign_session.reset_for_test()
 	finish()
+
+
+func campaign_betty(snapshot: Dictionary) -> Dictionary:
+	for candidate in snapshot.get("actors", []):
+		if candidate.get("id", "") == "character.heroine.betty":
+			return candidate
+	return {}
 
 
 func check(condition: bool, message: String) -> void:
