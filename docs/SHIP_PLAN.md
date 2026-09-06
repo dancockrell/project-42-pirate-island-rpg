@@ -355,8 +355,8 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
-- **M3** shipped 12/16 — **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it)
-- Last updated 2026-09-06 against trunk `a579ff9`. If this line is older than
+- **M3** shipped 13/16 — **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it)
+- Last updated 2026-09-06 against trunk `9e76a54`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -388,7 +388,7 @@ top of the document is never stale:
 | S6 | `StrategicDirective` vocabulary and plain-language explanation | S5 | shipped 7a63396 2026-09-06 |
 | S7 | Offscreen forces and materialisation through routes and sockets | S4, S2 | shipped 092533f 2026-09-06 — movement and arrival; **materialisation blocked: needs B11** |
 | S8 | Weather, corruption, and the dual clocks (world time vs patience/heat) | S4 | shipped ba1cb56 2026-09-06 — every tuning number marked needs decision |
-| S9 | `DungeonContext` and generation signature | S3, S8 | open |
+| S9 | `DungeonContext` and generation signature | S3, S8 | shipped 9e76a54 2026-09-06 |
 | S10 | Elimination and the recovery chain | S3, S7 | open |
 | S11 | Event journal and the strategic save fields | S4 | shipped 8c79fde 2026-09-06 |
 | S12 | `RecruitmentState` for women (not a numeric romance UI) | S1 | shipped 83658e5 2026-09-06 |
@@ -1108,13 +1108,32 @@ so an unknown cell is refused before mutation; the weather step derives its
 regions from the graph so a save cannot conjure one.
 
 ### S9 · `DungeonContext` and generation signature
-Status: open · Depends on: S3, S8
+Status: shipped `9e76a54` 2026-09-06 · Depends on: S3, S8
 `DungeonContext` with brief §19's fields; `fn dungeon_signature(ctx) -> u64`
 folds every field so two contexts differing in owner or tier never collide;
 the tomb (C5) is the first dungeon whose room set and site rules (A7) are
 selected by the signature. Repeated farming: reward budget draws down the
 building's stored value (S3) — no infinite loot.
 Done when: same context → same rooms; owner change → different site rules.
+**Shipped:** `strategy/dungeon.rs` — `DungeonContext` with §19's fields in
+order (plus `heat_band` appended after the verbatim block, since the card
+needs it and §19 has no slot), `dungeon_signature` as an FNV fold over every
+field, `DungeonContext::of`, `room_seed` through `mix_seed`, banded
+corruption, heat and world epoch so a dungeon does not regenerate on every
+point and every midnight. `every_single_field_changes_the_signature` mutates
+each field alone and names the one that stops mattering (proven to bite with
+a `serde(skip)`). Reward budget is the building's `stored_value` (one
+appended `#[serde(default)]` field on `BuildingInstance`) and
+`draw_dungeon_reward` only draws it down. Every band threshold is a named
+constant marked needs decision; the endgame epoch is S8's own
+`CONFRONTATION_DAY`, not a second number. **Left, on purpose:** nothing
+refills `stored_value` yet, so every dungeon is empty until S13 or a C card
+gives buildings value (`blocked: needs decision`); no per-instance upgrade
+history exists, so `upgrade_signature` folds the tier ladder from the
+definition; the tomb's room set (C5) and site rules (A7) are not on this
+base, so no room set is selected yet — the signature is the seam they key
+on. `NOT_A_DUNGEON = "none"` is the sentinel C10's `dungeon_relationship`
+uses for a building that is deliberately not a dungeon.
 
 ### S10 · Elimination and the recovery chain
 Status: open · Depends on: S3, S7
