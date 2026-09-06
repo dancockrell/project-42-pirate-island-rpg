@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "task_id": "p6-battle-presentation",
+  "agent": "claude-code lane P6",
+  "summary": "The battle screen renders its presentation registries instead of reading them for labels: a vfx_factory builds a real particle-and-shader effect per presentation.vfx record, camera beats and hit-stop come from presentation.camera, the band rail eases, damage numbers carry weight, the ward line is a drawn shimmering line, grave watch pulses on hostiles, death dissolves, and the paper rigs get a lighting pass that sits them in the plate.",
+  "status": "active",
+  "claimed_at": "2026-09-06T11:30:00Z",
+  "updated_at": "2026-09-06T11:30:00Z",
+  "paths": [
+    "game/scripts/battle/",
+    "game/scenes/battle/",
+    "content/presentation/vfx.registry.json",
+    "tools/src/validate.mjs",
+    "game/generated/content_bundle.json",
+    "game/tests/battle_presentation_test.gd",
+    "game/tests/prototype_turn_cycle_test.gd",
+    "game/tests/placeholder_action_presenter_test.gd",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "VfxFactory",
+    "BattleStage",
+    "BattleCameraRig",
+    "DamageNumber",
+    "WardLine",
+    "BattlePrototype"
+  ],
+  "coordination": {
+    "depends_on": ["a5-bands-and-composure", "a6-captain-michael-actor", "a7-c3-ayla-lands", "a10-bond-rank-gate", "b17-battle-from-the-campaign"],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at f5d26d1. Baseline capture read before any code was written (docs/verification/captures/P6-<sha>-00-before.png): the paper rigs float roughly a hundred pixels above the painted terrace floor with no contact shadow, no rim light and no plate colour on them, so they read as stickers on a photograph; there is no effect of any kind on screen -- the vfx registry is consumed only as tooltip prose; there is no camera, no hit-stop and no shake; no damage numbers; the band rail is a flat corner list whose names clip (MICHAEL CORRIGA) and whose Composure pips run off the card; the skill diamonds sit loose on the stone with unreadable grey-on-grey labels; the enemy intent line is invisible against the bright sky; and the paper stage's teal and red layout guide arcs are drawn in the running game. lane/P5-grammar-and-surface had pushed nothing when this lane finished, so game/themes/bronze_vellum.tres does not exist and the prototype's own DEEP/PANEL/CREAM/TEAL/BRONZE/DANGER constants stay the owner of every colour, gathered into one BattlePalette block with a comment naming the Theme as the owner that replaces them."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
