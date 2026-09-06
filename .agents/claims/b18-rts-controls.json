@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "task_id": "b18-rts-controls",
+  "agent": "claude-code (lane B18)",
+  "summary": "RTS-style controls on the expedition screen: the drawn portal lines, teal midpoint dots and the route legend are deleted, tiles tint by reachability, left-click selects and right-click orders a move, and hotkeys 1-9 and the route words issue the same order through the one request_travel path.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "game/scripts/world/expedition_route_board.gd",
+    "game/scripts/world/expedition_prototype.gd",
+    "game/tests/expedition_prototype_test.gd"
+  ],
+  "symbols": [
+    "ExpeditionRouteBoard.reachable_portal_ids",
+    "ExpeditionRouteBoard.selected_cell_id",
+    "ExpeditionRouteBoard.portal_to_cell",
+    "ExpeditionRouteBoard.tile_at_point",
+    "ExpeditionRouteBoard.tile_selected",
+    "ExpeditionRouteBoard.move_ordered",
+    "ExpeditionPrototype.select_tile",
+    "ExpeditionPrototype.order_move_to_tile",
+    "ExpeditionPrototype.press_route_hotkey",
+    "ExpeditionPrototype.route_hotkey_portal_ids"
+  ],
+  "coordination": {
+    "depends_on": [
+      "b14-control-and-risk-surface",
+      "b3-b4-legal-commands-and-controls",
+      "b9-pause-and-settings"
+    ],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at 2ec3243. Godot-only lane: no Rust, no port, no campaign_session.gd, no content. draw_portal and its midpoint dot are deleted rather than hidden -- move 3, the feature goes -- and the reachability the lines used to carry becomes a tint on the tile, which is the same snapshot fact drawn once instead of twice. Legality stays where it is: the native legal_route_commands list is the only judge, and portal_to_cell is a lookup inside that list, not a second check. The route board owns the cell-to-portal mapping because it already builds the catalog portal list; the prototype asks it rather than keeping a second copy. request_travel remains the single path to the bridge -- the words, the right-click and the hotkey all end in it -- and the mouse and key handlers call the same test hooks a suite calls, so there is one code path per order and not two."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
