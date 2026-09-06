@@ -577,6 +577,11 @@ fn expedition_error_code(value: &ExpeditionError) -> &'static str {
         ExpeditionError::AnchorRequiresDiscovery { .. } => "anchor_requires_discovery",
         ExpeditionError::AnchorAlreadyResolved { .. } => "anchor_already_resolved",
         ExpeditionError::TravelBlockedByEncounter { .. } => "travel_blocked_by_encounter",
+        // S2 added `UnknownCell` and this match is exhaustive, so its code
+        // belongs here now -- the same one-line obligation A3 and A4 recorded
+        // above. Projecting `set_control` and effective route risk to Godot is
+        // B3's card, not this edit; this arm adds no bridge surface.
+        ExpeditionError::UnknownCell { .. } => "unknown_cell",
     }
 }
 

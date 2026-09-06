@@ -99,6 +99,19 @@ pub struct LocationRecord {
     pub return_policy: ReturnPolicy,
     pub persistence_policy: PersistencePolicy,
     pub encounter_eligible: bool,
+    /// S2: which faction the *static graph* says holds this place, as a
+    /// `faction.<concept_key>` ID. Content authors nothing about ownership yet,
+    /// so every authored cell carries `None` and the mutable truth is
+    /// [`crate::expedition::ExpeditionState::ownership`], which overrides this.
+    /// The field exists so an authored starting map can seed control later
+    /// without a second registry appearing to hold it.
+    pub owner_faction_id: Option<String>,
+    /// S2: standing, per faction, in this place -- the pressure that has not
+    /// yet become control. Keyed by `faction.<concept_key>`; empty by default.
+    /// Nothing reads it for risk today; `effective_risk` is deliberately a
+    /// function of *control*, so influence cannot quietly become a second
+    /// answer to "who holds this road".
+    pub influence: BTreeMap<String, u16>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -116,6 +129,15 @@ pub struct RouteOption {
     pub required_discovery_id: Option<String>,
 }
 
+/// S2: what a contested road adds to its authored `risk_level`. Two, because
+/// the authored slice makes that number mean something exact: the river
+/// landing's `safe_road` to the reception terrace is risk 1 and its
+/// `jungle_edge` is risk 3, so a contested safe road costs precisely what the
+/// jungle costs. The safe way stops being the safe way, which is the whole
+/// point of the brief's "a safe road becomes contested" -- rather than a
+/// rounding nudge the player never notices.
+pub const CONTESTED_RISK_MODIFIER: u8 = 2;
+
 impl LocationRecord {
     /// The minimal record for a place a portal reaches but no cell declares.
     /// It exists so the graph is closed; a declared `CellDefinition` for the
@@ -131,6 +153,8 @@ impl LocationRecord {
             return_policy: ReturnPolicy::CanRetreatToPrevious,
             persistence_policy: PersistencePolicy::PersistsAcrossVisits,
             encounter_eligible: false,
+            owner_faction_id: None,
+            influence: BTreeMap::new(),
         }
     }
 }
@@ -770,6 +794,11 @@ impl Geography {
                     return_policy: cell.return_policy,
                     persistence_policy: cell.persistence_policy,
                     encounter_eligible: cell.encounter_eligible,
+                    // S2: the graph is static content and content authors no
+                    // owners, so a cell arrives unheld. `ExpeditionState`
+                    // carries who holds it now.
+                    owner_faction_id: None,
+                    influence: BTreeMap::new(),
                 },
             );
         }
@@ -880,6 +909,58 @@ impl Geography {
 
     pub fn route(&self, id: &str) -> Option<&RouteOption> {
         self.routes.get(id)
+    }
+
+    /// S2: which faction the static graph says holds this cell. `None` for an
+    /// unheld place and for a cell that does not exist -- "nobody holds it" and
+    /// "there is no such place" are the same answer to a question about
+    /// control, and callers that need the difference ask [`Self::location`].
+    ///
+    /// This is the *authored* answer only. The live answer is
+    /// [`Self::effective_risk`]'s `ownership` argument, which is
+    /// [`crate::expedition::ExpeditionState::ownership`] and wins wherever it
+    /// names the cell.
+    pub fn controller(&self, cell_id: &str) -> Option<&str> {
+        self.locations.get(cell_id)?.owner_faction_id.as_deref()
+    }
+
+    /// S2, and the one owner of "how dangerous is this road right now".
+    ///
+    /// The route's authored `risk_level` (C2 authors it on every portal in
+    /// `content/world/*.world_cell.json`, and
+    /// `fixture_matches_the_authored_world_cells` holds the Rust fixture equal
+    /// to it) is the road's *base*. A road whose two endpoints are held by
+    /// different parties is contested, and costs [`CONTESTED_RISK_MODIFIER`]
+    /// more. Nothing stores the sum: it is recomputed from control every time
+    /// it is asked for, so control can change without a single route record
+    /// being edited -- which is brief section 1's "a safe road becomes
+    /// contested", made mechanical.
+    ///
+    /// **Contested means the two endpoints' controllers differ**, with "unheld"
+    /// counted as a party of its own: `None` against `Some(faction)` is
+    /// contested, exactly as `faction.pirates` against `faction.elves` is. Both
+    /// readings of the unheld case were defensible; this one is the simpler,
+    /// because it is a single comparison rather than a comparison plus a
+    /// special case, and it says the plainer thing about the board -- the
+    /// frontier of a holding is where the fighting is, and a road running out
+    /// of held ground into nobody's ground is exactly that frontier. It also
+    /// leaves a fresh campaign, where nothing is held, entirely uncontested.
+    ///
+    /// `ownership` is [`crate::expedition::ExpeditionState::ownership`]; it
+    /// overrides the graph's authored [`Self::controller`] wherever it names a
+    /// cell. Deterministic: no draw, no clock, no hidden state.
+    pub fn effective_risk(&self, route: &RouteOption, ownership: &BTreeMap<String, String>) -> u8 {
+        let held_by = |cell_id: &str| -> Option<&str> {
+            ownership
+                .get(cell_id)
+                .map(String::as_str)
+                .or_else(|| self.controller(cell_id))
+        };
+        if held_by(&route.from_location_id) == held_by(&route.to_location_id) {
+            route.risk_level
+        } else {
+            route.risk_level.saturating_add(CONTESTED_RISK_MODIFIER)
+        }
     }
 
     pub fn routes_from(&self, location_id: &str) -> Vec<&RouteOption> {
@@ -1000,6 +1081,101 @@ mod tests {
 
     fn no_gates_open() -> BTreeSet<String> {
         BTreeSet::new()
+    }
+
+    const SAFE_ROAD: &str = "world.portal.river_landing_to_reception_terrace_safe_road";
+    const JUNGLE_EDGE: &str = "world.portal.river_landing_to_reception_terrace_jungle_edge";
+
+    /// S2's Done-when, at the graph's own level: flipping who holds the river
+    /// landing changes what the safe road costs, and edits no route record.
+    #[test]
+    fn taking_the_river_landing_contests_the_safe_road_without_editing_it() {
+        let geography = Geography::black_beach_vertical_slice();
+        let safe_road = geography.route(SAFE_ROAD).expect("the fixture's safe road");
+        let authored_risk = safe_road.risk_level;
+
+        let mut ownership = BTreeMap::new();
+        assert_eq!(
+            geography.effective_risk(safe_road, &ownership),
+            authored_risk,
+            "an island nobody holds contests nothing"
+        );
+
+        ownership.insert(
+            "world.cell.river_landing".to_owned(),
+            "faction.pirates".to_owned(),
+        );
+        assert_eq!(
+            geography.effective_risk(safe_road, &ownership),
+            authored_risk + CONTESTED_RISK_MODIFIER,
+            "one held endpoint against one unheld endpoint is a contested road"
+        );
+        assert_eq!(
+            geography
+                .route(SAFE_ROAD)
+                .expect("the safe road is still there")
+                .risk_level,
+            authored_risk,
+            "the authored risk on the route record must not have moved"
+        );
+
+        // The point of the modifier, stated as the fixture states it: contested,
+        // the safe way is worth exactly what the jungle is worth.
+        let jungle_edge = geography.route(JUNGLE_EDGE).expect("the fixture's jungle");
+        assert_eq!(
+            geography.effective_risk(safe_road, &ownership),
+            jungle_edge.risk_level
+        );
+
+        // Both ends in the same hand, and it is a safe road again -- with, once
+        // more, nothing on the record having changed.
+        ownership.insert(
+            "world.cell.reception_terrace".to_owned(),
+            "faction.pirates".to_owned(),
+        );
+        assert_eq!(
+            geography.effective_risk(safe_road, &ownership),
+            authored_risk
+        );
+    }
+
+    #[test]
+    fn two_different_holders_contest_the_road_between_them() {
+        let geography = Geography::black_beach_vertical_slice();
+        let safe_road = geography.route(SAFE_ROAD).expect("the fixture's safe road");
+        let ownership = BTreeMap::from([
+            (
+                "world.cell.river_landing".to_owned(),
+                "faction.pirates".to_owned(),
+            ),
+            (
+                "world.cell.reception_terrace".to_owned(),
+                "faction.elves".to_owned(),
+            ),
+        ]);
+        assert_eq!(
+            geography.effective_risk(safe_road, &ownership),
+            safe_road.risk_level + CONTESTED_RISK_MODIFIER
+        );
+    }
+
+    #[test]
+    fn the_authored_graph_holds_no_owners_and_no_influence() {
+        let geography = Geography::black_beach_vertical_slice();
+        for location in geography.locations.values() {
+            assert_eq!(
+                location.owner_faction_id, None,
+                "{} arrived owned; content authors nothing about ownership yet",
+                location.id
+            );
+            assert!(
+                location.influence.is_empty(),
+                "{} arrived with influence; content authors none",
+                location.id
+            );
+            assert_eq!(geography.controller(&location.id), None);
+        }
+        assert_eq!(geography.controller("world.cell.nowhere"), None);
     }
 
     #[test]

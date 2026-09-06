@@ -73,6 +73,18 @@ pub enum WorldEvent {
         day: u32,
         monster_count: usize,
     },
+    /// S2: a place changed hands. `from` and `to` are `faction.<concept_key>`
+    /// IDs, and `None` on either side is the unheld state -- so a first claim,
+    /// a conquest, and an abandonment are all this one event rather than three.
+    /// Emitted by `ExpeditionState::set_control`; nothing derived from it is
+    /// stored, because every road's risk is recomputed from control on demand
+    /// by `Geography::effective_risk`.
+    ControlChanged {
+        cell_id: String,
+        from: Option<String>,
+        to: Option<String>,
+        day: u32,
+    },
 }
 
 impl WorldClock {
