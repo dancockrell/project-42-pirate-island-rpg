@@ -135,5 +135,17 @@ func use_anchor(anchor_id: String) -> Dictionary:
 	return bridge.use_anchor(anchor_id)
 
 
+func inspect(observation_id: String) -> Dictionary:
+	if not is_available():
+		return unavailable_state()
+	return bridge.inspect(observation_id)
+
+
+func resolve_midnight() -> Dictionary:
+	if not is_available():
+		return unavailable_state()
+	return bridge.resolve_midnight()
+
+
 func unavailable_state() -> Dictionary:
 	return {"configured": false, "error": "native_expedition_bridge_unavailable", "metadata": {"source": "godot_adapter", "authoritative": false}}

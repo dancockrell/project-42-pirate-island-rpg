@@ -252,3 +252,58 @@ fn the_tidal_cut_opens_only_after_the_map_table_is_read() {
         .expect("an opened gate is an open road");
     assert_eq!(state.active_location_id, "world.cell.reception_terrace");
 }
+
+/// B3's projection, proven on the world Godot actually forwards: the beach's
+/// full legal-command list is what the expedition screen draws its controls
+/// from, so a spent anchor has to leave that list and come back at midnight.
+/// `Project42ExpeditionBridge` cannot be unit-tested without a live Godot, so
+/// this holds the rule the bridge projects rather than the projection itself.
+#[test]
+fn the_salvage_anchor_leaves_the_legal_commands_when_spent_and_returns_at_midnight() {
+    let geography = geography_as_godot_forwards_it();
+    let habitats = Habitats::black_beach_vertical_slice();
+    let mut state = ExpeditionState::new(
+        42,
+        vec![
+            "character.protagonist.captain".into(),
+            "character.heroine.betty".into(),
+        ],
+        "world.cell.black_beach",
+    )
+    .expect("the prototype's party constructs");
+
+    let salvage = "anchor_action:anchor.black_beach.salvage_point".to_owned();
+    assert!(
+        state
+            .legal_next_commands_with_geography(&geography)
+            .contains(&salvage),
+        "the wreck is a legal action on the sand before it is salvaged"
+    );
+    // Both authored observations are offered too: the action list is drawn
+    // from this one list, not from the catalog.
+    assert!(
+        state
+            .legal_next_commands_with_geography(&geography)
+            .contains(&"inspect:observation.black_beach.wreck".to_owned())
+    );
+
+    state
+        .use_anchor("anchor.black_beach.salvage_point", &geography)
+        .expect("the wreck is salvageable");
+    assert!(
+        !state
+            .legal_next_commands_with_geography(&geography)
+            .contains(&salvage),
+        "an anchor spent today must not be drawn as a button"
+    );
+
+    state
+        .resolve_midnight_in(&geography, &habitats)
+        .expect("no encounter is pending on the sand");
+    assert!(
+        state
+            .legal_next_commands_with_geography(&geography)
+            .contains(&salvage),
+        "midnight makes the wreck salvageable again"
+    );
+}

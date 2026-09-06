@@ -41,6 +41,20 @@ func use_anchor(anchor_id: String) -> Dictionary:
 	return latest_snapshot.duplicate(true)
 
 
+func inspect(observation_id: String) -> Dictionary:
+	if expedition == null:
+		return unavailable_state()
+	latest_snapshot = expedition.inspect(observation_id)
+	return latest_snapshot.duplicate(true)
+
+
+func resolve_midnight() -> Dictionary:
+	if expedition == null:
+		return unavailable_state()
+	latest_snapshot = expedition.resolve_midnight()
+	return latest_snapshot.duplicate(true)
+
+
 func snapshot() -> Dictionary:
 	if expedition == null:
 		return unavailable_state()
