@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 (S16–S19 are additions outside the bracket; the M3 100-day elimination passes for a faction that does not act (S18) and for an autonomous faction whose machines drain its reserve (S19)) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `9322458`. If this line is older than
+- Last updated 2026-09-06 against trunk `aee3fbd`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -506,7 +506,7 @@ captured by P1's gate, and no card claims a look it has not captured.
 | P10 | The expedition screen is the board: P7's RTS controls on P4's isometric board, the 2D route board retired, one owner of travel on screen | P4, P7 | shipped `106e25a` 2026-09-06 |
 | P11 | One palette owner, adopted: battle, shell, settings and review scenes take colour and type from the Theme; the restated hexes deleted | P5, P6, P8 | shipped `477447e` 2026-09-06 |
 | P12 | Blockout kits for buildings and machines (D9 + D10): procedural envelopes from the C10 and C14 records in the library's riveted iron and clay, reviewed at gameplay distance | P2, C10, C14 | shipped `76f09ac` 2026-09-06 |
-| P13 | The island develops on screen: building and machine instances cross the bridge read-only and P12's kits stand on the board where the simulation put them | P10, P12, S17, B19 | open |
+| P13 | The island develops on screen: building and machine instances cross the bridge read-only and P12's kits stand on the board where the simulation put them | P10, P12, S17, B19 | shipped `aee3fbd` 2026-09-06 |
 | P14 | The battle at every text scale: card and dock layouts that never clip or overflow at 1.0× and 1.3×; the roster status line and the diamond labels | P6, P11 | open |
 
 ### Lane H — Docs and hygiene
@@ -3282,7 +3282,7 @@ a mirror of the Rust constant until a bridge verb exposes it. Nothing
 places a kit on the board yet (P10 or a later card).
 
 ### P13 · The island develops on screen
-Status: open · Depends on: P10, P12, S17, B19
+Status: shipped `aee3fbd` 2026-09-06 · Depends on: P10, P12, S17, B19
 Touches: `godot-rust/src/godot_bridge.rs` (two read-only keys on the state
 dictionary, `building_instances` and `machine_instances`, beside the
 registry-ID arrays B16 and B19 left there), `game/scripts/simulation/native_expedition_port.gd`
@@ -3307,6 +3307,24 @@ asserts the node by name per instance, and that a snapshot with the
 instance gone frees the node.
 Done when: that suite; captures at world and route distance with at least
 one building and one machine standing.
+**Shipped:** the state dictionary carries `building_instances` (seven
+fields: id, def_id, cell_id, faction_id, state, construction_hours_remaining
+and nothing more, asserted) and `machine_instances` (id, def_id,
+faction_id, cell_id, a two-word condition band over damage until a real
+`MachineState` is named, `needs decision`); `board_development.gd` stands
+P12's kits on the holding cell — a building under construction as the
+first tier in the placeholder material, standing as the full kit, a machine
+at the yard — tinted through `BoardPalette`, with `ROW_DEPTH_SHARE`,
+`ROW_GAP_METRES` and `ORDER_KINDS` in `OPEN_DIMENSIONS` (O3) and a ruined
+building deliberately not drawn. Bites: `apply_development` returning at
+once fails three nodes by name; hiding instead of freeing fails three;
+dropping a projected field fails the seven-field assertion twice. Said
+plainly: the card's live-bridge campaign is not reachable — 60 in-world
+days through `resolve_midnight` on the authored opening raised nothing the
+suite could stand (measured, and the suite says so), so the proof drives
+instances through a save round trip with the file's own note that the day
+an authored campaign raises one it must go. Captures
+`P13-28db626-{world,route,development,development-room}.png`, read.
 
 ### P14 · The battle at every text scale
 Status: open · Depends on: P6, P11
