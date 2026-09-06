@@ -3,7 +3,7 @@
   "task_id": "b8-save-slots-continue",
   "agent": "claude-code (lane B8)",
   "summary": "B8: the expedition bridge gains save_json/load_json over ExpeditionState's existing canonical JSON, and CampaignSession gains new_game, save_to_slot, continue_newest and list_slots over user://saves/<slot>.json, with newest decided by the save's own campaign day and strategic hour rather than by file time.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -23,17 +23,40 @@
     "CampaignSession.new_game",
     "CampaignSession.save_to_slot",
     "CampaignSession.continue_newest",
-    "CampaignSession.list_slots"
+    "CampaignSession.list_slots",
+    "CampaignSession.describe_slot",
+    "CampaignSession.slot_is_newer",
+    "CampaignSession.discard_campaign",
+    "CampaignSession.session_error"
   ],
   "coordination": {
     "depends_on": [
       "e6-save-migration-fixtures"
     ],
     "conflicts_with": [],
-    "notes": "B16 is changing configure and resolve_midnight in godot_bridge.rs and B17 begin_pending_battle/create_debug_battle; this lane appends two #[func]s at the end of the Project42ExpeditionBridge impl block and touches no existing function there, so all three merge as keep-both tails."
+    "notes": "B16 is changing configure and resolve_midnight in godot_bridge.rs and B17 begin_pending_battle/create_debug_battle; this lane appends two #[func]s at the end of the Project42ExpeditionBridge impl block and touches no existing function there, so all three merge as keep-both tails. Two deliberate departures from the card, both AGENTS.md section 0. (1) The card names the refusal shape `{\"ok\": false, \"reason\": ...}` and in the same sentence says to reuse the shape the bridge already uses and not to invent a second one. The bridge has no ok/reason shape: every expedition refusal is `expedition_error_dictionary` -- `{configured: false, error: <code>, metadata: {...}}` -- and that is what load_json answers with, so Godot has one refusal to check on this boundary rather than two. (2) The card asks for the round-trip and refusal logic in a plain Rust function the bridge calls, tested in Rust. That function already exists and is already tested: ExpeditionState::from_json parses, runs validate() and enforces the CURRENT_SAVE_VERSION gate, and expedition.rs already holds boundary_save_reload_preserves_legal_next_commands, ...after_a_route_choice, rejects_a_save_version_from_the_future and rejects_malformed_json. Adding a second helper or a second copy of those tests would be the fork the rule forbids, so load_json calls from_json directly and the bite was run against the existing tests. No new Rust test was written and expedition.rs is byte-identical to trunk. MockSimulationPort was not touched: it extends SimulationPort (the battle bridge, which has no save surface), there is no mock expedition port in the tree, and this lane changed no existing dictionary shape -- load_json returns the snapshot dictionary or the error dictionary that already exist -- so nothing on the mock could drift."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "ff9e97d",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (303 lib + 5 authored_world + 5 save_migration + 7 strategic_determinism + 1 vertical_slice, 0 failed): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (214 stable IDs): passed",
+      "node tools/src/check-claims.mjs (41 claims, 88 ship-plan rows, 82 cards): passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/ (bundle unchanged; this lane authors no content): passed",
+      "CI Verify run 34018504368 on ff9e97d, both jobs success -- rust-and-content and godot-suites, the latter being the only proof of the GDScript half since no Godot binary exists in this container: passed",
+      "Done-when, card's own: save_slots_test.gd::test_save_reset_and_continue -- the campaign climbs to the river landing, saves to a slot, the session is reset and begun fresh on the beach (asserted to offer a different legal-command list, so the comparison proves something), continues, and the continued snapshot AND the bridge's own re-queried snapshot both carry exactly the saved legal_commands: passed",
+      "Done-when, corrupted slot refused with a reason and the session untouched: test_a_slot_of_nonsense_is_refused_and_the_campaign_stands -- a slot of non-JSON lists as readable=false with error malformed_json, continue_newest answers the bridge's own malformed_json refusal, and the running campaign's legal commands and location are unchanged afterwards: passed",
+      "Done-when, second corruption case: test_a_slot_from_a_future_build_is_refused_and_the_campaign_stands -- a save byte-identical to this build's except save_version 9999 lists as readable with that version, is refused with future_save_version (the bridge's expedition_error_code for ExpeditionError::FutureSaveVersion), and leaves the campaign standing: passed",
+      "Newest is the save's own day and hour, never file time: test_newest_is_the_saves_own_day_not_the_file_time -- the day-2 campaign is written first and named 'zulu', the day-1 campaign second and named 'alpha', so both file order and name order point at alpha; continue_newest restores day 2 at the river landing: passed",
+      "Slot names cannot address a file outside the save directory: test_a_slot_name_cannot_escape_the_save_directory -- '../escape' is refused invalid_slot_name and writes nothing, and continue_newest with an empty directory answers no_save_slot: passed",
+      "Bite proof: the version check in ExpeditionState::validate replaced with `if false`, cargo test --lib FAILED 1 of 303 naming expedition::tests::rejects_a_save_version_from_the_future (panic at src/expedition.rs:1896, the assert_eq on FutureSaveVersion). This is the gate load_json depends on, so breaking it breaks the Godot refusal too: failed",
+      "Bite proof, restored: expedition.rs byte-identical to HEAD (git diff --quiet), cargo test --lib 303 passed: passed",
+      "CI caught two real defects before this was called done, both fixed on the branch: run 34018210329 failed on a GDScript parse error (`:=` cannot infer from a call through the untyped CampaignSession Node -- fixed in 31e5945), and run 34018359680 failed with every assertion passing ('Save slot tests passed.') because the static JSON.parse_string prints an engine ERROR line when it refuses a document, which the gate counts as a failure; describe_slot now uses JSON.new().parse, which returns the same verdict silently (fixed in ff9e97d): passed",
+      "No new Rust test was added and godot-rust/src/expedition.rs is untouched: the plain round-trip-and-refusal function the card asks for is ExpeditionState::from_json, which B0 already wrote and already tests. See coordination.notes: duplicating it would be the fork AGENTS.md section 0 forbids: not_run",
+      "MockSimulationPort was not given save_json/load_json: it mirrors the battle bridge, which has none, and no dictionary shape changed in this lane. See coordination.notes: not_run",
+      "Godot suites were not run locally in this lane: there is no Godot binary in this container, so CI's godot-suites job is the only proof of the GDScript half, and it is green above: not_run"
+    ]
   }
 }
