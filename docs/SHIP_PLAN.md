@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 (S16 and S17 are additions outside the bracket; S17 shipped with the M3 100-day elimination `failed` until a tick writes ownership, B11/O3) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `4f8f5e6`. If this line is older than
+- Last updated 2026-09-06 against trunk `9a3bcb6`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -495,7 +495,7 @@ captured by P1's gate, and no card claims a look it has not captured.
 | P3 | Atmosphere from the simulation: time of day, weather, corruption and pressure read from the snapshot, never a clock | P2, S8 | shipped 7abf1cf 2026-09-06 |
 | P4 | The isometric board (B11 + B12): room cells with board metadata, three distances, party miniatures, ownership tint, forces in motion | P2, S2, S7, O3 (provisional) | shipped `4f8f5e6` 2026-09-06 |
 | P5 | The bronze-and-vellum grammar (D11) and the calm information surface (B13): one Theme, the card rail, the command grid, journal and directive surfaces, accessibility wired | S6, S11, B9 | shipped `c7f0e74` 2026-09-06 |
-| P6 | Battle presentation: skill VFX and camera beats from the registries, hit-stop, band motion, site-rule ambience, the paper rigs until models | A5, A7, C3 | open |
+| P6 | Battle presentation: skill VFX and camera beats from the registries, hit-stop, band motion, site-rule ambience, the paper rigs until models | A5, A7, C3 | shipped `9a3bcb6` 2026-09-06 |
 | P7 | RTS controls on the board (B18 resumed): select, then order a move by tile, words or hotkey; the drawn markers go | B14 | shipped 1a03dd7 2026-09-06 |
 | P8 | The shell: title, new game, continue, settings, pause, save slots, loading; one scene flow shell → expedition → battle and back | B8, B9 | shipped `5375229` 2026-09-06 |
 | P9 | Audio: buses, ambience by region, time and weather, cues keyed to battle events, a music state machine; procedural placeholders until assets | P3 | shipped 174f029 2026-09-06 |
@@ -2745,7 +2745,7 @@ preloaded; the three timed suites now await their tween instead of a
 wall-clock timer (the first frame's delta carries engine start-up).
 
 ### P6 · Battle presentation
-Status: open · Depends on: A5, A7, C3
+Status: shipped `9a3bcb6` 2026-09-06 · Depends on: A5, A7, C3
 Touches: `game/scripts/battle/**`, `game/scenes/battle/**`, the presentation
 registries only if a record is missing a field the effect needs.
 `vfx.registry.json` and `camera.registry.json` already describe every
@@ -2761,6 +2761,35 @@ Ayla's kits both play. Reduced-flash substitutes honoured.
 Done when: a suite plays each of the fourteen skills through the live
 bridge and asserts the effect node named by the record was instantiated
 and cleaned up; six captures across a fight, committed.
+**Shipped:** the baseline capture was read first: rigs floating above the
+plate with no shadow, the VFX registry consumed only as tooltip prose, no
+camera, hit-stop, shake or damage numbers, a clipped band rail, an
+unreadable command grid, layout-guide arcs drawn in the running game.
+Now `vfx_factory.gd` builds one effect per `presentation.vfx.*` record from
+the record alone (particles for burst/trail/motes, shader quads for
+ring/crescent/beam/panel); the three hand-drawn effects in `paper_doll.gd`
+are deleted. Registry fields `socket`, `emitter`, `direction` on all 46
+entries, held by the validator and the suite, with every palette word
+resolvable. `battle_stage.gd` owns the plate, floor line, five bands,
+grounded actors, contact shadows and socket resolution;
+`battle_camera_rig.gd` plays camera records with a named hit-stop and one
+shake constant, off under reduced motion; `damage_number.gd` in the four
+weights the bridge distinguishes; the band rail eases cards between bands,
+Composure pips in a lit well, one legible command dock for Betty and
+Michael, the ward line as its record's persistent beam, grave watch
+pulsing on hostiles, defeat dissolving the rig, a lighting pass.
+`battle_presentation_test.gd` plays all sixteen records through the live
+bridge and asserts every effect node by its record's name and its freeing
+on its own persistence. Bite: crescents returning null fail three skills
+by name. Captures `P6-984f7cb-{01..06}.png`, five rounds. Not done, said
+plainly: Ayla's kit cannot be *submitted* in the debug battle (bond rank D,
+no scene raises her) though all her records play; no fight can produce a
+Shaken actor because `spend_composure` has no caller in `battle.rs`; the
+impact beat was captured with the clock slowed under software rendering;
+a CanvasGroup rim shader renders nothing on `gl_compatibility` (proved with
+magenta) so the rim is drawn per piece; `battle_palette.gd` restates the
+prototype's constants until the Theme (P5, now on trunk) is adopted; Ayla's
+colours stay Open (`needs decision`).
 
 ### P7 · RTS controls on the board (B18 resumed)
 Status: shipped `1a03dd7` 2026-09-06 · Depends on: B14
