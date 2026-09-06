@@ -16,9 +16,16 @@
 //!   `BTreeSet` everywhere a map or set is serialized.
 //! - Pause is not a state. The bridge simply does not call the tick.
 
+/// S8: the dual clocks -- world time against Cthulhu patience and heat --
+/// weather, and corruption. Advancing one clock never advances the other.
+pub mod clocks;
 /// S1: `FactionDefinition`, `FactionState`, `StrategicState`, `Relationship`.
 pub mod faction;
+/// S11: the strategic event journal and its digest -- bounded, saved.
+pub mod journal;
 /// S12: `RecruitmentState` for the women -- stages, never numbers surfaced.
 pub mod recruitment;
 /// S4: the strategic tick, pause semantics and the determinism harness.
 pub mod tick;
+/// S5: utility scoring and the five strategic states, recomputed each tick.
+pub mod utility;
