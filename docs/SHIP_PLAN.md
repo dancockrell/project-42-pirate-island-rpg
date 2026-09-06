@@ -356,7 +356,7 @@ top of the document is never stale:
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; B8 and B9 in flight
 - **M3** shipped 15/16 — **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `47fa829`. If this line is older than
+- Last updated 2026-09-06 against trunk `049bd45`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -415,7 +415,7 @@ top of the document is never stale:
 | B13 | Calm information surface: ambient / notable / urgent | S6, B12 | open |
 | B14 | Control and risk surface: `set_control`, `controller_of`, `effective_risk`, `contested` on routes | S2, B3 | shipped 58fbdb3 2026-09-06 |
 | B15 | The bridge loads the faction records and hands the registry down; S5's seam closed | C9, S5 | shipped 777a943 2026-09-06 — the seam is closed as an honest negative until a record carries a real weight |
-| B16 | The bridge loads the building records and hands the registry to the tick; S10's sweep reads real buildings | C10, S10 | open |
+| B16 | The bridge loads the building records and hands the registry to the tick; S10's sweep reads real buildings | C10, S10 | shipped 049bd45 2026-09-06 |
 | B17 | A battle is built from the campaign: bond ranks reach the fight | A10 | shipped b9c6ad5 2026-09-06 |
 
 ### Lane C — Content and validator (`content/`, `tools/src/validate.mjs`)
@@ -1534,7 +1534,7 @@ weighted signal; reverting `run_hour` fails it. The day content carries a
 real weight, the negative flips on its own.
 
 ### B16 · The bridge loads the building records and hands the registry to the tick
-Status: open · Depends on: C10, S10
+Status: shipped `049bd45` 2026-09-06 · Depends on: C10, S10
 Touches: `game/scripts/simulation/native_expedition_port.gd` (forward
 `building.*` records), `godot-rust/src/godot_bridge.rs` (`configure` builds a
 validated `BuildingDefinitions`, refusing configuration if any record fails
@@ -1552,6 +1552,20 @@ Done when: the harness runs the authored island with the building registry
 loaded and reproduces; a probe test places one of C10's buildings for a
 faction, ruins it, and the sweep reports `RecoveryLink::OperationalCore`
 lost — proven to bite by reverting the threading; the Godot job green.
+**Shipped:** the port forwards `building.*` records with the same integer
+coercion factions need; `configure` builds a validated `BuildingDefinitions`
+and refuses the whole configuration with the existing rejection shape on any
+bad record; `resolve_midnight_in` and `strategic_tick` carry the registry
+to the sweep; every caller repaired; the harness runs the authored island
+with both registries and the 2,400-hour claims still reproduce; the state
+dictionary carries `buildings` as registry IDs only. **Honest correction to
+this card's done-when:** the `OperationalCore` assertion is registry-
+independent (an unlookupable building reads as productive), so it proves the
+sweep runs inside the tick, not that it reads records. What actually bites
+is cell capacity — two authored machine shops fill `CELL_CAPACITY_CELLS`, so
+`ValidConstructionSite` is absent only with the real registry. Both claims
+are in the test and its comment says which is which. Second bite: dropping
+`buildings` from the bundle builder fails the bridge-side equality test.
 
 ### B17 · A battle is built from the campaign: bond ranks reach the fight
 Status: shipped `b9c6ad5` 2026-09-06 · Depends on: A10
