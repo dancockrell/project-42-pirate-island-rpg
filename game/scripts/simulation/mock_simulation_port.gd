@@ -210,8 +210,13 @@ func band_name(band: int) -> String:
 		return "unknown"
 	return BAND_NAMES[band]
 
+## B5: `statuses` completes the actor dictionary. The bridge sends it on every
+## actor and the battle screen reads it for the Shaken mark; the mock carried
+## every other key and not this one, which is the same shape disagreement A5
+## found with `band_name` and `composure`. The mock states the shape only -- it
+## gains no behaviour the bridge lacks, and nothing here applies a status.
 func actor_snapshot(id: String, display_name: String, faction: String, vitality: int, maximum: int, guard: int, band: int, composure: int = 10) -> Dictionary:
-	return {"id": id, "display_name": display_name, "faction": faction, "vitality": vitality, "max_vitality": maximum, "guard": guard, "band": band, "band_name": band_name(band), "composure": composure}
+	return {"id": id, "display_name": display_name, "faction": faction, "vitality": vitality, "max_vitality": maximum, "guard": guard, "band": band, "band_name": band_name(band), "composure": composure, "statuses": []}
 
 func make_event(kind: String, subjects: Array, payload: Dictionary) -> Dictionary:
 	sequence += 1

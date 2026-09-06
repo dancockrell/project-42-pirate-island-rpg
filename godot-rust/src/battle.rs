@@ -516,9 +516,26 @@ impl Battle {
         );
         razorbeak.band = Band::EnemyFront.index();
 
+        // B5: the Captain stands in the slice at A6's stats. A6 built him as a
+        // battle actor but left him out of this fixture, because
+        // `native_simulation_port_test.gd` asserted it held four actors; that
+        // assertion now names five and says why. His display name is authored in
+        // `content/characters/captain.json` and
+        // `the_captain_carries_his_authored_display_name` holds the two equal.
+        let mut michael = actor(
+            "character.protagonist.captain",
+            "Michael Corrigan",
+            Faction::Party,
+            3,
+            90,
+            0,
+            10,
+        );
+        michael.band = Band::PartyRear.index();
+
         Self::new(
             "battle.prototype.returning_names",
-            [betty, ayla, vix, razorbeak],
+            [betty, ayla, vix, razorbeak, michael],
         )
     }
 
@@ -2004,6 +2021,16 @@ mod tests {
                 target_ids: vec![],
             })
             .unwrap();
+        // B5: the Captain stands in the slice and takes his turn between Vix and
+        // Betty. He waits, so the opening is still Betty's to punish.
+        battle
+            .submit(SkillCommand {
+                command_id: "michael.waits".into(),
+                actor_id: ActorId("character.protagonist.captain".into()),
+                skill_id: "skill.system.hold_position".into(),
+                target_ids: vec![],
+            })
+            .unwrap();
         assert_eq!(battle.snapshot().recovery_openings.len(), 1);
 
         let punish_events = battle
@@ -2070,6 +2097,16 @@ mod tests {
             .submit(SkillCommand {
                 command_id: "vix.does.not.punish".into(),
                 actor_id: ActorId("character.heroine.vix".into()),
+                skill_id: "skill.system.hold_position".into(),
+                target_ids: vec![],
+            })
+            .unwrap();
+        // B5: the Captain's turn now sits between Vix's and Betty's; he does not
+        // punish the opening either.
+        battle
+            .submit(SkillCommand {
+                command_id: "michael.does.not.punish".into(),
+                actor_id: ActorId("character.protagonist.captain".into()),
                 skill_id: "skill.system.hold_position".into(),
                 target_ids: vec![],
             })
@@ -3217,6 +3254,30 @@ mod tests {
             band_of("enemy.raptor.razorbeak.prototype"),
             Some(Band::EnemyFront)
         );
+        assert_eq!(
+            band_of("character.protagonist.captain"),
+            Some(Band::PartyRear)
+        );
+    }
+
+    /// B5: the slice holds five actors because the Captain stands in it. The
+    /// count is asserted here, and in `native_simulation_port_test.gd`, so that
+    /// dropping him from the fixture is a failure with a reason rather than a
+    /// silently smaller battle.
+    #[test]
+    fn the_prototype_fixture_stands_five_actors_including_the_captain() {
+        let battle = Battle::prototype_vertical_slice();
+        assert_eq!(
+            battle.snapshot().actors.len(),
+            5,
+            "the slice holds Betty, Ayla, Vix, the Razorbeak and Captain Michael"
+        );
+        assert!(
+            battle
+                .actor(&ActorId("character.protagonist.captain".into()))
+                .is_some(),
+            "B5 stands Captain Michael in the prototype vertical slice"
+        );
     }
 
     #[test]
@@ -3454,18 +3515,16 @@ mod tests {
     /// The Captain as the brief describes him: `character.protagonist.captain`,
     /// Party, level 3, 90 vitality, no guard, initiative 10, standing in
     /// `PartyRear`.
+    ///
+    /// B5: read out of `prototype_vertical_slice()` rather than restated here.
+    /// A6 had to write his stats a second time because he was not in the slice;
+    /// now that he is, two copies would be free to drift, so there is one --
+    /// which is also why removing him from the slice fails every A6 test below.
     fn captain() -> Actor {
-        let mut michael = actor(
-            "character.protagonist.captain",
-            Faction::Party,
-            3,
-            90,
-            0,
-            10,
-        );
-        michael.display_name = "Michael Corrigan".into();
-        michael.band = Band::PartyRear.index();
-        michael
+        Battle::prototype_vertical_slice()
+            .actor(&ActorId("character.protagonist.captain".into()))
+            .expect("prototype_vertical_slice() stands the Captain in the slice")
+            .clone()
     }
 
     /// The authored record behind a skill id. `content/skills/` owns every

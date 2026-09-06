@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "task_id": "b5-michael-card-bands-composure",
+  "agent": "claude-opus-5-lane-b5",
+  "summary": "B5: Captain Michael stands in the prototype vertical slice; the battle screen groups cards by the bridge's band_name, draws Composure and Shaken, and unfolds Michael's command grid on his turn",
+  "status": "completed",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T06:20:00Z",
+  "paths": [
+    "game/scripts/battle/battle_prototype.gd",
+    "game/scripts/battle/paper_card.gd",
+    "game/scripts/simulation/mock_simulation_port.gd",
+    "game/tests/prototype_turn_cycle_test.gd",
+    "game/tests/native_simulation_port_test.gd",
+    "godot-rust/src/battle.rs"
+  ],
+  "symbols": [
+    "Battle::prototype_vertical_slice",
+    "BattlePrototype.rebuild_band_rail",
+    "PaperCard.configure"
+  ],
+  "coordination": {
+    "depends_on": [
+      "A5",
+      "A6"
+    ],
+    "conflicts_with": [],
+    "notes": "Only one addition in godot-rust/src/battle.rs (Michael in the slice) plus the tests that read the fixture: A6's captain() fixture now reads him out of the slice rather than restating his stats, two turn-cycle tests play his turn, and a new test holds the fixture at five actors. mock_simulation_port.gd gained the statuses key so the mock and the bridge agree on the actor dictionary shape; it gained no behaviour. No other file under game/ is touched."
+  },
+  "completion": {
+    "commit": "9320bd203edd0c3646b7efbcafeedb1b86f67fe5",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml: passed (261 lib tests, 5+5+7+1 integration)",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs: passed (200 stable IDs)",
+      "node tools/src/build-content-bundle.mjs: passed, committed bundle unchanged",
+      "CI Verify run 34016010858 on 9320bd2: Rust and content passed; Godot headless suites passed -- 17 suites, \"BattlePrototype turn-cycle test passed.\", \"NativeSimulationPort tests passed.\", no ERROR line, no fallback marker",
+      "bite: Michael removed from prototype_vertical_slice() fails the_prototype_fixture_stands_five_actors_including_the_captain (left 4, right 5) and twelve further tests including every A6 Captain test; restored and re-run green"
+    ]
+  }
+}
