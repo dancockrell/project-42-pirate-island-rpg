@@ -115,6 +115,13 @@ pub struct ExpeditionState {
     #[serde(default)]
     pub anchor_uses: BTreeMap<String, u32>,
     pub rng_seed: u64,
+    /// S1: the strategic layer's mutable half, keyed by `faction.<concept_key>`.
+    /// The authored `FactionDefinition` beside each of these is content and is
+    /// reloaded rather than saved; only what a faction *has* lives here.
+    /// `serde(default)` so every save written before the strategic layer
+    /// existed still loads at the same `save_version`, with no factions.
+    #[serde(default)]
+    pub factions: BTreeMap<String, crate::strategy::faction::FactionState>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -302,6 +309,7 @@ impl ExpeditionState {
             resolved_encounter_ids: BTreeSet::new(),
             anchor_uses: BTreeMap::new(),
             rng_seed: seed,
+            factions: BTreeMap::new(),
         };
         state.validate()?;
         Ok(state)

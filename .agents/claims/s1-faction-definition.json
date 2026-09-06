@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "task_id": "s1-faction-definition",
+  "agent": "claude-code-lane-S1",
+  "summary": "FactionDefinition, FactionState, StrategicState and Relationship in godot-rust/src/strategy/faction.rs, plus ExpeditionState.factions",
+  "status": "completed",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/faction.rs",
+    "godot-rust/src/expedition.rs"
+  ],
+  "symbols": [
+    "strategy::faction::FactionDefinition",
+    "strategy::faction::FactionState",
+    "strategy::faction::StrategicState",
+    "strategy::faction::Relationship",
+    "strategy::faction::FactionDefinitions",
+    "expedition::ExpeditionState.factions"
+  ],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [],
+    "notes": "expedition.rs carries exactly one appended field (factions, end of the field list, serde(default)) plus the constructor line that field requires, so parallel A/S lanes merge cleanly (SHIP_PLAN section 9). strategy/mod.rs and lib.rs were NOT edited: every test is in-crate, so no re-export was needed. Resource categories stay brief section 20 Open: BTreeMap<String,u32>, no enum. Provisional doctrines (brief 6.1-6.4) are held as authored text only; no code branches on them before S15. content/factions/*.json is C9's card and was not authored here. FactionDefinitions lives in this file rather than S4 so loading C9's records has one owner."
+  },
+  "blocked_on_decisions": [
+    "brief section 20 Open: exact resource list -- resources stay BTreeMap<String,u32> with content-supplied string keys; no category is chosen here",
+    "brief section 20 Open: exact ordinary-faction victory conditions -- victory_conditions stays authored String notes",
+    "brief section 20 Open: political form of Captain Michael's faction -- not encoded",
+    "C9 must supply displayName as a placeholder marked needs decision; no proper faction names exist anywhere"
+  ],
+  "completion": {
+    "commit": "4d5e572",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml: passed (159 lib, 2 authored_world, 4 save_migration, 1 vertical_slice)",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs: passed (194 stable IDs)",
+      "mutation proof: serde(skip_serializing) added to ExpeditionState.factions; a_two_faction_expedition_state_round_trips_unchanged and a_save_without_any_factions_still_loads both failed; attribute restored and both passed: passed",
+      "content mirror test: not_run -- no authored faction content exists yet (C9's card). the_six_concept_keys_are_the_briefs_and_every_id_is_faction_dot_key stands in against the brief until C9 lands."
+    ]
+  }
+}
