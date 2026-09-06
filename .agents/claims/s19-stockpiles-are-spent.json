@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "task_id": "s19-stockpiles-are-spent",
+  "agent": "claude-code (lane S19)",
+  "summary": "Every standing machine draws its authored fuel and water out of its faction's stockpile every hour, a machine the stockpile cannot cover is starved and stops standing, construction runs on the clock and a finished building journals it -- so a stockpile can fall and RecoveryLink::ResourceReserve can finally break.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/production.rs",
+    "godot-rust/src/strategy/building.rs",
+    "godot-rust/src/strategy/tick.rs",
+    "godot-rust/src/godot_bridge.rs",
+    "game/scripts/surface/information_surface.gd",
+    "godot-rust/tests/strategic_determinism.rs"
+  ],
+  "symbols": [
+    "MachineDefinition.fuel_resource_key",
+    "MachineDefinition.water_resource_key",
+    "MachineInstance.is_standing",
+    "consume_machine_upkeep",
+    "STARVATION_TAKES_A_MACHINE_OFF_THE_BOARD",
+    "StrategicEvent::MachineFed",
+    "StrategicEvent::MachineStarved",
+    "StrategicEvent::BuildingFinished",
+    "run_hour",
+    "journal_entry_dictionary",
+    "journal_prose",
+    "InformationSurface.OWN_FACTION_NOTABLE_KINDS"
+  ],
+  "coordination": {
+    "depends_on": [
+      "s16-production-in-the-tick",
+      "s17-goals-become-actions",
+      "s18-arrival-resolves-control",
+      "c14-machine-records",
+      "b19-machines-through-the-bridge"
+    ],
+    "conflicts_with": [],
+    "notes": "Other lanes run beside this one this round. godot_bridge.rs is touched only in the two exhaustive journal matches (an arm per new StrategicEvent variant); the bridge's state dictionary is lane P13's and is not edited here. building.rs takes a documentation correction only (advance_construction's 'nothing calls this on a clock' becomes false). tick.rs takes three variants appended at the END of StrategicEvent and two calls in run_hour. No new PURPOSES entry, no new ExpeditionState field, so save_migration.rs is untouched. content/ is not edited: C14 already authors fuel_resource_key and water_resource_key and Rust's MachineDefinition was missing both -- they are added to the Rust side so content owns the rates and Rust carries them."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
