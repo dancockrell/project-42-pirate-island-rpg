@@ -1,0 +1,135 @@
+{
+  "id": "skill.ayla.structural_scan",
+  "displayName": "Structural Scan",
+  "ownerId": "character.heroine.ayla",
+  "bondRank": "C",
+  "activation": "normal_action",
+  "targetRule": "one_hostile",
+  "rules": {
+    "revealsGuard": true,
+    "mutatesTarget": false,
+    "counterTagWhenGuarded": "break_guard_before_striking",
+    "counterTagWhenOpen": "exploit_open_guard",
+    "consumesTurn": true
+  },
+  "animation": {
+    "cardId": "animation.ayla.structural_scan",
+    "durationMs": 820,
+    "beats": [
+      {
+        "atMs": 0,
+        "name": "raise_open_hand"
+      },
+      {
+        "atMs": 180,
+        "name": "read_the_joins"
+      },
+      {
+        "atMs": 420,
+        "name": "lattice_settles"
+      },
+      {
+        "atMs": 640,
+        "name": "speak_the_counter"
+      },
+      {
+        "atMs": 820,
+        "name": "lower_hand"
+      }
+    ],
+    "eventBindings": {
+      "actor_focused": "raise_open_hand",
+      "target_inspected": "lattice_settles",
+      "turn_ended": "lower_hand"
+    },
+    "presentationCues": [
+      {
+        "beat": "raise_open_hand",
+        "pose": "open_palm_measuring",
+        "motion": "step_to_reading_distance",
+        "audio": "cloth_shift",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "target"
+        ],
+        "cameraId": "presentation.camera.ayla_target_medium",
+        "vfxId": "presentation.vfx.none"
+      },
+      {
+        "beat": "read_the_joins",
+        "pose": "tracing_the_structure",
+        "motion": "slow_hand_trace",
+        "audio": "low_stone_hum",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "target",
+          "spear"
+        ],
+        "cameraId": "presentation.camera.ayla_scan_insert",
+        "vfxId": "presentation.vfx.ayla.scan_lattice"
+      },
+      {
+        "beat": "lattice_settles",
+        "pose": "hand_held_steady",
+        "motion": "lattice_locks_onto_target",
+        "audio": "reading_chime",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "target",
+          "scan_lattice"
+        ],
+        "cameraId": "presentation.camera.ayla_scan_insert",
+        "vfxId": "presentation.vfx.ayla.scan_lattice"
+      },
+      {
+        "beat": "speak_the_counter",
+        "pose": "naming_the_weak_join",
+        "motion": "short_decisive_point",
+        "audio": "spoken_counter",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "target",
+          "scan_readout"
+        ],
+        "cameraId": "presentation.camera.ayla_scan_insert",
+        "vfxId": "presentation.vfx.ayla.scan_readout"
+      },
+      {
+        "beat": "lower_hand",
+        "pose": "spear_back_to_guard",
+        "motion": "hand_lowers_and_stance_resets",
+        "audio": "haft_settle",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "spear",
+          "target"
+        ],
+        "cameraId": "presentation.camera.ayla_target_medium",
+        "vfxId": "presentation.vfx.ayla.recall_fade"
+      }
+    ],
+    "framing": "Ayla, her recurved bronze spear, every named subject and the complete effect remain inside the safe frame.",
+    "replacementAssetIds": [
+      "art.placeholder.ayla.active_actor"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "maturity": "executable-core",
+    "notes": [
+      "The bible's 'reveal Armor, active construction tags and one valid counter' against what the engine has: Guard, and one of the two counter tags this record names. The resolver reads state and writes none.",
+      "Authored as a turn-consuming normal action. A free-action turn economy does not exist anywhere in this engine and was not invented for one skill."
+    ]
+  }
+}

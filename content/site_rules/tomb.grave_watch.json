@@ -1,0 +1,15 @@
+{
+  "id": "site_rule.tomb.grave_watch",
+  "displayName": "Grave Watch (placeholder: no site rule is named for players yet)",
+  "effect": {
+    "guard_regen_per_round": 2
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "maturity": "executable-core",
+    "notes": [
+      "A7's card decides this one rule: while it is in force, every living hostile regains two Guard at each round boundary. The tomb keeps its own account and it keeps its own dead.",
+      "displayName is an explicit placeholder. No site rule has been named for players, and inventing one here would be inventing design."
+    ]
+  }
+}

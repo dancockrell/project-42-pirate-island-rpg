@@ -1,0 +1,118 @@
+{
+  "id": "skill.ayla.safe_passage",
+  "displayName": "Safe Passage",
+  "ownerId": "character.heroine.ayla",
+  "bondRank": "B",
+  "activation": "normal_action",
+  "targetRule": "all_living_party_members",
+  "rules": {
+    "movesAlliesWithinBands": 1,
+    "destination": "aylas_current_band",
+    "order": "stable_actor_id_ascending",
+    "excludesDefeatedAllies": true,
+    "triggersMovementReactions": false,
+    "movesAylaHerself": false
+  },
+  "animation": {
+    "cardId": "animation.ayla.safe_passage",
+    "durationMs": 760,
+    "beats": [
+      {
+        "atMs": 0,
+        "name": "read_the_ground"
+      },
+      {
+        "atMs": 200,
+        "name": "mark_the_line"
+      },
+      {
+        "atMs": 480,
+        "name": "call_them_across"
+      },
+      {
+        "atMs": 760,
+        "name": "close_behind_them"
+      }
+    ],
+    "eventBindings": {
+      "actor_focused": "read_the_ground",
+      "actor_moved": "call_them_across",
+      "turn_ended": "close_behind_them"
+    },
+    "presentationCues": [
+      {
+        "beat": "read_the_ground",
+        "pose": "crouched_reading_the_floor",
+        "motion": "kneel_and_sight_the_line",
+        "audio": "gravel_shift",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "band_line",
+          "party_cards"
+        ],
+        "cameraId": "presentation.camera.ayla_band_line_medium",
+        "vfxId": "presentation.vfx.none"
+      },
+      {
+        "beat": "mark_the_line",
+        "pose": "spear_butt_marking_the_floor",
+        "motion": "draw_the_line_with_the_haft",
+        "audio": "haft_scrape",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "spear",
+          "band_line"
+        ],
+        "cameraId": "presentation.camera.ayla_band_line_medium",
+        "vfxId": "presentation.vfx.ayla.passage_path"
+      },
+      {
+        "beat": "call_them_across",
+        "pose": "arm_extended_waving_them_on",
+        "motion": "allies_cross_along_the_path",
+        "audio": "boots_on_stone",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "party_cards",
+          "passage_path"
+        ],
+        "cameraId": "presentation.camera.ayla_party_wide",
+        "vfxId": "presentation.vfx.ayla.passage_path"
+      },
+      {
+        "beat": "close_behind_them",
+        "pose": "spear_across_the_line_behind",
+        "motion": "turn_and_guard_the_way_back",
+        "audio": "haft_settle",
+        "hitStopMs": 0,
+        "shake": 0.0,
+        "frameSubjects": [
+          "ayla",
+          "spear",
+          "party_cards"
+        ],
+        "cameraId": "presentation.camera.ayla_party_wide",
+        "vfxId": "presentation.vfx.ayla.recall_fade"
+      }
+    ],
+    "framing": "Ayla, her recurved bronze spear, every named subject and the complete effect remain inside the safe frame.",
+    "replacementAssetIds": [
+      "art.placeholder.ayla.active_actor"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "maturity": "executable-core",
+    "notes": [
+      "Zero-selection, in the shape Mobile Infirmary established: the skill names the whole living party and the simulation decides who is close enough to move.",
+      "'Without triggering movement reactions' is free in this engine, which has none. The record says so rather than implying a system that does not exist."
+    ]
+  }
+}

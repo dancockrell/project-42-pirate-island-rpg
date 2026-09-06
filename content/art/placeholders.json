@@ -53,7 +53,17 @@
       "consumer": "game/scenes/battle/battle_prototype.tscn#ActiveActor",
       "visibleMark": "DUMMY FULL-BODY ACTOR",
       "intendedFinal": "Complete full-body premium adult anime-fantasy Betty 3D battle actor. She reads cute and sexy before she reads realistic: slender adult build, small chest, bright green eyes, freckles, auburn curls, fitted dark tobacco leather bodice over warm ivory lace, dark leather short field shorts, tall brown boots, one restrained green-and-navy tartan hip sash, brown physician satchel and a bronze-and-glass boarding mace. It has a complete head-to-boot mesh, named skeleton, separate mace at a named hand socket, literal ready/step/Guarded Strike clips, an anchored root pivot and a fifteen-percent VFX safe margin.",
-      "requiredTags": ["adult", "full-body", "cute-sexy-adult-anime", "slender-small-bust", "signature-weapon-visible", "3d-rigged-glb", "named-skeleton", "hand-weapon-socket", "no-crop"],
+      "requiredTags": [
+        "adult",
+        "full-body",
+        "cute-sexy-adult-anime",
+        "slender-small-bust",
+        "signature-weapon-visible",
+        "3d-rigged-glb",
+        "named-skeleton",
+        "hand-weapon-socket",
+        "no-crop"
+      ],
       "referenceLedger": "content/art/betty.reference_ledger.json",
       "replacementGate": [
         "approved 3D identity plate",
@@ -70,7 +80,13 @@
       "consumer": "game/scripts/battle/battle_prototype.gd#make_party_card",
       "visibleMark": "DUMMY PORTRAIT",
       "intendedFinal": "Betty card portrait with direct green-eyed eye contact, freckles, auburn curls, a teasing adult smile and dark tobacco leather, ivory lace and tartan identity accents. It must stay cute and sexy at card scale while preserving clear injury and readiness overlays.",
-      "requiredTags": ["adult", "portrait", "cute-sexy-adult-anime", "flirtatious-confidence", "card-safe-crop"],
+      "requiredTags": [
+        "adult",
+        "portrait",
+        "cute-sexy-adult-anime",
+        "flirtatious-confidence",
+        "card-safe-crop"
+      ],
       "referenceLedger": "content/art/betty.reference_ledger.json",
       "replacementGate": [
         "matches active actor face",
@@ -238,6 +254,50 @@
         "complete snout, tail and all four feet",
         "individual-threat read rather than a herd animal",
         "charge tell readable at battle scale"
+      ]
+    },
+    {
+      "id": "art.placeholder.ayla.card_portrait",
+      "placeholder": true,
+      "consumer": "game/scripts/battle/battle_prototype.gd#PartyRailAyla",
+      "visibleMark": "DUMMY AYLA CARD",
+      "intendedFinal": "Complete Ayla rail portrait, authored only after her identity lock: adult jungle-elf tomb warden of the Kesh River community with her recurved bronze spear and warden's tool roll. Build, skin, hair and eye colour and palette are unestablished and must come from the approved identity sheet, not from this line.",
+      "requiredTags": [
+        "adult",
+        "jungle-elf",
+        "tomb-warden",
+        "recurved-bronze-spear",
+        "kesh-river",
+        "identity-unlocked",
+        "no-crop",
+        "card-portrait"
+      ],
+      "replacementGate": [
+        "approved Ayla identity sheet from the identity-lock process (not yet performed)",
+        "complete boots, head and recurved bronze spear",
+        "battle safe-frame test"
+      ]
+    },
+    {
+      "id": "art.placeholder.ayla.active_actor",
+      "placeholder": true,
+      "consumer": "future-game/scenes/battle/ayla_active_actor",
+      "visibleMark": "DUMMY AYLA FULL-BODY ACTOR",
+      "intendedFinal": "Complete Ayla battle actor, authored only after her identity lock: adult jungle-elf tomb warden silhouette with recurved bronze spear, warden's tool roll, stable root pivot and generous VFX safe margin. Build, skin, hair and eye colour and palette are unestablished and must come from the approved identity sheet, not from this line.",
+      "requiredTags": [
+        "adult",
+        "jungle-elf",
+        "tomb-warden",
+        "recurved-bronze-spear",
+        "kesh-river",
+        "identity-unlocked",
+        "no-crop",
+        "full-body"
+      ],
+      "replacementGate": [
+        "approved Ayla identity sheet from the identity-lock process (not yet performed)",
+        "complete boots, head and recurved bronze spear",
+        "battle safe-frame test"
       ]
     }
   ]

@@ -15,7 +15,7 @@ func run() -> void:
 		check(prototype.card_band_name(str(actor.id)) == str(actor.band_name), "%s's card must carry the band name the simulation sent, not one the screen derived" % actor.id)
 	check(not prototype.is_command_enabled("skill.captain.reposition"), "Michael's command grid must be disabled on Betty's turn")
 	check(prototype.card_band_name("character.protagonist.captain") == "party_rear", "Michael must stand in the party's rear band at the start of the encounter")
-	await prototype.submit_skill("skill.betty.guarded_strike", ["enemy.raptor.razorbeak.prototype"])
+	await prototype.submit_skill("skill.betty.guarded_strike", ["enemy.raptor.razorbeak"])
 	# B5: the Captain stands in the slice at initiative 10, between the Razorbeak
 	# and the second round, so the automatic turns now stop at his. He is
 	# commanded like Betty, not held automatically like Vix.

@@ -24,7 +24,7 @@ func recommended_enemy_command(command_id: String) -> Dictionary:
 		"protocol_version": 1,
 		"command_id": command_id,
 		"battle_id": "battle.prototype.returning_names",
-		"actor_id": "enemy.raptor.razorbeak.prototype",
+		"actor_id": "enemy.raptor.razorbeak",
 		"kind": "use_skill",
 		"skill_id": "skill.enemy.razorbeak.rushing_bite",
 		"target_ids": ["character.heroine.betty"],
@@ -55,7 +55,7 @@ func create_debug_battle() -> Dictionary:
 			actor_snapshot("character.heroine.ayla", "Ayla", "party", ayla_vitality, 90, 0, 0),
 			actor_snapshot("character.heroine.vix", "Vix", "party", vix_vitality, 90, 0, 1),
 			actor_snapshot("character.heroine.grisha", "Grisha", "party", grisha_vitality, 110, 4, 0),
-			actor_snapshot("enemy.raptor.razorbeak.prototype", "Razorbeak", "hostile", razorbeak_vitality, 70, razorbeak_guard, 3)
+			actor_snapshot("enemy.raptor.razorbeak", "Razorbeak", "hostile", razorbeak_vitality, 70, razorbeak_guard, 3)
 		],
 		"effects": [],
 		"recovery_openings": [],
@@ -85,7 +85,7 @@ func submit(command: Dictionary) -> Array[Dictionary]:
 		var rescue_damage := mini(razorbeak_vitality, maxi(0, 10 - razorbeak_guard))
 		razorbeak_guard = maxi(0, razorbeak_guard - 10)
 		razorbeak_vitality -= rescue_damage
-		opening.append(make_event("damage_applied", [actor_id, "enemy.raptor.razorbeak.prototype"], {"amount": rescue_damage, "remaining_vitality": razorbeak_vitality}))
+		opening.append(make_event("damage_applied", [actor_id, "enemy.raptor.razorbeak"], {"amount": rescue_damage, "remaining_vitality": razorbeak_vitality}))
 		opening.append(make_event("interception_set", [actor_id, "character.heroine.vix"], {"protector_id": actor_id, "protected_id": "character.heroine.vix"}))
 		opening.append(make_event("turn_ended", [actor_id], {"round": round_number}))
 		opening.append_array(resolve_enemy_turn())
@@ -131,12 +131,12 @@ func submit(command: Dictionary) -> Array[Dictionary]:
 		var impact_events: Array[Dictionary] = [
 			make_event("command_accepted", [actor_id], {"command_id": command_id, "skill_id": skill_id}),
 			make_event("actor_focused", [actor_id], {"card_state": "expanding", "active_state": "active"}),
-			make_event("damage_applied", [actor_id, "enemy.raptor.razorbeak.prototype"], {"amount": impact_damage, "remaining_vitality": razorbeak_vitality}),
+			make_event("damage_applied", [actor_id, "enemy.raptor.razorbeak"], {"amount": impact_damage, "remaining_vitality": razorbeak_vitality}),
 			make_event("vitality_changed", [actor_id], {"delta": healed, "total": betty_vitality}),
 			make_event("turn_ended", [actor_id], {"round": round_number})
 		]
 		if razorbeak_vitality <= 0:
-			impact_events.insert(4, make_event("actor_defeated", ["enemy.raptor.razorbeak.prototype"], {}))
+			impact_events.insert(4, make_event("actor_defeated", ["enemy.raptor.razorbeak"], {}))
 			impact_events.append(make_event("battle_ended", [], {"victory": true}))
 		else:
 			impact_events.append_array(resolve_enemy_turn())
@@ -149,12 +149,12 @@ func submit(command: Dictionary) -> Array[Dictionary]:
 	var events: Array[Dictionary] = [
 		make_event("command_accepted", [actor_id], {"command_id": command_id, "skill_id": skill_id}),
 		make_event("actor_focused", [actor_id], {"card_state": "expanding", "active_state": "active"}),
-		make_event("damage_applied", [actor_id, "enemy.raptor.razorbeak.prototype"], {"amount": player_damage, "remaining_vitality": razorbeak_vitality}),
+		make_event("damage_applied", [actor_id, "enemy.raptor.razorbeak"], {"amount": player_damage, "remaining_vitality": razorbeak_vitality}),
 		make_event("guard_changed", [actor_id], {"delta": 2, "total": betty_guard}),
 		make_event("turn_ended", [actor_id], {"round": round_number})
 	]
 	if razorbeak_vitality <= 0:
-		events.append(make_event("actor_defeated", ["enemy.raptor.razorbeak.prototype"], {}))
+		events.append(make_event("actor_defeated", ["enemy.raptor.razorbeak"], {}))
 		events.append(make_event("battle_ended", [], {"victory": true}))
 		return events
 
@@ -162,8 +162,8 @@ func submit(command: Dictionary) -> Array[Dictionary]:
 	return events
 
 func resolve_enemy_turn() -> Array[Dictionary]:
-	var events: Array[Dictionary] = [make_event("turn_started", ["enemy.raptor.razorbeak.prototype"], {"round": round_number})]
-	events.append(make_event("enemy_intent_declared", ["enemy.raptor.razorbeak.prototype", "character.heroine.betty"], {
+	var events: Array[Dictionary] = [make_event("turn_started", ["enemy.raptor.razorbeak"], {"round": round_number})]
+	events.append(make_event("enemy_intent_declared", ["enemy.raptor.razorbeak", "character.heroine.betty"], {
 		"skill_id": "skill.enemy.razorbeak.rushing_bite", "intent_name": "Rushing Bite", "target_id": "character.heroine.betty",
 		"rationale": "pressure_active_actor", "guard_break_amount": 0, "raw_damage": 16, "guard_absorbed": mini(16, betty_guard),
 		"vitality_damage": maxi(0, 16 - betty_guard), "lethal": maxi(0, 16 - betty_guard) >= betty_vitality,
@@ -172,9 +172,9 @@ func resolve_enemy_turn() -> Array[Dictionary]:
 	var enemy_damage := maxi(0, 16 - betty_guard)
 	betty_guard = maxi(0, betty_guard - 16)
 	betty_vitality = maxi(0, betty_vitality - enemy_damage)
-	events.append(make_event("actor_focused", ["enemy.raptor.razorbeak.prototype"], {"active_state": "active"}))
-	events.append(make_event("damage_applied", ["enemy.raptor.razorbeak.prototype", "character.heroine.betty"], {"amount": enemy_damage, "remaining_vitality": betty_vitality}))
-	events.append(make_event("turn_ended", ["enemy.raptor.razorbeak.prototype"], {"round": round_number}))
+	events.append(make_event("actor_focused", ["enemy.raptor.razorbeak"], {"active_state": "active"}))
+	events.append(make_event("damage_applied", ["enemy.raptor.razorbeak", "character.heroine.betty"], {"amount": enemy_damage, "remaining_vitality": betty_vitality}))
+	events.append(make_event("turn_ended", ["enemy.raptor.razorbeak"], {"round": round_number}))
 	if betty_vitality <= 0:
 		events.append(make_event("actor_defeated", ["character.heroine.betty"], {}))
 		events.append(make_event("battle_ended", [], {"victory": false, "advance_to_midnight": true}))
