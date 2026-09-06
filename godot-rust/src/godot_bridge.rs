@@ -263,7 +263,10 @@ impl Project42ExpeditionBridge {
         {
             return expedition_error_dictionary("observation_not_here");
         }
-        state.inspect(&self.geography);
+        if let Err(error) = state.inspect_observation(&observation_id.to_string(), &self.geography)
+        {
+            return expedition_error_dictionary(expedition_error_code(&error));
+        }
         expedition_state_dictionary(state, &self.geography)
     }
 
@@ -716,6 +719,9 @@ fn expedition_error_code(value: &ExpeditionError) -> &'static str {
         // above. Projecting `set_control` and effective route risk to Godot is
         // B3's card, not this edit; this arm adds no bridge surface.
         ExpeditionError::UnknownCell { .. } => "unknown_cell",
+        // The code the bridge's inspect already answered with before the rule
+        // moved into ExpeditionState, so GDScript sees the same string.
+        ExpeditionError::ObservationNotHere { .. } => "observation_not_here",
     }
 }
 

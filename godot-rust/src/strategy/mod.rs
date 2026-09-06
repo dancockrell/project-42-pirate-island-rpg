@@ -20,3 +20,5 @@
 pub mod faction;
 /// S12: `RecruitmentState` for the women -- stages, never numbers surfaced.
 pub mod recruitment;
+/// S4: the strategic tick, pause semantics and the determinism harness.
+pub mod tick;

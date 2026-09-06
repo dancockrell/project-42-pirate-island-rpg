@@ -356,7 +356,7 @@ top of the document is never stale:
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
 - **M3** shipped 3/16 — **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
-- Last updated 2026-09-06 against trunk `9090284`. If this line is older than
+- Last updated 2026-09-06 against trunk `SHAMARK`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -413,6 +413,7 @@ top of the document is never stale:
 | B11 | Room cells carry board metadata (footprint, spawn sockets, tethers) | A2, O3 | open |
 | B12 | The isometric board: world / route / room distances | B11, S2, O1 | open |
 | B13 | Calm information surface: ambient / notable / urgent | S6, B12 | open |
+| B14 | Control and risk surface: `set_control`, `controller_of`, `effective_risk`, `contested` on routes | S2, B3 | open |
 
 ### Lane C — Content and validator (`content/`, `tools/src/validate.mjs`)
 
@@ -1087,7 +1088,7 @@ integrator added it in the shape S2 specified. The lane's own push ran green
 through the hardened gate. **Flagged, left in its owner's file:**
 `ExpeditionState::inspect` records every observation at the cell, not the one
 named; the bridge validates the name against the legal list and then records
-the cell. Per-observation recording is expedition.rs's rule to change.
+the cell. Per-observation recording is expedition.rs's rule to change — **changed by the integrator, SHAMARK**: `inspect_observation` records exactly one and refuses one not declared here; `inspect` (the whole cell) is its sum, kept for the household room and the slice tests; the bridge calls the single one.
 **Next B item, from S2:** `set_control`, `controller_of` (effective, never
 raw `ownership`), `effective_risk(portal)`, route projections carrying
 effective risk plus `contested: bool` and never the authored base as a
@@ -1149,6 +1150,28 @@ map update — no interruption), Urgent (interrupt only for party, major
 relationship, critical core, or final-stage threat). No flashing territory
 alerts, no red countdowns, no quest-log spam. Directive confirmation shows
 S6's explanation. Test: 100 strategic events produce ≤1 Urgent.
+
+### B14 · Control and risk surface
+Status: open · Depends on: S2, B3
+Touches: `godot-rust/src/godot_bridge.rs`, `game/scripts/simulation/native_expedition_port.gd`,
+`game/scripts/campaign/campaign_session.gd`, `game/scripts/world/expedition_prototype.gd`,
+`game/tests/expedition_prototype_test.gd`
+What S2 built, projected — as S2's own report specified:
+- `set_control(cell_id, faction_id)` → the `ControlChanged` event(s) or the
+  error dictionary (`unknown_cell`, `invalid_stable_id`); empty `faction_id`
+  releases.
+- `controller_of(cell_id)` → the **effective** controller (`ownership` over
+  the graph's owner), `""` for unheld. Godot must never read `ownership` raw.
+- `effective_risk(portal_id)` → `Geography::effective_risk` for one route.
+- Any route projection carries `risk_level` = effective risk and
+  `contested: bool` (`effective != authored`), and **never** the authored base
+  as a second number — storing the derived value in GDScript is the fork.
+- The screen shows a road's live risk and marks a contested one; the
+  prototype suite flips control of the river landing through `set_control`
+  and asserts the safe road's drawn risk changed and reads contested.
+Traps: no faction proper names in fixtures (`faction.pirates`, `faction.elves`);
+the `ControlChanged` projection already exists — reuse it.
+Done when: the suite asserts the flip; CI's Godot job green.
 
 ### Lane C — new cards
 

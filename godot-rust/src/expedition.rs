@@ -233,6 +233,12 @@ pub enum ExpeditionError {
     UnknownCell {
         cell_id: String,
     },
+    /// An `inspect:<id>` for an observation the current location does not
+    /// declare. Refused before mutation: the legal list never offered it here.
+    ObservationNotHere {
+        observation_id: String,
+        location_id: String,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -769,10 +775,42 @@ impl ExpeditionState {
         let Some(location) = geography.location(&self.active_location_id) else {
             return Vec::new();
         };
-        for observation_id in &location.observation_ids {
-            self.discoveries.insert(observation_id.clone());
+        // Looking around the whole place is the sum of reading each thing in
+        // it; one rule records an observation, and this walks it.
+        let observation_ids = location.observation_ids.clone();
+        for observation_id in &observation_ids {
+            self.inspect_observation(observation_id, geography)
+                .expect("an observation the location declares is here");
         }
-        location.observation_ids.clone()
+        observation_ids
+    }
+
+    /// Reads one thing: the `inspect:<observation_id>` command the legal list
+    /// offers, one button per observation. Records exactly that observation
+    /// and nothing else, so what the screen says the party read is what the
+    /// party read. Refused before mutation when the observation is not one the
+    /// current location declares -- the command was never legal here.
+    pub fn inspect_observation(
+        &mut self,
+        observation_id: &str,
+        geography: &Geography,
+    ) -> Result<(), ExpeditionError> {
+        let declared_here = geography
+            .location(&self.active_location_id)
+            .is_some_and(|location| {
+                location
+                    .observation_ids
+                    .iter()
+                    .any(|id| id == observation_id)
+            });
+        if !declared_here {
+            return Err(ExpeditionError::ObservationNotHere {
+                observation_id: observation_id.to_owned(),
+                location_id: self.active_location_id.clone(),
+            });
+        }
+        self.discoveries.insert(observation_id.to_owned());
+        Ok(())
     }
 
     /// Starts the encounter the world actually presents here. A hunter that has
@@ -2947,5 +2985,57 @@ mod tests {
             .expect("no encounter pending");
         assert!(after.iter().any(|command| command == tidal_cut));
         assert_eq!(after.len(), 2);
+    }
+
+    /// B4 draws one button per observation; each must record only its own.
+    #[test]
+    fn inspecting_one_observation_records_that_one_and_nothing_else() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = ExpeditionState::new(
+            3,
+            vec!["character.protagonist.captain".into()],
+            "world.cell.black_beach",
+        )
+        .expect("constructs");
+        let here = geography
+            .location("world.cell.black_beach")
+            .expect("the beach exists")
+            .observation_ids
+            .clone();
+        assert!(
+            here.len() >= 2,
+            "the beach declares more than one observation"
+        );
+        state
+            .inspect_observation(&here[0], &geography)
+            .expect("declared here");
+        assert!(state.discoveries.contains(&here[0]));
+        assert!(
+            !state.discoveries.contains(&here[1]),
+            "reading one sign must not record the other"
+        );
+    }
+
+    #[test]
+    fn inspecting_an_observation_from_elsewhere_is_refused_without_mutation() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = ExpeditionState::new(
+            3,
+            vec!["character.protagonist.captain".into()],
+            "world.cell.black_beach",
+        )
+        .expect("constructs");
+        let before = state.to_json();
+        let error = state
+            .inspect_observation("observation.river_landing.road_marker", &geography)
+            .unwrap_err();
+        assert_eq!(
+            error,
+            ExpeditionError::ObservationNotHere {
+                observation_id: "observation.river_landing.road_marker".into(),
+                location_id: "world.cell.black_beach".into(),
+            }
+        );
+        assert_eq!(state.to_json(), before, "a refused inspect changes nothing");
     }
 }
