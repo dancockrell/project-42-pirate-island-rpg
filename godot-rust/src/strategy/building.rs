@@ -735,6 +735,21 @@ pub struct BuildingInstance {
     /// `UnderConstruction`.
     #[serde(default)]
     pub construction_hours_remaining: u32,
+    /// S9: the reward budget a dungeon raid draws down. Brief section 12:
+    /// "Repeated farming must not generate infinite high-tier loot. Rewards
+    /// must correspond to actual stored value" -- so this is that stored
+    /// value, a plain count with no resource category attached (the resource
+    /// list is Open; brief section 20).
+    ///
+    /// Owned by `strategy/dungeon.rs`:
+    /// [`ExpeditionState::draw_dungeon_reward`](crate::expedition::ExpeditionState::draw_dungeon_reward)
+    /// is the only thing that lowers it, and **nothing in this round raises
+    /// it** -- refill from production, reinforcement and recovery is S13's and
+    /// S3's to decide, and inventing a refill here would be a second answer to
+    /// what a building is worth. `serde(default)` so a save written before the
+    /// budget existed loads with an empty one.
+    #[serde(default)]
+    pub stored_value: u32,
 }
 
 impl BuildingInstance {
@@ -849,6 +864,7 @@ impl ExpeditionState {
                     BuildingState::UnderConstruction
                 },
                 construction_hours_remaining: hours,
+                stored_value: 0,
             },
         );
         Ok(())
