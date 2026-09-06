@@ -6,6 +6,10 @@ tools/node_modules/
 tools/dist/
 *.tmp
 work/rendered*/
+# P1: tools/capture-scenes.sh renders every scene here on every run. Build
+# output, rebuilt from game/scenes/ in one command; the committed evidence
+# lives under docs/verification/captures/ instead.
+work/captures/
 work/a11y*.json
 work/*.docx
 work/*.pdf

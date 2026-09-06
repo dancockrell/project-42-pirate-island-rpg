@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "task_id": "p1-screenshot-gate",
+  "agent": "claude-code (lane P1)",
+  "summary": "The visual loop every other presentation card iterates in: the capture tool renders any scene at a chosen size after a chosen settle, refuses a black or uniform frame, and writes a thumbnail; tools/capture-scenes.sh and its PowerShell twin render every scene under scenes/review, scenes/world, scenes/battle and scenes/shell; a captures job in CI uploads the set; docs/verification/captures/ says how to look and carries the first set.",
+  "status": "completed",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "game/tools/capture_review_scene.gd",
+    "tools/capture-scenes.sh",
+    "tools/capture-scenes.ps1",
+    ".github/workflows/verify.yml",
+    ".gitignore",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "capture_review_scene.capture_all",
+    "capture_review_scene._capture_one",
+    "capture_review_scene.uniformity_of",
+    "capture_review_scene._frame_automatically",
+    "capture_review_scene._local_bounds_of",
+    "capture_review_scene._has_visuals",
+    "capture_review_scene.UNIFORM_STDDEV_THRESHOLD",
+    "capture-scenes.sh",
+    "capture-scenes.ps1",
+    "verify.yml captures job"
+  ],
+  "coordination": {
+    "depends_on": [
+      "e2-godot-ci-gate"
+    ],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at f5d26d1. No game/scripts, no scenes, no project.godot, no Rust, no content, no docs/SHIP_PLAN.md. AGENTS.md section 0: the capture tool was extended in place rather than copied -- one tool answers 'render this scene to a PNG' and every P lane calls it; the shell and PowerShell scripts are twins of each other in the shape verify-godot.sh/.ps1 already established, not two implementations. One deliberate edit outside the new job in .github/workflows/verify.yml: GODOT_VERSION, GODOT_ASSET and GODOT_SHA512 moved verbatim, with their comment, from godot-suites' job env to the workflow env, because the captures job downloads the same engine and a pin copied into two jobs is two answers to one question. godot-suites is otherwise untouched and stayed green on the same run, reading the hoisted values. Owner's Godot-courtesy instruction of 2026-09-06 arrived mid-lane and changed the design: the tool now takes a LIST of scenes and renders all of them in ONE engine process (the script runs exactly two engine invocations, one import pass and one capture run), local captures are 1280x720, and every local invocation ran nice -n 10, under timeout, with ulimit -v 4000000, one at a time. One honest limit recorded rather than papered over: scenes/world/black_beach/reception_terrace_navigation.tscn is an empty NavigationRegion3D and two Marker3Ds -- its own metadata says authored_navigation_shell_pending_baked_walk_mesh -- so there is no picture of it to take. It is reported as skipped by name in every run and in the CI log, and it is not in the committed ledger. The day it gains geometry it is captured like everything else. scenes/shell does not exist yet; the glob skips a missing directory rather than failing."
+  },
+  "completion": {
+    "commit": "f0ff291",
+    "checks": [
+      "CI run 34030601405 on lane/P1-screenshot-gate at b8f563e, all three jobs green (Rust and content, Godot headless suites, Scene captures): passed",
+      "Done-when 1 -- CI uploads captures for every scene on a green run: artifact captures-b8f563e68109092ba13147f76a9eeb64c56c5722, 18 files, 6,460,938 bytes, if-no-files-found: error; captures-log-<sha> 2,176 bytes beside it: passed",
+      "CI capture log, read through the GitHub MCP tools: 'Captured 9 of 10 scenes at 1920x1080; 1 skipped for carrying nothing that can draw.' then 'Captures complete: 18 files in .../work/captures on the vulkan driver.' -- mesa-vulkan-drivers gives lavapipe, so CI renders the Forward+ path: passed",
+      "Done-when 2 -- the local command produces the same set: CAPTURE_WIDTH=1280 CAPTURE_HEIGHT=720 xvfb-run -a -s '-screen 0 1280x720x24' bash tools/capture-scenes.sh, exit 0, 'Captured 9 of 10 scenes at 1280x720; 1 skipped', 'Captures complete: 18 files ... on the opengl3 driver', 11.6 s wall for the whole run including the import pass: passed",
+      "Done-when 3 -- docs/verification/captures/README.md says how to look: the one command, the single-scene form, what the gate refuses and why, where the CI artifacts land and how to open them, and the Godot-courtesy rules for anyone running the engine: passed",
+      "Bite -- a deliberately empty scene (a Node3D with one Camera3D and nothing else, created outside the tree under game/tools/ and deleted afterwards, never committed) was refused: 'ERROR: Capture of res://tools/_bite_empty_scene.tscn is uniform (stddev 0.000 below 0.650): a black or flat frame is a failure, not a pass.', exit 1, and NO PNG was written; the same run of a real scene passed at stddev 39.0: passed",
+      "Uniform-frame measurements across the whole set, opengl3 at 1280x720: battle_prototype 44.6, reception_terrace_setpiece_review 39.0, betty_3d_candidate_review 38.0, battle_3d_staging 34.6, elizabethan_port_town_set_review 23.6, expedition_prototype 22.7, reception_terrace_setpiece 11.8, reception_terrace 11.5, reception_terrace_collision 1.1 (the thinnest picture in the project); threshold 0.65: passed",
+      "ERROR-line gate reused verbatim from tools/verify-godot.sh ('^(ERROR|SCRIPT ERROR): |GDScript backtrace'), and it bit during development twice: once on the GDExtension missing before tools/build-native-bridge.sh debug had run, once on ALSA failures before --audio-driver Dummy was added: passed",
+      "node tools/src/check-claims.mjs (55 claims, 105 ship-plan rows, 99 cards): passed",
+      "node tools/src/validate.mjs (300 stable IDs): passed",
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test / cargo check --features godot-ext: not run locally in this lane -- no Rust, content or bundle file is touched by it; both ran green in CI run 34030601405's Rust and content job: not_run",
+      "Ledger looked at, not only read: nine images committed as docs/verification/captures/P1-f0ff291-<scene>.png at 512x288, largest 267 KB, all under the 400 KB cap; four of them opened and judged before the commit (battle_prototype, reception_terrace_setpiece_review, reception_terrace, reception_terrace_collision): passed",
+      "reception_terrace_navigation.tscn has nothing renderable in it and is reported as skipped by name rather than captured or failed; it is the one scene in the four directories with no image: not_run",
+      "The GDScript suites under game/tests/ were not extended: this lane's gate is a shell script and a CI job, and the capture tool is a SceneTree script that CI drives directly rather than a runtime class a suite could instantiate: not_run"
+    ]
+  }
+}
