@@ -167,7 +167,15 @@ impl Project42ExpeditionBridge {
             &configuration_json.to_string(),
         ) {
             Ok(value) => value,
-            Err(_) => return expedition_error_dictionary("expedition_configuration_invalid"),
+            // The parser's own words after the code. A refused payload used to
+            // say only that it was refused, which left the caller comparing a
+            // thousand-line JSON string against a struct by eye; serde already
+            // names the field and the type it wanted.
+            Err(error) => {
+                return expedition_error_dictionary(&format!(
+                    "expedition_configuration_invalid:{error}"
+                ));
+            }
         };
         // Cells arrive in their authored shape; the one translation into the
         // simulation's cell lives in geography.rs, so a kind content misspells

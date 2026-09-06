@@ -116,7 +116,7 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 	# Godot's island and the harness's island were two different islands.
 	var factions: Array[Dictionary] = []
 	for faction_id in catalog.ids_with_prefix("faction."):
-		factions.append(catalog.get_record(faction_id))
+		factions.append(as_rust_integers(catalog.get_record(faction_id)) as Dictionary)
 	var configuration := {
 		"seed": seed,
 		"party_ids": INITIAL_PARTY,
@@ -136,6 +136,35 @@ func configure_from_catalog(catalog: ContentCatalog, seed: int) -> Dictionary:
 			str(configured.get("error", "")), cells.size(), portals.size(), factions.size()
 		])
 	return configured
+
+
+## Every number in a faction record, back to an integer.
+##
+## `FactionDefinition` has no floating-point field: every number in it is an
+## `i16` weight, and the authored records write them as integers. Godot's JSON
+## round trip is what loses that -- a weight comes back out of `JSON.stringify`
+## with a decimal point, and serde refuses the whole record rather than
+## silently truncating it, which refused the whole configuration and left the
+## bridge unconfigured. The forwarding above stays verbatim in every other
+## sense: no field is renamed, dropped or defaulted, and a fractional weight
+## would still be wrong -- it would simply be wrong in Rust, where the schema
+## lives, instead of here.
+static func as_rust_integers(value: Variant) -> Variant:
+	match typeof(value):
+		TYPE_FLOAT:
+			return int(value)
+		TYPE_DICTIONARY:
+			var mapped := {}
+			var source: Dictionary = value
+			for key in source:
+				mapped[key] = as_rust_integers(source[key])
+			return mapped
+		TYPE_ARRAY:
+			var list := []
+			for item in (value as Array):
+				list.append(as_rust_integers(item))
+			return list
+	return value
 
 
 func snapshot() -> Dictionary:
