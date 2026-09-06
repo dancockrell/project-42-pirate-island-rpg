@@ -144,6 +144,9 @@ const EXPECTED_CURRENT_KEYS: &[&str] = &[
     "recruitment",
     "ownership",
     "strategic_clock",
+    "cthulhu_heat",
+    "weather",
+    "corruption",
 ];
 
 fn expected_current_keys() -> BTreeSet<String> {

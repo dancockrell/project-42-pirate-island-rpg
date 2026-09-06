@@ -16,6 +16,10 @@ use serde::{Deserialize, Serialize};
 use crate::geography::{AnchorDefinition, AnchorKind, Geography, RouteOption};
 use crate::habitat::{Habitats, LootTable};
 use crate::hunter::{self, Hunter, HunterKind};
+use crate::strategy::clocks::{
+    CONFRONTATION_DAY, CONFRONTATION_DISCOVERY_ID, CTHULHU_FACTION_ID, ConfrontationTrigger,
+    HeatEvent, MAX_HEAT, WeatherState, assistance_weight, region_corruption_pressure,
+};
 use crate::strategy::faction::FactionDefinitions;
 use crate::strategy::recruitment::{RecruitmentStage, RecruitmentState};
 use crate::strategy::tick::{self, HOURS_PER_DAY, StrategicClock, StrategicEvent};
@@ -158,6 +162,42 @@ pub struct ExpeditionState {
     /// the strategic clock existed resumes at hour zero of its own day.
     #[serde(default)]
     pub strategic_clock: StrategicClock,
+    /// S8: Cthulhu patience and heat -- the *second* clock, and the whole
+    /// point of it is that it is not this struct's first one.
+    /// `docs/GAME_BUILD_PLAN.md`'s dual-clock contract: world time
+    /// (`campaign_day`) and hidden pressure are distinct state dimensions, and
+    /// "advancing time must not silently imply an identical heat increase".
+    ///
+    /// Nothing in `resolve_midnight_in`, `strategic_tick` or `travel` touches
+    /// this field. It moves through
+    /// [`ExpeditionState::record_heat_event`] and nowhere else, because a
+    /// board event is the only thing entitled to move it. `serde(default)` so
+    /// a save written before hidden pressure existed loads at zero pressure.
+    #[serde(default)]
+    pub cthulhu_heat: u32,
+    /// S8: what the sky is doing over each region, keyed by `region_id` (the
+    /// key on every `LocationRecord`), redrawn once per region per midnight.
+    ///
+    /// Stored rather than recomputed on demand only so a reader -- the bridge,
+    /// a journal entry, a faction's `weather_preferences` -- gets one answer
+    /// for the day without needing the seed. It is fully determined by
+    /// [`WeatherState::draw`], so a lost entry is redrawn identically at the
+    /// next midnight. `serde(default)`: an older save has no sky until its
+    /// next midnight fills one in.
+    #[serde(default)]
+    pub weather: BTreeMap<String, WeatherState>,
+    /// S8: how far corruption has gone in each cell, keyed by `world.cell.*`
+    /// ID, `0..=255`. Absent means uncorrupted; there is no zero sentinel to
+    /// misread.
+    ///
+    /// **Accumulation only. Reversibility is Open (brief section 20, "Which
+    /// corruption effects are reversible") -- `blocked: needs decision`.**
+    /// There is no decay, no cleanse, and no midnight sweep that lowers a
+    /// value: [`ExpeditionState::corrupt_cell`] saturates upward and is the
+    /// only writer. When the decision lands, it lands as a second method
+    /// beside that one, not as a tuning constant here.
+    #[serde(default)]
+    pub corruption: BTreeMap<String, u8>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -384,6 +424,12 @@ impl ExpeditionState {
             // S4: the first hour of the first day. Nothing has been drawn yet,
             // so the determinism witness is still zero.
             strategic_clock: StrategicClock::new(),
+            // S8: a fresh campaign starts with no hidden pressure, no drawn
+            // sky, and an uncorrupted island. The first midnight draws the
+            // weather; nothing draws pressure, ever.
+            cthulhu_heat: 0,
+            weather: BTreeMap::new(),
+            corruption: BTreeMap::new(),
         };
         state.validate()?;
         Ok(state)
@@ -591,6 +637,129 @@ impl ExpeditionState {
             to,
             day: self.campaign_day,
         }])
+    }
+
+    /// S8: move Cthulhu patience and heat, and the **only** way it moves.
+    ///
+    /// `docs/GAME_BUILD_PLAN.md`'s dual-clock contract in one method: hidden
+    /// pressure changes because a [`HeatEvent`] happened on the board, never
+    /// because time passed. There is no `heat += 1` anywhere else in this
+    /// crate, no elapsed-time variant of `HeatEvent` to pass here, and no way
+    /// for a caller to name an amount of its own -- the amount belongs to the
+    /// event (`HeatEvent::amount`), so tuning stays in
+    /// `strategy/clocks.rs` and cannot drift per call site.
+    ///
+    /// Saturates at [`MAX_HEAT`], which is also the third confrontation route:
+    /// pressure at its ceiling is what
+    /// [`ExpeditionState::confrontation_is_triggered`] reads as "maximum
+    /// hidden pressure". Returns the pressure after the event, so a caller
+    /// that wants to know whether this was the event that filled the clock can
+    /// see it without reading the field back.
+    ///
+    /// Nothing here is reversible and nothing decays. Hidden pressure is
+    /// "irreversible hidden pressure" in the brief's own words (section 13).
+    pub fn record_heat_event(&mut self, event: HeatEvent) -> u32 {
+        self.cthulhu_heat = self
+            .cthulhu_heat
+            .saturating_add(event.amount())
+            .min(MAX_HEAT);
+        self.cthulhu_heat
+    }
+
+    /// S8: deepen the corruption of one cell, saturating at 255.
+    ///
+    /// Refused before anything mutates when the graph has never heard of the
+    /// cell -- the same rule and the same [`ExpeditionError::UnknownCell`] as
+    /// [`ExpeditionState::set_control`], for the same reason: `corruption` is
+    /// a map, and a bare insert would happily invent a place by writing to it.
+    ///
+    /// **Accumulation only.** Whether corruption can be undone is Open (brief
+    /// section 20) -- `blocked: needs decision` -- so there is no counterpart
+    /// to this method, no `amount` a caller can make negative, and no sweep
+    /// that lowers a cell over time. Corruption is a `u8`, so a decision to
+    /// make it reversible costs a second method here and no migration.
+    ///
+    /// Returns the cell's corruption after the event.
+    pub fn corrupt_cell(
+        &mut self,
+        cell_id: &str,
+        amount: u8,
+        geography: &Geography,
+    ) -> Result<u8, ExpeditionError> {
+        if geography.location(cell_id).is_none() {
+            return Err(ExpeditionError::UnknownCell {
+                cell_id: cell_id.to_owned(),
+            });
+        }
+        let entry = self.corruption.entry(cell_id.to_owned()).or_insert(0);
+        *entry = entry.saturating_add(amount);
+        Ok(*entry)
+    }
+
+    /// S8: has the confrontation's opening condition been met, and by which of
+    /// brief section 13's three routes?
+    ///
+    /// Derived, never stored: asked again a moment later it answers from the
+    /// same state, so there is no flag that can disagree with the day count,
+    /// the discovery set or the pressure. Reporting the route matters because
+    /// the three are different stories -- the party walked into it, the island
+    /// ran out of time, or the pressure filled -- and a bare `bool` would throw
+    /// that away.
+    ///
+    /// Order is deliberate: a deliberate discovery is the route the party
+    /// chose, so it outranks the two that happen *to* them.
+    ///
+    /// **Not modelled here:** what the party may do to a summoning once the
+    /// confrontation begins. Summoning-interruption rules are Open (brief
+    /// section 20) -- `blocked: needs decision`.
+    pub fn confrontation_is_triggered(&self) -> Option<ConfrontationTrigger> {
+        if self.discoveries.contains(CONFRONTATION_DISCOVERY_ID) {
+            return Some(ConfrontationTrigger::Discovery);
+        }
+        if self.campaign_day >= CONFRONTATION_DAY {
+            return Some(ConfrontationTrigger::DayHundred);
+        }
+        if self.cthulhu_heat >= MAX_HEAT {
+            return Some(ConfrontationTrigger::MaximumHeat);
+        }
+        None
+    }
+
+    /// S8: how much weight a Cthulhu assistance event is entitled to right
+    /// now. Zero means it does not fire.
+    ///
+    /// Brief section 13: assistance events are weighted and state-gated, and
+    /// "must not simply rescue Cthulhu whenever it is losing". Non-zero only
+    /// when the faction stands in `Advantaged` or `Closing`; zero for
+    /// `Desperate`, `Recovering` and `Contesting`; zero when the save carries
+    /// no Cthulhu faction at all.
+    ///
+    /// **The gate is the deliverable, not the event.** What an assistance
+    /// event places on the board, and the visible board conditions it must
+    /// arise from, are S7's and S10's. They call this first.
+    pub fn cthulhu_assistance_weight(&self) -> u32 {
+        assistance_weight(self.factions.get(CTHULHU_FACTION_ID))
+    }
+
+    /// S8: draw every region's weather for `day`.
+    ///
+    /// Private: weather is a consequence of a midnight, not a verb. The
+    /// regions are the ones the board actually has -- read off the graph's
+    /// cells -- so a region cannot get weather by being named in a save, and a
+    /// region on the board cannot be missed.
+    fn draw_weather_for_day(&mut self, geography: &Geography, day: u32) {
+        let mut regions: BTreeMap<String, Vec<&str>> = BTreeMap::new();
+        for location in geography.locations.values() {
+            regions
+                .entry(location.region_id.clone())
+                .or_default()
+                .push(location.id.as_str());
+        }
+        for (region_id, cell_ids) in regions {
+            let pressure = region_corruption_pressure(&self.corruption, cell_ids.into_iter());
+            let weather = WeatherState::draw(self.rng_seed, day, &region_id, pressure);
+            self.weather.insert(region_id, weather);
+        }
     }
 
     /// A3: the one "do something here" verb. Every anchor kind -- salvaging the
@@ -1211,6 +1380,19 @@ impl ExpeditionState {
         for _ in 0..HOURS_PER_DAY {
             self.strategic_tick(geography, &definitions);
         }
+
+        // S8: the day's weather, one draw per region, before the
+        // character-scale Midnight Return turns `campaign_day` -- so the sky
+        // is drawn for the day that is about to begin and every reader on that
+        // day sees the same one. This is the only new draw S8 adds and it is
+        // per region per day, so S4's per-faction per-hour sequence above is
+        // untouched.
+        //
+        // It moves `weather` and reads `corruption`. It does not move
+        // `cthulhu_heat`, and no midnight ever will: the dual-clock contract
+        // is that a day passing is not an event in the second clock.
+        // `thirty_midnights_do_not_move_hidden_pressure` is the guard.
+        self.draw_weather_for_day(geography, self.campaign_day + 1);
 
         let rules = habitats.spawn_rules(self.campaign_day + 1);
         let events = self.resolve_midnight(&rules)?;
@@ -3098,5 +3280,271 @@ mod tests {
             }
         );
         assert_eq!(state.to_json(), before, "a refused inspect changes nothing");
+    }
+    // ---------------------------------------------------------------
+    // S8: the dual clocks, weather and corruption.
+    // ---------------------------------------------------------------
+
+    /// The required test, in the contract's own wording
+    /// (`docs/GAME_BUILD_PLAN.md`, "Dual clocks"; S8's card): advance world
+    /// time by thirty days with no Cthulhu-relevant event and assert heat is
+    /// unchanged; then trigger one heat event on a single day and assert heat
+    /// moved while the day count did not jump.
+    ///
+    /// This is the sabotage detector for the whole lane. Anything that makes a
+    /// day imply pressure -- a line in `resolve_midnight_in`, a decay-and-grow
+    /// sweep, a "patience ticks up" convenience in a later lane -- fails here.
+    #[test]
+    fn thirty_midnights_do_not_move_hidden_pressure() {
+        let geography = Geography::black_beach_vertical_slice();
+        let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
+        let mut state = fixture();
+
+        let heat_before = state.cthulhu_heat;
+        for _ in 0..30 {
+            state
+                .resolve_midnight_in(&geography, &habitats)
+                .expect("a midnight resolves");
+        }
+        assert_eq!(
+            state.campaign_day, 31,
+            "thirty midnights must advance world time"
+        );
+        assert_eq!(
+            state.cthulhu_heat, heat_before,
+            "thirty days with no Cthulhu-relevant event must not move hidden pressure"
+        );
+
+        // Then one heat event on a single day.
+        let day_before = state.campaign_day;
+        let moved = state.record_heat_event(HeatEvent::RitualCompleted);
+        assert!(
+            moved > heat_before,
+            "a ritual must move hidden pressure: {heat_before} then {moved}"
+        );
+        assert_eq!(
+            state.campaign_day, day_before,
+            "a heat event must not advance the day count"
+        );
+    }
+
+    #[test]
+    fn every_heat_input_moves_pressure_and_saturates_at_the_ceiling() {
+        let mut state = fixture();
+        let mut last = 0;
+        for event in [
+            HeatEvent::RitualCompleted,
+            HeatEvent::CorruptedCellHeld {
+                cell_id: "world.cell.river_landing".into(),
+            },
+            HeatEvent::PartyInterference,
+        ] {
+            let now = state.record_heat_event(event);
+            assert!(now > last, "each named input must move pressure");
+            last = now;
+        }
+        for _ in 0..1_000 {
+            state.record_heat_event(HeatEvent::RitualCompleted);
+        }
+        assert_eq!(
+            state.cthulhu_heat,
+            crate::strategy::clocks::MAX_HEAT,
+            "pressure saturates rather than wrapping"
+        );
+    }
+
+    #[test]
+    fn two_midnights_from_the_same_save_draw_the_same_weather() {
+        let geography = Geography::black_beach_vertical_slice();
+        let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
+        let state = fixture();
+
+        let mut first = ExpeditionState::from_json(&state.to_json()).expect("round trip");
+        let mut again = ExpeditionState::from_json(&state.to_json()).expect("round trip");
+        first
+            .resolve_midnight_in(&geography, &habitats)
+            .expect("a midnight resolves");
+        again
+            .resolve_midnight_in(&geography, &habitats)
+            .expect("a midnight resolves");
+
+        assert!(!first.weather.is_empty(), "a midnight draws the day's sky");
+        assert_eq!(
+            first.weather, again.weather,
+            "weather is a deterministic draw, not a roll"
+        );
+        assert_eq!(
+            first.to_json(),
+            again.to_json(),
+            "and so is everything else"
+        );
+    }
+
+    #[test]
+    fn weather_is_drawn_for_every_region_the_board_has() {
+        let geography = Geography::black_beach_vertical_slice();
+        let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
+        let mut state = fixture();
+        state
+            .resolve_midnight_in(&geography, &habitats)
+            .expect("a midnight resolves");
+
+        let regions: BTreeSet<&str> = geography
+            .locations
+            .values()
+            .map(|location| location.region_id.as_str())
+            .collect();
+        let drawn: BTreeSet<&str> = state.weather.keys().map(String::as_str).collect();
+        assert_eq!(drawn, regions, "every region on the board, and no other");
+        for weather in state.weather.values() {
+            assert_eq!(
+                weather.drawn_on_day, state.campaign_day,
+                "the sky is drawn for the day that is beginning"
+            );
+        }
+    }
+
+    #[test]
+    fn corruption_accumulates_and_saturates_and_refuses_an_unknown_cell() {
+        let geography = Geography::black_beach_vertical_slice();
+        let mut state = fixture();
+
+        assert_eq!(
+            state
+                .corrupt_cell("world.cell.river_landing", 10, &geography)
+                .expect("a real cell"),
+            10
+        );
+        assert_eq!(
+            state
+                .corrupt_cell("world.cell.river_landing", 20, &geography)
+                .expect("a real cell"),
+            30,
+            "corruption accumulates; there is no decay (reversibility is Open)"
+        );
+        for _ in 0..20 {
+            state
+                .corrupt_cell("world.cell.river_landing", 200, &geography)
+                .expect("a real cell");
+        }
+        assert_eq!(state.corruption["world.cell.river_landing"], 255);
+
+        let error = state
+            .corrupt_cell("world.cell.nowhere", 5, &geography)
+            .unwrap_err();
+        assert_eq!(
+            error,
+            ExpeditionError::UnknownCell {
+                cell_id: "world.cell.nowhere".into()
+            }
+        );
+        assert!(
+            !state.corruption.contains_key("world.cell.nowhere"),
+            "a rejected corruption wrote nothing"
+        );
+    }
+
+    #[test]
+    fn the_confrontation_opens_by_discovery_by_day_one_hundred_or_by_full_pressure() {
+        let mut state = fixture();
+        assert_eq!(state.confrontation_is_triggered(), None);
+
+        let mut by_day = state.clone();
+        by_day.campaign_day = CONFRONTATION_DAY;
+        assert_eq!(
+            by_day.confrontation_is_triggered(),
+            Some(ConfrontationTrigger::DayHundred)
+        );
+
+        let mut by_pressure = state.clone();
+        for _ in 0..1_000 {
+            by_pressure.record_heat_event(HeatEvent::RitualCompleted);
+        }
+        assert_eq!(
+            by_pressure.confrontation_is_triggered(),
+            Some(ConfrontationTrigger::MaximumHeat)
+        );
+
+        state
+            .discoveries
+            .insert(CONFRONTATION_DISCOVERY_ID.to_owned());
+        assert_eq!(
+            state.confrontation_is_triggered(),
+            Some(ConfrontationTrigger::Discovery),
+            "the route the party chose outranks the two that happen to them"
+        );
+    }
+
+    /// S8's Done-when: an assistance event never fires for a Desperate
+    /// Cthulhu.
+    #[test]
+    fn assistance_is_weighted_only_for_a_winning_cthulhu() {
+        use crate::strategy::faction::{FactionState, StrategicState};
+
+        let mut state = fixture();
+        assert_eq!(
+            state.cthulhu_assistance_weight(),
+            0,
+            "a save with no such faction assists nobody"
+        );
+
+        for losing in [
+            StrategicState::Desperate,
+            StrategicState::Recovering,
+            StrategicState::Contesting,
+        ] {
+            state.factions.insert(
+                CTHULHU_FACTION_ID.to_owned(),
+                FactionState {
+                    strategic_state: losing,
+                    ..FactionState::default()
+                },
+            );
+            assert_eq!(
+                state.cthulhu_assistance_weight(),
+                0,
+                "assistance must never rescue a losing Cthulhu: {losing:?}"
+            );
+        }
+        for winning in [StrategicState::Advantaged, StrategicState::Closing] {
+            state.factions.insert(
+                CTHULHU_FACTION_ID.to_owned(),
+                FactionState {
+                    strategic_state: winning,
+                    ..FactionState::default()
+                },
+            );
+            assert!(state.cthulhu_assistance_weight() > 0, "{winning:?}");
+        }
+    }
+
+    #[test]
+    fn the_second_clock_survives_a_round_trip_and_older_saves_load_without_it() {
+        let geography = Geography::black_beach_vertical_slice();
+        let habitats = crate::habitat::Habitats::black_beach_vertical_slice();
+        let mut state = fixture();
+        state.record_heat_event(HeatEvent::PartyInterference);
+        state
+            .corrupt_cell("world.cell.river_landing", 90, &geography)
+            .expect("a real cell");
+        state
+            .resolve_midnight_in(&geography, &habitats)
+            .expect("a midnight resolves");
+
+        let restored = ExpeditionState::from_json(&state.to_json()).expect("round trip parses");
+        assert_eq!(restored.cthulhu_heat, state.cthulhu_heat);
+        assert_eq!(restored.corruption, state.corruption);
+        assert_eq!(restored.weather, state.weather);
+
+        let mut older: serde_json::Value =
+            serde_json::from_str(&state.to_json()).expect("save is JSON");
+        let object = older.as_object_mut().expect("save is an object");
+        for field in ["cthulhu_heat", "weather", "corruption"] {
+            object.remove(field).expect("fixture wrote the field");
+        }
+        let loaded = ExpeditionState::from_json(&older.to_string()).expect("an older save loads");
+        assert_eq!(loaded.cthulhu_heat, 0);
+        assert!(loaded.weather.is_empty());
+        assert!(loaded.corruption.is_empty());
     }
 }
