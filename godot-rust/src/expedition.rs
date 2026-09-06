@@ -20,6 +20,7 @@ use crate::strategy::clocks::{
     CONFRONTATION_DAY, CONFRONTATION_DISCOVERY_ID, CTHULHU_FACTION_ID, ConfrontationTrigger,
     HeatEvent, MAX_HEAT, WeatherState, assistance_weight, region_corruption_pressure,
 };
+use crate::strategy::directive::StrategicDirective;
 use crate::strategy::faction::FactionDefinitions;
 use crate::strategy::journal::{JournalEntry, StrategicJournal};
 use crate::strategy::recruitment::{RecruitmentStage, RecruitmentState};
@@ -210,6 +211,22 @@ pub struct ExpeditionState {
     /// beside that one, not as a tuning constant here.
     #[serde(default)]
     pub corruption: BTreeMap<String, u8>,
+    /// S6: the player's standing requests to the factions, keyed by the
+    /// `directive.*` ID the caller supplied. Brief section 5.9: "Directions
+    /// should persist until completed, cancelled, superseded, made impossible,
+    /// or returned for reconsideration" -- so a directive lives here until one
+    /// of those five endings, and stays afterwards as the record of what was
+    /// asked and how it finished.
+    ///
+    /// A directive is an *input* to the strategic scoring, never a command:
+    /// `BoardView::of` reads the Active ones and `choose_goals` weighs them
+    /// heavily, and a faction fighting for its life still does not obey.
+    /// Everything that reads or writes this map lives in
+    /// `strategy/directive.rs`, including the methods on this struct.
+    /// `serde(default)` so a save written before directives existed loads with
+    /// none.
+    #[serde(default)]
+    pub directives: BTreeMap<String, StrategicDirective>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -445,6 +462,8 @@ impl ExpeditionState {
             cthulhu_heat: 0,
             weather: BTreeMap::new(),
             corruption: BTreeMap::new(),
+            // S6: nobody has asked the island for anything yet.
+            directives: BTreeMap::new(),
         };
         state.validate()?;
         Ok(state)
