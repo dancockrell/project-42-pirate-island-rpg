@@ -84,6 +84,12 @@ struct ExpeditionConfiguration {
 
 #[godot_api]
 impl Project42SimulationBridge {
+    /// B17: `Project42SimulationBridge` holds no expedition state -- it has no
+    /// `configure`, no save and no campaign to ask -- so there are no bond
+    /// ranks to read here and this keeps the review fixture's letters, Betty at
+    /// SSS included. The campaign's answer is
+    /// `Project42ExpeditionBridge::begin_pending_battle`, which is the path
+    /// `CampaignEncounterSimulationPort` takes once a session is running.
     #[func]
     fn create_debug_battle(&mut self) -> VarDictionary {
         self.sequence = 0;
@@ -417,8 +423,13 @@ impl Project42ExpeditionBridge {
         if encounter.battle_id != BATTLE_ID {
             return battle_error_snapshot("unsupported_pending_battle");
         }
+        // B17: the campaign is what says where each woman's bond stands, so the
+        // battle it arms carries `ExpeditionState::bond_ranks` and not the
+        // review fixture's letters. A fresh campaign's Betty fights with her
+        // rank D Guarded Strike alone until an authored scene raises her.
+        let battle = Battle::prototype_vertical_slice_from_bond_ranks(&state.bond_ranks);
         self.battle_sequence = 0;
-        self.battle = Some(Battle::prototype_vertical_slice());
+        self.battle = Some(battle);
         snapshot_dictionary(&self.battle.as_ref().expect("battle assigned").snapshot())
     }
 

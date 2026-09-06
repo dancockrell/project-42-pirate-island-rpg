@@ -107,6 +107,20 @@ pub fn rank_index(rank: &str) -> Option<u8> {
 /// The rank at which the Composure gate closes a command to a Shaken actor.
 const SHAKEN_CLOSES_AT_RANK: &str = "SS";
 
+/// The prefix every established woman's actor ID carries
+/// (`character.heroine.<name>`). B17: it is what tells a battle actor whose
+/// bond rank the campaign owns from one it does not -- Captain Michael, an
+/// enemy and every `skill.system.*` user stand outside `bond_ranks` entirely,
+/// and a battle built from a campaign leaves them exactly as the encounter
+/// built them.
+const WOMAN_ACTOR_ID_PREFIX: &str = "character.heroine.";
+
+/// Whether this actor ID names one of the women whose bond rank
+/// `ExpeditionState::bond_ranks` owns.
+pub fn is_woman_actor_id(actor_id: &str) -> bool {
+    actor_id.starts_with(WOMAN_ACTOR_ID_PREFIX)
+}
+
 /// Where a woman's bond stands before an authored scene has moved it. A10:
 /// `ExpeditionState::bond_ranks` starts every established woman here, and an
 /// `Actor` built without a rank is read as standing here too.
@@ -600,6 +614,41 @@ impl Battle {
             "battle.prototype.returning_names",
             [betty, ayla, vix, razorbeak, michael],
         )
+    }
+
+    /// B17: the same fixture encounter, built for a campaign rather than for a
+    /// review scene.
+    ///
+    /// There is one actor list -- [`Battle::prototype_vertical_slice`] above --
+    /// and this delegates to it, then copies the campaign's ranks over the
+    /// fixture's. A caller with an `ExpeditionState` uses this; the debug
+    /// battle, which has no campaign at all, keeps the fixture.
+    pub fn prototype_vertical_slice_from_bond_ranks(ranks: &BTreeMap<String, String>) -> Self {
+        let mut battle = Self::prototype_vertical_slice();
+        battle.apply_bond_ranks(ranks);
+        battle
+    }
+
+    /// B17: makes every woman in this battle stand where her bond actually
+    /// stands. `ranks` is `ExpeditionState::bond_ranks`, the sole owner of that
+    /// fact (A10); `Actor::bond_rank` is a copy of it and nothing else.
+    ///
+    /// A woman the map does not know falls to [`STARTING_BOND_RANK`] rather
+    /// than keeping whatever the encounter fixture set -- a campaign that has
+    /// never heard of her has not raised her, so the floor is the truthful
+    /// answer and a fixture SSS must not survive into a fight the campaign
+    /// built. Actors who are not women ([`is_woman_actor_id`]) are left alone:
+    /// the map has no entry for them and no opinion about them.
+    pub fn apply_bond_ranks(&mut self, ranks: &BTreeMap<String, String>) {
+        for (actor_id, actor) in self.actors.iter_mut() {
+            if !is_woman_actor_id(&actor_id.0) {
+                continue;
+            }
+            actor.bond_rank = ranks
+                .get(&actor_id.0)
+                .cloned()
+                .unwrap_or_else(|| STARTING_BOND_RANK.to_owned());
+        }
     }
 
     pub fn new(battle_id: impl Into<String>, actors: impl IntoIterator<Item = Actor>) -> Self {
@@ -4102,5 +4151,74 @@ mod tests {
             "content/characters/captain.json owns the protagonist's display name"
         );
         assert_eq!(captain().id.0, "character.protagonist.captain");
+    }
+
+    /// B17, the copy. The prototype fixture stands Betty at the top of the
+    /// ladder so a review scene can show her whole kit; a battle built for a
+    /// campaign that has never raised her must not inherit that.
+    #[test]
+    fn a_battle_built_from_a_campaign_stands_each_woman_where_her_bond_stands() {
+        let fixture = Battle::prototype_vertical_slice();
+        assert_eq!(
+            fixture
+                .actor(&ActorId("character.heroine.betty".into()))
+                .unwrap()
+                .bond_rank,
+            "SSS",
+            "the review fixture is unchanged by this card"
+        );
+
+        let ranks = BTreeMap::from([
+            ("character.heroine.betty".to_owned(), "C".to_owned()),
+            ("character.heroine.ayla".to_owned(), "D".to_owned()),
+        ]);
+        let campaign = Battle::prototype_vertical_slice_from_bond_ranks(&ranks);
+        let rank_of = |id: &str| {
+            campaign
+                .actor(&ActorId(id.into()))
+                .unwrap_or_else(|| panic!("{id} stands in the slice"))
+                .bond_rank
+                .clone()
+        };
+        assert_eq!(
+            rank_of("character.heroine.betty"),
+            "C",
+            "the campaign's letter, not the fixture's"
+        );
+        assert_eq!(rank_of("character.heroine.ayla"), "D");
+        assert_eq!(
+            rank_of("character.heroine.vix"),
+            STARTING_BOND_RANK,
+            "a woman no campaign has heard of stands at the floor"
+        );
+    }
+
+    /// B17: the map is only ever asked about women. Captain Michael and the
+    /// Razorbeak have no bond rank to raise, and a map that names one anyway
+    /// does not move them.
+    #[test]
+    fn a_campaign_battle_leaves_every_actor_who_is_not_a_woman_alone() {
+        assert!(is_woman_actor_id("character.heroine.betty"));
+        assert!(!is_woman_actor_id("character.protagonist.captain"));
+        assert!(!is_woman_actor_id("enemy.raptor.razorbeak.prototype"));
+
+        let ranks = BTreeMap::from([
+            ("character.protagonist.captain".to_owned(), "SSS".to_owned()),
+            (
+                "enemy.raptor.razorbeak.prototype".to_owned(),
+                "SSS".to_owned(),
+            ),
+        ]);
+        let campaign = Battle::prototype_vertical_slice_from_bond_ranks(&ranks);
+        for id in [
+            "character.protagonist.captain",
+            "enemy.raptor.razorbeak.prototype",
+        ] {
+            assert_eq!(
+                campaign.actor(&ActorId(id.into())).unwrap().bond_rank,
+                STARTING_BOND_RANK,
+                "{id} is not a woman: the campaign's map has no say over him"
+            );
+        }
     }
 }

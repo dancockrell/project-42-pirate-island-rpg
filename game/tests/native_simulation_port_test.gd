@@ -11,6 +11,12 @@ func _init() -> void:
 	check(before.phase == "awaiting_actor", "prototype must start awaiting an actor")
 	check(before.actors.size() == 5, "native fixture must expose a party-scale encounter: Betty, Ayla, Vix, the Razorbeak and Captain Michael, whom B5 stands in the slice")
 	check(before.has("recovery_openings") and before.recovery_openings.is_empty(), "native snapshot must expose an initially empty recovery-opening collection")
+	# B17: this bridge holds no expedition state -- no configure, no campaign to
+	# ask -- so the debug battle carries the review fixture's bond ranks and Betty
+	# keeps her whole kit here. A campaign's battle is armed through
+	# Project42ExpeditionBridge.begin_pending_battle, and
+	# campaign_encounter_port_test.gd is where that rank is asserted.
+	check(actor(before, "character.heroine.betty").bond_rank == "SSS", "the debug battle has no campaign, so its Betty stands at the fixture's rank and every SSS command below stays testable")
 	check(actor(before, "character.heroine.ayla").vitality == 0, "Ayla must begin defeated so Combat Revival is testable")
 	check(actor(before, "character.heroine.vix").vitality == 10, "Vix must begin wounded so healing and lethal reactions are testable")
 	var start := port.start()
