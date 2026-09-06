@@ -3,7 +3,7 @@
   "battleId": "battle.prototype.returning_names",
   "locationId": "world.cell.reception_terrace",
   "partyActorIds": ["character.protagonist.captain", "character.heroine.betty"],
-  "hostileActorIds": ["enemy.raptor.razorbeak.prototype"],
+  "hostileActorIds": ["enemy.raptor.razorbeak"],
   "entry": { "timeCostMinutes": 0, "startRound": 1, "cameraPreset": "battle.two_actor_full_body" },
   "victory": { "condition": "all_hostiles_defeated", "timeCostMinutes": 20, "lootTableId": "loot.razorbeak.prototype" },
   "estateConsequence": { "estateUpgradeId": "estate_upgrade.river_gate_alarm", "locationId": "world.cell.damaged_estate", "objectId": "estate_object.river_gate_alarm", "displayName": "River Gate Alarm", "rule": "unlock_when_encounter_resolves" },

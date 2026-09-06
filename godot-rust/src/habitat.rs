@@ -848,4 +848,191 @@ mod tests {
             );
         }
     }
+
+    /// The habitat ecology has exactly one owner. `content/habitats/*.json`
+    /// authors every habitat and `Habitats::black_beach_vertical_slice`
+    /// carries the same records so the simulation can decide a day's threats
+    /// without reading the disk -- the arrangement
+    /// `fixture_matches_the_authored_loot_tables` already enforces one field
+    /// over, and `fixture_matches_the_authored_world_cells` enforces for
+    /// geography.
+    ///
+    /// B7 could not author the twin: a habitat is mostly its roster, and the
+    /// roster named `enemy.boar.thunderback` and
+    /// `enemy.raptor.razorbeak.crested`, which no content record declared,
+    /// while the records that did exist spelled their creatures with a
+    /// `.prototype` suffix this registry never used. Both halves are closed
+    /// now, and the last assertion here is what keeps them closed: every
+    /// creature a habitat rosters must be a record in `content/enemies/`,
+    /// under the ID the registry spells it with.
+    #[test]
+    fn fixture_matches_the_authored_habitats() {
+        use std::collections::{BTreeMap, BTreeSet};
+
+        fn strings(value: &serde_json::Value, id: &str, field: &str) -> Vec<String> {
+            value[field]
+                .as_array()
+                .unwrap_or_else(|| panic!("{id} declares an array {field}"))
+                .iter()
+                .map(|item| {
+                    item.as_str()
+                        .unwrap_or_else(|| panic!("{id} declares {field} as strings"))
+                        .to_owned()
+                })
+                .collect()
+        }
+
+        let habitat_directory = concat!(env!("CARGO_MANIFEST_DIR"), "/../content/habitats/");
+        let mut authored: BTreeMap<String, HabitatRecord> = BTreeMap::new();
+        for entry in std::fs::read_dir(habitat_directory).expect("content/habitats/ is readable") {
+            let path = entry.expect("a readable directory entry").path();
+            if path.extension().and_then(|name| name.to_str()) != Some("json") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).expect("the habitat file is readable");
+            let value: serde_json::Value =
+                serde_json::from_str(&text).expect("the habitat file is JSON");
+            let id = value["id"]
+                .as_str()
+                .expect("an authored habitat declares a string id")
+                .to_owned();
+            let roster = value["roster"]
+                .as_array()
+                .unwrap_or_else(|| panic!("{id} declares an array roster"))
+                .iter()
+                .map(|entry| RosterEntry {
+                    definition_id: entry["definition_id"]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("{id} rosters string definition_ids"))
+                        .to_owned(),
+                    family: match entry["family"].as_str() {
+                        Some("Beast") => CreatureFamily::Beast,
+                        Some("Undead") => CreatureFamily::Undead,
+                        Some("Spectral") => CreatureFamily::Spectral,
+                        Some("Eldritch") => CreatureFamily::Eldritch,
+                        other => panic!("{id} rosters an unknown creature family {other:?}"),
+                    },
+                    available_from_day: entry["available_from_day"]
+                        .as_u64()
+                        .unwrap_or_else(|| panic!("{id} declares numeric available_from_day"))
+                        as u32,
+                    night_only: entry["night_only"]
+                        .as_bool()
+                        .unwrap_or_else(|| panic!("{id} declares boolean night_only")),
+                })
+                .collect();
+            let record = HabitatRecord {
+                id: id.clone(),
+                region_id: value["region_id"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("{id} declares a string region_id"))
+                    .to_owned(),
+                display_name: value["display_name"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("{id} declares a string display_name"))
+                    .to_owned(),
+                roster,
+                rank: match value["rank"].as_str() {
+                    Some("Ordinary") => EncounterRank::Ordinary,
+                    Some("Elevated") => EncounterRank::Elevated,
+                    Some("Apex") => EncounterRank::Apex,
+                    other => panic!("{id} declares an unknown rank {other:?}"),
+                },
+                behavior_tags: strings(&value, &id, "behavior_tags"),
+                intent_suite: strings(&value, &id, "intent_suite"),
+                territory_location_ids: strings(&value, &id, "territory_location_ids"),
+                drop_table_id: value["drop_table_id"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("{id} declares a string drop_table_id"))
+                    .to_owned(),
+                return_eligible: value["return_eligible"]
+                    .as_bool()
+                    .unwrap_or_else(|| panic!("{id} declares boolean return_eligible")),
+                base_level: value["base_level"]
+                    .as_u64()
+                    .unwrap_or_else(|| panic!("{id} declares a numeric base_level"))
+                    as u8,
+                daily_pressure: value["daily_pressure"]
+                    .as_i64()
+                    .unwrap_or_else(|| panic!("{id} declares a numeric daily_pressure"))
+                    as i8,
+            };
+            authored.insert(id, record);
+        }
+        assert!(
+            !authored.is_empty(),
+            "content/habitats/ holds the authored habitats; an empty read means the path is wrong"
+        );
+
+        let habitats = Habitats::black_beach_vertical_slice();
+        let authored_ids: BTreeSet<&str> = authored.keys().map(String::as_str).collect();
+        let carried_ids: BTreeSet<&str> = habitats.records.keys().map(String::as_str).collect();
+        assert_eq!(
+            authored_ids, carried_ids,
+            "content/habitats/ and the Rust habitat registry describe different habitats; content is the owner"
+        );
+
+        for (id, authored_record) in &authored {
+            let carried = habitats.habitat(id).expect("the ID sets already matched");
+            // The roster first, and named entry by entry, because a habitat is
+            // mostly its roster and a silent Vec diff is the least readable
+            // way to be told which creature went missing.
+            let authored_roster: BTreeSet<&str> = authored_record
+                .roster
+                .iter()
+                .map(|entry| entry.definition_id.as_str())
+                .collect();
+            let carried_roster: BTreeSet<&str> = carried
+                .roster
+                .iter()
+                .map(|entry| entry.definition_id.as_str())
+                .collect();
+            for missing in carried_roster.difference(&authored_roster) {
+                panic!("{id} rosters {missing} in the Rust registry but not in content/habitats/");
+            }
+            for extra in authored_roster.difference(&carried_roster) {
+                panic!("{id} rosters {extra} in content/habitats/ but not in the Rust registry");
+            }
+            assert_eq!(
+                authored_record.roster, carried.roster,
+                "{id}'s roster differs between content/habitats/ and the Rust registry in order, family, availability day or night-only flag"
+            );
+            assert_eq!(
+                authored_record, carried,
+                "{id} differs between content/habitats/ and the Rust registry; content is the owner"
+            );
+        }
+
+        // And the creature side of the same seam: a habitat may only roster a
+        // creature `content/enemies/` declares, under the ID this registry
+        // spells it with. This is the assertion that settles the `.prototype`
+        // suffix -- it fails for all nine creatures if either side drifts back.
+        let enemy_directory = concat!(env!("CARGO_MANIFEST_DIR"), "/../content/enemies/");
+        let mut authored_creatures: BTreeSet<String> = BTreeSet::new();
+        for entry in std::fs::read_dir(enemy_directory).expect("content/enemies/ is readable") {
+            let path = entry.expect("a readable directory entry").path();
+            if path.extension().and_then(|name| name.to_str()) != Some("json") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).expect("the creature file is readable");
+            let value: serde_json::Value =
+                serde_json::from_str(&text).expect("the creature file is JSON");
+            authored_creatures.insert(
+                value["id"]
+                    .as_str()
+                    .expect("an authored creature declares a string id")
+                    .to_owned(),
+            );
+        }
+        for record in habitats.records.values() {
+            for entry in &record.roster {
+                assert!(
+                    authored_creatures.contains(&entry.definition_id),
+                    "{} rosters {}, which no record in content/enemies/ declares",
+                    record.id,
+                    entry.definition_id
+                );
+            }
+        }
+    }
 }

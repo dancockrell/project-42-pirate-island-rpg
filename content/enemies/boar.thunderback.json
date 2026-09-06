@@ -1,0 +1,43 @@
+{
+  "id": "enemy.boar.thunderback",
+  "displayName": "Thunderback",
+  "species": "island_boar",
+  "combatRole": "mobile_individual_threat",
+  "level": 0,
+  "stats": { "vitality": 0, "guard": 0, "initiative": 0, "startingBand": 2 },
+  "skillIds": [],
+  "intent": {
+    "selection": "deterministic_priority",
+    "targetRule": "lowest_current_vitality_percentage_then_lowest_guard_then_stable_actor_id",
+    "effectiveRecipientRule": "active_interceptor_else_selected_target",
+    "skillRule": "needs decision: the fixture names no skill for this creature, so there is no rule to select between"
+  },
+  "actions": {},
+  "worldPresence": { "wild": true, "penAllowed": false, "packSize": 1, "midnightRespawnEligible": true },
+  "text": {
+    "firstObservation": "The thunderback holds the jungle edge above the river landing the way a boar holds a wallow: head low, weight already forward, waiting for something to come far enough down the bank to be worth crossing the ground for.",
+    "intentTells": {}
+  },
+  "art": {
+    "assetId": "art.placeholder.boar.thunderback.active_actor",
+    "status": "placeholder",
+    "framing": "Entire animal, snout, all four feet, target line and charge lane remain inside the battle safe frame."
+  },
+  "open": {
+    "level": "needs decision: Habitats::black_beach_vertical_slice carries no level for this creature. habitat.black_beach.river_jungle's base_level 7 is a region level, not a creature level -- the tideline is base_level 5 and its razorbeak is level 7 -- so reading it as this creature's level would invent a number.",
+    "stats.vitality": "needs decision: no authored or fixture source carries a vitality for the thunderback.",
+    "stats.guard": "needs decision: no authored or fixture source carries a guard value for the thunderback.",
+    "stats.initiative": "needs decision: no authored or fixture source carries an initiative for the thunderback.",
+    "skillIds": "needs decision: HabitatRecord.intent_suite belongs to the habitat, not to its holder -- habitat.black_beach.tideline advertises only rushing_bite while enemy.raptor.razorbeak declares two skills -- so the river jungle's suite cannot be read as this creature's skill list, and no other source names one."
+  },
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "presentationOwner": "godot-gdscript",
+    "releaseLegal": false,
+    "notes": [
+      "Everything decided here is read from Habitats::black_beach_vertical_slice: the creature is a Beast on habitat.black_beach.river_jungle's roster from day 1 and not night-only, the habitat spawns one individual per day (daily_count 1) and is return_eligible, and its drop is content/loot/thunderback.prototype.json, whose display name is Thunderback Salvage.",
+      "stats.startingBand is 2 in every authored enemy record, which is Band::EnemyFront -- structure, not tuning -- so it is authored rather than left open.",
+      "Unlike enemy.raptor.razorbeak.crested this record derives from nothing: the thunderback is not a variant of any authored creature, so there is no base whose numbers it could honestly take."
+    ]
+  }
+}

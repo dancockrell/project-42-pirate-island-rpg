@@ -221,6 +221,24 @@
         "readable at battle scale",
         "attack tell matches its declared skill"
       ]
+    },
+    {
+      "id": "art.placeholder.boar.thunderback.active_actor",
+      "placeholder": true,
+      "consumer": "future-game/scenes/battle/boar.thunderback_active_actor",
+      "visibleMark": "DUMMY THUNDERBACK ACTOR",
+      "intendedFinal": "Complete Thunderback battle actor: one individual heavy island boar, the elevated holder of the river landing's jungle edge, built to cross open ground in a single committed charge, with a full snout-to-tail silhouette, all four feet and a readable charge lane.",
+      "requiredTags": [
+        "full-body",
+        "individual-threat",
+        "charger",
+        "no-crop"
+      ],
+      "replacementGate": [
+        "complete snout, tail and all four feet",
+        "individual-threat read rather than a herd animal",
+        "charge tell readable at battle scale"
+      ]
     }
   ]
 }

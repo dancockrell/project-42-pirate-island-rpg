@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "task_id": "c15-habitats-as-content",
+  "agent": "claude-code (lane C15)",
+  "summary": "Author the two rostered creatures content never declared, settle the enemy ID suffix on the registry's spelling for all nine records, author every habitat in the Rust fixture as a content record, and hold Habitats equal to content/habitats/ the way content/loot/ is already held.",
+  "status": "completed",
+  "claimed_at": "2026-09-06T12:00:00Z",
+  "updated_at": "2026-09-06T10:00:00Z",
+  "paths": [
+    "content/enemies/",
+    "content/habitats/",
+    "content/encounters/returning_names.prototype.json",
+    "content/presentation/paper_dolls.prototype.json",
+    "content/world/reception_road.spawn_rule.json",
+    "content/art/creature_plan.json",
+    "content/art/placeholders.json",
+    "reports/placeholder-art.md",
+    "tools/src/validate.mjs",
+    "tools/src/build-content-bundle.mjs",
+    "game/generated/content_bundle.json",
+    "godot-rust/src/habitat.rs"
+  ],
+  "symbols": [
+    "habitat::Habitats::black_beach_vertical_slice",
+    "habitat::HabitatRecord",
+    "habitat::tests::fixture_matches_the_authored_habitats"
+  ],
+  "coordination": {
+    "depends_on": [
+      "b7-battle-entries-habitats",
+      "c14-machine-records"
+    ],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at cb4f57e. B7's claim recorded the gap this card closes and chose the external `habitat.` prefix as a stopgap; that prefix leaves intentionallyExternalPrefixes here, and `skill.enemy.` is now the only entry left. godot-rust/src/battle.rs, expedition.rs and strategy/ were NOT touched -- lanes A7 and S16 hold them. In habitat.rs only the test module is appended to; no fixture value, type or function was restructured, so the registry side of the equality test is B7-era code unchanged. THE ONE STRING THIS PASS LEAVES BEHIND: the vertical-slice battle fixture in battle.rs (and its mirrors in protocol.rs, mock_simulation_port.gd and five game/tests suites) still spells its hostile `ActorId(\"enemy.raptor.razorbeak.prototype\")`. That is a battle *instance* ID in a hand-built fixture, not a creature definition ID: nothing resolves it against content (the encounter record's hostileActorIds is read only by the validator, and no GDScript looks a creature record up by ID -- paper dolls resolve by their own presentation.paper_doll.* id and battle_3d_staging.gd keys on the bridge's actor id), so renaming content did not break it and renaming it would have meant editing battle.rs, which this lane may not. Whoever lands A7 should rename those literals to enemy.raptor.razorbeak and the divergence is gone."
+  },
+  "completion": {
+    "commit": "6bbe994",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (317 unit incl. the new habitat::tests::fixture_matches_the_authored_habitats, 6 authored_world, 5 save_migration, 8 strategic_determinism, 1 vertical_slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (270 stable IDs, up from 267: 9 creature records and 3 habitats now registered where 7 creatures and no habitat were before): passed",
+      "node tools/src/check-claims.mjs (52 claims, 95 ship-plan rows, 89 cards): passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/ (59 records, sha256:b2d2c0e4f74b87bf60c3745db3d0ef7cd5e23a26a73d764b58a7b7be28849991): passed",
+      "Done-when 1, the two missing creatures: content/enemies/boar.thunderback.json and content/enemies/razorbeak.crested.json exist and every number in them is read from Habitats::black_beach_vertical_slice or from the record they derive from. The crested razorbeak declares derivesFrom enemy.raptor.razorbeak and overrides only the ID and the display name (from content/loot/razorbeak.crested.prototype.json's \"Crested Razorbeak Salvage\"), because the fixture overrides nothing else: passed",
+      "Done-when 1, the honest gap: the fixture carries NO level, stat or skill for enemy.boar.thunderback, so all four stay at their placeholder and the record's `open` block names each decision. base_level was deliberately NOT read as a creature level -- habitat.black_beach.tideline is base_level 5 while its razorbeak is level 7, so base_level is a region level and reading it would have invented a number. HabitatRecord.intent_suite was deliberately NOT read as a skill list for the same reason: the tideline advertises one skill while enemy.raptor.razorbeak declares two: passed",
+      "Done-when 2, the suffix settled for all nine: the registry's IDs win. Seven records renamed in ID and filename (razorbeak.prototype.json -> razorbeak.json and six siblings), and every reference repaired -- content/encounters/returning_names.prototype.json hostileActorIds, content/world/reception_road.spawn_rule.json definitionIds, content/presentation/paper_dolls.prototype.json subjectId, six subjectIds in content/art/creature_plan.json, and game/generated/content_bundle.json regenerated. The whole tree was grepped for `enemy.<...>.prototype`, including game/ and docs/: no doc names one, and every remaining occurrence is the battle fixture's ActorId, recorded in coordination.notes: passed",
+      "Done-when 3, the habitats: content/habitats/black_beach.tideline.json, black_beach.river_jungle.json and black_beach.terrace_precinct.json carry exactly HabitatRecord's fields in HabitatRecord's names (id, region_id, display_name, roster of {definition_id, family, available_from_day, night_only}, rank, behavior_tags, intent_suite, territory_location_ids, drop_table_id, return_eligible, base_level, daily_pressure), with EncounterRank's and CreatureFamily's variant spellings verbatim since neither enum carries a serde rename: passed",
+      "Done-when 4, the validator: a habitats block registers every habitat.* ID, resolves roster definition_ids against enemy.*, territory against world.cell.* and drop_table_id against loot.*, refuses a duplicate region_id (Midnight Return derives instance IDs from region and slot), refuses two habitats claiming one cell (habitat_for_location answers with the first), and refuses a roster with no daylight holder. `habitat.` left intentionallyExternalPrefixes, so the habitatIds on reception_terrace and tomb_service_passage now resolve against records: passed",
+      "Done-when 5, the bundle: `habitats` joined the domain list and the enemies already in the bundle regenerated under their new IDs; 53 records became 59: passed",
+      "Done-when 6, the Rust equality test: habitat::tests::fixture_matches_the_authored_habitats reads content/habitats/, rebuilds each HabitatRecord and holds Habitats::black_beach_vertical_slice equal to the directory field for field, then asserts every rostered definition_id is a record in content/enemies/ -- the assertion that keeps the suffix settled: passed",
+      "Bite (the card's first): enemy.spectral.lament removed from content/habitats/black_beach.terrace_precinct.json's roster; fixture_matches_the_authored_habitats FAILED at src/habitat.rs:991 with 'habitat.black_beach.terrace_precinct rosters enemy.spectral.lament in the Rust registry but not in content/habitats/'; restored and green: failed",
+      "Bite (the card's second, the other side): the same RosterEntry removed from the fixture instead; the test FAILED at src/habitat.rs:988 with 'habitat.black_beach.terrace_precinct rosters enemy.spectral.lament in content/habitats/ but not in the Rust registry'; restored and green: failed",
+      "Bite (the card's third): enemy.raptor.razorbeak changed to enemy.raptor.thornbeak in the tideline roster; node tools/src/validate.mjs FAILED with 'content/habitats/black_beach.tideline.json: roster[0].definition_id references missing stable ID enemy.raptor.thornbeak'; restored and green: failed",
+      "Bite (the suffix, both sides at once): content/enemies/razorbeak.json's id put back to enemy.raptor.razorbeak.prototype; validate.mjs FAILED with 12 issues led by 'id enemy.raptor.razorbeak.prototype carries a .prototype suffix the creature registry does not use', and fixture_matches_the_authored_habitats FAILED with 'habitat.black_beach.tideline rosters enemy.raptor.razorbeak, which no record in content/enemies/ declares'; restored and green: failed",
+      "Bite (the placeholder convention, the C14-style inversion): stats.vitality 40 on boar.thunderback.json FAILED with 'open.stats.vitality says this number is undecided, so stats.vitality must stay 0 rather than read as a decided value'; and deleting open.stats.guard while the stat stayed 0 FAILED with 'stats.guard is empty, which makes this a placeholder record; open.stats.guard must name the decision it is waiting on'; restored and green: failed",
+      "No fork: `derivesFrom` is resolved once, in the new tools/src/derived-records.mjs, imported by BOTH tools/src/validate.mjs and tools/src/build-content-bundle.mjs, so the record that is validated is the record that ships and the merge rule has one owner. The crested razorbeak therefore holds no copy of the razorbeak's stats, skills, actions or recovery-opening rules -- verified by reading the resolved record back out of game/generated/content_bundle.json: passed",
+      "needs decision: enemy.boar.thunderback's level, vitality, guard, initiative and skillIds. No source in the repository carries any of them; the validator REQUIRES the placeholder rather than a number, and refuses the record if a stat is left at 0 without `open` naming the decision. stats.startingBand is authored as 2 because every authored enemy record uses 2 (Band::EnemyFront) -- structure, not tuning: not_run",
+      "Not authored here: no art plate was added to content/art/creature_plan.json for either new creature. The plan carries six plates and no razorbeak plate at all, so a record without one is the existing precedent, and writing a prompt for a creature nobody has designed would have been the invention this card forbids. One placeholder was added to content/art/placeholders.json for the thunderback so its art block does not dangle; the crested razorbeak inherits the razorbeak's placeholder, which is honest for a variant. reports/placeholder-art.md was regenerated from the manifest and in doing so picked up nine entries that had been stale there since before this lane: not_run",
+      "CI 'Verify' run 34025680792 on lane/C15-habitats-as-content at 6bbe994: both jobs green. 'Rust and content' -- fmt, the full Rust suite, cargo check --features godot-ext, validate.mjs, check-claims.mjs and the stale-bundle gate. 'Godot headless suites' -- every game/tests/*.gd suite under the pinned Godot 4.7.2-stable against the real GDExtension, with 'Prove the real bridge loaded, not the mock' green and the presentation packs rebuilt. Run 34025637572 on the work commit 7d5695e was green on both jobs too. No Godot binary exists in the authoring container, so the engine side was proven in CI rather than locally: passed"
+    ]
+  }
+}
