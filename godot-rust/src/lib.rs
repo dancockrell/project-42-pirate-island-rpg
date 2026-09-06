@@ -8,8 +8,8 @@ pub mod geography;
 pub mod habitat;
 pub mod hunter;
 pub mod protocol;
-pub mod world;
 pub mod strategy;
+pub mod world;
 
 #[cfg(feature = "godot-ext")]
 mod godot_bridge;
