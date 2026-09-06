@@ -355,8 +355,8 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
-- **M3** shipped 10/16 — **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
-- Last updated 2026-09-06 against trunk `777a943`. If this line is older than
+- **M3** shipped 11/16 — **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
+- Last updated 2026-09-06 against trunk `a1018dd`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -382,7 +382,7 @@ top of the document is never stale:
 |---|---|---|---|
 | S1 | `FactionDefinition` and faction resources | — | shipped 3614c34 2026-09-06 |
 | S2 | Ownership and influence on `Geography` nodes | A2 | shipped 27d777b 2026-09-06 — contested road = authored base + 2 |
-| S3 | Buildings: envelopes, sockets, tiers, capture and ruin | S1, S2 | open |
+| S3 | Buildings: envelopes, sockets, tiers, capture and ruin | S1, S2 | shipped a1018dd 2026-09-06 — the three Open numbers are Open in the data too |
 | S4 | Strategic tick, pause semantics, determinism | S1 | shipped fefed40 2026-09-06 — the draw sequence is under the save hash |
 | S5 | Utility AI and strategic states | S4 | shipped 9b4765e 2026-09-06 — neutral weights until the bridge loads records |
 | S6 | `StrategicDirective` vocabulary and plain-language explanation | S5 | shipped 7a63396 2026-09-06 |
@@ -909,7 +909,7 @@ the authored base as a second number, and a `ControlChanged` case in the
 event projection.
 
 ### S3 · Buildings: envelopes, sockets, tiers, capture and ruin
-Status: open · Depends on: S1, S2
+Status: shipped `a1018dd` 2026-09-06 · Depends on: S1, S2
 `BuildingDefinition` with brief §19's fields verbatim (`footprint_cells`,
 `clearance_cells`, `height_class`, `entrance_sockets`, `road_sockets`,
 `actor_sockets`, `delivery_sockets`, `allowed_terrain`, `maximum_slope`,
@@ -924,6 +924,24 @@ capacity and services, never people** — enforce with a test that a
 `concept_key == "michael"` building whose `production` names a human role is
 rejected at load.
 Done when: overlap rejection test; production-rule test; tier upgrade test.
+
+**Shipped.** §19's fields in order; instances under their own
+`building_instance.*` namespace; every method in `building.rs`. Placement
+rejects overlap before mutation (proven to bite on exactly one test);
+Michael's buildings never produce people, and no building produces a person
+on a timer. **Three §20 items stay Open in the data:** `TIER_CAP = 3`,
+`CELL_CAPACITY_CELLS = 12`, `CAPTURE_HP_RESTORED = 1` are named constants
+marked `needs decision`, and `CaptureRules::NeedsDecision` /
+`RuinState::NeedsDecision` are the *defaults*, refused at load by a message
+naming the section — so the decision lands on each authored record, not on
+this lane for every building at once. Dimensions are abstract shares of a
+cell's capacity; B11/O3 own geometry. Damage at zero leaves a capturable
+shell; ruin is the deliberate path and rubble still occupies ground.
+`actor_sockets_at(cell, &definitions)` takes the registry, never the save —
+the seam for B11 and S7's arrival. **C10 must author** `content/buildings/`
+to the contract in S3's claim notes (concept keys only; `capture_rules` and
+`ruin_state` explicitly chosen; sockets in their §19 field; a human-role
+output only as recruitment support), plus the fixture-versus-records test.
 
 ### S4 · Strategic tick, pause semantics, determinism
 Status: shipped `fefed40` 2026-09-06 · Depends on: S1
