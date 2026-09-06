@@ -355,8 +355,8 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
-- **M3** shipped 11/16 — **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
-- Last updated 2026-09-06 against trunk `528773b`. If this line is older than
+- **M3** shipped 12/16 — **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it)
+- Last updated 2026-09-06 against trunk `a579ff9`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -427,9 +427,9 @@ top of the document is never stale:
 | C5 | The tomb as a faction-specific dungeon: twelve spaces | B6, S9 | open |
 | C6 | Relationship scene records and schema | — | shipped 3857ffa 2026-09-06 — five scenes, fade-to-black by rule, the pack's seam left open |
 | C7 | Placeholder deprecation migration | D4 | open |
-| C8 | Scene `presentationLevel` and the pack manifest schema | C6 | open |
+| C8 | Scene `presentationLevel` and the pack manifest schema | C6 | shipped a579ff9 2026-09-06 |
 | C9 | Faction records (no proper names) | S1 | shipped 3598628 2026-09-06 — the validator refuses a real name until one is approved |
-| C10 | Building records with envelopes | S3 | open |
+| C10 | Building records with envelopes | S3 | shipped a579ff9 2026-09-06 |
 | C11 | Room contract fields on world cells | B11 | open |
 | C12 | One recruitable woman's arc (records only; identity per O2) | C6, S12, O2 | blocked: needs decision O2 |
 | C13 | Content can declare a discovery ID; the tidal cut's gate authored | A4 | shipped 3c85451 2026-09-05 — plus the bridge wire it turned out to need |
@@ -1540,13 +1540,22 @@ yet. Stable IDs 200 → 210.
 Status: open · Depends on: D4
 
 ### C8 · Scene `presentationLevel` and the pack manifest schema
-Status: open · Depends on: C6
+Status: shipped `a579ff9` 2026-09-06 · Depends on: C6
 Every scene record: `"presentationLevel": "fade_to_black"`. Pack manifest
 `packs/<id>/pack.json`: `{ "id": "pack.presentation.adult", "kind": "presentation_override", "targetLevel": "explicit", "overrides": { "<scene id>": { "beats": [...], "assetIds": [...] } } }`.
 Validator `packFile`: every override targets an existing scene ID; every
 asset ID resolves inside the pack; `targetLevel ∈ {fade_to_black, explicit}`;
 a pack may not carry rules, skill, character, faction or building records.
 Done when: validator green with a fixture pack; a pack carrying a skill fails.
+**Shipped:** `packs/pack.presentation.fixture/pack.json` at `fade_to_black`
+with two overrides; the validator's `packFile` block registers scene IDs
+first, then refuses an override on a scene nobody wrote, a pack carrying a
+`skill` key, and an asset ID outside the pack's own `assets` list. "Resolves
+inside the pack" means a pack-relative path the validator `stat`s; pack asset
+IDs are deliberately *not* repository stable IDs, so a base-game record can
+never reference something that may not be installed. Two bites proven. The
+pack is not in the bundle by design (B10 merges packs at load). No adult pack
+exists yet — the seam does.
 
 ### C9 · Faction records
 Status: shipped `3598628` 2026-09-06 · Depends on: S1
@@ -1567,7 +1576,7 @@ reach the Godot bundle; nothing in Godot reads them. One line when a consumer
 exists.
 
 ### C10 · Building records with envelopes
-Status: open · Depends on: S3
+Status: shipped `a579ff9` 2026-09-06 · Depends on: S3
 Touches: `content/buildings/*.json` (new), `tools/src/validate.mjs` (one
 block), `tools/src/build-content-bundle.mjs` (`buildings` in the domain list),
 `game/generated/content_bundle.json` (regenerated), one equality test in
@@ -1597,6 +1606,19 @@ Traps: no resource categories invented — `construction_cost` keys under the
 doctrine.
 Done when: validator and equality test green; a Michael record producing a
 `human_role` fails both (bite); a record omitting `capture_rules` fails both.
+**Shipped:** three records — `building.machine_shop` (Michael; a machine,
+capacity and a service, `recruitment_support` empty on purpose),
+`building.coast_watch_post` (three ordinary factions; the tree's one legal
+`human_role` rule, interval 0 with recruitment support) and
+`building.ritual_anchor` (`destroy_only` / `clears_completely`, empty socket
+lists prove an empty field loads). Every Open item is Open in the data:
+`height_class` a placeholder the validator *requires* to say needs decision,
+costs and output keys under `resource.open.needs_decision`, empty terrain.
+`every_authored_building_record_loads_and_validates` holds `building.rs`
+equal to the directory. All four bites proven in both the validator and
+Rust. Stable IDs 210 → 214; bundle 44 → 47 records. **Left, on purpose:**
+`ProductionOutput::Machine` carries no machine family (S13 may extend);
+`role.*`, `service.*` and `recruitment_support.*` have no authored vocabulary.
 
 ### C11 · Room contract fields on world cells — brief §3's list (function,
 dimensions, circulation, slots, landmarks, encounter space, material
