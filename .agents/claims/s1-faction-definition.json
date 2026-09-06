@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "task_id": "s1-faction-definition",
+  "agent": "claude-code-lane-S1",
+  "summary": "FactionDefinition, FactionState, StrategicState and Relationship in godot-rust/src/strategy/faction.rs, plus ExpeditionState.factions",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/faction.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/lib.rs"
+  ],
+  "symbols": [
+    "strategy::faction::FactionDefinition",
+    "strategy::faction::FactionState",
+    "strategy::faction::StrategicState",
+    "strategy::faction::Relationship",
+    "strategy::faction::FactionDefinitions",
+    "expedition::ExpeditionState.factions"
+  ],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [],
+    "notes": "expedition.rs edit is a single appended field at the END of ExpeditionState so parallel A/S lanes merge cleanly (SHIP_PLAN section 9). strategy/mod.rs and lib.rs's module list are integrator-owned and untouched; lib.rs gains only re-exports. Resource categories stay brief section 20 Open: BTreeMap<String, u32>, no enum. Provisional doctrines (brief 6.1-6.4) are held as data only; no behaviour before S15. content/factions/*.json is C9's, not authored here."
+  },
+  "blocked_on_decisions": [
+    "brief section 20 Open: exact resource list -- resources stay BTreeMap<String,u32> with content-supplied string keys; no category is chosen here",
+    "brief section 20 Open: exact ordinary-faction victory conditions -- victory_conditions stays authored String notes",
+    "brief section 20 Open: political form of Captain Michael's faction -- not encoded",
+    "C9 must supply displayName as a placeholder marked needs decision; no proper faction names exist anywhere"
+  ],
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
