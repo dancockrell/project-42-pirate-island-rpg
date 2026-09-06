@@ -69,7 +69,7 @@ const NOTABLE_KINDS: PackedStringArray = [
 ## every faction action -- the second entry on the brief's avoid list.
 const OWN_FACTION_NOTABLE_KINDS: PackedStringArray = [
 	"machine_produced", "production_yielded", "production_skipped", "building_started", "gathered",
-	"force_raised",
+	"force_raised", "machine_fed", "machine_starved", "building_finished",
 ]
 
 ## Kinds at which a force reaching a place is the event. Used by the two Urgent

@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "task_id": "s19-stockpiles-are-spent",
+  "agent": "claude-code (lane S19)",
+  "summary": "Every standing machine draws its authored fuel and water out of its faction's stockpile every hour, a machine the stockpile cannot cover is starved and stops standing, construction runs on the clock and a finished building journals it -- so a stockpile can fall and RecoveryLink::ResourceReserve can finally break.",
+  "status": "completed",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T15:00:00Z",
+  "paths": [
+    "godot-rust/src/strategy/production.rs",
+    "godot-rust/src/strategy/building.rs",
+    "godot-rust/src/strategy/tick.rs",
+    "godot-rust/src/godot_bridge.rs",
+    "game/scripts/surface/information_surface.gd",
+    "godot-rust/tests/strategic_determinism.rs"
+  ],
+  "symbols": [
+    "MachineDefinition.fuel_resource_key",
+    "MachineDefinition.water_resource_key",
+    "MachineInstance.is_standing",
+    "consume_machine_upkeep",
+    "STARVATION_TAKES_A_MACHINE_OFF_THE_BOARD",
+    "StrategicEvent::MachineFed",
+    "StrategicEvent::MachineStarved",
+    "StrategicEvent::BuildingFinished",
+    "run_hour",
+    "journal_entry_dictionary",
+    "journal_prose",
+    "InformationSurface.OWN_FACTION_NOTABLE_KINDS"
+  ],
+  "coordination": {
+    "depends_on": [
+      "s16-production-in-the-tick",
+      "s17-goals-become-actions",
+      "s18-arrival-resolves-control",
+      "c14-machine-records",
+      "b19-machines-through-the-bridge"
+    ],
+    "conflicts_with": [],
+    "notes": "Other lanes run beside this one this round. godot_bridge.rs is touched only in the two exhaustive journal matches (an arm per new StrategicEvent variant); the bridge's state dictionary is lane P13's and is not edited here. building.rs takes a documentation correction only (advance_construction's 'nothing calls this on a clock' becomes false). tick.rs takes three variants appended at the END of StrategicEvent and two calls in run_hour. No new PURPOSES entry, no new ExpeditionState field, so save_migration.rs is untouched. content/ is not edited: C14 already authors fuel_resource_key and water_resource_key and Rust's MachineDefinition was missing both -- they are added to the Rust side so content owns the rates and Rust carries them."
+  },
+  "completion": {
+    "commit": "b2c9d86",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (374 lib incl. 5 new strategy::production, 7 authored_world, 5 save_migration, 12 strategic_determinism incl. 1 new, 1 vertical_slice): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (541 stable IDs, 2 machine records): passed",
+      "node tools/src/check-claims.mjs (73 claims, 114 ship-plan rows): passed",
+      "node tools/src/build-content-bundle.mjs && git diff --quiet game/generated/ -- content is not edited by this lane and the bundle is unchanged: passed",
+      "bash tools/build-native-bridge.sh debug then bash tools/verify-godot.sh on the committed tree: 'Godot headless verification passed. 5 review scenes, 30 suites': passed",
+      "CI Verify run 34039138006 on b2c9d86: 'Rust and content' passed, 'Godot headless suites' passed (the headless gate, the real-bridge proof and the presentation packs): passed",
+      "Done-when 1: the M3 test's second claim flipped -- the_m3_opening_eliminates_a_faction_with_its_recovery_chain_exhausted now eliminates the AUTONOMOUS faction too (fox_people), its cell taken, its reserve drunk dry by one machine, chain empty, RecoveryLinkLost{ResourceReserve} and a MachineStarved naming the key journalled, and a hundred days byte-identical twice: passed",
+      "Done-when 2: a_fed_machine_and_a_starved_one_differ_only_by_the_stockpile -- two campaigns built by one function, one unit of fuel apart, compared whole through to_json with only the two resource counts and the two tanks allowed to differ: passed",
+      "Done-when 3: a_building_founded_by_a_goal_finishes_on_the_island_s_clock -- four days of the scripted opening show BuildingStarted and BuildingFinished, and the event's faction, record and cell agree with the board, which stands Operational with no hours left: passed",
+      "Bite 1: replacing the consume_machine_upkeep call in run_hour with a no-op failed the M3 claim 2 by name ('an autonomous faction lost its ground and drank its reserve dry and was still not eliminated in a hundred days: [ResourceReserve], holding {\"resource.open.gathered\": 31}'); restored and green: passed",
+      "Bite 2: replacing advance_construction(1) in run_hour with an empty Vec failed the construction probe by name ('four days of building sites and nothing finished: construction is not running on the clock'); restored and green: passed",
+      "Bite 3: leaving one drop of water in a starved machine failed the fed-versus-starved test on 'an hour nobody could pay for is an hour it ran dry' (left (0, 1), right (0, 0)), and taking what could be taken when a key is short failed it on 'the water it could have afforded is untouched: every key or none' (left 0, right 2); both restored and green: passed",
+      "needs decision: STARVATION_TAKES_A_MACHINE_OFF_THE_BOARD = false in strategy/production.rs -- what a starved machine becomes (brief section 20). It stops standing and nothing else happens to it: not wrecked, not salvaged, not removed. starvation_does_not_take_a_machine_off_the_board asserts the constant and a hundred cold hours: not_run",
+      "needs decision, untouched: Goal::Recover's trickle stays exactly as S17 left it -- GATHER_PER_HELD_CELL_PER_HOUR and GATHERED_RESOURCE_KEY in strategy/action.rs are not read, not lowered and not renamed by this lane: not_run",
+      "The 2,400-hour hash contract has no literal expected value in the repository: strategic_determinism.rs states it relationally (two runs of seed 7 must agree; a save at hour 1,200 must reach the same hash at 2,400; any pause interleaving must be byte-identical). The islands did move -- buildings finish now and machines drink -- and all four hash claims plus the honest negative authored_hash == empty_hash still hold, so there was no value to update: passed",
+      "Said plainly: nothing on the authored island produces resource.open.fuel or resource.open.water, so every AUTHORED machine starves the hour after it is built and the journal says so. S17's trickle fills resource.open.gathered and one key only. The M3 probe therefore adds one fixture machine record burning that key (the_authored_machines_and_one_that_burns_what_this_island_gathers) and places one machine by hand (a_standing_machine), both named in the test, because no faction but Michael's can build a machine at all. An income lane, or a captured cell that hands something over, is what makes an authored machine's upkeep bite on the real island: not_run",
+      "Journal noise: MachineFed and MachineStarved are transitions rather than hourly receipts (a machine fed every hour of a hundred days would write 2,400 Notable lines for the player's own faction, the brief's own avoid list). a_starved_machine_stands_again_the_hour_it_is_fed holds that shape: passed",
+      "The bridge's state dictionary is untouched (lane P13 owns it this round); godot_bridge.rs is edited only in journal_entry_dictionary and journal_prose, one arm per new variant, both still exhaustive: passed"
+    ]
+  }
+}

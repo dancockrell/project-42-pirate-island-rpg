@@ -77,6 +77,27 @@ pub const MACHINE_ID_PREFIX: &str = "machine.";
 /// two would be a save that could overwrite content by being loaded.
 pub const MACHINE_INSTANCE_ID_PREFIX: &str = "machine_instance.";
 
+/// **needs decision** -- what a starved machine becomes.
+///
+/// `false`, and the falseness is the decision being *deferred* rather than a
+/// balance choice, exactly as
+/// [`CONTESTED_ARRIVAL_RESOLVES_CONTROL`](crate::strategy::force::CONTESTED_ARRIVAL_RESOLVES_CONTROL)
+/// is. A machine whose faction cannot fuel it stops standing --
+/// [`MachineInstance::is_standing`] goes false and
+/// [`StrategicEvent::MachineStarved`] says so -- and that is all that happens
+/// to it. It is not wrecked (brief section 18's wreck footprint and salvage
+/// value belong to a machine that *died*, and running dry is not dying), not
+/// salvaged, not scrapped for its resources and not deleted from the save. It
+/// stands where it stood, keeps its damage and its identity, and starts
+/// counting again the hour it is fed.
+///
+/// Whether a machine left cold for a season should eventually become a wreck,
+/// a salvage yield or nothing at all is brief section 20's territory -- the
+/// same Open list that leaves capture-versus-destruction undecided -- so it is
+/// a named `false` here rather than an absent branch, precisely so that the
+/// lane which decides it can find the one place that has to change.
+pub const STARVATION_TAKES_A_MACHINE_OFF_THE_BOARD: bool = false;
+
 /// The machine families brief section 5.4 names, and no others.
 ///
 /// A closed enum rather than an open string, unlike the resource keys this file
@@ -309,18 +330,44 @@ pub struct MachineDefinition {
     /// however similar their footprints.
     #[serde(default)]
     pub crew_or_handler_requirement: u32,
-    /// "Fuel and water requirements", first half: how much fuel a whole machine
-    /// of this type carries. The resource *key* it burns is named by the
-    /// production rule and by whatever refuels it, not here -- brief section 20
-    /// leaves the resource list Open and this file defines no category.
+    /// "Fuel and water requirements", first half: how much fuel one hour of
+    /// this machine takes. **S19 spends it.** [`consume_machine_upkeep`] draws
+    /// exactly this many units of [`MachineDefinition::fuel_resource_key`] out
+    /// of the owning faction's stockpile every hour the machine stands, and
+    /// [`MachineInstance::fuel_remaining`] is what the draw put in it.
+    ///
+    /// A rate rather than a tank size, because content authors one number and
+    /// two readings of it would be two answers. How far a *partly* fuelled
+    /// machine gets is a burn-down curve nobody has authored; the hour is the
+    /// unit, and a machine is charged for the hour or is not.
     #[serde(default)]
     pub fuel_requirement: u32,
+    /// The open resource key [`MachineDefinition::fuel_requirement`] is counted
+    /// in. **Content owns it** (C14 authors `resource.open.fuel` on both
+    /// records and `tools/src/validate.mjs` refuses any key outside
+    /// `resource.open.`), Rust carries it, and
+    /// `every_authored_machine_record_loads` holds the two equal -- brief
+    /// section 20 leaves the resource list Open, so this crate names no
+    /// category of its own.
+    ///
+    /// Empty is not "free": it is a record no validator would pass, and
+    /// [`consume_machine_upkeep`] draws nothing for a requirement with nowhere
+    /// to draw it from rather than inventing a key to charge.
+    #[serde(default)]
+    pub fuel_resource_key: String,
     /// "Fuel and water requirements", second half. Steam needs water as much as
     /// it needs fuel, and section 5.11 lists fuel *and water* stations in the
     /// faction's terrain signature, so they are two numbers rather than one
-    /// "supply".
+    /// "supply". Drawn every hour beside the fuel, all keys or none.
     #[serde(default)]
     pub water_requirement: u32,
+    /// The open resource key [`MachineDefinition::water_requirement`] is
+    /// counted in, on the same terms as
+    /// [`MachineDefinition::fuel_resource_key`]. A record may name the same key
+    /// for both, and then the hour's draw is their sum: one stockpile is being
+    /// charged twice by one machine and it must not be able to pay itself.
+    #[serde(default)]
+    pub water_resource_key: String,
     /// "Repair sockets": the named points a repair attaches to. Section 18's
     /// accepted list requires machines to "retain future-ready pivots, sockets,
     /// rigs, and metadata", so these are authored now and consumed by the art
@@ -359,6 +406,40 @@ impl MachineDefinition {
             });
         }
         Ok(())
+    }
+
+    /// **S19: what one hour of this machine costs the faction that owns it**,
+    /// as the same open-keyed `resource -> count` map a production rule's
+    /// `cost` is, so [`charge_production_cost`] charges an hour of upkeep and a
+    /// run of a yard through one function rather than two.
+    ///
+    /// Content owns both halves: the counts are
+    /// [`MachineDefinition::fuel_requirement`] and
+    /// [`MachineDefinition::water_requirement`], the keys are
+    /// [`MachineDefinition::fuel_resource_key`] and
+    /// [`MachineDefinition::water_resource_key`], and this crate names neither
+    /// category (brief section 20).
+    ///
+    /// Two records' worth of care in six lines: a requirement of zero costs
+    /// nothing and is left out rather than charged as a zero; a requirement
+    /// whose key is empty is left out too, because there is no stockpile to
+    /// take it from and inventing one would be this file answering the Open
+    /// resource list; and fuel and water naming the *same* key are summed,
+    /// because a machine that drinks and burns the same barrel must be charged
+    /// for both.
+    pub fn hourly_upkeep(&self) -> BTreeMap<String, u32> {
+        let mut upkeep: BTreeMap<String, u32> = BTreeMap::new();
+        for (key, needed) in [
+            (&self.fuel_resource_key, self.fuel_requirement),
+            (&self.water_resource_key, self.water_requirement),
+        ] {
+            if needed == 0 || key.is_empty() {
+                continue;
+            }
+            let entry = upkeep.entry(key.clone()).or_insert(0);
+            *entry = entry.saturating_add(needed);
+        }
+        upkeep
     }
 }
 
@@ -603,6 +684,27 @@ pub struct MachineInstance {
     /// nothing in this lane shoots at a machine.
     #[serde(default)]
     pub damage: u32,
+}
+
+impl MachineInstance {
+    /// **S19: is this machine standing?** Fed, fuelled, watered and counting --
+    /// as against starved, which is what it is the hour its faction's stockpile
+    /// could not cover [`MachineDefinition::hourly_upkeep`].
+    ///
+    /// **Derived, never stored.** There is no `standing` field on a machine and
+    /// this card adds none: the fuel and water in it are already the save's
+    /// answer, and a flag beside them could disagree with them. A machine holds
+    /// its hour's fuel and water or it holds nothing --
+    /// [`consume_machine_upkeep`] tops it up when the stockpile covers the draw
+    /// and empties it when it does not -- so "does it hold what an hour of it
+    /// costs" is the whole question.
+    ///
+    /// A record that asks for nothing is always standing, which is right: an
+    /// unfuelled contraption cannot starve.
+    pub fn is_standing(&self, definition: &MachineDefinition) -> bool {
+        self.fuel_remaining >= definition.fuel_requirement
+            && self.water_remaining >= definition.water_requirement
+    }
 }
 
 impl ExpeditionState {
@@ -1091,6 +1193,147 @@ pub(crate) fn advance_production(
     events
 }
 
+/// **S19: one hour of one faction's machines drinking.** Every machine that
+/// faction has on the island draws its authored hour of fuel and water out of
+/// the faction's stockpile; the ones the stockpile cannot cover stop standing.
+///
+/// Called once per faction per hour from
+/// [`run_hour`](crate::strategy::tick::run_hour), immediately after
+/// [`advance_production`] and inside the same faction's iteration -- so the
+/// hour's yards are paid for before the hour's machines are, and a machine that
+/// came out of a yard this hour is fed this hour like any other.
+///
+/// **No draw is taken and no purpose is added.** Upkeep is not a chance: the
+/// same island with the same stockpile feeds the same machines. The
+/// `strategic.economy` draw stays where [`PURPOSES`] put it and this function
+/// never reads it.
+///
+/// ## What an hour costs
+///
+/// [`MachineDefinition::hourly_upkeep`], charged through
+/// [`charge_production_cost`] -- **the same function a yard's run is charged
+/// through**, so "can this faction afford this" has one answer in this crate
+/// and not two. Every key or none, and never below zero: a machine that needs
+/// fuel and water out of a faction holding only fuel takes *neither*, and the
+/// fuel it did not take is still there for a machine that can be finished.
+///
+/// ## Fed, and starved
+///
+/// * **Fed.** The stockpile covered the draw. It came out of the faction's
+///   stores and went into the machine:
+///   [`MachineInstance::fuel_remaining`] and
+///   [`MachineInstance::water_remaining`] stand at the record's requirements,
+///   and [`MachineInstance::is_standing`] is true.
+/// * **Starved.** It did not. Nothing was taken -- the check is before the
+///   spend -- and the machine ends the hour empty, which is what running dry
+///   is. [`StrategicEvent::MachineStarved`] names the key it fell short on,
+///   what the faction held of it and what the machine needed, so the journal
+///   says *fuel* or *water* rather than "something".
+///   [`STARVATION_TAKES_A_MACHINE_OFF_THE_BOARD`] is the Open decision about
+///   what becomes of it afterwards, and it is `false`.
+///
+/// ## Why the journal only hears about the change
+///
+/// A machine that is fed every hour of a hundred days would otherwise write
+/// 2,400 lines saying so, per machine, and the surface would raise every one of
+/// them as Notable for the player's own faction -- which is the brief's own
+/// "avoid" list, an alarm for everything. So the events are **transitions**: a
+/// machine that was standing and now is not journals [`MachineStarved`], a
+/// machine that was starved and has been fed again journals [`MachineFed`], and
+/// a machine that goes on as it was journals nothing. That is what a player
+/// needs to be told -- the yard *started* starving, the yard is running again --
+/// and the state itself is in the save either way, for anything that wants to
+/// read it rather than be told.
+///
+/// A machine whose `def_id` the registry does not carry draws nothing and is
+/// reported as nothing: the registry owns what an hour of a machine costs, and
+/// a save cannot conjure a rate. This is `advance_production`'s reading of an
+/// unlookupable building, kept identical.
+///
+/// [`MachineStarved`]: StrategicEvent::MachineStarved
+/// [`MachineFed`]: StrategicEvent::MachineFed
+/// [`PURPOSES`]: crate::strategy::tick::PURPOSES
+pub(crate) fn consume_machine_upkeep(
+    state: &mut ExpeditionState,
+    faction_id: &str,
+    machines: &MachineDefinitions,
+) -> Vec<StrategicEvent> {
+    let day = state.campaign_day;
+    let mut events = Vec::new();
+    // Read once, in `BTreeMap` order, before anything is written: what one
+    // machine drinks must not be able to change which machines this hour
+    // visits.
+    let standing: Vec<String> = state
+        .machines
+        .values()
+        .filter(|machine| machine.faction_id == faction_id)
+        .map(|machine| machine.id.clone())
+        .collect();
+
+    for machine_instance_id in standing {
+        let machine = &state.machines[&machine_instance_id];
+        let Some(definition) = machines.get(&machine.def_id) else {
+            continue;
+        };
+        let was_standing = machine.is_standing(definition);
+        let def_id = machine.def_id.clone();
+        let cell_id = machine.cell_id.clone();
+        let upkeep = definition.hourly_upkeep();
+        let (fuel, water) = (definition.fuel_requirement, definition.water_requirement);
+
+        let outcome = charge_production_cost(state, faction_id, &upkeep);
+        let machine = state
+            .machines
+            .get_mut(&machine_instance_id)
+            .expect("the instance ID was taken from this map and nothing removes from it");
+        match outcome {
+            Ok(()) => {
+                machine.fuel_remaining = fuel;
+                machine.water_remaining = water;
+                if !was_standing {
+                    events.push(StrategicEvent::MachineFed {
+                        faction_id: faction_id.to_owned(),
+                        machine_instance_id: machine_instance_id.clone(),
+                        def_id,
+                        cell_id,
+                        day,
+                    });
+                }
+            }
+            Err(ProductionError::InsufficientResource {
+                key, held, needed, ..
+            }) => {
+                machine.fuel_remaining = 0;
+                machine.water_remaining = 0;
+                if was_standing {
+                    events.push(StrategicEvent::MachineStarved {
+                        faction_id: faction_id.to_owned(),
+                        machine_instance_id: machine_instance_id.clone(),
+                        def_id,
+                        cell_id,
+                        key,
+                        held,
+                        needed,
+                        day,
+                    });
+                }
+                // The Open decision, named and deferred. Nothing removes a
+                // machine from the board for being cold.
+                if STARVATION_TAKES_A_MACHINE_OFF_THE_BOARD {
+                    state.machines.remove(&machine_instance_id);
+                }
+            }
+            // `charge_production_cost` refuses for exactly two reasons and the
+            // other is a faction this save carries no state for -- which cannot
+            // be this one, because the machine that named it is standing in it.
+            // Swallowed rather than panicked on: an hour of the island must not
+            // be able to abort.
+            Err(_) => continue,
+        }
+    }
+    events
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1114,6 +1357,10 @@ mod tests {
     /// resource list Open, so fuel is a *string a rule names*, exactly as S1
     /// and S3 found, and no enum of goods exists to hold it.
     const FUEL: &str = "resource.open.fuel";
+    /// The other open key an hour of a machine is counted in, on the same
+    /// terms. C14 authors both under `resource.open.`; nothing here names a
+    /// category the brief has not chosen.
+    const WATER: &str = "resource.open.water";
 
     fn michael() -> String {
         ConceptKey::Michael.faction_id()
@@ -1131,7 +1378,9 @@ mod tests {
             bridge_requirements: BTreeSet::new(),
             crew_or_handler_requirement: 1,
             fuel_requirement: 4,
+            fuel_resource_key: FUEL.into(),
             water_requirement: 2,
+            water_resource_key: WATER.into(),
             repair_sockets: BTreeSet::from(["socket.test.boiler".to_owned()]),
             local_and_offscreen_representations: "needs decision: the art lane".into(),
             wreck_footprint_cells: 1,
@@ -2102,5 +2351,286 @@ mod tests {
         instance.construction_hours_remaining = 0;
         instance.state = BuildingState::Operational;
         (state, definitions)
+    }
+
+    // ---- S19: the hour's upkeep ----
+    //
+    // The card's sentence: every standing machine of a faction draws its
+    // authored fuel and water out of that faction's stockpile every hour, and
+    // one the stockpile cannot cover stops standing.
+
+    /// A campaign with `fuel` and `water` in Michael's stores and one dog
+    /// standing on the beach, full.
+    fn a_campaign_with_a_standing_dog(
+        fuel: u32,
+        water: u32,
+    ) -> (ExpeditionState, MachineDefinitions) {
+        // The yard's own rule is what gets it built; the hour of upkeep this
+        // module is about is charged against exactly what the caller asked for,
+        // put in below.
+        let yard = a_yard_record();
+        let (mut state, definitions) = a_campaign(yard.production[0].cost[FUEL], yard.clone());
+        let machines = a_machine_registry();
+        state
+            .produce_machine(DOG_INSTANCE, YARD_INSTANCE, 0, &definitions, &machines)
+            .expect("the yard makes its dog");
+        let faction = state
+            .factions
+            .get_mut(&michael())
+            .expect("the campaign carries Michael");
+        faction.resources.insert(FUEL.to_owned(), fuel);
+        faction.resources.insert(WATER.to_owned(), water);
+        (state, machines)
+    }
+
+    /// **The card's second Done-when: a fed machine and a starved one differ
+    /// only by the stockpile.**
+    ///
+    /// Two campaigns built by the same function, from the same seed, with the
+    /// same yard, the same record and the same machine, run through the same
+    /// hour of upkeep. The *only* difference between them is how much of the
+    /// authored fuel key the faction was holding when the hour began -- one
+    /// unit short is the difference between a machine that stands and one that
+    /// does not.
+    ///
+    /// So the two saves are compared as wholes and the only fields allowed to
+    /// differ are named: the faction's two resource counts and the machine's two
+    /// tanks. Anything else that moved -- a countdown, a building, a journal
+    /// line, an ownership -- fails this test, which is what makes "differ only
+    /// by the stockpile" a claim rather than a hope.
+    #[test]
+    fn a_fed_machine_and_a_starved_one_differ_only_by_the_stockpile() {
+        let dog = a_dog_record();
+        let (mut fed, machines) =
+            a_campaign_with_a_standing_dog(dog.fuel_requirement, dog.water_requirement);
+        let (mut starved, _) =
+            a_campaign_with_a_standing_dog(dog.fuel_requirement - 1, dog.water_requirement);
+
+        let fed_events = consume_machine_upkeep(&mut fed, &michael(), &machines);
+        let starved_events = consume_machine_upkeep(&mut starved, &michael(), &machines);
+
+        // The fed one paid and is standing. It was standing before, so the hour
+        // is not news and the journal stays quiet.
+        assert_eq!(fed.factions[&michael()].resources[FUEL], 0);
+        assert_eq!(fed.factions[&michael()].resources[WATER], 0);
+        assert!(fed.machines[DOG_INSTANCE].is_standing(&dog));
+        assert_eq!(
+            fed.machines[DOG_INSTANCE].fuel_remaining,
+            dog.fuel_requirement
+        );
+        assert_eq!(
+            fed_events,
+            Vec::new(),
+            "a machine that goes on standing is not news"
+        );
+
+        // The starved one paid nothing -- every key or none, and the water it
+        // could afford is still there -- and says exactly what it was short of.
+        assert_eq!(
+            starved.factions[&michael()].resources[FUEL],
+            dog.fuel_requirement - 1,
+            "a refused hour spends nothing"
+        );
+        assert_eq!(
+            starved.factions[&michael()].resources[WATER],
+            dog.water_requirement,
+            "the water it could have afforded is untouched: every key or none"
+        );
+        assert!(!starved.machines[DOG_INSTANCE].is_standing(&dog));
+        assert_eq!(
+            (
+                starved.machines[DOG_INSTANCE].fuel_remaining,
+                starved.machines[DOG_INSTANCE].water_remaining,
+            ),
+            (0, 0),
+            "an hour nobody could pay for is an hour it ran dry: a starved \
+             machine ends it empty, of both"
+        );
+        assert_eq!(
+            starved_events,
+            vec![StrategicEvent::MachineStarved {
+                faction_id: michael(),
+                machine_instance_id: DOG_INSTANCE.into(),
+                def_id: DOG.into(),
+                cell_id: BEACH.into(),
+                key: FUEL.into(),
+                held: dog.fuel_requirement - 1,
+                needed: dog.fuel_requirement,
+                day: starved.campaign_day,
+            }],
+            "the hour names the key, what was held and what was needed"
+        );
+
+        // And now the whole of both saves, field by field, with the four
+        // numbers this card is allowed to have moved put back.
+        let mut normalised = starved.clone();
+        let faction = normalised
+            .factions
+            .get_mut(&michael())
+            .expect("the campaign carries Michael");
+        faction.resources.insert(FUEL.to_owned(), 0);
+        faction.resources.insert(WATER.to_owned(), 0);
+        let machine = normalised
+            .machines
+            .get_mut(DOG_INSTANCE)
+            .expect("the dog is on the board");
+        machine.fuel_remaining = dog.fuel_requirement;
+        machine.water_remaining = dog.water_requirement;
+        assert_eq!(
+            normalised.to_json(),
+            fed.to_json(),
+            "a starved hour changed something other than the stockpile and the tanks"
+        );
+    }
+
+    /// A starved machine that is stocked again stands again, and the journal
+    /// hears about the change rather than about every hour.
+    #[test]
+    fn a_starved_machine_stands_again_the_hour_it_is_fed() {
+        let dog = a_dog_record();
+        let (mut state, machines) = a_campaign_with_a_standing_dog(0, 0);
+
+        let first = consume_machine_upkeep(&mut state, &michael(), &machines);
+        assert_eq!(first.len(), 1, "the hour it falls is news: {first:?}");
+        let second = consume_machine_upkeep(&mut state, &michael(), &machines);
+        assert_eq!(
+            second,
+            Vec::new(),
+            "a machine that was already starving does not say so again every hour"
+        );
+
+        let faction = state
+            .factions
+            .get_mut(&michael())
+            .expect("the campaign carries Michael");
+        faction
+            .resources
+            .insert(FUEL.to_owned(), dog.fuel_requirement);
+        faction
+            .resources
+            .insert(WATER.to_owned(), dog.water_requirement);
+
+        let fed = consume_machine_upkeep(&mut state, &michael(), &machines);
+        assert_eq!(
+            fed,
+            vec![StrategicEvent::MachineFed {
+                faction_id: michael(),
+                machine_instance_id: DOG_INSTANCE.into(),
+                def_id: DOG.into(),
+                cell_id: BEACH.into(),
+                day: state.campaign_day,
+            }],
+            "the hour a yard starts running again is news"
+        );
+        assert!(state.machines[DOG_INSTANCE].is_standing(&dog));
+        assert_eq!(state.factions[&michael()].resources[FUEL], 0);
+    }
+
+    /// The Open decision, asserted as the decision it is: a machine nobody can
+    /// fuel is still on the board.
+    #[test]
+    fn starvation_does_not_take_a_machine_off_the_board() {
+        assert!(
+            !STARVATION_TAKES_A_MACHINE_OFF_THE_BOARD,
+            "what a starved machine becomes is Open (brief section 20); this \
+             constant is where that decision lands"
+        );
+        let (mut state, machines) = a_campaign_with_a_standing_dog(0, 0);
+        for _ in 0..100 {
+            consume_machine_upkeep(&mut state, &michael(), &machines);
+        }
+        assert_eq!(
+            state.machines_of(&michael()).len(),
+            1,
+            "a hundred hours cold, and it stands where it stood"
+        );
+        assert_eq!(
+            state.machines[DOG_INSTANCE].damage, 0,
+            "and starving is not damage: nothing in this lane hurts a machine"
+        );
+    }
+
+    /// Content owns the rates and the keys, and the upkeep is read off the
+    /// record rather than named here.
+    ///
+    /// Three readings of one record: a requirement of zero costs nothing, a
+    /// requirement whose key is empty costs nothing (there is no stockpile to
+    /// take it from, and this crate names no category), and fuel and water
+    /// under one key are summed -- a machine that burns and drinks the same
+    /// barrel must be charged for both.
+    #[test]
+    fn an_hour_of_upkeep_is_the_authored_record_and_nothing_else() {
+        let dog = a_dog_record();
+        assert_eq!(
+            dog.hourly_upkeep(),
+            BTreeMap::from([
+                (FUEL.to_owned(), dog.fuel_requirement),
+                (WATER.to_owned(), dog.water_requirement),
+            ])
+        );
+
+        let free = MachineDefinition {
+            fuel_requirement: 0,
+            water_requirement: 0,
+            ..a_dog_record()
+        };
+        assert!(
+            free.hourly_upkeep().is_empty(),
+            "a machine that asks for nothing costs nothing, and cannot starve"
+        );
+        let dog_with_no_key = MachineDefinition {
+            fuel_resource_key: String::new(),
+            water_resource_key: String::new(),
+            ..a_dog_record()
+        };
+        assert!(
+            dog_with_no_key.hourly_upkeep().is_empty(),
+            "a requirement with nowhere to draw it from draws nothing; the \
+             validator is what refuses such a record in content"
+        );
+        let one_barrel = MachineDefinition {
+            water_resource_key: FUEL.to_owned(),
+            ..a_dog_record()
+        };
+        assert_eq!(
+            one_barrel.hourly_upkeep(),
+            BTreeMap::from([(
+                FUEL.to_owned(),
+                dog.fuel_requirement + dog.water_requirement
+            )]),
+            "one key named twice is one charge of both counts"
+        );
+    }
+
+    /// C14 authors the keys and Rust carries them. The pair the card is about
+    /// -- `fuel_resource_key` and `water_resource_key` -- reach
+    /// `MachineDefinition` off the authored records, and stay under
+    /// `resource.open.` because brief section 20 leaves the resource list Open.
+    #[test]
+    fn the_authored_records_carry_the_keys_their_upkeep_is_counted_in() {
+        let (definitions, _) = the_authored_machine_registry();
+        for id in definitions
+            .ids()
+            .map(str::to_owned)
+            .collect::<Vec<String>>()
+        {
+            let record = definitions.get(&id).expect("the ID just came from the map");
+            for (field, key) in [
+                ("fuel_resource_key", &record.fuel_resource_key),
+                ("water_resource_key", &record.water_resource_key),
+            ] {
+                assert!(
+                    key.starts_with("resource.open."),
+                    "{id}'s {field} is {key:?}: brief section 20 leaves the \
+                     resource list Open, so an hour of a machine is counted in \
+                     an open key"
+                );
+            }
+            assert!(
+                !record.hourly_upkeep().is_empty(),
+                "{id} costs nothing to run: an authored machine that cannot \
+                 starve is a stockpile that cannot fall"
+            );
+        }
     }
 }

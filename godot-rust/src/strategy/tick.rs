@@ -54,6 +54,7 @@ use crate::strategy::faction::FactionDefinitions;
 use crate::strategy::force::{ForceId, HaltReason};
 use crate::strategy::production::{
     MachineDefinitions, MachineFamily, ProductionSkipReason, advance_production,
+    consume_machine_upkeep,
 };
 use crate::strategy::utility::{
     BoardView, Goal, GoalWeights, choose_goals, recompute_strategic_state,
@@ -348,6 +349,61 @@ pub enum StrategicEvent {
         strength: u32,
         day: u32,
     },
+    /// S19: a machine that had run dry drew its hour of fuel and water again
+    /// and is standing.
+    ///
+    /// A *transition*, not an hourly receipt. A machine that is fed every hour
+    /// of a hundred days says nothing at all -- 2,400 lines per machine saying
+    /// "still running" is the alarm-for-everything the brief's own avoid list
+    /// warns about -- so this is emitted the hour a starved machine comes back,
+    /// and the fuel in it is in the save for anything that would rather look
+    /// than be told. See
+    /// [`consume_machine_upkeep`](crate::strategy::production::consume_machine_upkeep).
+    MachineFed {
+        faction_id: String,
+        machine_instance_id: String,
+        def_id: String,
+        cell_id: String,
+        day: u32,
+    },
+    /// S19: a machine's faction could not cover its hour, and it has stopped
+    /// standing.
+    ///
+    /// `key`, `held` and `needed` are the shortfall in content's own words --
+    /// an open resource key (brief section 20 leaves the list Open), what the
+    /// faction had of it and what one hour of this machine asked for -- so the
+    /// journal can say *which* stockpile ran out rather than that something
+    /// did. Nothing was taken: the check is before the spend, exactly as a
+    /// yard's run is.
+    ///
+    /// What a starved machine *becomes* is Open and named:
+    /// [`STARVATION_TAKES_A_MACHINE_OFF_THE_BOARD`](crate::strategy::production::STARVATION_TAKES_A_MACHINE_OFF_THE_BOARD).
+    /// It does not vanish.
+    MachineStarved {
+        faction_id: String,
+        machine_instance_id: String,
+        def_id: String,
+        cell_id: String,
+        key: String,
+        held: u32,
+        needed: u32,
+        day: u32,
+    },
+    /// S19: a building under construction had its last hour of work put into it
+    /// and stands finished.
+    ///
+    /// The other half of S17's [`StrategicEvent::BuildingStarted`], which said
+    /// of itself that nothing put hours into a building on a clock. Something
+    /// does now: `run_hour` spends one hour on every site every hour, through
+    /// [`ExpeditionState::advance_construction`](crate::expedition::ExpeditionState::advance_construction),
+    /// the one owner of construction time.
+    BuildingFinished {
+        faction_id: String,
+        building_instance_id: String,
+        def_id: String,
+        cell_id: String,
+        day: u32,
+    },
 }
 
 /// The draws one faction is entitled to make in one hour, in the order it
@@ -562,6 +618,48 @@ pub(crate) fn run_hour(
         produced.extend(act_on_goals(
             state, faction_id, geography, buildings, &draws,
         ));
+
+        // S19: and then what this faction's machines drank, after its yards
+        // have been paid for and after it has acted -- so an hour's stockpile
+        // is spent in the order the faction would spend it: the run it had
+        // already started, the act it chose this hour, and then the standing
+        // cost of everything it has already built. **No draw is taken**: what a
+        // machine costs is content's, not chance's, so `PURPOSES` is untouched
+        // and every one of the seven draws above is made and folded exactly as
+        // it was before this card.
+        //
+        // This is the first thing in the crate that *lowers* a stockpile
+        // without a building coming due, which is what card S18 recorded as the
+        // reason `RecoveryLink::ResourceReserve` could never fall.
+        produced.extend(consume_machine_upkeep(state, faction_id, machines));
+    }
+
+    // S19: one hour of work on every building site on the island, once, after
+    // every faction has had its hour.
+    //
+    // **Once, outside the loop, and that is the point.**
+    // `ExpeditionState::advance_construction` is the one owner of construction
+    // time and it advances every site there is; calling it inside the faction
+    // loop would put six hours of work into every building in an hour, and
+    // giving it a faction filter would be a second answer to "how much time
+    // passed". An hour is an hour for everybody.
+    //
+    // After the acting, so a site founded this hour is not finished by the same
+    // hour that founded it unless its record authors an hour of work; before
+    // the clock moves, so the hour that did the work is the hour that reports
+    // it.
+    let finished = state.advance_construction(1);
+    for building_instance_id in finished {
+        let Some(building) = state.buildings.get(&building_instance_id) else {
+            continue;
+        };
+        produced.push(StrategicEvent::BuildingFinished {
+            faction_id: building.faction_id.clone(),
+            building_instance_id: building_instance_id.clone(),
+            def_id: building.def_id.clone(),
+            cell_id: building.cell_id.clone(),
+            day,
+        });
     }
 
     state.strategic_clock.advance_one_hour();

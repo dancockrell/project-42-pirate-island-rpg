@@ -43,14 +43,14 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use project42_sim::habitat::Habitats;
 use project42_sim::strategy::building::{
-    BuildingDefinition, BuildingDefinitions, CELL_CAPACITY_CELLS, ProductionOutput,
+    BuildingDefinition, BuildingDefinitions, BuildingState, CELL_CAPACITY_CELLS, ProductionOutput,
 };
 use project42_sim::strategy::elimination::{RecoveryLink, recovery_chain};
 use project42_sim::strategy::faction::{
     ConceptKey, FactionDefinition, FactionDefinitions, FactionState, Relationship,
 };
 use project42_sim::strategy::production::{
-    MachineDefinition, MachineDefinitions, MachineFamily, ProductionSkipReason,
+    MachineDefinition, MachineDefinitions, MachineFamily, MachineInstance, ProductionSkipReason,
 };
 use project42_sim::strategy::tick::{HOURS_PER_DAY, PURPOSES, StrategicEvent, hour_draws};
 use project42_sim::{ExpeditionState, Geography};
@@ -1162,6 +1162,99 @@ fn the_authored_island_acts_and_still_reproduces_byte_for_byte() {
     );
 }
 
+/// **S19's third Done-when: construction runs on the clock, and the harness
+/// sees a building finish.**
+///
+/// S17 shipped `BuildingStarted` and said of it, in the variant's own
+/// documentation, that nothing put hours into a building on a clock -- so every
+/// building S17's `Goal::Develop` founded stood `UnderConstruction` for ever,
+/// and `RecoveryLink::OperationalCoreBuilding` could not be earned by building
+/// one. `run_hour` now spends one hour on every site every hour through
+/// `ExpeditionState::advance_construction`, the one owner of construction time.
+///
+/// Three claims, on the scripted opening and the authored registries:
+///
+/// 1. **Something was started**, which is S17's half and the precondition for
+///    this card's.
+/// 2. **Something finished**, and the event names its faction, its record and
+///    the cell it stands on -- checked against the board rather than trusted.
+/// 3. **It is operational**, so what the hour did to the save is what the event
+///    says it did.
+///
+/// Four days rather than a hundred: C10's records author four, eight and twelve
+/// hours for a first tier, so a site founded in the first day finishes inside
+/// it, and a probe that ran for a hundred days would be proving the same thing
+/// slowly.
+///
+/// The bite: drop the `advance_construction(1)` call from `run_hour` and claim
+/// 2 fails on "no building finished".
+#[test]
+fn a_building_founded_by_a_goal_finishes_on_the_island_s_clock() {
+    let (geography, habitats) = island();
+    let factions = the_authored_registry();
+    let buildings = the_authored_buildings();
+    let machines = the_authored_machines();
+
+    let mut state = a_campaign_with_ground(&geography);
+    let mut events = Vec::new();
+    for _ in 0..4 {
+        events.extend(one_day_of_hours(
+            &mut state, &geography, &habitats, &factions, &buildings, &machines,
+        ));
+    }
+
+    // Claim 1: S17's half.
+    assert!(
+        events
+            .iter()
+            .any(|event| matches!(event, StrategicEvent::BuildingStarted { .. })),
+        "no faction founded anything, so there is nothing for the clock to finish"
+    );
+
+    // Claim 2: this card's.
+    let finished: Vec<&StrategicEvent> = events
+        .iter()
+        .filter(|event| matches!(event, StrategicEvent::BuildingFinished { .. }))
+        .collect();
+    assert!(
+        !finished.is_empty(),
+        "four days of building sites and nothing finished: construction is not \
+         running on the clock"
+    );
+
+    // Claim 3: the event and the board agree.
+    let StrategicEvent::BuildingFinished {
+        faction_id,
+        building_instance_id,
+        def_id,
+        cell_id,
+        ..
+    } = finished[0]
+    else {
+        unreachable!("filtered above")
+    };
+    let standing = state
+        .buildings
+        .get(building_instance_id)
+        .expect("the finished building is on the board");
+    assert_eq!(&standing.faction_id, faction_id);
+    assert_eq!(&standing.def_id, def_id);
+    assert_eq!(&standing.cell_id, cell_id);
+    assert!(
+        buildings.get(def_id).is_some(),
+        "a building finished that the authored registry does not carry: {def_id}"
+    );
+    assert_eq!(
+        standing.state,
+        BuildingState::Operational,
+        "a building the hour reported finished is standing finished in the save"
+    );
+    assert_eq!(
+        standing.construction_hours_remaining, 0,
+        "and it has no hours left in it"
+    );
+}
+
 /// The weak opening the M3 done-when describes: one faction holding one cell
 /// with nothing stockpiled, against a rival holding three. **Scripted, and this
 /// is the card's "say so"** -- content authors no owner for any cell, so an
@@ -1185,6 +1278,9 @@ const M3_RIVAL_CELLS: [&str; 3] = [
 /// one that still says what is missing, because the second gap is real and
 /// naming it is worth more than hiding it.
 ///
+/// **S19 flipped claim 2**: the second half of this test was S18's honest
+/// negative and is now a second elimination. See it below.
+///
 /// **Claim 1, the done-when: a faction is eliminated with its recovery chain
 /// demonstrably exhausted, well inside a hundred days, byte-identically
 /// twice.** The faction is Captain Michael's, and *which* faction it is is the
@@ -1204,25 +1300,38 @@ const M3_RIVAL_CELLS: [&str; 3] = [
 /// it, every stockpile and every relationship cleared. Nothing else is
 /// arranged and no constant is tuned.
 ///
-/// **Claim 2, the link that still never falls: `ResourceReserve`, because
-/// nothing in this crate can lower a stockpile.** Run the same opening with an
-/// *autonomous* faction in the weak seat and it loses its cell exactly as
-/// Michael's does -- and it is still not eliminated, because in the hours
-/// before the column arrived it gathered S17's trickle, and there the units
-/// stay: the authored buildings all cost zero to raise, no production rule of
-/// theirs is affordable, and taking a cell deliberately does **not** take the
-/// stockpile that cell earned (capture versus destruction is Open, brief
-/// section 20). One unit is [`RESOURCE_RESERVE_FLOOR`] and a chain with one
-/// link is not exhausted, so brief section 16 is right to refuse. Nothing is
-/// tuned to hide it: [`GATHER_PER_HELD_CELL_PER_HOUR`] is not lowered and the
-/// floor is not raised. The lane that gives a faction a way to *spend* -- or
-/// that decides what a captured cell hands over -- is the lane that turns
-/// claim 2 into claim 1.
+/// **Claim 2, and card S19 flipped it: `ResourceReserve` falls now.** S18 left
+/// this claim as the honest negative -- an *autonomous* faction in the weak
+/// seat lost its cell exactly as Michael's did and was still not eliminated,
+/// because the units it had gathered before the column arrived stayed in its
+/// stores for ever: nothing in the crate could lower a stockpile, and taking a
+/// cell deliberately does not take the stockpile that cell earned (capture
+/// versus destruction is Open, brief section 20). One unit is
+/// [`RESOURCE_RESERVE_FLOOR`] and a chain with one link is not exhausted, so
+/// brief section 16 was right to refuse.
+///
+/// A machine is what lowers it. The same opening, one machine standing on the
+/// weak cell and a day's reserve in the stores: every hour the machine draws
+/// its authored upkeep out of that reserve, the rival column takes the ground,
+/// the trickle that was topping the reserve up stops with the ground, and
+/// within a day of that the reserve is at zero, `RecoveryLinkLost` names it,
+/// the chain is empty and the faction is off the board -- byte-identically
+/// twice. Nothing is tuned: [`GATHER_PER_HELD_CELL_PER_HOUR`] is not lowered,
+/// [`RESOURCE_RESERVE_FLOOR`] is not raised, and the machine's draw is a
+/// record's field rather than a constant in this file.
+///
+/// Both halves of the scripting say so out loud:
+/// `the_authored_machines_and_one_that_burns_what_this_island_gathers` (nothing
+/// on this island produces `resource.open.fuel`, so a probe record burns the
+/// one key S17's trickle fills) and `a_standing_machine` (no faction but
+/// Michael's can build a machine, so one is put on the board by hand).
 ///
 /// The bite: make `resolve_arrivals` leave a held cell alone (drop the `from`
 /// arm that takes an undefended rival's ground) and claim 1 fails on
 /// "nothing took the cell out of the hands of the faction that never defended
-/// it".
+/// it"; drop the `consume_machine_upkeep` call from `run_hour` and claim 2
+/// fails on "an autonomous faction lost its ground and drank its reserve dry
+/// and was still not eliminated".
 ///
 /// [`GATHER_PER_HELD_CELL_PER_HOUR`]: project42_sim::strategy::action::GATHER_PER_HELD_CELL_PER_HOUR
 /// [`RESOURCE_RESERVE_FLOOR`]: project42_sim::strategy::elimination::RESOURCE_RESERVE_FLOOR
@@ -1334,33 +1443,210 @@ fn the_m3_opening_eliminates_a_faction_with_its_recovery_chain_exhausted() {
     );
     assert_eq!(hash_of(&again), hash_of(&state));
 
-    // ---- Claim 2: the link that still never falls.
+    // ---- Claim 2: the link that used to stand for ever, and now falls.
     let autonomous = ConceptKey::FoxPeople.faction_id();
+    let burners = the_authored_machines_and_one_that_burns_what_this_island_gathers();
     let mut state = m3_opening(&geography, &autonomous, &rival);
-    for _ in 0..100 {
-        state
-            .resolve_midnight_in(&geography, &habitats, &factions, &buildings, &machines)
-            .expect("nothing in this opening blocks midnight");
+    a_standing_machine(&mut state, &autonomous, M3_WEAK_CELL, &burners);
+    a_scripted_reserve(&mut state, &autonomous);
+
+    let mut events = Vec::new();
+    let mut eliminated_on_day = None;
+    for day in 0..100u32 {
+        events.extend(one_day_of_hours(
+            &mut state, &geography, &habitats, &factions, &buildings, &burners,
+        ));
+        if eliminated_on_day.is_none() && state.factions[&autonomous].eliminated {
+            eliminated_on_day = Some(day);
+        }
     }
+
     assert_eq!(
         geography.held_by(M3_WEAK_CELL, &state.ownership),
         Some(rival.as_str()),
         "the weak cell falls for an autonomous faction exactly as it does for \
          the one nobody directs"
     );
-    assert!(!state.factions[&autonomous].eliminated);
-    assert_eq!(
+    assert!(
+        eliminated_on_day.is_some(),
+        "an autonomous faction lost its ground and drank its reserve dry and was \
+         still not eliminated in a hundred days: {:?}, holding {:?}",
         recovery_chain(&state, &autonomous, &geography, &buildings),
-        vec![RecoveryLink::ResourceReserve],
-        "one link stands, and it is the stockpile: nothing in this crate lowers \
-         one, and a taken cell does not hand its stockpile over"
+        state.factions[&autonomous].resources
     );
     assert!(
+        recovery_chain(&state, &autonomous, &geography, &buildings).is_empty(),
+        "and there is demonstrably nothing left"
+    );
+
+    // The stockpile is what fell, and the machine is what lowered it. Both
+    // halves are asserted, because either alone could be an accident: a stock
+    // of zero with no `MachineStarved` would mean something else spent it.
+    assert_eq!(
         state.factions[&autonomous]
             .resources
             .values()
-            .any(|held| *held > 0),
-        "the units it gathered while it still had ground are what keep it alive"
+            .fold(0u32, |total, held| total + held),
+        0,
+        "the reserve S18 could not touch is empty"
+    );
+    let lost: BTreeSet<RecoveryLink> = events
+        .iter()
+        .filter_map(|event| match event {
+            StrategicEvent::RecoveryLinkLost { faction_id, link } if *faction_id == autonomous => {
+                Some(*link)
+            }
+            _ => None,
+        })
+        .collect();
+    assert!(
+        lost.contains(&RecoveryLink::ResourceReserve),
+        "the reserve is reported lost in brief section 16's own vocabulary: {lost:?}"
+    );
+    assert!(
+        events.iter().any(|event| matches!(
+            event,
+            StrategicEvent::MachineStarved { faction_id, key, .. }
+                if *faction_id == autonomous && key == GATHERED_RESOURCE_KEY
+        )),
+        "the machine says what it ran out of, in the key the island actually fills"
+    );
+    let starved = state
+        .machines
+        .values()
+        .find(|machine| machine.faction_id == autonomous)
+        .expect("the scripted machine is still on the board");
+    assert!(
+        !starved.is_standing(
+            burners
+                .get(&starved.def_id)
+                .expect("the probe registry carries the record it was built from")
+        ),
+        "a machine nobody can fuel is not standing"
+    );
+
+    // Byte-identical twice, with the reserve falling in it.
+    let mut again = m3_opening(&geography, &autonomous, &rival);
+    a_standing_machine(&mut again, &autonomous, M3_WEAK_CELL, &burners);
+    a_scripted_reserve(&mut again, &autonomous);
+    for _ in 0..100 {
+        again
+            .resolve_midnight_in(&geography, &habitats, &factions, &buildings, &burners)
+            .expect("nothing in this opening blocks midnight");
+    }
+    assert_eq!(
+        again.to_json(),
+        state.to_json(),
+        "a hundred days of a faction drinking its reserve dry stopped being \
+         reproducible"
+    );
+}
+
+/// The one key this island actually fills.
+///
+/// S17's trickle is the only income in the crate and it gathers under
+/// `action::GATHERED_RESOURCE_KEY`; C14's two authored machines burn
+/// `resource.open.fuel` and drink `resource.open.water`, and **nothing on this
+/// island produces either**. So an authored machine on the authored island
+/// starves from the hour it is built and the stockpile it cannot touch stays
+/// exactly where it was -- which is true, is the honest state of the economy,
+/// and measures nothing about S19's wiring.
+const GATHERED_RESOURCE_KEY: &str = "resource.open.gathered";
+
+/// The authored machine registry with **one probe record added**, burning the
+/// key the island fills.
+///
+/// The same fixture shape as `the_authored_registry_with_one_weighted_record`
+/// above, and for the same reason: content's records answer brief section 20's
+/// Open resource list with placeholders, and a probe has to answer one of them
+/// to have anything to measure. Three overrides on a clone of the authored dog
+/// and nothing else -- its own fixture ID, both resource keys pointed at the
+/// key S17's trickle fills, and **one unit an hour**, so the draw can take a
+/// stockpile all the way to zero rather than stalling above it (the charge is
+/// every key or none, so a machine that costs six cannot spend a reserve of
+/// five).
+///
+/// Content is not edited to make this pass. The day something on the island
+/// produces `resource.open.fuel`, this probe stops needing to exist and the
+/// authored record does the same job.
+fn the_authored_machines_and_one_that_burns_what_this_island_gathers() -> MachineDefinitions {
+    const PROBE: &str = "machine.s19.probe.burns_what_is_gathered";
+    let authored = the_authored_machines();
+    let mut definitions = MachineDefinitions::new();
+    for id in authored.ids().map(str::to_owned).collect::<Vec<String>>() {
+        definitions
+            .insert(
+                authored
+                    .get(&id)
+                    .expect("the ID just came from this registry")
+                    .clone(),
+            )
+            .expect("a record that loaded once loads again");
+    }
+    let mut probe = authored
+        .get(AUTHORED_DOG)
+        .expect("C14 authored the dog")
+        .clone();
+    probe.id = PROBE.to_owned();
+    probe.fuel_resource_key = GATHERED_RESOURCE_KEY.to_owned();
+    probe.water_resource_key = GATHERED_RESOURCE_KEY.to_owned();
+    probe.fuel_requirement = 1;
+    probe.water_requirement = 0;
+    definitions.insert(probe).expect("the probe record loads");
+    definitions
+}
+
+/// A day's worth of the one key this island fills, in the weak faction's
+/// stores at hour zero.
+///
+/// `m3_opening` clears every stockpile, which is what makes claim 1's faction a
+/// faction with nothing. Claim 2 is about a reserve *falling*, and a link that
+/// was never held cannot be reported lost -- so the reserve it is going to lose
+/// is put there deliberately, one unit for each hour of one day, and the
+/// machine beside it drinks one unit an hour. Nothing is tuned to make the
+/// arithmetic work: the trickle is S17's, the draw is the probe record's, and
+/// twenty-four is simply a day.
+const M3_SCRIPTED_RESERVE: u32 = HOURS_PER_DAY as u32;
+
+fn a_scripted_reserve(state: &mut ExpeditionState, faction_id: &str) {
+    state
+        .factions
+        .get_mut(faction_id)
+        .expect("the campaign carries every concept")
+        .resources
+        .insert(GATHERED_RESOURCE_KEY.to_owned(), M3_SCRIPTED_RESERVE);
+}
+
+/// Put one machine of `faction_id` on `cell_id`, standing and full.
+///
+/// **Scripted, and this is the card's "say so".** A faction that is not Captain
+/// Michael's has no way to build a machine -- `produce_machine` runs off a
+/// building's production rule and C10 authors machine rules only on his yard --
+/// so a machine belonging to anybody else has to be put on the board by hand,
+/// exactly as the M3 opening's ownership is. It is built from the probe
+/// registry's record, full of what that record asks for, so its first hour is
+/// an ordinary hour of upkeep and not a repair.
+fn a_standing_machine(
+    state: &mut ExpeditionState,
+    faction_id: &str,
+    cell_id: &str,
+    machines: &MachineDefinitions,
+) {
+    let definition = machines
+        .get("machine.s19.probe.burns_what_is_gathered")
+        .expect("the probe registry carries the probe record");
+    state.machines.insert(
+        "machine_instance.s19.probe".to_owned(),
+        MachineInstance {
+            id: "machine_instance.s19.probe".to_owned(),
+            def_id: definition.id.clone(),
+            faction_id: faction_id.to_owned(),
+            cell_id: cell_id.to_owned(),
+            built_by_building_instance_id: String::new(),
+            fuel_remaining: definition.fuel_requirement,
+            water_remaining: definition.water_requirement,
+            damage: 0,
+        },
     );
 }
 

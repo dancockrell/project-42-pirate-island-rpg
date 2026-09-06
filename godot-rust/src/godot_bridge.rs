@@ -2253,6 +2253,29 @@ fn journal_entry_dictionary(entry: &JournalEntry) -> VarDictionary {
                 String::new(),
                 force_id.as_str().to_owned(),
             ),
+            // S19. The cell is the one the machine stands on and the one the
+            // building stands on: a yard starving is news about a *place*, so
+            // the surface can point at it exactly as it points at an arrival.
+            MachineFed {
+                faction_id,
+                cell_id,
+                ..
+            }
+            | MachineStarved {
+                faction_id,
+                cell_id,
+                ..
+            }
+            | BuildingFinished {
+                faction_id,
+                cell_id,
+                ..
+            } => (
+                faction_id.clone(),
+                cell_id.clone(),
+                String::new(),
+                String::new(),
+            ),
         };
     let character_ids = Array::<GString>::new();
     let mut result = vdict! {
@@ -2405,6 +2428,29 @@ fn journal_prose(entry: &JournalEntry) -> String {
             strength,
             ..
         } => format!("{faction_id} raised a body of {strength} at {cell_id}."),
+        MachineFed {
+            faction_id,
+            def_id,
+            cell_id,
+            ..
+        } => format!("{def_id} at {cell_id} is fuelled and running again for {faction_id}."),
+        MachineStarved {
+            faction_id,
+            def_id,
+            cell_id,
+            key,
+            held,
+            needed,
+            ..
+        } => format!(
+            "{def_id} at {cell_id} stood idle: {faction_id} holds {held} {key} and an hour of it needs {needed}."
+        ),
+        BuildingFinished {
+            faction_id,
+            def_id,
+            cell_id,
+            ..
+        } => format!("{faction_id} finished {def_id} at {cell_id}."),
     }
 }
 
