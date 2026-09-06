@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "task_id": "a10-bond-rank-gate",
+  "agent": "claude-code/opus-5 lane A10",
+  "summary": "Bond rank becomes a fact of the relationship: ExpeditionState::bond_ranks starts Betty and Ayla at D, an authored scene's raisesBondRankTo raises it when its milestone is recorded, and Battle::submit refuses a command ranked above where a woman's bond stands.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/battle.rs",
+    "godot-rust/src/expedition.rs",
+    "godot-rust/src/strategy/recruitment.rs",
+    "godot-rust/src/godot_bridge.rs",
+    "godot-rust/tests/save_migration.rs",
+    "godot-rust/tests/vertical_slice.rs",
+    "content/relationships/betty.the_wreck_dead_are_buried.json",
+    "game/generated/content_bundle.json",
+    "game/scripts/simulation/mock_simulation_port.gd",
+    "tools/src/validate.mjs"
+  ],
+  "symbols": [
+    "battle::rank_index",
+    "battle::STARTING_BOND_RANK",
+    "battle::Actor.bond_rank",
+    "battle::BattleError::BondRankTooLow",
+    "battle::Battle::submit_uncached",
+    "expedition::ExpeditionState.bond_ranks",
+    "expedition::ExpeditionState::raise_bond_rank",
+    "expedition::ExpeditionState::record_recruitment_milestone",
+    "strategy::recruitment::MilestoneRule.raises_bond_rank_to"
+  ],
+  "coordination": {
+    "depends_on": [
+      "a5-bands-and-composure",
+      "a6-captain-michael-actor",
+      "s12-recruitment-state",
+      "c6-relationship-scenes",
+      "b5-michael-card-bands-composure"
+    ],
+    "conflicts_with": [],
+    "notes": "Branched from origin/backend/b0-expedition-state at e96e7cb. Four other lanes run beside this one, so the ExpeditionState hunk is the appended field plus its initialiser at the end of new() and nothing else at that tail, and the validate.mjs hunk is the relationships block plus one hoisted constant. AGENTS.md section 0 reconciliation: HouseholdProgress already carried a bond_ranks: BTreeMap<String, String> written by nobody and read by nobody. A second field of the same name beside it would be a fork, so that copy is deleted and ExpeditionState::bond_ranks is the single owner (move 2, replace it); no caller referenced it, only estate_upgrades. The seven-letter ladder is written once in Rust (battle::rank_index, shared by the Composure gate and the bond gate) and once in JS (validate.mjs `bondRanks`, shared by a skill's bondRank and a scene's raisesBondRankTo), and every_authored_scene_rule_loads holds the content tree to it. raises_bond_rank_to lives on MilestoneRule rather than beside it on AuthoredScene, because the rule is what reaches RecruitmentState::milestone_rules and a copy on both types would be two answers to one question. Repaired one caller outside the owned files: godot-rust/tests/vertical_slice.rs constructs Actor literally (three sites) and needed the new field; it submits only rank D commands, so those three stand at the floor. No battle is built from expedition state anywhere -- begin_pending_battle and create_debug_battle both build the static Battle::prototype_vertical_slice() -- so the fixture carries its own ranks (Betty SSS, everyone else D) and the slice plays exactly as it did before the gate existed; the mock port's Betty is SSS to match."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
