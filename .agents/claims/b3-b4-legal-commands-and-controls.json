@@ -43,7 +43,7 @@
       "node tools/src/validate.mjs: passed -- 194 stable IDs checked",
       "bite proof: deleting the spent-anchor filter in legal_next_commands_with_geography fails the_salvage_anchor_leaves_the_legal_commands_when_spent_and_returns_at_midnight; reverted: passed",
       "bite proof: removing one arm of world_event_dictionary fails to compile (E0004 non-exhaustive patterns); reverted: passed",
-      "tools/verify-godot.sh: not_run -- there is no Godot in this environment; the GDScript half (port, session, screen and expedition_prototype_test.gd) is verified by the Godot job in CI on push"
+      "tools/verify-godot.sh: not_run locally -- there is no Godot in this environment. The GDScript half is CI-verified: Verify run 34008830857 on ebb8a43, job 'Godot headless suites', passed -- the headless gate (3 review scenes, 17 suites, no ERROR line) and the anti-mock step, which printed 'Real Rust bridge confirmed: all three native suites reported a pass.' and so found 'Expedition prototype tests passed.' in the log. Job 'Rust and content' passed on the same commit."
     ]
   }
 }
