@@ -72,7 +72,6 @@ pub struct HabitatState {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct HouseholdProgress {
     pub estate_upgrades: BTreeSet<String>,
-    pub bond_ranks: BTreeMap<String, String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -255,6 +254,28 @@ pub struct ExpeditionState {
     /// before buildings existed loads with an empty island.
     #[serde(default)]
     pub buildings: BTreeMap<String, BuildingInstance>,
+    /// A10: where each woman's bond actually stands, keyed by character ID and
+    /// valued with one of the seven authored letters (`battle::rank_index`).
+    /// This is the fact `Battle` reads to decide whether a woman may spend a
+    /// command ranked above D: `battle::Actor::bond_rank` is a copy of the entry
+    /// here, and `BattleError::BondRankTooLow` is what a copy below the skill's
+    /// authored `bondRank` produces.
+    ///
+    /// It moves in exactly one place --
+    /// [`ExpeditionState::record_recruitment_milestone`], when the recorded
+    /// milestone's authored scene carries `raisesBondRankTo` -- and it only ever
+    /// goes up: a scene naming a letter at or below where she already stands
+    /// leaves her there. There is no timer, no accrual and no midnight sweep
+    /// that touches this map, for the same reason `recruitment` has none: the
+    /// brief's section 5.6 arc is authored beats or it is nothing.
+    ///
+    /// This was briefly a second field of the same name nested inside
+    /// [`HouseholdProgress`], written by nobody and read by nobody. That copy is
+    /// gone rather than left beside this one (AGENTS.md section 0): one fact,
+    /// one owner. `serde(default)` so a save written before it existed loads at
+    /// the same `save_version` -- with no ranks at all, which reads as the floor.
+    #[serde(default)]
+    pub bond_ranks: BTreeMap<String, String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -467,7 +488,6 @@ impl ExpeditionState {
             discoveries: BTreeSet::new(),
             household_progress: HouseholdProgress {
                 estate_upgrades: BTreeSet::new(),
-                bond_ranks: BTreeMap::new(),
             },
             pending_encounter: None,
             resolved_encounter_ids: BTreeSet::new(),
@@ -496,6 +516,12 @@ impl ExpeditionState {
             forces: BTreeMap::new(),
             // S3: bare ground.
             buildings: BTreeMap::new(),
+            // A10: both women who exist start at the floor of the ladder.
+            // Nothing but an authored scene's milestone raises either.
+            bond_ranks: BTreeMap::from([
+                ("character.heroine.betty".to_owned(), "D".to_owned()),
+                ("character.heroine.ayla".to_owned(), "D".to_owned()),
+            ]),
         };
         state.validate()?;
         Ok(state)
@@ -1554,12 +1580,53 @@ impl ExpeditionState {
                     character_id: woman_id.to_owned(),
                 })?;
         recruit.validate()?;
-        recruit.record_milestone(milestone_id).ok_or_else(|| {
+        let stage = recruit.record_milestone(milestone_id).ok_or_else(|| {
             ExpeditionError::MilestoneAlreadyRecorded {
                 character_id: woman_id.to_owned(),
                 milestone_id: milestone_id.to_owned(),
             }
-        })
+        })?;
+        // A10: the one link between the arc and the fight. The beat has played
+        // -- so the rank moves now, from the authored rule the beat is filed
+        // under, and from nowhere else. A rule with no `raisesBondRankTo`, or a
+        // milestone with no rule at all, leaves the rank exactly where it was.
+        let raises_to = recruit
+            .milestone_rules
+            .get(milestone_id)
+            .and_then(|rule| rule.raises_bond_rank_to.clone());
+        if let Some(raises_to) = raises_to {
+            self.raise_bond_rank(woman_id, &raises_to);
+        }
+        Ok(stage)
+    }
+
+    /// A10: raises one woman's bond rank, and only ever raises it.
+    ///
+    /// A letter at or below where she already stands is a no-op, so replaying an
+    /// earlier beat -- or authoring two scenes that both name `C` -- cannot walk
+    /// her back down. A letter outside the seven authored ones is refused
+    /// outright rather than stored: `tools/src/validate.mjs` is what stops such
+    /// a record reaching here, and this is the second lock behind it.
+    ///
+    /// Private on purpose. `record_recruitment_milestone` is the only caller,
+    /// because an authored beat is the only thing entitled to move a bond --
+    /// there is no public "set her rank" for a tick, a timer or the bridge to
+    /// reach for.
+    fn raise_bond_rank(&mut self, woman_id: &str, rank: &str) {
+        let Some(target) = crate::battle::rank_index(rank) else {
+            return;
+        };
+        let entry = self
+            .bond_ranks
+            .entry(woman_id.to_owned())
+            .or_insert_with(|| crate::battle::STARTING_BOND_RANK.to_owned());
+        let current = crate::battle::rank_index(entry).unwrap_or_else(|| {
+            crate::battle::rank_index(crate::battle::STARTING_BOND_RANK)
+                .expect("D is an authored rank")
+        });
+        if target > current {
+            rank.clone_into(entry);
+        }
     }
 
     /// Derives "alive today" from the death memory alone -- `named_person_memory`

@@ -47,7 +47,11 @@ func create_debug_battle() -> Dictionary:
 		"description": "Elven Gate • Late Afternoon",
 		"actors": [
 			actor_snapshot("character.protagonist.captain", "Michael Corrigan", "party", captain_vitality, 96, 1, 0),
-			actor_snapshot("character.heroine.betty", "Betty", "party", betty_vitality, 100, betty_guard, 0),
+			# A10: the mock mirrors the native prototype fixture, where Betty
+			# stands at the top of the ladder so the slice can demonstrate her
+			# whole authored kit up to the rank SSS Combat Revival. A fresh
+			# campaign's Betty stands at "D", which is this helper's default.
+			actor_snapshot("character.heroine.betty", "Betty", "party", betty_vitality, 100, betty_guard, 0, 10, "SSS"),
 			actor_snapshot("character.heroine.ayla", "Ayla", "party", ayla_vitality, 90, 0, 0),
 			actor_snapshot("character.heroine.vix", "Vix", "party", vix_vitality, 90, 0, 1),
 			actor_snapshot("character.heroine.grisha", "Grisha", "party", grisha_vitality, 110, 4, 0),
@@ -215,8 +219,12 @@ func band_name(band: int) -> String:
 ## every other key and not this one, which is the same shape disagreement A5
 ## found with `band_name` and `composure`. The mock states the shape only -- it
 ## gains no behaviour the bridge lacks, and nothing here applies a status.
-func actor_snapshot(id: String, display_name: String, faction: String, vitality: int, maximum: int, guard: int, band: int, composure: int = 10) -> Dictionary:
-	return {"id": id, "display_name": display_name, "faction": faction, "vitality": vitality, "max_vitality": maximum, "guard": guard, "band": band, "band_name": band_name(band), "composure": composure, "statuses": []}
+# A10: bond_rank is one of the seven authored letters, exactly as
+# `actor_dictionary` in godot-rust/src/godot_bridge.rs hands it over. "D" is the
+# floor every woman starts at, so the mock agrees with a fresh campaign rather
+# than with the prototype battle fixture.
+func actor_snapshot(id: String, display_name: String, faction: String, vitality: int, maximum: int, guard: int, band: int, composure: int = 10, bond_rank: String = "D") -> Dictionary:
+	return {"id": id, "display_name": display_name, "faction": faction, "vitality": vitality, "max_vitality": maximum, "guard": guard, "band": band, "band_name": band_name(band), "composure": composure, "bond_rank": bond_rank, "statuses": []}
 
 func make_event(kind: String, subjects: Array, payload: Dictionary) -> Dictionary:
 	sequence += 1

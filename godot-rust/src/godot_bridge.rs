@@ -991,7 +991,12 @@ fn actor_dictionary(actor: &Actor) -> VarDictionary {
         "vitality" => i64::from(actor.vitality), "max_vitality" => i64::from(actor.max_vitality),
         "guard" => i64::from(actor.guard), "band" => i64::from(actor.band),
         "band_name" => actor.band_kind().map(|band| band.name()).unwrap_or("unknown"),
-        "composure" => i64::from(actor.composure), "statuses" => &statuses,
+        "composure" => i64::from(actor.composure),
+        // A10: a letter, never a number. The card rail draws the rank as it is
+        // authored; nothing on the Godot side may turn it into a meter, and
+        // there is no index beside it to make that easy.
+        "bond_rank" => actor.bond_rank.as_str(),
+        "statuses" => &statuses,
     }
 }
 
@@ -1360,6 +1365,7 @@ fn battle_error_code(value: &crate::battle::BattleError) -> &'static str {
         UnsupportedSkill(_) => "unsupported_skill",
         RetreatNotAllowed => "retreat_not_allowed",
         IllegalRetreatActor(_) => "illegal_retreat_actor",
+        BondRankTooLow { .. } => "bond_rank_too_low",
     }
 }
 
