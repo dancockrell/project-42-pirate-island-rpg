@@ -356,7 +356,7 @@ top of the document is never stale:
   export presets, **E6** save-migration fixtures; E5 open with a hard
   build-before-export requirement; E7 and E8 open
 - **M3** shipped 6/16 — **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started
-- Last updated 2026-09-06 against trunk `8c79fde`. If this line is older than
+- Last updated 2026-09-06 against trunk `58fbdb3`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -413,7 +413,7 @@ top of the document is never stale:
 | B11 | Room cells carry board metadata (footprint, spawn sockets, tethers) | A2, O3 | open |
 | B12 | The isometric board: world / route / room distances | B11, S2, O1 | open |
 | B13 | Calm information surface: ambient / notable / urgent | S6, B12 | open |
-| B14 | Control and risk surface: `set_control`, `controller_of`, `effective_risk`, `contested` on routes | S2, B3 | open |
+| B14 | Control and risk surface: `set_control`, `controller_of`, `effective_risk`, `contested` on routes | S2, B3 | shipped 58fbdb3 2026-09-06 |
 
 ### Lane C — Content and validator (`content/`, `tools/src/validate.mjs`)
 
@@ -1182,7 +1182,7 @@ alerts, no red countdowns, no quest-log spam. Directive confirmation shows
 S6's explanation. Test: 100 strategic events produce ≤1 Urgent.
 
 ### B14 · Control and risk surface
-Status: open · Depends on: S2, B3
+Status: shipped `58fbdb3` 2026-09-06 · Depends on: S2, B3
 Touches: `godot-rust/src/godot_bridge.rs`, `game/scripts/simulation/native_expedition_port.gd`,
 `game/scripts/campaign/campaign_session.gd`, `game/scripts/world/expedition_prototype.gd`,
 `game/tests/expedition_prototype_test.gd`
@@ -1202,6 +1202,22 @@ What S2 built, projected — as S2's own report specified:
 Traps: no faction proper names in fixtures (`faction.pirates`, `faction.elves`);
 the `ControlChanged` projection already exists — reuse it.
 Done when: the suite asserts the flip; CI's Godot job green.
+
+**Shipped.** Three bridge verbs and `route_options` on the state dictionary —
+effective risk and a `contested` flag per legal route, never the authored
+base beside it. The route button reads live risk and marks a contested road;
+the test reads the number back out of the button's own text, so the control
+and the assertion are one fact and GDScript stores no risk. The prototype
+suite flips the river landing through the session and asserts the safe
+road's drawn risk rose by exactly the modifier, one `control_changed` event,
+`controller_of` and `effective_risk` agreeing with what was drawn, and a
+clean release. The lane's own push ran green through the hardened gate.
+**Two duplicates the lane flagged rather than hid:** the test declares its
+own `CONTESTED_RISK_MODIFIER := 2` as the expected value (accepted — a fourth
+`#[func]` to expose a constant would be worse); and the bridge composed
+`ownership` over the graph's owner a second time beside the closure inside
+`Geography::effective_risk` — unified by the integrator into one public
+`Geography::held_by` immediately after the merge.
 
 ### Lane C — new cards
 
