@@ -355,7 +355,7 @@ top of the document is never stale:
   suites, first run executed and green), **E3** portable gates, **E4** desktop
   export presets, **E6** save-migration fixtures
 - **M3** shipped 15/16 (S16 and S17 are additions outside the bracket; S17 shipped with the M3 100-day elimination `failed` until a tick writes ownership, B11/O3) — **S16** (yards produce on the clock), **S13** (Michael's yards make machines, never people), **S10** (elimination when every link is gone; no respawn; Cthulhu waits on §20), **S9** (a dungeon is a signature over its context; rewards are stored value), **C10** (three building records, every Open number Open in the data), **S3** (buildings, with the Open numbers Open in the data), **S6** (directives, explained before confirmation), **S7** (forces walk the routes; materialisation waits on B11), **S5** (factions read the board and choose), **S8** (two clocks that never move each other), **S11** (the journal: bounded, saved, nothing lost), **S4** (the tick and the determinism harness), **C9** (six factions as content, unnamed by rule), **S1** (factions exist), **S2** (control and contested roads), **S12** (recruitment, never numbers) · **M4** not started (C6 and C8, its romance and pack seams, shipped ahead of it; M3's one open row, S14, waits on decision O5)
-- Last updated 2026-09-06 against trunk `10ee623`. If this line is older than
+- Last updated 2026-09-06 against trunk `24626f3`. If this line is older than
   the newest `shipped` row below, the row is right and this line is stale.
 
 ### Lane A — Character simulation (`godot-rust/src/`)
@@ -491,7 +491,7 @@ captured by P1's gate, and no card claims a look it has not captured.
 | ID | Task | Depends on | Status |
 |---|---|---|---|
 | P1 | Screenshot gate: every review scene and screen rendered offscreen in CI and locally; the visual loop | E2 | shipped 1b0c9f4 2026-09-06 |
-| P2 | Render foundation: Forward+ with a compatibility fallback, the world environment, the material and shader library, the camera director | P1 | open |
+| P2 | Render foundation: Forward+ with a compatibility fallback, the world environment, the material and shader library, the camera director | P1 | shipped `24626f3` 2026-09-06 |
 | P3 | Atmosphere from the simulation: time of day, weather, corruption and pressure read from the snapshot, never a clock | P2, S8 | shipped 7abf1cf 2026-09-06 |
 | P4 | The isometric board (B11 + B12): room cells with board metadata, three distances, party miniatures, ownership tint, forces in motion | P2, S2, S7, O3 (provisional) | open |
 | P5 | The bronze-and-vellum grammar (D11) and the calm information surface (B13): one Theme, the card rail, the command grid, journal and directive surfaces, accessibility wired | S6, S11, B9 | shipped `c7f0e74` 2026-09-06 |
@@ -2574,7 +2574,7 @@ and shaped the design: one process, `nice`, `timeout`, `ulimit -v`, 11.6 s
 for the whole local run.
 
 ### P2 · Render foundation
-Status: open · Depends on: P1
+Status: shipped `24626f3` 2026-09-06 · Depends on: P1
 Touches: `game/project.godot` (`[rendering]`), `game/render/` (new:
 `world_environment.tres`, `camera_rig.tscn`, materials), `game/shaders/`
 (new), `game/scripts/render/` (new: `camera_director.gd`, `render_profile.gd`),
@@ -2596,6 +2596,32 @@ a compatibility path.
 Done when: the terrace review scene captured on both renderers looks like
 one intended image on each; a suite asserts the environment resource's
 values are the ones the card names; the captures are committed.
+**Shipped:** `[rendering]` is Forward+ with `gl_compatibility` declared for
+mobile and for any desktop the engine downgrades; MSAA 4x (TAA and
+screen-space AA are Forward+-only and would make two images), anisotropic
+filtering, a mipmap bias, 4096 soft shadows; `[shader_globals]` `wind`,
+`wind_heading`, `motion_scale` (B9's reduced motion at zero); `RenderProfile`
+autoload whose feature table is the engine's own refusal strings, not a
+guess. `game/render/world_environment.tres` (AgX, procedural sky ambient,
+SSAO and SSIL, soft glow, depth fog in the sea's colour, a teal-shadow /
+warm-highlight LUT, no vignette) and `world_environment.tscn` exposing the
+sun, fill, fog, exposure, wind and motion values P3 drives;
+`camera_rig.tscn` with the 45°/30° isometric constants and named framing
+margins; eight materials over seven procedural shaders that compile on both
+renderers, proven by twin compiles with the guards forced each way; both
+setpieces adopt the library through the one `SetpieceMeshFactory.material()`
+hook and both lighting kits instance the shared environment.
+`render_foundation_test.gd` holds every named value. Bite: AgX→Filmic and a
+shader typo fail by name. Forward+ proven in CI run 34031678261 under
+lavapipe (nine scenes at 1920×1080, every frame past the uniform-frame
+refusal); the committed captures `P2-166891c-*.png` are the compatibility
+plate and say so. History kept, not squashed: `6c024ee` cut MSAA and the
+screen-space effects on a stale API read, `166891c` reverts it. Not done:
+nobody here has looked at the Forward+ pixels (the artifact host is behind
+the proxy); `stylised_river.tres` and `placeholder.tres` have no caller
+yet. Integration: `[autoload]`, `[rendering]` (beside E11's ETC2 line) and
+`[shader_globals]` keep-both; the terrace at dusk and the title captured
+offscreen through the merged stack and read.
 
 ### P3 · Atmosphere from the simulation
 Status: shipped `7abf1cf` 2026-09-06 · Depends on: P2, S8
