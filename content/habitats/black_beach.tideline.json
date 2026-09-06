@@ -1,0 +1,27 @@
+{
+  "id": "habitat.black_beach.tideline",
+  "region_id": "world.region.black_beach.tideline",
+  "display_name": "Black Beach Tideline",
+  "roster": [
+    { "definition_id": "enemy.raptor.razorbeak", "family": "Beast", "available_from_day": 1, "night_only": false },
+    { "definition_id": "enemy.spectral.lament", "family": "Spectral", "available_from_day": 6, "night_only": true },
+    { "definition_id": "enemy.undead.drowned_bearer", "family": "Undead", "available_from_day": 14, "night_only": false }
+  ],
+  "rank": "Ordinary",
+  "behavior_tags": ["individual-threat", "opportunist"],
+  "intent_suite": ["skill.enemy.razorbeak.rushing_bite"],
+  "territory_location_ids": ["world.cell.black_beach"],
+  "drop_table_id": "loot.razorbeak.prototype",
+  "return_eligible": true,
+  "base_level": 5,
+  "daily_pressure": 0,
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "maturity": "vertical_slice",
+    "releaseLegal": false,
+    "notes": [
+      "The open beach turns last: its nights go over to something spectral on day 6, well before its daylight goes over to the returned dead on day 14.",
+      "Field names and value spellings are HabitatRecord's in godot-rust/src/habitat.rs verbatim, because habitat::tests::fixture_matches_the_authored_habitats holds the two equal field for field."
+    ]
+  }
+}

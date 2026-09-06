@@ -1,0 +1,28 @@
+{
+  "id": "habitat.black_beach.river_jungle",
+  "region_id": "world.region.black_beach.river_jungle",
+  "display_name": "River Landing Jungle Edge",
+  "roster": [
+    { "definition_id": "enemy.boar.thunderback", "family": "Beast", "available_from_day": 1, "night_only": false },
+    { "definition_id": "enemy.undead.drowned_bearer", "family": "Undead", "available_from_day": 8, "night_only": true },
+    { "definition_id": "enemy.undead.tomb_wight", "family": "Undead", "available_from_day": 11, "night_only": false }
+  ],
+  "rank": "Elevated",
+  "behavior_tags": ["individual-threat", "charger"],
+  "intent_suite": ["skill.enemy.razorbeak.guard_breaking_kick", "skill.enemy.razorbeak.rushing_bite"],
+  "territory_location_ids": ["world.cell.river_landing"],
+  "drop_table_id": "loot.thunderback.prototype",
+  "return_eligible": true,
+  "base_level": 7,
+  "daily_pressure": 1,
+  "metadata": {
+    "implementationOwner": "rust-simulation",
+    "maturity": "vertical_slice",
+    "releaseLegal": false,
+    "notes": [
+      "The river jungle sits between the beach and the elven precinct on the escalation schedule: its drowned bearer walks the nights from day 8 and its tomb wight the daylight from day 11.",
+      "intent_suite is what this habitat advertises its holder will open with, not its holder's skill list -- the tideline advertises one skill while enemy.raptor.razorbeak declares two -- which is why content/enemies/boar.thunderback.json leaves skillIds open rather than reading them off this line.",
+      "Field names and value spellings are HabitatRecord's in godot-rust/src/habitat.rs verbatim, because habitat::tests::fixture_matches_the_authored_habitats holds the two equal field for field."
+    ]
+  }
+}

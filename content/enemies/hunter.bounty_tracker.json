@@ -1,13 +1,13 @@
 {
-  "id": "enemy.undead.tomb_wight.prototype",
-  "displayName": "Tomb Wight",
-  "species": "returned_tomb_guardian",
-  "combatRole": "mobile_individual_threat",
-  "level": 6,
+  "id": "enemy.hunter.bounty_tracker",
+  "displayName": "Bounty Tracker",
+  "species": "human_frontier_tracker",
+  "combatRole": "roaming_individual_pursuer",
+  "level": 9,
   "stats": {
-    "vitality": 55,
-    "guard": 2,
-    "initiative": 9,
+    "vitality": 70,
+    "guard": 5,
+    "initiative": 14,
     "startingBand": 2
   },
   "skillIds": [
@@ -26,15 +26,15 @@
       "animationBeats": [
         {
           "atMs": 0,
-          "pose": "The wight turns its bare skull toward the party and fixes on the target with a slow, certain turn."
+          "pose": "The tracker plants both boots and reads the party's stance and fixes on the target with a slow, certain turn."
         },
         {
           "atMs": 180,
-          "pose": "Both arms rise and reach, fingers splaying wide for the grasp."
+          "pose": "Both arms rise and reach, fingers splaying wide for the controlled takedown grip."
         },
         {
           "atMs": 360,
-          "pose": "The grip closes on the target's nearest limb and the whole body leans into the pull."
+          "pose": "The grip closes on the target's nearest limb and the whole body leans into the throw."
         },
         {
           "atMs": 520,
@@ -42,7 +42,7 @@
         },
         {
           "atMs": 700,
-          "pose": "The wight releases and settles back into a low, patient ready stance."
+          "pose": "The tracker releases and settles back into a low, patient ready stance."
         }
       ],
       "framing": "Keep the full figure, both hands, the target line and the impact effect inside the battle safe frame for every beat."
@@ -55,15 +55,15 @@
     "midnightRespawnEligible": true
   },
   "text": {
-    "firstObservation": "The tomb wight moves the way its own funeral procession once did: slow, certain, unhurried by anything the living party can do.",
+    "firstObservation": "The bounty tracker followed a real trail here, not a habitat's instinct: boot prints, a cold camp, a paid reason to find this exact party.",
     "intentTells": {
-      "skill.enemy.undead.grasping_strike": "It raises both bony arms and fixes on the weakest stance in the party, fingers spreading for a grasping strike."
+      "skill.enemy.undead.grasping_strike": "It reads the party's stances like a professional and reaches for the weakest one with a controlled takedown grip."
     }
   },
   "art": {
-    "assetId": "art.placeholder.undead.tomb_wight.active_actor",
+    "assetId": "art.placeholder.hunter.bounty_tracker.active_actor",
     "status": "placeholder",
-    "framing": "Entire skeletal figure, both hands, grave wrappings and impact effect remain inside the battle safe frame."
+    "framing": "Entire 1850s-frontier tracker figure, gear, both hands and impact effect remain inside the battle safe frame."
   },
   "metadata": {
     "implementationOwner": "rust-simulation",

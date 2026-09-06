@@ -1,5 +1,5 @@
 {
-  "id": "enemy.eldritch.tide_spawn.prototype",
+  "id": "enemy.eldritch.tide_spawn",
   "displayName": "Tide Spawn",
   "species": "elven_containment_breach",
   "combatRole": "mobile_individual_threat",
