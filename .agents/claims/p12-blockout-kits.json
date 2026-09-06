@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "task_id": "p12-blockout-kits",
+  "agent": "claude-code (lane P12)",
+  "summary": "Blockout kits (D9 + D10): a building's cube or multi-cube envelope and a machine's riveted-iron blockout built from the C10 and C14 records alone, through SetpieceMeshFactory, with every socket and pivot the record names as an empty Node3D a rig can find, and a review scene that shows all five at gameplay distance under the island environment.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "game/scripts/blockouts/",
+    "game/scenes/review/blockout_kit_review.tscn",
+    "game/scripts/review/blockout_kit_review.gd",
+    "game/tests/blockout_kit_test.gd",
+    "docs/verification/captures/"
+  ],
+  "symbols": [
+    "BuildingBlockoutKit.build",
+    "BuildingBlockoutKit.envelope_metres",
+    "MachineBlockoutKit.build",
+    "MachineBlockoutKit.envelope_metres",
+    "BlockoutMarks.mark"
+  ],
+  "coordination": {
+    "depends_on": ["p2-render-foundation", "c10-building-records", "c14-machine-records"],
+    "conflicts_with": [],
+    "notes": "Reads content/buildings/*.json and content/machines/*.json through ContentCatalog and content/presentation/board.registry.json by entry ID; authors no content. Does not touch game/scripts/world/ (SetpieceMeshFactory is called, not edited), game/scripts/board/ (P10), game/scripts/ui/ (P11), godot-rust/ or tools/. Placement on the board is P10's or a later card's; this card ships the kits and the build(record) -> Node3D seam."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
