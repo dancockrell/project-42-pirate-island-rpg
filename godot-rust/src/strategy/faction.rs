@@ -43,6 +43,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 
 use crate::expedition::{ExpeditionError, require_stable_id};
+use crate::strategy::utility::Goal;
 
 /// The prefix every faction's stable ID carries. IDs are
 /// `faction.<concept_key>` and nothing else, so a proper name cannot enter the
@@ -400,6 +401,21 @@ pub struct FactionState {
     /// not zeroed history.
     #[serde(default)]
     pub relationships: BTreeMap<String, Relationship>,
+    /// S5: what this faction is trying to do right now, best first.
+    ///
+    /// Appended, `#[serde(default)]`, per the `ExpeditionState` rule
+    /// (`docs/SHIP_PLAN.md` section 9): a save written before S5 loads with an
+    /// empty list and the first strategic hour fills it.
+    ///
+    /// Recomputed every strategic hour by
+    /// [`crate::strategy::utility::choose_goals`], exactly like
+    /// [`FactionState::strategic_state`] beside it, and never set by hand.
+    /// It is the *verdict* of S5's utility scoring and carries no scores:
+    /// brief section 9 forbids exposing raw utility arithmetic, and
+    /// `strategy/utility.rs` holds a test that this struct serializes no
+    /// number beyond the ones S1 declared.
+    #[serde(default)]
+    pub current_goals: Vec<Goal>,
 }
 
 impl FactionState {
@@ -593,6 +609,10 @@ mod tests {
         let state = FactionState::new();
         assert_eq!(state.strategic_state, StrategicState::Contesting);
         assert!(!state.eliminated);
+        assert!(
+            state.current_goals.is_empty(),
+            "a faction wants nothing until its first strategic hour scores the board"
+        );
         assert!(state.resources.is_empty());
         assert_eq!(
             state.relationship_toward("faction.pirates"),
@@ -639,9 +659,12 @@ mod tests {
             },
         );
 
+        first.current_goals = vec![Goal::Recover, Goal::Consolidate];
+
         let mut second = FactionState::new();
         second.strategic_state = StrategicState::Closing;
         second.eliminated = true;
+        second.current_goals = vec![Goal::Pressure];
         second.relationships.insert(
             ConceptKey::Elves.faction_id(),
             Relationship {
