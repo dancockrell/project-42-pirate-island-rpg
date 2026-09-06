@@ -144,7 +144,118 @@ func _init() -> void:
 	reloaded_expedition.queue_free()
 	await process_frame
 	await check_rts_controls(scene)
+	await check_the_screen_is_the_board(scene)
 	finish()
+
+
+## P10's done-when: the screen the player uses is the isometric board, and the
+## RTS grammar on it is the one P7 shipped.
+##
+## Three cells are crossed by select-then-order on the 3D board, through the
+## live bridge, and at every stop two things are held: the miniature stands on
+## the cell the snapshot names, and the commands the screen draws are exactly
+## the commands the snapshot calls legal. The second is the one that says the
+## board swap changed nothing about legality -- the drawn departures are the
+## native `legal_route_commands` and the drawn actions are the native
+## `legal_commands`, which is what the deleted 2D board's own suite asserted.
+func check_the_screen_is_the_board(scene: PackedScene) -> void:
+	var expedition: ExpeditionPrototype = await fresh_expedition(scene)
+	var board: BoardSurface = expedition.board
+	check(board != null, "the expedition screen must host a board")
+	check(board.board != null, "the hosted board must be the isometric board scene")
+	check(board.get_parent() != null and board.is_inside_tree(), "the board must sit in the screen's own layout")
+	check(board.board.get_viewport() is SubViewport, "the 3D board must be drawn through the screen's board viewport")
+	check_drawn_commands_match_the_snapshot(expedition, "world.cell.black_beach")
+
+	var crossings := [
+		["world.cell.damaged_estate", "world.portal.black_beach_to_damaged_estate"],
+		["world.cell.river_landing", "world.portal.damaged_estate_to_river_landing"],
+		["world.cell.reception_terrace", "world.portal.river_landing_to_reception_terrace_safe_road"]
+	]
+	for crossing in crossings:
+		var destination := str((crossing as Array)[0])
+		var portal_id := str((crossing as Array)[1])
+		var origin := str(expedition.get_authoritative_snapshot().get("active_location_id", ""))
+		# Select first, exactly as a player does: a left-click on the party's own
+		# tile. It selects and it does not travel.
+		expedition.select_tile(origin)
+		check(board.party_selected(), "a left-click on the party's tile must select the party on the 3D board")
+		check(str(expedition.get_authoritative_snapshot().get("active_location_id", "")) == origin, "selecting must never move the party")
+		# Then order: the right-click on the destination tile.
+		var ordered: Dictionary = expedition.order_move_to_tile(destination)
+		check(bool(ordered.get("ordered", false)), "a right-click on %s must issue the order" % destination)
+		check(str(ordered.get("portal_id", "")) == portal_id, "the order must run along the authored portal %s" % portal_id)
+		check(str(expedition.get_authoritative_snapshot().get("active_location_id", "")) == destination, "confirmed travel must land the party at %s" % destination)
+		# The miniature moved because the simulation did, and it stands where the
+		# snapshot says. This is the assertion the deleted 2D board could not make.
+		var miniature_cell := board.board.party_cell_id()
+		check(miniature_cell == destination, "the miniature must stand in %s after confirmed travel" % destination)
+		check((board.board.party_miniature.position as Vector3).is_equal_approx(board.board.stand_point(board.board.cells[destination])), "the miniature must snap onto %s's own tile" % destination)
+		check_drawn_commands_match_the_snapshot(expedition, destination)
+
+	# An order to a place no legal road reaches is refused in the status line and
+	# never reaches the bridge, on this board as on the last one.
+	var before_refusal := JSON.stringify(expedition.get_authoritative_snapshot())
+	var refusal: Dictionary = expedition.order_move_to_tile("world.cell.black_beach")
+	check(not bool(refusal.get("ordered", true)), "an order to an unreachable cell must be refused")
+	check(str(refusal.get("reason", "")) == "no_legal_route", "the refusal must name the missing road")
+	check(JSON.stringify(expedition.get_authoritative_snapshot()) == before_refusal, "a refused order must leave the native snapshot untouched")
+	check(not expedition.status_label.text.is_empty(), "a refused order must say so in the status line")
+	# And the refusal that matters most: the terrace's armed encounter makes every
+	# road out of it illegal, but the road back to the landing is still *authored*
+	# and still drawn on the island. So this is the case where the graph says yes
+	# and the snapshot says no, and the snapshot is the one the board obeys --
+	# without it, an order could be legal because a road exists.
+	var terrace_snapshot := expedition.get_authoritative_snapshot()
+	check(not (terrace_snapshot.get("pending_encounter", {}) as Dictionary).is_empty(), "the terrace must have armed its authored encounter")
+	check(expedition.board.board.tethers.has("world.portal.reception_terrace_to_river_landing"), "the road back to the landing must still be drawn on the board")
+	check(expedition.board.portal_from_active_cell_to("world.cell.river_landing").is_empty(), "a road the snapshot does not call legal must not be found by the board")
+	var held_back: Dictionary = expedition.order_move_to_tile("world.cell.river_landing")
+	check(not bool(held_back.get("ordered", true)), "an order along an authored road the snapshot does not call legal must be refused")
+	check(JSON.stringify(expedition.get_authoritative_snapshot()) == before_refusal, "that refusal must not reach the bridge either")
+
+	# The three distances are camera modes: they move the camera and nothing
+	# else. The party does not move and the snapshot does not change.
+	var standing: Vector3 = board.board.party_miniature.position
+	var unchanged := JSON.stringify(expedition.get_authoritative_snapshot())
+	for keycode in [KEY_F1, KEY_F2, KEY_F3]:
+		check(expedition.press_camera_hotkey(keycode), "F%d must be one of the board's camera keys" % (int(keycode) - int(KEY_F1) + 1))
+	check(board.distance() == IsometricBoard.DISTANCE_ROOM, "F3 must leave the camera at the room distance")
+	check((board.board.party_miniature.position as Vector3).is_equal_approx(standing), "a camera mode must never move the party")
+	check(JSON.stringify(expedition.get_authoritative_snapshot()) == unchanged, "a camera mode must never touch the snapshot")
+	check(not expedition.press_camera_hotkey(KEY_F5), "a key that is not one of the three must not be swallowed as a camera mode")
+	expedition.press_camera_hotkey(KEY_F1)
+	expedition.queue_free()
+	await process_frame
+
+
+## The controls the screen is drawing are the commands the snapshot calls legal:
+## the departures are `legal_route_commands`, the actions are `legal_commands`
+## plus the midnight the native transaction always accepts. Nothing is drawn
+## that the simulation did not name, and nothing it named is missing.
+func check_drawn_commands_match_the_snapshot(expedition: ExpeditionPrototype, where: String) -> void:
+	var snapshot := expedition.get_authoritative_snapshot()
+	if not (snapshot.get("pending_encounter", {}) as Dictionary).is_empty():
+		return
+	var legal_routes: Array[String] = []
+	for command in snapshot.get("legal_route_commands", []):
+		legal_routes.append(str(command).trim_prefix("travel:"))
+	legal_routes.sort()
+	var drawn_routes: Array[String] = []
+	for portal_id in expedition.route_hotkey_portal_ids():
+		drawn_routes.append(str(portal_id))
+	drawn_routes.sort()
+	check(drawn_routes == legal_routes, "at %s the drawn departures must be the native legal route commands" % where)
+	var expected_actions: Array[String] = []
+	for command in snapshot.get("legal_commands", []):
+		var command_text := str(command)
+		if command_text.begins_with("anchor_action:") or command_text.begins_with("inspect:"):
+			expected_actions.append(command_text)
+	expected_actions.append("resolve_midnight")
+	expected_actions.sort()
+	var drawn_actions: Array[String] = expedition.get_action_commands()
+	drawn_actions.sort()
+	check(drawn_actions == expected_actions, "at %s the drawn actions must be the native legal commands" % where)
 
 
 ## P7 (B18 resumed): the board is an RTS board. One unit, one order, three ways
@@ -163,7 +274,7 @@ func check_rts_controls(scene: PackedScene) -> void:
 	check(by_right_click.get_authoritative_snapshot().get("active_location_id") == "world.cell.black_beach", "a left-click on another tile must look at it and never travel")
 	by_right_click.select_tile("world.cell.black_beach")
 	check(by_right_click.get_authoritative_snapshot().get("active_location_id") == "world.cell.black_beach", "a left-click on the party's own tile must select it and never travel")
-	check(by_right_click.route_board.party_selected, "a left-click on the party's tile must select the party")
+	check(by_right_click.board.party_selected(), "a left-click on the party's tile must select the party")
 	# An order to a tile no legal portal reaches is refused here and never
 	# reaches the bridge, so the whole snapshot must come back identical.
 	var before_refusal := JSON.stringify(by_right_click.get_authoritative_snapshot())

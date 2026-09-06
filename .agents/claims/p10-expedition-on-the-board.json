@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "task_id": "p10-expedition-on-the-board",
+  "agent": "claude-code (lane P10)",
+  "summary": "The expedition screen hosts the isometric board: P7's select/order/words/hotkey controls move onto the 3D board with the same meaning and the same request_travel path, the 2D ExpeditionRouteBoard is deleted with its callers repaired, BoardPalette reads the Theme through ThemeTokens, and the three distances become the screen's camera modes.",
+  "status": "completed",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T14:00:00Z",
+  "paths": [
+    "game/scripts/world/expedition_prototype.gd",
+    "game/scripts/world/expedition_route_board.gd",
+    "game/scripts/board/",
+    "game/scenes/board/",
+    "game/tests/expedition_prototype_test.gd",
+    "game/tests/isometric_board_test.gd",
+    "game/tests/board_verification_campaign.gd",
+    "docs/verification/captures/",
+    "game/scripts/board/board_surface.gd",
+    "game/tests/capture_board_distances.gd"
+  ],
+  "symbols": [
+    "BoardSurface",
+    "IsometricBoard.cell_at_viewport_point",
+    "IsometricBoard.portal_from_active_cell_to",
+    "IsometricBoard.set_party_selected",
+    "IsometricBoard.set_inspected_cell",
+    "IsometricBoard.configure",
+    "BoardPalette.use_theme",
+    "BoardPalette.cell_tint",
+    "ExpeditionPrototype.board",
+    "ExpeditionPrototype.press_camera_hotkey"
+  ],
+  "coordination": {
+    "depends_on": [
+      "p4-isometric-board",
+      "p7-rts-controls-on-the-board",
+      "p5-bronze-vellum-grammar",
+      "p8-the-shell"
+    ],
+    "conflicts_with": [],
+    "notes": "P11 owns palette adoption everywhere except game/scripts/world/ and game/scripts/board/, which are this lane's; nothing under game/scripts/ui/, game/scripts/shell/, game/scripts/battle/, godot-rust/, content/ or tools/ is edited here. S18 owns the bridge and native_expedition_port.gd; this lane needs no port change and makes none. game/themes/bronze_vellum.tres is P5's and gains no token here: BoardPalette derives the board's clay, sea, rock, land and the six faction washes from tokens the Theme already carries rather than adding new ones or keeping its own hex. Shipped: BoardSurface is the one seam between the Control screen and the Node3D board (SubViewport, mouse, and the three hooks the deleted 2D board answered); picking is an exact camera ray against each room's top face, so a click lands on the place the player sees. The board asks CampaignSession for the live port each projection rather than keeping the one it was handed, which a reset or a new game left pointing at a dead campaign. The board also stopped declaring its own Environment and two lights and instances P2's world_environment.tscn, which the two setpieces already instance."
+  },
+  "completion": {
+    "commit": "41b3b6c",
+    "checks": [
+      "bash tools/verify-godot.sh on the committed tree with GODOT set to the pinned 4.7.2 (4 review scenes, 28 suites, exit 0, no ERROR line): passed",
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (364 unit + 7 + 5 + 11 + 1, 0 failed; no Rust file touched by this lane): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (518 stable IDs): passed",
+      "node tools/src/check-claims.mjs (68 claims, 110 ship-plan rows, 104 cards): passed",
+      "Done-when 1: expedition_prototype_test.gd's check_the_screen_is_the_board drives select -> right-click order -> confirmed travel across black_beach, damaged_estate, river_landing and reception_terrace through the live bridge, asserting at every stop that the miniature stands on the cell the snapshot names and that the drawn departures and actions are exactly the snapshot's legal_route_commands and legal_commands: passed",
+      "Done-when 2: grep -rn ExpeditionRouteBoard game/ is empty; game/scripts/world/expedition_route_board.gd and its .uid are deleted and the one caller (expedition_prototype.gd) is repaired, not hidden: passed",
+      "Done-when 3: captures docs/verification/captures/P10-41b3b6c-{world,route,room,selected,refused}.png, rendered offscreen at 1280x720 on the compatibility renderer through the states the player's own controls put the screen in, read and iterated six times (the ring was sized off the largest room on the island and reached across three of its neighbours; unusable roads were painted in the Theme's `muted`, which is a text colour, and were the brightest thing on the island; the world frame cropped the island; the room distance's sky made the captions illegible; the board kept a local stand-in for P2's lighting): passed",
+      "Bite 1: deleting the `legal_portal_ids.has(portal_id)` guard from IsometricBoard.portal_from_active_cell_to failed expedition_prototype_test.gd by name on 'a road the snapshot does not call legal must not be found by the board' and 'an order along an authored road the snapshot does not call legal must be refused'; restored and green: passed",
+      "Bite 2: replacing the assignment in IsometricBoard.apply_party with `pass` failed expedition_prototype_test.gd three times by name, once per crossing ('the miniature must snap onto <cell>'s own tile'); restored and green: passed",
+      "The first shape of bite 1 did NOT bite, and the suite was strengthened rather than the claim softened: every refusal the suites drove was a cell with no authored portal at all, so dropping the legality guard changed nothing. The terrace assertion above is the case the proof was missing -- the content authors world.portal.reception_terrace_to_river_landing, the board still draws it, and the armed encounter makes it illegal: passed",
+      "Camera modes are camera moves: F1/F2/F3 are asserted to leave the party miniature's position and the whole snapshot byte-identical, and a key that is not one of the three is asserted not to be swallowed: passed",
+      "BoardPalette declares no colour literal. Every value is a ThemeTokens read of bronze_vellum.tres or a named mix of two such reads; the six faction washes are the Theme's teal turned round the hue wheel by a fixed turn per concept key, so no faction proper name and no new hex can enter. The screen's seven hexes and its fourteen literal font sizes are gone the same way, and BoardPalette.use_theme carries the screen's built Theme to the board so B9's high contrast and text scale reach the island: passed",
+      "isometric_board_test.gd additionally asserts the three cell states against the snapshot's legal list, that a click at the middle of each of the nine rooms picks that room back, that open water and the room distance pick nothing, and that both rings stand on the cells they belong to: passed",
+      "No file under game/scripts/battle/, game/scripts/shell/, game/scripts/ui/, godot-rust/, content/ or tools/ was edited; game/themes/bronze_vellum.tres gained no token: passed",
+      "needs decision, carried and marked, not taken here: O1 (the encounter lens; EncounterLens is still the stand-in and SceneFlow.enter_battle is still the one door into a fight), O3 (the footprint dimensions), the ring's margin, lift and thickness, the three orthographic frame sizes and the world frame's margin, and the risk ceiling the road scale tops out at: not_run",
+      "Not done here: the camera-mode hotkeys are F1/F2/F3 and the shell documents no camera keys at all, so the board's own legend documents them; game/scripts/shell/ is another lane's this round and was not touched to add them there. A force miniature still reaches the live island only through board_verification_campaign.gd's save round trip, because no bridge verb raises or marches a force -- P4's `blocked: needs a bridge verb` is unchanged by this card: not_run"
+    ]
+  }
+}
