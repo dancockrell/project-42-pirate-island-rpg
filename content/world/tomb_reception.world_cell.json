@@ -38,5 +38,6 @@
     {"id": "observation.tomb_reception.true_name", "text": "The speaking stone gives back one name in full, the way the dead were recorded rather than the way they were called. Reading it aloud is what the archive door was cut to hear, and the low service opening is the only other way on."}
   ],
   "lightingProfile": {"id": "lighting.black_beach.storm_gold", "timeOfDay": "storm_gold", "runtimeMode": "baked_base_plus_day_night_parameters"},
+  "dungeonContext": {"dungeonId": "dungeon.tomb_of_returning_names", "space": "petition_gallery", "ownerConceptKey": "elves", "corruptedVariantConceptKey": "cthulhu", "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.petition_heard"]},
   "admission": {"collisionSeparatedFromVisualShell": true, "navigationSeparatedFromVisualShell": true, "descriptionCountMinimum": 1, "browserPerformanceGate": "pending", "releaseLegal": false}
 }

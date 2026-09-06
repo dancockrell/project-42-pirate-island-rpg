@@ -1,0 +1,154 @@
+{
+  "id": "dungeon.tomb_of_returning_names",
+  "kind": "dungeon",
+  "displayName": "Tomb of Returning Names",
+  "defaultOwnerConceptKey": "elves",
+  "corruptedVariantConceptKey": "cthulhu",
+  "spaces": [
+    {
+      "id": "dungeon.tomb_of_returning_names.space.reception_terrace",
+      "space": "reception_terrace",
+      "displayName": "Reception terrace (placeholder: bible §3.13 space 1)",
+      "purpose": "Establish threshold etiquette, dinosaur traces and two visible entrances.",
+      "persistentProof": "Approach observed; companion objection or approval recorded.",
+      "worldCellId": "world.cell.reception_terrace",
+      "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.threshold_etiquette"],
+      "corruptedSiteRuleIds": ["site_rule.tomb.corrupted.grave_hunger", "site_rule.tomb.corrupted.threshold_refused"],
+      "note": "Realised by an approach cell authored before this card and outside its owned file set, so that cell carries no dungeonContext block; the block is on the four tomb_* interior cells only."
+    },
+    {
+      "id": "dungeon.tomb_of_returning_names.space.processional_ramp",
+      "space": "processional_ramp",
+      "displayName": "Processional ramp (placeholder: bible §3.13 space 2)",
+      "purpose": "Teach that slope, drainage and burial rank govern movement.",
+      "persistentProof": "Debris cleared, route marked or dangerous shortcut opened.",
+      "worldCellId": "world.cell.processional_ramp",
+      "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.processional_right_of_way"],
+      "corruptedSiteRuleIds": ["site_rule.tomb.corrupted.grave_hunger", "site_rule.tomb.corrupted.slope_gives_way"],
+      "note": "Realised by an approach cell authored before this card and outside its owned file set, so that cell carries no dungeonContext block; the block is on the four tomb_* interior cells only."
+    },
+    {
+      "id": "dungeon.tomb_of_returning_names.space.registry_court",
+      "space": "registry_court",
+      "displayName": "Registry court (placeholder: bible §3.13 space 3)",
+      "purpose": "Present names, damaged records and the first evidence comparison.",
+      "persistentProof": "Inscription recorded; lineage hypothesis created.",
+      "worldCellId": "world.cell.tomb_threshold",
+      "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.registry_order"],
+      "corruptedSiteRuleIds": ["site_rule.tomb.corrupted.grave_hunger", "site_rule.tomb.corrupted.registry_rewritten"],
+      "note": "Mapped to world.cell.tomb_threshold on the cell's own evidence: sealed name registers cut into the jamb and action.tomb_threshold.inspect_sealed_names, which is the site's first evidence comparison. The bible's lineage hypothesis is not authored yet."
+    },
+    {
+      "id": "dungeon.tomb_of_returning_names.space.water_stair",
+      "space": "water_stair",
+      "displayName": "Water stair (placeholder: bible §3.13 space 4)",
+      "purpose": "Introduce a cycle condition and a route available only at low flow.",
+      "persistentProof": "Valve state and water cycle persisted.",
+      "worldCellId": null,
+      "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.low_flow_window"],
+      "corruptedSiteRuleIds": ["site_rule.tomb.corrupted.grave_hunger", "site_rule.tomb.corrupted.flood_at_will"],
+      "note": "No world cell is authored for this space. B6 authored four tomb interior cells and this is not one of them."
+    },
+    {
+      "id": "dungeon.tomb_of_returning_names.space.petition_gallery",
+      "space": "petition_gallery",
+      "displayName": "Petition gallery (placeholder: bible §3.13 space 5)",
+      "purpose": "First ordinary encounter with a non-kill objective and retreat exit.",
+      "persistentProof": "Encounter aftermath and damage layers persisted.",
+      "worldCellId": "world.cell.tomb_reception",
+      "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.petition_heard"],
+      "corruptedSiteRuleIds": ["site_rule.tomb.corrupted.grave_hunger", "site_rule.tomb.corrupted.petition_denied"],
+      "note": "Mapped to world.cell.tomb_reception, the space where the tomb answers a petitioner: the speaking stone gives back a true name and the low service opening is the retreat exit onward. The bible's ordinary encounter is not authored there yet."
+    },
+    {
+      "id": "dungeon.tomb_of_returning_names.space.service_crawl",
+      "space": "service_crawl",
+      "displayName": "Service crawl (placeholder: bible §3.13 space 6)",
+      "purpose": "Offer a cramped bypass, tool use and a salvage-capacity decision.",
+      "persistentProof": "Grate, cache and noise state persisted.",
+      "worldCellId": "world.cell.tomb_service_passage",
+      "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.service_right_of_passage"],
+      "corruptedSiteRuleIds": ["site_rule.tomb.corrupted.grave_hunger", "site_rule.tomb.corrupted.service_passage_watched"],
+      "note": "Mapped to world.cell.tomb_service_passage: D3's ungated bypass, carrying the disturbed grave-goods cache that makes the salvage decision real. Noise state is not modelled."
+    },
+    {
+      "id": "dungeon.tomb_of_returning_names.space.mourning_court",
+      "space": "mourning_court",
+      "displayName": "Mourning court (placeholder: bible §3.13 space 7)",
+      "purpose": "Provide a safe but emotionally charged camp anchor after its rite is understood.",
+      "persistentProof": "Camp permission and memorial choice persisted.",
+      "worldCellId": null,
+      "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.mourning_truce"],
+      "corruptedSiteRuleIds": ["site_rule.tomb.corrupted.grave_hunger", "site_rule.tomb.corrupted.mourning_broken"],
+      "note": "No world cell is authored for this space. B6 authored four tomb interior cells and this is not one of them."
+    },
+    {
+      "id": "dungeon.tomb_of_returning_names.space.ossuary_lift",
+      "space": "ossuary_lift",
+      "displayName": "Ossuary lift (placeholder: bible §3.13 space 8)",
+      "purpose": "Combine machinery, load, noise and an optional shortcut.",
+      "persistentProof": "Lift position, counterweight and alert persisted.",
+      "worldCellId": null,
+      "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.lift_load_limit"],
+      "corruptedSiteRuleIds": ["site_rule.tomb.corrupted.grave_hunger", "site_rule.tomb.corrupted.lift_unbalanced"],
+      "note": "No world cell is authored for this space. B6 authored four tomb interior cells and this is not one of them."
+    },
+    {
+      "id": "dungeon.tomb_of_returning_names.space.flooded_archive",
+      "space": "flooded_archive",
+      "displayName": "Flooded archive (placeholder: bible §3.13 space 9)",
+      "purpose": "Make textual evidence change the boss plan rather than merely explain lore.",
+      "persistentProof": "Recovered dossier, copied evidence and damaged shelf state persisted.",
+      "worldCellId": "world.cell.tomb_archive_core",
+      "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.archive_silence"],
+      "corruptedSiteRuleIds": ["site_rule.tomb.corrupted.grave_hunger", "site_rule.tomb.corrupted.archive_answers_back"],
+      "note": "Mapped to world.cell.tomb_archive_core, the true-name-gated space whose ledger is the site's textual evidence. Nothing floods it yet; the bible's water is the water stair's, which is unauthored."
+    },
+    {
+      "id": "dungeon.tomb_of_returning_names.space.custodian_bridge",
+      "space": "custodian_bridge",
+      "displayName": "Custodian bridge (placeholder: bible §3.13 space 10)",
+      "purpose": "Elite encounter whose intent becomes clearer through prior observations.",
+      "persistentProof": "Custodian disposition, bridge condition and alternate crossing persisted.",
+      "worldCellId": null,
+      "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.custodian_challenge"],
+      "corruptedSiteRuleIds": ["site_rule.tomb.corrupted.grave_hunger", "site_rule.tomb.corrupted.custodian_turned"],
+      "note": "No world cell is authored for this space. B6 authored four tomb interior cells and this is not one of them."
+    },
+    {
+      "id": "dungeon.tomb_of_returning_names.space.sealed_petition_room",
+      "space": "sealed_petition_room",
+      "displayName": "Sealed petition room (placeholder: bible §3.13 space 11)",
+      "purpose": "Optional dangerous door that is sensible to leave closed.",
+      "persistentProof": "Seal knowledge, opening attempt and contained threat persisted.",
+      "worldCellId": null,
+      "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.seal_holds"],
+      "corruptedSiteRuleIds": ["site_rule.tomb.corrupted.grave_hunger", "site_rule.tomb.corrupted.seal_open"],
+      "note": "No world cell is authored for this space. B6 authored four tomb interior cells and this is not one of them."
+    },
+    {
+      "id": "dungeon.tomb_of_returning_names.space.burial_lord_chamber",
+      "space": "burial_lord_chamber",
+      "displayName": "Burial-lord chamber (placeholder: bible §3.13 space 12)",
+      "purpose": "Resolve the tomb rule through negotiation, combat, ritual compliance or retreat.",
+      "persistentProof": "Tomb authority, artifact custody, faction claim and return route changed.",
+      "worldCellId": null,
+      "siteRuleIds": ["site_rule.tomb.grave_watch", "site_rule.tomb.burial_lord_authority"],
+      "corruptedSiteRuleIds": ["site_rule.tomb.corrupted.grave_hunger", "site_rule.tomb.corrupted.burial_lord_devoured"],
+      "note": "No world cell is authored for this space. B6 authored four tomb interior cells and this is not one of them."
+    }
+  ],
+  "metadata": {
+    "implementationOwner": "godot-rust",
+    "maturity": "provisional",
+    "releaseLegal": false,
+    "notes": [
+      "The twelve spaces are the design bible's §3.13 table, verbatim in purpose and persistent proof and in its order. No thirteenth space is invented and none is dropped.",
+      "Six spaces have a world cell today: two approach cells authored before this card (reception terrace, processional ramp) and B6's four tomb interior cells. The other six carry worldCellId null and say so.",
+      "A site rule ID is opaque here. A7 owns what a site rule does; no rule mechanics, display names or registry are asserted by this record, and nothing in the crate reads a rule's meaning yet.",
+      "defaultOwnerConceptKey and corruptedVariantConceptKey are concept keys from the closed six-key set, never proper names: brief section 4 leaves faction names Open.",
+      "Which faction actually holds the tomb on a given day is the save's answer (S2 ownership through Geography::held_by), not this record's. This record says only which rule set each owner brings.",
+      "needs decision: what a corrupted variant does to a space that has no authored cell, and whether an owner outside the default and the corrupted variant brings a third rule set. select_site_rules gives every non-Cthulhu owner the default set, which is the honest reading of a two-set record."
+    ]
+  }
+}

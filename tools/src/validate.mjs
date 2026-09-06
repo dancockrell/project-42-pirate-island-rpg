@@ -669,6 +669,70 @@ for (const { file, value } of await readJsonDirectory("encounters")) {
   if (value.presentation?.inactivePartyMode !== "card_rail" || value.presentation?.activeActorMode !== "full_body_battle_plane") fail(file, "encounter must preserve the card-to-active combat contract");
 }
 
+// C5: `content/dungeons/`. The design bible's section 3.13 names the twelve
+// spaces of the Tomb of Returning Names; this record lists exactly those
+// twelve, says which world cell realises each one today, and gives each space
+// two site-rule sets -- the owning faction's and the corrupted variant's. The
+// selection between them is S9's `DungeonContext.owning_faction_id`, read by
+// `select_site_rules` in `godot-rust/src/strategy/dungeon_content.rs`; this
+// block refuses a record that reader could not honour.
+//
+// Site-rule IDs are opaque on purpose. A7 owns what a site rule *does*, and
+// no registry of rules exists yet, so `site_rule.<...>` IDs are registered
+// here (uniquely, once, from this record) and referenced from the cells --
+// exactly the treatment `condition.<...>` already gets, one prefix over.
+const dungeonSpaceIdPrefix = "dungeon.";
+const siteRuleIdPrefix = "site_rule.";
+const dungeonSpacesByDungeon = new Map();
+const dungeonRecordsById = new Map();
+let dungeonSpaceCount = 0;
+for (const { file, value } of await readJsonDirectory("dungeons")) {
+  if (value.kind !== "dungeon") fail(file, "kind must be dungeon");
+  if (!value.id?.startsWith(dungeonSpaceIdPrefix)) fail(file, `id ${value.id} must use the dungeon. prefix`);
+  requireString(value, "displayName", file);
+  // Concept keys, never proper names: brief section 4 leaves faction names
+  // Open, and `factionConceptKeys` above is the one list of the six.
+  for (const field of ["defaultOwnerConceptKey", "corruptedVariantConceptKey"]) {
+    if (!factionConceptKeys.includes(value[field])) fail(file, `${field} ${value[field]} is not one of the six concept keys: ${factionConceptKeys.join(", ")}`);
+  }
+  if (value.defaultOwnerConceptKey === value.corruptedVariantConceptKey) fail(file, "defaultOwnerConceptKey and corruptedVariantConceptKey must differ, or an owner change can never change the rules");
+  const spaces = new Map();
+  if (!Array.isArray(value.spaces) || value.spaces.length === 0) fail(file, "spaces must list the dungeon's authored spaces");
+  else for (const [index, space] of value.spaces.entries()) {
+    dungeonSpaceCount += 1;
+    const where = `spaces[${index}]`;
+    registerId(space?.id, file);
+    if (!space?.id?.startsWith(`${value.id}.space.`)) fail(file, `${where}.id ${space?.id} must be ${value.id}.space.<space>`);
+    if (typeof space?.space !== "string" || !/^[a-z][a-z0-9_]*$/.test(space.space)) fail(file, `${where}.space must be a lower_snake_case slug`);
+    else if (space.id !== `${value.id}.space.${space.space}`) fail(file, `${where}.id must end in its own space slug ${space.space}`);
+    else if (spaces.has(space.space)) fail(file, `${where}.space ${space.space} is authored twice`);
+    else spaces.set(space.space, space);
+    for (const field of ["displayName", "purpose", "persistentProof", "note"]) requireString(space ?? {}, field, file);
+    // Either a cell realises this space today, or the record says plainly
+    // that none does. An absent key is neither, and would read as "unknown".
+    if (space?.worldCellId === undefined) fail(file, `${where}.worldCellId must be a world cell ID or null`);
+    else if (space.worldCellId !== null) reference(space.worldCellId, file, `${where}.worldCellId`);
+    for (const field of ["siteRuleIds", "corruptedSiteRuleIds"]) {
+      const rules = space?.[field];
+      if (!Array.isArray(rules) || rules.length === 0) fail(file, `${where}.${field} must name at least one site rule`);
+      else for (const [ruleIndex, ruleId] of rules.entries()) {
+        if (typeof ruleId !== "string" || !ruleId.startsWith(siteRuleIdPrefix)) fail(file, `${where}.${field}[${ruleIndex}] must be a site_rule.<...> stable ID`);
+        else if (!ids.has(ruleId)) registerId(ruleId, file);
+      }
+    }
+    // The card's whole point: a different owner is a different dungeon. A
+    // space whose corrupted set equals its default set would make the owner
+    // change invisible, which is brief section 12's "palette swap".
+    if (JSON.stringify(space?.siteRuleIds) === JSON.stringify(space?.corruptedSiteRuleIds)) fail(file, `${where}.corruptedSiteRuleIds must differ from siteRuleIds; a corrupted variant that selects the same rules is a palette swap (brief section 12)`);
+  }
+  dungeonSpacesByDungeon.set(value.id, spaces);
+  dungeonRecordsById.set(value.id, value);
+  requireString(value.metadata ?? {}, "implementationOwner", file);
+  requireString(value.metadata ?? {}, "maturity", file);
+  if (typeof value.metadata?.releaseLegal !== "boolean") fail(file, "dungeon metadata.releaseLegal must be boolean");
+  if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "dungeon metadata.notes must record which spaces are unrealised and what stays Open");
+}
+
 const worldRecords = await readJsonDirectory("world");
 for (const { file, value } of worldRecords) {
   if (value.kind === "world_region") {
@@ -795,6 +859,38 @@ for (const { file, value } of worldRecords) {
       registerId(description.id, file);
       if (!description.id?.startsWith("observation.")) fail(file, `readableDescriptions[${index}].id must use the observation. prefix`);
       if (typeof description.text !== "string" || description.text.length < 90) fail(file, `readableDescriptions[${index}].text must be at least 90 characters`);
+    }
+    // C5: a cell may declare which dungeon space it realises. The dungeon
+    // record above is the owner of the space table and of both rule sets; this
+    // block is the mirror, and every field of it is checked against the record
+    // rather than believed. `siteRuleIds` here is the space's default-owner
+    // list and nothing else -- A7 reads a cell's site rules from this one
+    // field, so a second list, or a drifted copy of this one, would be two
+    // answers to one question.
+    const dungeonContext = value.dungeonContext;
+    if (dungeonContext !== undefined) {
+      if (!dungeonContext || typeof dungeonContext !== "object" || Array.isArray(dungeonContext)) fail(file, "dungeonContext must be an object");
+      else {
+        reference(dungeonContext.dungeonId, file, "dungeonContext.dungeonId");
+        const authoredSpaces = dungeonSpacesByDungeon.get(dungeonContext.dungeonId);
+        const space = authoredSpaces?.get(dungeonContext.space);
+        if (authoredSpaces && !space) fail(file, `dungeonContext.space ${dungeonContext.space} is not a space of ${dungeonContext.dungeonId}`);
+        for (const field of ["ownerConceptKey", "corruptedVariantConceptKey"]) {
+          if (!factionConceptKeys.includes(dungeonContext[field])) fail(file, `dungeonContext.${field} ${dungeonContext[field]} is not one of the six concept keys: ${factionConceptKeys.join(", ")}`);
+        }
+        const dungeonRecord = dungeonRecordsById.get(dungeonContext.dungeonId);
+        if (dungeonRecord) {
+          if (dungeonContext.ownerConceptKey !== dungeonRecord.defaultOwnerConceptKey) fail(file, `dungeonContext.ownerConceptKey must be ${dungeonRecord.defaultOwnerConceptKey}, the dungeon record's default owner`);
+          if (dungeonContext.corruptedVariantConceptKey !== dungeonRecord.corruptedVariantConceptKey) fail(file, `dungeonContext.corruptedVariantConceptKey must be ${dungeonRecord.corruptedVariantConceptKey}, the dungeon record's corrupted variant`);
+        }
+        if (space) {
+          if (space.worldCellId !== value.id) fail(file, `dungeonContext.space ${dungeonContext.space} is realised by ${space.worldCellId}, not by this cell`);
+          if (JSON.stringify(dungeonContext.siteRuleIds) !== JSON.stringify(space.siteRuleIds)) fail(file, `dungeonContext.siteRuleIds must equal the ${dungeonContext.space} space's siteRuleIds in ${dungeonContext.dungeonId}`);
+        } else if (!Array.isArray(dungeonContext.siteRuleIds) || dungeonContext.siteRuleIds.length === 0) {
+          fail(file, "dungeonContext.siteRuleIds must name at least one site rule");
+        }
+        for (const [index, ruleId] of (dungeonContext.siteRuleIds ?? []).entries()) reference(ruleId, file, `dungeonContext.siteRuleIds[${index}]`);
+      }
     }
     if (value.admission?.collisionSeparatedFromVisualShell !== true || value.admission?.navigationSeparatedFromVisualShell !== true) fail(file, "world cell must separate visual shell, collision and navigation");
   } else {
@@ -1123,4 +1219,4 @@ if (failures.length) {
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
-console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${buildingCount} building records, ${machineCount} machine records, ${relationshipSceneCount} relationship scenes, ${packCount} presentation packs carrying ${packOverrideCount} scene overrides, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
+console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${buildingCount} building records, ${machineCount} machine records, ${dungeonSpaceCount} authored dungeon spaces, ${relationshipSceneCount} relationship scenes, ${packCount} presentation packs carrying ${packOverrideCount} scene overrides, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);

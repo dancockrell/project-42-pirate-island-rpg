@@ -19,13 +19,18 @@ const repo = resolve(import.meta.dirname, "../..");
 // building's machine rule resolves its `output_key` in `MachineDefinitions`, so
 // a machine record that never reached Godot would leave the engine refusing a
 // production the harness completes.
+// `dungeons` joined with C5: the Tomb of Returning Names' twelve authored
+// spaces and the two site-rule sets an owner brings are read by
+// `strategy/dungeon_content.rs`, and the four tomb world cells mirror their
+// space's rules, so the record has to reach Godot beside the cells that point
+// at it or the engine would carry the mirror without the original.
 //
 // `packs/` is deliberately absent and is not a domain. A presentation-override
 // pack is a separate artifact: E9 builds each one into its own `.pck` and B10's
 // registry discovers it at runtime under `user://packs/` or `res://packs/`.
 // Folding a pack into the base bundle would ship the override with the base
 // game, which is the one thing the pack seam exists to prevent.
-const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships", "buildings", "machines"];
+const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships", "buildings", "machines", "dungeons"];
 const records = [];
 
 for (const domain of domains) {
