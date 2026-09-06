@@ -53,7 +53,8 @@
           "party_cards"
         ],
         "cameraId": "presentation.camera.ayla_band_line_medium",
-        "vfxId": "presentation.vfx.none"
+        "vfxId": "presentation.vfx.none",
+        "audioCueId": "audio.cue.gravel_shift"
       },
       {
         "beat": "mark_the_line",
@@ -68,7 +69,8 @@
           "band_line"
         ],
         "cameraId": "presentation.camera.ayla_band_line_medium",
-        "vfxId": "presentation.vfx.ayla.passage_path"
+        "vfxId": "presentation.vfx.ayla.passage_path",
+        "audioCueId": "audio.cue.haft_scrape"
       },
       {
         "beat": "call_them_across",
@@ -83,7 +85,8 @@
           "passage_path"
         ],
         "cameraId": "presentation.camera.ayla_party_wide",
-        "vfxId": "presentation.vfx.ayla.passage_path"
+        "vfxId": "presentation.vfx.ayla.passage_path",
+        "audioCueId": "audio.cue.boots_on_stone"
       },
       {
         "beat": "close_behind_them",
@@ -98,7 +101,8 @@
           "party_cards"
         ],
         "cameraId": "presentation.camera.ayla_party_wide",
-        "vfxId": "presentation.vfx.ayla.recall_fade"
+        "vfxId": "presentation.vfx.ayla.recall_fade",
+        "audioCueId": "audio.cue.haft_settle"
       }
     ],
     "framing": "Ayla, her recurved bronze spear, every named subject and the complete effect remain inside the safe frame.",

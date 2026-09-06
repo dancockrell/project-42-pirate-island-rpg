@@ -71,7 +71,8 @@
           "lethal_vector"
         ],
         "cameraId": "presentation.camera.ally_attacker_warning_close",
-        "vfxId": "presentation.vfx.red_lethal_vector"
+        "vfxId": "presentation.vfx.red_lethal_vector",
+        "audioCueId": "audio.cue.lethal_warning_sting"
       },
       {
         "beat": "betty_breaks_from_card_or_stance",
@@ -88,7 +89,8 @@
           "entry_trail"
         ],
         "cameraId": "presentation.camera.three_actor_snap_wide",
-        "vfxId": "presentation.vfx.teal_card_shatter_entry"
+        "vfxId": "presentation.vfx.teal_card_shatter_entry",
+        "audioCueId": "audio.cue.intercept_dash"
       },
       {
         "beat": "mace_parry_cancels_hit",
@@ -105,7 +107,8 @@
           "parry_sparks"
         ],
         "cameraId": "presentation.camera.parry_contact_close",
-        "vfxId": "presentation.vfx.gold_teal_parry_sparks"
+        "vfxId": "presentation.vfx.gold_teal_parry_sparks",
+        "audioCueId": "audio.cue.weapon_parry_crack"
       },
       {
         "beat": "counter_hit_on_attacker",
@@ -122,7 +125,8 @@
           "counter_arc"
         ],
         "cameraId": "presentation.camera.counter_punch_in",
-        "vfxId": "presentation.vfx.bronze_counter_arc"
+        "vfxId": "presentation.vfx.bronze_counter_arc",
+        "audioCueId": "audio.cue.counter_mace_impact"
       },
       {
         "beat": "ally_confirmed_safe",
@@ -138,7 +142,8 @@
           "mace"
         ],
         "cameraId": "presentation.camera.protector_ally_medium",
-        "vfxId": "presentation.vfx.teal_safety_outline"
+        "vfxId": "presentation.vfx.teal_safety_outline",
+        "audioCueId": "audio.cue.danger_release"
       },
       {
         "beat": "betty_hold_guard",
@@ -154,7 +159,8 @@
           "mace"
         ],
         "cameraId": "presentation.camera.battle_wide_reset",
-        "vfxId": "presentation.vfx.guard_motes_fade"
+        "vfxId": "presentation.vfx.guard_motes_fade",
+        "audioCueId": "audio.cue.guard_hold"
       }
     ],
     "framing": "Betty, protected ally, attacker, complete weapons, parry sparks and counter arc remain inside the safe frame.",

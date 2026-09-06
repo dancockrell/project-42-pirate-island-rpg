@@ -1,0 +1,40 @@
+{
+  "id": "audio.cue.event.actor_revived",
+  "kind": "audio_cue",
+  "displayName": "Battle Event: Actor Revived",
+  "purpose": "the battle event actor_revived, when no skill beat is bound to it",
+  "bus": "Effects",
+  "family": "chime_heal",
+  "voice": {
+    "waveform": "sine",
+    "pitchHz": 698.9,
+    "pitchGlideHz": 148.3,
+    "noiseMix": 0.05,
+    "durationMs": 520,
+    "attackMs": 20,
+    "decayMs": 160,
+    "sustainLevel": 0.25,
+    "releaseMs": 320,
+    "lowpassHz": 9000.0,
+    "tremoloHz": 0.0,
+    "tremoloDepth": 0.0,
+    "loop": false,
+    "seed": 1497
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a recorded or synthesised take that reads as the battle event actor_revived, when no skill beat is bound to it at gameplay distance",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

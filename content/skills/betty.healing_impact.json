@@ -64,7 +64,8 @@
           "target"
         ],
         "cameraId": "presentation.camera.betty_weapon_medium",
-        "vfxId": "presentation.vfx.mace_core_compression"
+        "vfxId": "presentation.vfx.mace_core_compression",
+        "audioCueId": "audio.cue.glass_core_rise"
       },
       {
         "beat": "overhead_swing",
@@ -80,7 +81,8 @@
           "weapon_trail"
         ],
         "cameraId": "presentation.camera.vertical_arc_track",
-        "vfxId": "presentation.vfx.teal_gold_weapon_trail"
+        "vfxId": "presentation.vfx.teal_gold_weapon_trail",
+        "audioCueId": "audio.cue.heavy_mace_whoosh"
       },
       {
         "beat": "ground_impact",
@@ -96,7 +98,8 @@
           "ground_burst"
         ],
         "cameraId": "presentation.camera.ground_impact_punch",
-        "vfxId": "presentation.vfx.bronze_crater_teal_shock"
+        "vfxId": "presentation.vfx.bronze_crater_teal_shock",
+        "audioCueId": "audio.cue.mace_ground_crack"
       },
       {
         "beat": "healing_wave",
@@ -113,7 +116,8 @@
           "healing_wave"
         ],
         "cameraId": "presentation.camera.party_pan",
-        "vfxId": "presentation.vfx.teal_healing_wave"
+        "vfxId": "presentation.vfx.teal_healing_wave",
+        "audioCueId": "audio.cue.healing_wave_bloom"
       },
       {
         "beat": "recover",
@@ -128,7 +132,8 @@
           "target"
         ],
         "cameraId": "presentation.camera.battle_wide_reset",
-        "vfxId": "presentation.vfx.healing_motes_fade"
+        "vfxId": "presentation.vfx.healing_motes_fade",
+        "audioCueId": "audio.cue.mace_lift"
       }
     ],
     "framing": "Betty, enemy, mace arc, ground burst, selected healing recipient and the complete healing wave remain inside the safe frame.",

@@ -1,0 +1,40 @@
+{
+  "id": "audio.cue.event.activation_denied",
+  "kind": "audio_cue",
+  "displayName": "Battle Event: Activation Denied",
+  "purpose": "the battle event activation_denied, when no skill beat is bound to it",
+  "bus": "Effects",
+  "family": "sting",
+  "voice": {
+    "waveform": "saw",
+    "pitchHz": 412.9,
+    "pitchGlideHz": -206.4,
+    "noiseMix": 0.1,
+    "durationMs": 300,
+    "attackMs": 2,
+    "decayMs": 100,
+    "sustainLevel": 0.08,
+    "releaseMs": 180,
+    "lowpassHz": 6000.0,
+    "tremoloHz": 0.0,
+    "tremoloDepth": 0.0,
+    "loop": false,
+    "seed": 1469
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a recorded or synthesised take that reads as the battle event activation_denied, when no skill beat is bound to it at gameplay distance",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

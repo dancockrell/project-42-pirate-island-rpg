@@ -51,7 +51,8 @@
           "ally"
         ],
         "cameraId": "presentation.camera.ayla_ally_close",
-        "vfxId": "presentation.vfx.none"
+        "vfxId": "presentation.vfx.none",
+        "audioCueId": "audio.cue.cloth_shift"
       },
       {
         "beat": "find_the_binding",
@@ -66,7 +67,8 @@
           "spear"
         ],
         "cameraId": "presentation.camera.ayla_ally_close",
-        "vfxId": "presentation.vfx.ayla.dispel_unbinding"
+        "vfxId": "presentation.vfx.ayla.dispel_unbinding",
+        "audioCueId": "audio.cue.low_stone_hum"
       },
       {
         "beat": "cut_the_binding",
@@ -81,7 +83,8 @@
           "unbinding"
         ],
         "cameraId": "presentation.camera.ayla_ally_close",
-        "vfxId": "presentation.vfx.ayla.dispel_unbinding"
+        "vfxId": "presentation.vfx.ayla.dispel_unbinding",
+        "audioCueId": "audio.cue.binding_parts"
       },
       {
         "beat": "release_the_wrist",
@@ -96,7 +99,8 @@
           "spear"
         ],
         "cameraId": "presentation.camera.ayla_party_wide",
-        "vfxId": "presentation.vfx.ayla.recall_fade"
+        "vfxId": "presentation.vfx.ayla.recall_fade",
+        "audioCueId": "audio.cue.haft_settle"
       }
     ],
     "framing": "Ayla, her recurved bronze spear, every named subject and the complete effect remain inside the safe frame.",

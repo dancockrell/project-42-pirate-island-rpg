@@ -1,0 +1,40 @@
+{
+  "id": "audio.cue.sealing_strike",
+  "kind": "audio_cue",
+  "displayName": "Sealing Strike",
+  "purpose": "the sealing strike a skill beat names",
+  "bus": "Effects",
+  "family": "bronze_impact",
+  "voice": {
+    "waveform": "triangle",
+    "pitchHz": 190.6,
+    "pitchGlideHz": -63.5,
+    "noiseMix": 0.55,
+    "durationMs": 260,
+    "attackMs": 2,
+    "decayMs": 90,
+    "sustainLevel": 0.0,
+    "releaseMs": 160,
+    "lowpassHz": 3200.0,
+    "tremoloHz": 0.0,
+    "tremoloDepth": 0.0,
+    "loop": false,
+    "seed": 1406
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a recorded or synthesised take that reads as the sealing strike a skill beat names at gameplay distance",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

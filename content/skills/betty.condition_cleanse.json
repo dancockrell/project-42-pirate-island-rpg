@@ -65,7 +65,8 @@
           "satchel"
         ],
         "cameraId": "presentation.camera.betty_patient_medium",
-        "vfxId": "presentation.vfx.none"
+        "vfxId": "presentation.vfx.none",
+        "audioCueId": "audio.cue.satchel_clasp"
       },
       {
         "beat": "draw_ampoule",
@@ -80,7 +81,8 @@
           "ampoule"
         ],
         "cameraId": "presentation.camera.ampoule_insert",
-        "vfxId": "presentation.vfx.ampoule_inner_glow"
+        "vfxId": "presentation.vfx.ampoule_inner_glow",
+        "audioCueId": "audio.cue.glass_draw"
       },
       {
         "beat": "break_ampoule_over_target",
@@ -96,7 +98,8 @@
           "liquid_thread"
         ],
         "cameraId": "presentation.camera.betty_patient_close",
-        "vfxId": "presentation.vfx.liquid_thread"
+        "vfxId": "presentation.vfx.liquid_thread",
+        "audioCueId": "audio.cue.glass_snap"
       },
       {
         "beat": "cleanse_flash",
@@ -112,7 +115,8 @@
           "cleanse_burst"
         ],
         "cameraId": "presentation.camera.party_medium",
-        "vfxId": "presentation.vfx.teal_white_condition_burst"
+        "vfxId": "presentation.vfx.teal_white_condition_burst",
+        "audioCueId": "audio.cue.cleanse_bloom"
       },
       {
         "beat": "recall",
@@ -127,7 +131,8 @@
           "mace"
         ],
         "cameraId": "presentation.camera.battle_wide_reset",
-        "vfxId": "presentation.vfx.cleanse_motes_fade"
+        "vfxId": "presentation.vfx.cleanse_motes_fade",
+        "audioCueId": "audio.cue.satchel_lock"
       }
     ],
     "framing": "Betty, patient, ampoule and complete cleansing effect remain inside the safe frame.",

@@ -55,7 +55,8 @@
           "hostile"
         ],
         "cameraId": "presentation.camera.ayla_target_medium",
-        "vfxId": "presentation.vfx.none"
+        "vfxId": "presentation.vfx.none",
+        "audioCueId": "audio.cue.breath_catch"
       },
       {
         "beat": "drop_spear_level",
@@ -70,7 +71,8 @@
           "hostile"
         ],
         "cameraId": "presentation.camera.ayla_spear_track",
-        "vfxId": "presentation.vfx.ayla.spear_reach_arc"
+        "vfxId": "presentation.vfx.ayla.spear_reach_arc",
+        "audioCueId": "audio.cue.haft_slide"
       },
       {
         "beat": "reach_strike",
@@ -86,7 +88,8 @@
           "counter_arc"
         ],
         "cameraId": "presentation.camera.ayla_counter_punch",
-        "vfxId": "presentation.vfx.ayla.spear_reach_arc"
+        "vfxId": "presentation.vfx.ayla.spear_reach_arc",
+        "audioCueId": "audio.cue.bronze_bite"
       },
       {
         "beat": "recover_stance",
@@ -101,7 +104,8 @@
           "ally"
         ],
         "cameraId": "presentation.camera.ayla_target_medium",
-        "vfxId": "presentation.vfx.ayla.recall_fade"
+        "vfxId": "presentation.vfx.ayla.recall_fade",
+        "audioCueId": "audio.cue.haft_settle"
       }
     ],
     "framing": "Ayla, her recurved bronze spear, every named subject and the complete effect remain inside the safe frame.",

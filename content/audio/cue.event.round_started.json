@@ -1,0 +1,40 @@
+{
+  "id": "audio.cue.event.round_started",
+  "kind": "audio_cue",
+  "displayName": "Battle Event: Round Started",
+  "purpose": "the battle event round_started, when no skill beat is bound to it",
+  "bus": "Effects",
+  "family": "drone_low",
+  "voice": {
+    "waveform": "sine",
+    "pitchHz": 97.6,
+    "pitchGlideHz": -7.1,
+    "noiseMix": 0.08,
+    "durationMs": 900,
+    "attackMs": 120,
+    "decayMs": 240,
+    "sustainLevel": 0.5,
+    "releaseMs": 420,
+    "lowpassHz": 1400.0,
+    "tremoloHz": 0.0,
+    "tremoloDepth": 0.0,
+    "loop": false,
+    "seed": 1644
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a recorded or synthesised take that reads as the battle event round_started, when no skill beat is bound to it at gameplay distance",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

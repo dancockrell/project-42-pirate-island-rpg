@@ -1,0 +1,40 @@
+{
+  "id": "audio.cue.event.site_rule_overridden",
+  "kind": "audio_cue",
+  "displayName": "Battle Event: Site Rule Overridden",
+  "purpose": "the battle event site_rule_overridden, when no skill beat is bound to it",
+  "bus": "Effects",
+  "family": "shimmer_ward",
+  "voice": {
+    "waveform": "sine",
+    "pitchHz": 928.8,
+    "pitchGlideHz": 44.9,
+    "noiseMix": 0.15,
+    "durationMs": 620,
+    "attackMs": 80,
+    "decayMs": 200,
+    "sustainLevel": 0.3,
+    "releaseMs": 320,
+    "lowpassHz": 11000.0,
+    "tremoloHz": 0.0,
+    "tremoloDepth": 0.0,
+    "loop": false,
+    "seed": 1651
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a recorded or synthesised take that reads as the battle event site_rule_overridden, when no skill beat is bound to it at gameplay distance",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

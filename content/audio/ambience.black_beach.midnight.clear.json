@@ -1,0 +1,28 @@
+{
+  "id": "audio.ambience.black_beach.midnight.clear",
+  "kind": "audio_ambience",
+  "displayName": "Black Beach, midnight, clear",
+  "regionId": "world.region.black_beach",
+  "timeSegment": "midnight",
+  "weather": "clear",
+  "bus": "Ambience",
+  "crossfade": "ambience_slow",
+  "layers": [
+    {
+      "bedId": "audio.bed.sea_wash",
+      "gainDb": -9.0
+    },
+    {
+      "bedId": "audio.bed.coastal_wind",
+      "gainDb": -17.0
+    },
+    {
+      "bedId": "audio.bed.jungle_canopy",
+      "gainDb": -13.0
+    }
+  ],
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "id": "audio.cue.event.turn_started",
+  "kind": "audio_cue",
+  "displayName": "Battle Event: Turn Started",
+  "purpose": "the battle event turn_started, when no skill beat is bound to it",
+  "bus": "Effects",
+  "family": "metal_guard",
+  "voice": {
+    "waveform": "triangle",
+    "pitchHz": 698.7,
+    "pitchGlideHz": -95.3,
+    "noiseMix": 0.2,
+    "durationMs": 320,
+    "attackMs": 2,
+    "decayMs": 120,
+    "sustainLevel": 0.05,
+    "releaseMs": 180,
+    "lowpassHz": 8000.0,
+    "tremoloHz": 0.0,
+    "tremoloDepth": 0.0,
+    "loop": false,
+    "seed": 1686
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a recorded or synthesised take that reads as the battle event turn_started, when no skill beat is bound to it at gameplay distance",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

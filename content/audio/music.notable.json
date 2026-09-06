@@ -1,0 +1,22 @@
+{
+  "id": "audio.music.notable",
+  "kind": "audio_music",
+  "displayName": "Notable Music State",
+  "state": "notable",
+  "bus": "Music",
+  "crossfade": "music_settle",
+  "layers": [
+    {
+      "bedId": "audio.bed.music_bronze_drone",
+      "gainDb": -11.0
+    },
+    {
+      "bedId": "audio.bed.music_vellum_shimmer",
+      "gainDb": -15.0
+    }
+  ],
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

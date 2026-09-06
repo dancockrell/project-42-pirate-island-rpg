@@ -65,7 +65,8 @@
           "anchor_ring"
         ],
         "cameraId": "presentation.camera.betty_party_wide",
-        "vfxId": "presentation.vfx.teal_anchor_ring"
+        "vfxId": "presentation.vfx.teal_anchor_ring",
+        "audioCueId": "audio.cue.mace_plant_lock"
       },
       {
         "beat": "throw_medical_roll",
@@ -81,7 +82,8 @@
           "medical_roll"
         ],
         "cameraId": "presentation.camera.lateral_supply_track",
-        "vfxId": "presentation.vfx.cloth_ribbon_path"
+        "vfxId": "presentation.vfx.cloth_ribbon_path",
+        "audioCueId": "audio.cue.canvas_roll_throw"
       },
       {
         "beat": "supplies_unfurl",
@@ -97,7 +99,8 @@
           "all_supplies"
         ],
         "cameraId": "presentation.camera.field_setup_wide",
-        "vfxId": "presentation.vfx.three_teal_medical_panels"
+        "vfxId": "presentation.vfx.three_teal_medical_panels",
+        "audioCueId": "audio.cue.infirmary_unfurl"
       },
       {
         "beat": "party_aura",
@@ -114,7 +117,8 @@
           "complete_aura"
         ],
         "cameraId": "presentation.camera.party_card_pan",
-        "vfxId": "presentation.vfx.mobile_teal_healing_aura"
+        "vfxId": "presentation.vfx.mobile_teal_healing_aura",
+        "audioCueId": "audio.cue.infirmary_pulse"
       },
       {
         "beat": "shoulder_mace",
@@ -130,7 +134,8 @@
           "persistent_supplies"
         ],
         "cameraId": "presentation.camera.battle_wide_reset",
-        "vfxId": "presentation.vfx.persistent_infirmary_idle"
+        "vfxId": "presentation.vfx.persistent_infirmary_idle",
+        "audioCueId": "audio.cue.mace_shouldered"
       }
     ],
     "framing": "Betty, full party card rail, deployed supplies and entire mobile aura remain inside the safe frame.",

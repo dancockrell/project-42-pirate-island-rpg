@@ -1,0 +1,40 @@
+{
+  "id": "audio.cue.glass_draw",
+  "kind": "audio_cue",
+  "displayName": "Glass Draw",
+  "purpose": "the glass draw a skill beat names",
+  "bus": "Effects",
+  "family": "shimmer_ward",
+  "voice": {
+    "waveform": "sine",
+    "pitchHz": 1562.4,
+    "pitchGlideHz": 75.6,
+    "noiseMix": 0.15,
+    "durationMs": 620,
+    "attackMs": 80,
+    "decayMs": 200,
+    "sustainLevel": 0.3,
+    "releaseMs": 320,
+    "lowpassHz": 11000.0,
+    "tremoloHz": 0.0,
+    "tremoloDepth": 0.0,
+    "loop": false,
+    "seed": 1161
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a recorded or synthesised take that reads as the glass draw a skill beat names at gameplay distance",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

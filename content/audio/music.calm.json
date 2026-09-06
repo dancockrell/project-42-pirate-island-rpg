@@ -1,0 +1,22 @@
+{
+  "id": "audio.music.calm",
+  "kind": "audio_music",
+  "displayName": "Calm Music State",
+  "state": "calm",
+  "bus": "Music",
+  "crossfade": "music_settle",
+  "layers": [
+    {
+      "bedId": "audio.bed.music_bronze_drone",
+      "gainDb": -14.0
+    },
+    {
+      "bedId": "audio.bed.music_vellum_shimmer",
+      "gainDb": -22.0
+    }
+  ],
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

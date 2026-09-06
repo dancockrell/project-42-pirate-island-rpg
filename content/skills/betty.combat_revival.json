@@ -70,7 +70,8 @@
           "mace"
         ],
         "cameraId": "presentation.camera.betty_ally_two_shot",
-        "vfxId": "presentation.vfx.teal_slide_trail"
+        "vfxId": "presentation.vfx.teal_slide_trail",
+        "audioCueId": "audio.cue.armored_knee_slide"
       },
       {
         "beat": "mace_defibrillator_prime",
@@ -86,7 +87,8 @@
           "charge_coils"
         ],
         "cameraId": "presentation.camera.mace_ally_close",
-        "vfxId": "presentation.vfx.gold_teal_charge_coils"
+        "vfxId": "presentation.vfx.gold_teal_charge_coils",
+        "audioCueId": "audio.cue.revival_charge_rise"
       },
       {
         "beat": "controlled_shock",
@@ -102,7 +104,8 @@
           "complete_shock_ring"
         ],
         "cameraId": "presentation.camera.controlled_shock_close",
-        "vfxId": "presentation.vfx.contained_teal_shock_ring"
+        "vfxId": "presentation.vfx.contained_teal_shock_ring",
+        "audioCueId": "audio.cue.revival_shock"
       },
       {
         "beat": "ally_rises",
@@ -118,7 +121,8 @@
           "heartbeat_effect"
         ],
         "cameraId": "presentation.camera.revival_two_shot",
-        "vfxId": "presentation.vfx.heartbeat_line_and_returning_color"
+        "vfxId": "presentation.vfx.heartbeat_line_and_returning_color",
+        "audioCueId": "audio.cue.heartbeat_return"
       },
       {
         "beat": "weapon_return",
@@ -133,7 +137,8 @@
           "mace"
         ],
         "cameraId": "presentation.camera.party_medium",
-        "vfxId": "presentation.vfx.revival_arc_fades"
+        "vfxId": "presentation.vfx.revival_arc_fades",
+        "audioCueId": "audio.cue.weapon_recover"
       },
       {
         "beat": "ally_turn_start",
@@ -149,7 +154,8 @@
           "turn_ring"
         ],
         "cameraId": "presentation.camera.ally_hero_push_in",
-        "vfxId": "presentation.vfx.gold_turn_grant_ring"
+        "vfxId": "presentation.vfx.gold_turn_grant_ring",
+        "audioCueId": "audio.cue.bonus_turn_sting"
       }
     ],
     "framing": "Betty, fallen ally, full mace, revival arc, rising body and all effects remain inside the safe frame.",

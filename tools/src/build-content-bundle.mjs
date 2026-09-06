@@ -41,7 +41,13 @@ const repo = resolve(import.meta.dirname, "../..");
 // builds the faction and building registries. A site-rule record that never
 // reached Godot would leave the engine fighting under no rules while the Rust
 // harness fought under the tomb's.
-const domains = ["characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships", "buildings", "machines", "dungeons", "habitats", "site_rules"];
+// `audio` joined with P9: `Soundscape` resolves an ambience record for the
+// snapshot's region, segment and weather, a cue record for every battle event
+// kind and every skill presentation cue, and a music record per state, and it
+// renders each one's synth parameters at load. An audio record that never
+// reached Godot would leave a battle event silent that the validator had just
+// proved was covered.
+const domains = ["audio", "characters", "skills", "enemies", "encounters", "loot", "world", "presentation", "factions", "relationships", "buildings", "machines", "dungeons", "habitats", "site_rules"];
 const records = [];
 
 for (const domain of domains) {

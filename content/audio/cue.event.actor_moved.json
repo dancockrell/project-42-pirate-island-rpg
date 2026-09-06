@@ -1,0 +1,40 @@
+{
+  "id": "audio.cue.event.actor_moved",
+  "kind": "audio_cue",
+  "displayName": "Battle Event: Actor Moved",
+  "purpose": "the battle event actor_moved, when no skill beat is bound to it",
+  "bus": "Effects",
+  "family": "footstep",
+  "voice": {
+    "waveform": "noise",
+    "pitchHz": 142.8,
+    "pitchGlideHz": -35.7,
+    "noiseMix": 0.85,
+    "durationMs": 190,
+    "attackMs": 1,
+    "decayMs": 60,
+    "sustainLevel": 0.0,
+    "releaseMs": 120,
+    "lowpassHz": 2600.0,
+    "tremoloHz": 0.0,
+    "tremoloDepth": 0.0,
+    "loop": false,
+    "seed": 1490
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a recorded or synthesised take that reads as the battle event actor_moved, when no skill beat is bound to it at gameplay distance",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "id": "audio.ambience.black_beach.dusk.rain",
+  "kind": "audio_ambience",
+  "displayName": "Black Beach, dusk, rain",
+  "regionId": "world.region.black_beach",
+  "timeSegment": "dusk",
+  "weather": "rain",
+  "bus": "Ambience",
+  "crossfade": "ambience_slow",
+  "layers": [
+    {
+      "bedId": "audio.bed.sea_wash",
+      "gainDb": -8.0
+    },
+    {
+      "bedId": "audio.bed.coastal_wind",
+      "gainDb": -13.0
+    },
+    {
+      "bedId": "audio.bed.jungle_canopy",
+      "gainDb": -13.0
+    },
+    {
+      "bedId": "audio.bed.rain_curtain",
+      "gainDb": -9.0
+    }
+  ],
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}
