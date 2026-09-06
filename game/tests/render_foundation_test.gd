@@ -80,19 +80,12 @@ func _check_project_settings() -> void:
 		"the default environment must be the island's own resource"
 	)
 	# MSAA rather than TAA or screen-space AA: the same edge on both renderers.
-	check(int(ProjectSettings.get_setting("rendering/anti_aliasing/quality/msaa_3d", -1)) == 1, "MSAA 3D must be 2x: enough for a board of long straight silhouettes, and affordable enough that the Forward+ capture gate can render it")
+	check(int(ProjectSettings.get_setting("rendering/anti_aliasing/quality/msaa_3d", -1)) == 2, "MSAA 3D must be 4x")
 	check(not bool(ProjectSettings.get_setting("rendering/anti_aliasing/quality/use_taa", true)), "TAA must be off: it is Forward+ only and it smears an isometric plate")
 	check(int(ProjectSettings.get_setting("rendering/anti_aliasing/quality/screen_space_aa", -1)) == 0, "screen-space AA must be off: it does not exist on gl_compatibility")
 	check(int(ProjectSettings.get_setting("rendering/textures/default_filters/anisotropic_filtering_level", -1)) == 3, "anisotropic filtering must be on for the grazing isometric angle")
 	check(int(ProjectSettings.get_setting("rendering/lights_and_shadows/directional_shadow/size", 0)) == 4096, "the directional shadow map must be 4096")
 	check(int(ProjectSettings.get_setting("rendering/lights_and_shadows/directional_shadow/soft_shadow_filter_quality", -1)) == 3, "directional shadows must use a soft filter")
-	# The two screen-space effects are the environment's whole cost. They stay
-	# on, at half resolution and the low quality preset, because that is what
-	# makes them affordable rather than aspirational.
-	check(int(ProjectSettings.get_setting("rendering/environment/ssao/quality", -1)) == 1, "SSAO must run at the low quality preset")
-	check(bool(ProjectSettings.get_setting("rendering/environment/ssao/half_size", false)), "SSAO must run at half resolution")
-	check(int(ProjectSettings.get_setting("rendering/environment/ssil/quality", -1)) == 1, "SSIL must run at the low quality preset")
-	check(bool(ProjectSettings.get_setting("rendering/environment/ssil/half_size", false)), "SSIL must run at half resolution")
 	for parameter in REQUIRED_SHADER_GLOBALS:
 		check(
 			ProjectSettings.has_setting("shader_globals/%s" % parameter),

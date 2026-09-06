@@ -38,31 +38,11 @@ renderer/rendering_method.mobile="gl_compatibility"
 ; silhouettes against sky and sea, which is exactly the case MSAA is good at
 ; and exactly the case TAA smears; TAA and screen-space AA are also Forward+
 ; only, so choosing either would mean two different images on the two
-; renderers. MSAA draws the same edge on both.
-;
-; 2x rather than 4x. On a fixed isometric board every edge is either a long
-; straight silhouette or a shadow boundary, and the second sample already
-; carries those; the third and fourth are paying full raster cost for an edge
-; nobody can see at gameplay distance. It is also the difference between a
-; capture gate that renders the Forward+ plate inside its budget on a software
-; rasteriser and one that does not, which is a real constraint and is named
-; here rather than hidden.
-anti_aliasing/quality/msaa_3d=1
+; renderers. MSAA 4x draws the same edge on both.
+anti_aliasing/quality/msaa_3d=2
 anti_aliasing/quality/screen_space_aa=0
 anti_aliasing/quality/use_taa=false
 anti_aliasing/quality/use_debanding=true
-
-; Screen-space effect budget. SSAO and SSIL are the two most expensive things
-; in the environment, and both are contact and bounce terms read at a distance
-; where full-resolution accuracy is invisible: at half resolution and the low
-; quality preset they still do their whole job in the plate. Glow upscales
-; linearly for the same reason -- bicubic buys a smoothness a soft bloom over
-; a 4-pixel highlight does not show.
-environment/ssao/quality=1
-environment/ssao/half_size=true
-environment/ssil/quality=1
-environment/ssil/half_size=true
-environment/glow/upscale_mode=0
 
 ; Anisotropic filtering because the board is read at a grazing isometric
 ; angle, where trilinear alone turns ground detail to mush at the back of the
