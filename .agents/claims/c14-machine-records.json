@@ -49,7 +49,7 @@
       "needs decision: bridge_requirements carries requirement.open.needs_decision.reinforced_bridge for the wagon and nothing for the dog; what reinforces a crossing is undecided (brief section 5.11 stops at naming reinforced bridges): not_run",
       "needs decision: local_and_offscreen_representations stays placeholder prose for both records until there is a materialiser and an aggregate-force weight to consume it: not_run",
       "Not authored here: six of the eight families have no record, because one record per family would be a catalogue invented in this lane -- brief section 5.4 lists candidates, not a roster. No building produces machine.steam_wagon yet; the building that makes wagons is a later card's: not_run",
-      "Godot: no suite was added or changed and no bridge shape moved; CI's godot-suites job on this branch is the proof. Trunk's campaign_session.gd tree guard (030bef3) was merged in before judging CI: not_run"
+      "Godot: no suite was added or changed and no bridge shape moved. Trunk's campaign_session.gd tree guard (030bef3) was merged in first, and CI's Verify run 34024009685 on 1f3ae47 is green on both jobs -- Rust and content (fmt, tests, godot-ext check, validate, check-claims, bundle freshness) and Godot headless suites (gate run, real bridge proven, not the mock): passed"
     ]
   }
 }
