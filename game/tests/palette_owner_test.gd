@@ -27,7 +27,7 @@ const ThemeTokensScript := preload("res://scripts/ui/theme_tokens.gd")
 ## there. When P10 lands, the two exclusions below are deleted and this suite
 ## covers the whole of `scripts/`.
 const SCRIPT_ROOT := "res://scripts"
-const NOT_OURS_YET: PackedStringArray = ["res://scripts/world", "res://scripts/board"]
+const NOT_OURS_YET: PackedStringArray = ["res://scripts/world"]
 
 ## The two markers, each of which must be followed by a reason.
 const GAME_COLOUR_MARKER := "# game colour:"

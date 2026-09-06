@@ -80,7 +80,9 @@ const OPEN_DIMENSIONS := {
 
 ## Structural timber and canvas (brief section 5.3), for a wagon's bed and
 ## boards. Presentation, not a decision.
+# game colour: timber of the wagon bed, a surface value, not a UI tone
 const TIMBER := Color("6d5a44")
+# game colour: canvas of the wagon boards, a surface value, not a UI tone
 const CANVAS := Color("9a9079")
 
 

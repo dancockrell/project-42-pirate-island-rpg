@@ -43,8 +43,11 @@ const PLACEHOLDER := SetpieceMeshFactoryScript.PLACEHOLDER
 ## `riveted_iron.tres` ever joins the library, this dictionary becomes one key
 ## and nothing else in either kit changes.
 const IRON_PARAMETERS := {
+	# game colour: riveted-iron material language (brief section 5.3), a surface value the library shader takes, not a UI tone
 	"metal_color": Color(0.322, 0.353, 0.396, 1.0),
+	# game colour: the patina on that iron, a surface value, not a UI tone
 	"patina_color": Color(0.412, 0.267, 0.180, 1.0),
+	# game colour: the tarnish on that iron, a surface value, not a UI tone
 	"tarnish_color": Color(0.121, 0.129, 0.145, 1.0),
 	"patina_amount": 0.10,
 	"patina_bias": 0.05,
@@ -52,6 +55,7 @@ const IRON_PARAMETERS := {
 	"polish": 0.34,
 	"metal_roughness": 0.54,
 	"patina_roughness": 0.94,
+	# game colour: the rim light of the placeholder surface, a surface value, not a UI tone
 	"rim_color": Color(0.706, 0.788, 0.851, 1.0),
 	"rim_strength": 0.72,
 	"rim_sharpness": 2.8,

@@ -122,6 +122,7 @@ const DEFAULT_MATERIAL_LANGUAGE := {"walls": BlockoutKitScript.CLAY, "base": Blo
 ## restated: a building takes the wash of the first concept key its
 ## `faction_compatibility` names, which is the only faction fact a C10 record
 ## carries. **needs decision** on nothing: this is presentation.
+# game colour: timber as a building material language (brief section 8), a surface value, not a UI tone
 const TIMBER := Color("6d5a44")
 
 ## The socket kinds a record declares, in the field each is authored in, and the
