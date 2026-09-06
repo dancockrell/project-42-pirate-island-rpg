@@ -3,7 +3,7 @@
   "task_id": "p14-battle-at-every-text-scale",
   "agent": "claude-code lane P14",
   "summary": "Every width on the battle screen is measured from the Theme's type scale rather than typed once at 1.0x: the roster card's copy column, the command plate, the dock and the rail all grow with the text scale, a name that still does not fit wraps or ellipsises by one rule, and a suite instances the battle at 1.0x and 1.3x and refuses a clipped line or a trimmed command name.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -36,10 +36,23 @@
       "p5-bronze-vellum-grammar"
     ],
     "conflicts_with": [],
-    "notes": "Branched from origin/backend/b0-expedition-state at dc22d75. Scope is game/scripts/battle/ layout only: battle_palette.gd's game colours and vfx_factory.gd are untouched, and nothing outside game/scripts/battle/ and game/tests/ changes. Ayla's colours stay Open. The sizes P6 typed at 1.0x now live in one owner, game/scripts/battle/battle_metrics.gd, which measures the Theme's own face at the Theme's own size; paper_card.gd, paper_skill_diamond.gd and battle_prototype.gd all read it, so a card and the column it stands in cannot disagree. Blockout dimensions that are art rather than type -- the portrait gutter, the drawn figure's height, the diamond's drawn height -- stay stated constants and are marked **needs decision** per rule 16."
+    "notes": "Branched from origin/backend/b0-expedition-state at dc22d75. Scope is game/scripts/battle/ layout only: battle_palette.gd's game colours and vfx_factory.gd are untouched, and nothing outside game/scripts/battle/ and game/tests/ changes. Ayla's colours stay Open. The sizes P6 typed at 1.0x now live in one owner, game/scripts/battle/battle_metrics.gd, which measures the Theme's own face at the Theme's own size; paper_card.gd, paper_skill_diamond.gd and battle_prototype.gd all read it, so a card and the column it stands in cannot disagree. Blockout dimensions that are art rather than type -- the portrait gutter, the drawn figure's height, the diamond's drawn height -- stay stated constants and are marked **needs decision** per rule 16. Two faults outside the card's letter were found by looking at the captures and fixed in the same files: the HUD was measured against a stated 1920x1080 rather than the canvas it stands on, so the whole bottom of the screen fell off a 1280-wide review capture; and a paper rig gives its own pieces a z_index (a razorbeak's jaw is 6), Godot's z is relative, and those pieces rose above the whole HUD, so the enemy's legs stood in front of the command dock and hid a letter of its prompt. The HUD now draws on a named layer one above the highest a VFX record may ask for. Not done: the dock's own translucency and the band heading's contrast are P6's colour choices and were left alone; Ayla's colours stay Open; battle_palette.gd and vfx_factory.gd were not touched."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "e6b57ee",
+    "checks": [
+      "bash tools/verify-godot.sh with GODOT set to Godot 4.7.2 (5 review scenes, 31 suites, battle_layout_test.gd among them): passed",
+      "game/tests/battle_layout_test.gd alone through the live Rust bridge, the battle instanced at 1.0x and at 1.3x high contrast: passed",
+      "Bite 1 (the card's own): BattleMetrics.card_copy_width restored to the stated 196-82, suite FAILED naming it -- 'the copy column the type asks for must grow with the text scale: 114 at 1.0x and 114 at 1.3x'; restored: failed",
+      "Bite 2: BattleMetrics.diamond_size restored to the stated Vector2(118, 92), suite FAILED with 19 named checks including \"the command name 'GUARDED STRIKE' must fit its plate whole at 1.3x text\", \"the command plate (106) must be measured from the longest command name; 'CONDITION CLEANSE' needs 164 at 1.3x text\" and 'the command plate must grow with the text scale: 118 at 1.0x and 118 at 1.3x'; restored: failed",
+      "Both bites restored, bash tools/verify-godot.sh rerun on the committed tree: passed",
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (369 lib + 7 + 5 + 11 + 1): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (541 stable IDs; no content changed in this lane): passed",
+      "node tools/src/check-claims.mjs (73 claims, 114 ship-plan rows, 108 cards): passed",
+      "node tools/src/build-content-bundle.mjs not run: no content and no builder changed in this lane: not_run",
+      "Captures docs/verification/captures/P14-e6b57ee-{battle-1.0x,battle-1.3x-high-contrast}.png, read and iterated five times: passed"
+    ]
   }
 }
