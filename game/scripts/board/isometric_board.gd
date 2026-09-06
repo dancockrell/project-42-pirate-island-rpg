@@ -62,6 +62,11 @@ const LIGHTING_KIT_PATH := "res://render/world_environment.tscn"
 const FORCE_MINIATURE_SCALE := 0.72
 ## **needs decision.** How far above a tile a miniature's feet sit, in metres.
 const MINIATURE_LIFT_METRES := 0.4
+## **needs decision.** How far along its road a column that has not yet marched
+## stands from the cell's centre, in metres. A dispatched force marches none of
+## its road until an hour runs (S18), and the party's miniature stands at the
+## centre, so a waiting column stands at the road mouth rather than on the party.
+const FORCE_STAND_OFFSET_METRES := 3.0
 ## **needs decision.** How far above the terrace a drawn road rides, in metres.
 const ROUTE_LIFT_METRES := 2.4
 ## **needs decision.** How far apart two roads between the same two rooms are
@@ -556,9 +561,13 @@ func apply_forces() -> void:
 			)
 		var here := stand_point(cells[position_cell_id])
 		var next_cell_id := str(force.get("next_cell_id", ""))
-		var point := here
+		var point := here + Vector3.RIGHT * FORCE_STAND_OFFSET_METRES
 		if cells.has(next_cell_id):
-			point = here.lerp(stand_point(cells[next_cell_id]), clampf(float(force.get("progress", 0.0)), 0.0, 1.0))
+			var there := stand_point(cells[next_cell_id])
+			var progress := clampf(float(force.get("progress", 0.0)), 0.0, 1.0)
+			point = here.lerp(there, progress)
+			if progress <= 0.0:
+				point = here + (there - here).normalized() * FORCE_STAND_OFFSET_METRES
 		(force_miniatures[force_id] as Node3D).position = point
 	for force_id in force_miniatures.keys():
 		(force_miniatures[force_id] as Node3D).visible = seen.has(force_id)

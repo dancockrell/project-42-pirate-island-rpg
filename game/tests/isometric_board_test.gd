@@ -207,7 +207,8 @@ func _init() -> void:
 	if force_pawn != null:
 		var from_point: Vector3 = board.stand_point(board.cells["world.cell.river_landing"])
 		var to_point: Vector3 = board.stand_point(board.cells["world.cell.reception_terrace"])
-		check(force_pawn.position.is_equal_approx(from_point.lerp(to_point, 0.0)), "the miniature must stand as far down the road as the snapshot says it has marched")
+		var road_mouth: Vector3 = from_point + (to_point - from_point).normalized() * board.FORCE_STAND_OFFSET_METRES
+		check(force_pawn.position.is_equal_approx(road_mouth), "a column that has marched none of its road stands at the road mouth of the cell the snapshot puts it in")
 		check(force_pawn.position != board.party_miniature.position, "a force is not the party and does not stand on it")
 
 	board.queue_free()

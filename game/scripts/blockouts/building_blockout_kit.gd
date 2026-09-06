@@ -261,9 +261,9 @@ static func _build_footprint(root_node: Node3D, record: Dictionary, envelope: Ve
 static func tint_of(record: Dictionary) -> Color:
 	var compatibility: Array = record.get("faction_compatibility", [])
 	for key in compatibility:
-		if BoardPaletteScript.FACTION_TINT.has(str(key)):
-			return BoardPaletteScript.FACTION_TINT[str(key)]
-	return BoardPaletteScript.CLAY
+		if BoardPaletteScript.FACTION_HUE_TURN.has(str(key)):
+			return BoardPaletteScript.faction_hue(str(key))
+	return BoardPaletteScript.clay()
 
 
 static func _surface(language_key: String, tint: Color) -> Material:
@@ -418,6 +418,6 @@ static func _build_sockets(root_node: Node3D, record: Dictionary, envelope: Vect
 				node,
 				SOCKET_MARKER_RADIUS_METRES,
 				SOCKET_MARKER_HEIGHT_METRES,
-				BoardPaletteScript.CREAM
+				BoardPaletteScript.cream()
 			)
 			index += 1

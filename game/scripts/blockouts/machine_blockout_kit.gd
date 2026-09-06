@@ -393,7 +393,7 @@ static func _build_sockets(root_node: Node3D, record: Dictionary, envelope: Vect
 		)
 		node.set_meta("placed", places.has(suffix))
 		BlockoutKitScript.socket_marker(
-			node, SOCKET_MARKER_RADIUS_METRES, SOCKET_MARKER_HEIGHT_METRES, BoardPaletteScript.BRONZE
+			node, SOCKET_MARKER_RADIUS_METRES, SOCKET_MARKER_HEIGHT_METRES, BoardPaletteScript.bronze()
 		)
 
 
