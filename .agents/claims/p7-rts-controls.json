@@ -3,7 +3,7 @@
   "task_id": "p7-rts-controls",
   "agent": "claude-code (lane P7)",
   "summary": "RTS controls on the 2D expedition route board: the drawn portal lines, the teal midpoint dots and the route legend are deleted, tiles are isometric glyphs that tint by reachability, left-click selects or inspects, right-click orders the move, and the route words and digits 1-9 issue the same order through the one request_travel path.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T00:00:00Z",
   "updated_at": "2026-09-06T00:00:00Z",
   "paths": [
@@ -34,7 +34,27 @@
     "notes": "P7 is B18 resumed; the stopped B18 lane pushed a claim and no code, so this claim replaces it rather than joining it. Branched from origin/backend/b0-expedition-state at f5d26d1. Godot-only lane: no Rust, no port, no campaign_session.gd, no content, no docs/SHIP_PLAN.md. draw_portal and its midpoint dot are deleted rather than hidden -- move 3, the feature goes -- and the reachability those lines carried becomes the tint on the tile, which is the same snapshot fact drawn once instead of twice. Legality stays where it is: the native legal_route_commands list is the only judge, and portal_from_active_cell_to is a lookup inside that list, not a second check. The board owns the cell-to-portal mapping because it already builds the catalog portal list; the prototype asks it rather than keeping a second copy. request_travel remains the single path to the bridge -- the words, the right-click and the hotkey all end in it -- and the mouse and key handlers call the same three hooks a suite calls, so there is one code path per order and not two. Reduced motion is read from SettingsPanel's own SETTINGS_PATH and SECTION constants rather than copied, and no file under game/scripts/ui/ is edited. P4 is building the 3D board in parallel and will adopt these controls through the same three functions."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "5aa991c",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (347 lib + 6 authored_world + 5 save_migration + 8 strategic_determinism + 1 vertical_slice; no Rust was touched in this lane): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (300 stable IDs): passed",
+      "node tools/src/check-claims.mjs (55 claims, 105 ship-plan rows, 99 cards): passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/ -- bundle unchanged, no content was authored here: passed",
+      "tools/verify-godot.sh against a locally built debug GDExtension (Godot 4.7.2-stable, the version verify.yml pins): 3 review scenes and 21 suites, 'Godot headless verification passed', no ERROR line anywhere: passed",
+      "Done-when: a move ordered by right-click on the destination tile -- check_rts_controls, order_move_to_tile('world.cell.damaged_estate') returns ordered with the authored portal and the snapshot's active_location_id follows: passed",
+      "Done-when: the same move by hotkey -- press_route_hotkey(1), and '[1]' is drawn on the departure so the key is visible: passed",
+      "Done-when: the same move by the words -- the drawn departure button's pressed signal, landing on world.cell.damaged_estate as the other two did: passed",
+      "Done-when: a right-click on an unreachable tile (processional_ramp from the beach) refuses with reason no_legal_route and the whole native snapshot comes back byte-identical (JSON.stringify before and after): passed",
+      "Done-when: a left-click never travels -- select_tile on another tile and on the party's own tile both leave active_location_id at world.cell.black_beach, and the party's tile is left selected: passed",
+      "Brief section 14: while GamePause holds a reason, order_move_to_tile refuses with reason game_paused and the party does not move: passed",
+      "Done-when: grep -n 'draw_portal\\|midpoint' game/scripts/world/ prints nothing (exit 1, no matches): passed",
+      "Every pre-existing assertion in expedition_prototype_test.gd is unchanged and green, including B14's contested-risk arithmetic on the drawn button and the live-bridge guard, which is verbatim: passed",
+      "Bite: select_tile's non-active branch made to call order_move_to_tile -- a left-click that travels, the exact defect the card forbids. The suite exited 1 naming 'a left-click on another tile must look at it and never travel'; restored and the suite passed again: failed",
+      "Captures committed and looked at: docs/verification/captures/P7-a954666-before.png (portal lines, teal midpoint dots, the legend) and P7-a954666-after.png (none of the three; isometric tiles lit by reachability, the ringed party, the digit on the departure). Both from the real scene through the live bridge, offscreen on the compatibility renderer at 1280x720: passed",
+      "The selection ring's pulse is driven by accumulated frame delta, never a wall clock, and is switched off -- ring drawn at rest, _process disabled -- when the settings surface's reduced_motion is set. No automated proof: the suites are headless and never draw: not_run",
+      "P4's 3D board is not touched and cannot be: it is a parallel lane. It adopts this grammar by calling the same select_tile, order_move_to_tile and press_route_hotkey on ExpeditionPrototype: not_run"
+    ]
   }
 }
