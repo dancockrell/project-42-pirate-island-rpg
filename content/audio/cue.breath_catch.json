@@ -1,0 +1,40 @@
+{
+  "id": "audio.cue.breath_catch",
+  "kind": "audio_cue",
+  "displayName": "Breath Catch",
+  "purpose": "the breath catch a skill beat names",
+  "bus": "Effects",
+  "family": "breath_voice",
+  "voice": {
+    "waveform": "sine",
+    "pitchHz": 224.4,
+    "pitchGlideHz": -33.7,
+    "noiseMix": 0.6,
+    "durationMs": 480,
+    "attackMs": 40,
+    "decayMs": 160,
+    "sustainLevel": 0.2,
+    "releaseMs": 260,
+    "lowpassHz": 3000.0,
+    "tremoloHz": 0.0,
+    "tremoloDepth": 0.0,
+    "loop": false,
+    "seed": 1084
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a recorded or synthesised take that reads as the breath catch a skill beat names at gameplay distance",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

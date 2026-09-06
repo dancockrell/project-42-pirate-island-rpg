@@ -62,7 +62,8 @@
           "mace"
         ],
         "cameraId": "presentation.camera.active_card_close",
-        "vfxId": "presentation.vfx.none"
+        "vfxId": "presentation.vfx.none",
+        "audioCueId": "audio.cue.leather_grip"
       },
       {
         "beat": "break_plane",
@@ -77,7 +78,8 @@
           "target"
         ],
         "cameraId": "presentation.camera.two_actor_track",
-        "vfxId": "presentation.vfx.teal_card_release"
+        "vfxId": "presentation.vfx.teal_card_release",
+        "audioCueId": "audio.cue.boot_step"
       },
       {
         "beat": "impact",
@@ -93,7 +95,8 @@
           "impact_arc"
         ],
         "cameraId": "presentation.camera.impact_punch_in",
-        "vfxId": "presentation.vfx.bronze_teal_impact_arc"
+        "vfxId": "presentation.vfx.bronze_teal_impact_arc",
+        "audioCueId": "audio.cue.mace_armor_impact"
       },
       {
         "beat": "guard_set",
@@ -109,7 +112,8 @@
           "guard_ring"
         ],
         "cameraId": "presentation.camera.two_actor_medium",
-        "vfxId": "presentation.vfx.teal_guard_ring"
+        "vfxId": "presentation.vfx.teal_guard_ring",
+        "audioCueId": "audio.cue.guard_chime"
       },
       {
         "beat": "recall",
@@ -124,7 +128,8 @@
           "target"
         ],
         "cameraId": "presentation.camera.battle_wide_reset",
-        "vfxId": "presentation.vfx.card_recall_trail"
+        "vfxId": "presentation.vfx.card_recall_trail",
+        "audioCueId": "audio.cue.card_lock"
       }
     ],
     "framing": "Betty, target, mace head, complete impact arc and both characters' feet remain inside the safe frame.",

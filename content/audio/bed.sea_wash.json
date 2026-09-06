@@ -1,0 +1,38 @@
+{
+  "id": "audio.bed.sea_wash",
+  "kind": "audio_bed",
+  "displayName": "Sea Wash",
+  "purpose": "a seamless sea wash layer an ambience or music record mixes",
+  "voice": {
+    "waveform": "noise",
+    "pitchHz": 140.0,
+    "pitchGlideHz": -20.0,
+    "noiseMix": 1.0,
+    "durationMs": 4000,
+    "attackMs": 400,
+    "decayMs": 600,
+    "sustainLevel": 1.0,
+    "releaseMs": 400,
+    "lowpassHz": 1800.0,
+    "tremoloHz": 0.22,
+    "tremoloDepth": 0.7,
+    "loop": true,
+    "seed": 4001
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a seamless recorded loop of sea wash with no audible seam at the wrap",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

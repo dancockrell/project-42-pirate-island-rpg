@@ -1,0 +1,40 @@
+{
+  "id": "audio.cue.event.battle_retreated",
+  "kind": "audio_cue",
+  "displayName": "Battle Event: Battle Retreated",
+  "purpose": "the battle event battle_retreated, when no skill beat is bound to it",
+  "bus": "Effects",
+  "family": "whoosh",
+  "voice": {
+    "waveform": "noise",
+    "pitchHz": 356.4,
+    "pitchGlideHz": -285.1,
+    "noiseMix": 1.0,
+    "durationMs": 340,
+    "attackMs": 30,
+    "decayMs": 120,
+    "sustainLevel": 0.1,
+    "releaseMs": 180,
+    "lowpassHz": 5200.0,
+    "tremoloHz": 0.0,
+    "tremoloDepth": 0.0,
+    "loop": false,
+    "seed": 1511
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a recorded or synthesised take that reads as the battle event battle_retreated, when no skill beat is bound to it at gameplay distance",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

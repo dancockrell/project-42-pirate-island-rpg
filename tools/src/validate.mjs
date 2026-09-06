@@ -100,7 +100,7 @@ for (const { file, value } of await readJsonDirectory("skills")) {
     else {
       const cueBeats = new Set();
       for (const [index, cue] of cues.entries()) {
-        for (const field of ["beat", "pose", "motion", "cameraId", "vfxId", "audio"]) {
+        for (const field of ["beat", "pose", "motion", "cameraId", "vfxId", "audioCueId", "audio"]) {
           if (typeof cue?.[field] !== "string" || cue[field].length === 0) fail(file, `animation.presentationCues[${index}].${field} must be a direct non-empty instruction`);
         }
         if (!beatNames.has(cue?.beat)) fail(file, `presentation cue targets missing beat ${cue?.beat}`);
@@ -111,6 +111,12 @@ for (const { file, value } of await readJsonDirectory("skills")) {
         if (!Array.isArray(cue?.frameSubjects) || cue.frameSubjects.length < 2) fail(file, `presentation cue ${cue?.beat} must name at least two safe-frame subjects`);
         reference(cue?.cameraId, file, `animation.presentationCues[${index}].cameraId`);
         reference(cue?.vfxId, file, `animation.presentationCues[${index}].vfxId`);
+        // P9: audio follows the VFX stable-reference rule -- a cue names an
+        // `audio.cue.*` record, never an improvised sound label. The free-text
+        // `audio` field that predates it is the same statement in prose, so the
+        // two are held equal here rather than left to drift into two answers.
+        reference(cue?.audioCueId, file, `animation.presentationCues[${index}].audioCueId`);
+        if (typeof cue?.audio === "string" && cue?.audioCueId !== `audio.cue.${cue.audio}`) fail(file, `presentation cue ${cue?.beat} audioCueId must be audio.cue.${cue?.audio}, the stable record for the sound its audio label names`);
       }
     }
   }
@@ -1382,6 +1388,164 @@ for (const directoryName of packDirectoryNames) {
   if (!Array.isArray(value.metadata?.notes) || value.metadata.notes.length === 0) fail(file, "pack metadata.notes must record what the pack is and what it deliberately does not carry");
 }
 
+// P9: the soundscape's records. Four kinds and one voice shape between them: a
+// `bed` is a seamless layer, a `cue` is a one-shot, an `ambience` record mixes
+// beds for one region/segment/weather triple, and a `music` record mixes beds
+// for one of the four states the surface asks for by name. Every record is a
+// procedural placeholder until a real asset is admitted, and the asset block is
+// where its licence, source and author go on the day it is -- the repository
+// admits no audio file of uncertain provenance.
+//
+// `emittedBattleEvents` is the full list the bridge writes as `kind`; the
+// bindable subset above is the part a skill beat may be tied to. The subset
+// check below is what stops the two lists becoming two answers to one question.
+const emittedBattleEvents = new Set([
+  "activation_denied", "actor_defeated", "actor_focused", "actor_moved", "actor_revived",
+  "battle_ended", "battle_retreated", "battle_started", "battlefield_effect_created",
+  "battlefield_effect_pulse", "battlefield_effect_removed", "bonus_turn_granted",
+  "command_accepted", "command_rejected", "damage_applied", "defeat_prevented",
+  "enemy_intent_declared", "guard_changed", "interception_set", "interception_triggered",
+  "reaction_triggered", "reaction_window_opened", "recovery_opening_consumed",
+  "recovery_opening_created", "recovery_opening_expired", "round_started",
+  "site_rule_overridden", "status_applied", "status_removed", "target_inspected",
+  "turn_ended", "turn_started", "vitality_changed", "ward_line_placed", "ward_line_triggered",
+]);
+const audioFile = resolve(repo, "content/audio");
+for (const eventKind of bindableBattleEvents) {
+  if (!emittedBattleEvents.has(eventKind)) fail(audioFile, `bindable battle event ${eventKind} is not in the list of kinds the bridge emits`);
+}
+
+const audioBuses = new Set(["Master", "Music", "Ambience", "Effects", "Voice"]);
+const audioWaveforms = new Set(["sine", "triangle", "square", "saw", "noise"]);
+const audioRecordKinds = new Set(["audio_bed", "audio_cue", "audio_ambience", "audio_music"]);
+const audioCrossfades = new Set(["ambience_slow", "ambience_weather_break", "music_settle", "music_cut"]);
+const audioMusicStates = ["calm", "notable", "battle", "urgent"];
+const audioTimeSegments = ["dawn", "day", "dusk", "midnight"];
+// S8's `WeatherCondition`, in the order that enum declares: ordinary weather
+// first, the corrupted end last. A sixth condition here would be an invention.
+const audioWeatherConditions = ["clear", "overcast", "rain", "storm", "unnatural"];
+let audioPlaceholderCount = 0;
+const audioBedIds = new Set();
+const audioCueIds = new Set();
+const audioAmbienceTriples = new Set();
+const audioMusicStatesSeen = new Set();
+
+function validateVoice(voice, file, label) {
+  if (!voice || typeof voice !== "object" || Array.isArray(voice)) return fail(file, `${label} voice must be an object the synth can render`);
+  if (!audioWaveforms.has(voice.waveform)) fail(file, `${label} voice.waveform must be one of ${[...audioWaveforms].join(", ")}`);
+  for (const key of ["pitchHz", "pitchGlideHz", "lowpassHz", "tremoloHz"]) {
+    if (typeof voice[key] !== "number" || !Number.isFinite(voice[key])) fail(file, `${label} voice.${key} must be a finite number`);
+  }
+  if (!(voice.pitchHz > 0) || voice.pitchHz > 20000) fail(file, `${label} voice.pitchHz must be an audible frequency`);
+  if (!(voice.lowpassHz > 0)) fail(file, `${label} voice.lowpassHz must be positive`);
+  for (const key of ["noiseMix", "sustainLevel", "tremoloDepth"]) {
+    if (typeof voice[key] !== "number" || voice[key] < 0 || voice[key] > 1) fail(file, `${label} voice.${key} must be from 0 through 1`);
+  }
+  for (const key of ["durationMs", "attackMs", "decayMs", "releaseMs", "seed"]) {
+    if (!Number.isInteger(voice[key]) || voice[key] < 0) fail(file, `${label} voice.${key} must be a non-negative integer`);
+  }
+  // Determinism: the synth never draws an unseeded number, so a voice with any
+  // noise in it has to say which stream it draws from.
+  if (voice.noiseMix > 0 && voice.seed <= 0) fail(file, `${label} voice.seed must be a positive integer: noise is rendered from the record's own seed and never from an unseeded draw`);
+  if (typeof voice.loop !== "boolean") fail(file, `${label} voice.loop must be boolean`);
+  if (voice.durationMs < 40 || voice.durationMs > 8000) fail(file, `${label} voice.durationMs must be from 40 through 8000`);
+  if (voice.attackMs + voice.decayMs + voice.releaseMs > voice.durationMs) fail(file, `${label} voice envelope is longer than the sound it shapes`);
+}
+
+function validateAudioAsset(record, file) {
+  const asset = record.asset;
+  if (!asset || typeof asset !== "object") return fail(file, `${record.id} must carry an asset block naming its provenance`);
+  if (asset.status !== "procedural_placeholder" && asset.status !== "admitted_asset") return fail(file, `${record.id} asset.status must be procedural_placeholder until a real asset is admitted, then admitted_asset`);
+  requireString(asset, "generator", file);
+  for (const key of ["runtimePath", "licence", "source", "author"]) {
+    if (typeof asset[key] !== "string") fail(file, `${record.id} asset.${key} must be a string, empty while the sound is a placeholder`);
+  }
+  if (asset.status === "procedural_placeholder") {
+    audioPlaceholderCount += 1;
+    for (const key of ["runtimePath", "licence", "source", "author"]) {
+      if (asset[key] !== "") fail(file, `${record.id} asset.${key} claims a real asset while asset.status still says procedural_placeholder`);
+    }
+  } else {
+    for (const key of ["runtimePath", "licence", "source", "author"]) {
+      if (asset[key] === "") fail(file, `${record.id} asset.${key} must be recorded before an admitted audio file may ship`);
+    }
+  }
+  if (!Array.isArray(asset.replacementGate) || asset.replacementGate.length < 2) fail(file, `${record.id} needs at least two explicit replacement gates`);
+}
+
+function validateAudioLayers(record, file) {
+  if (!Array.isArray(record.layers) || record.layers.length === 0) return fail(file, `${record.id} must mix at least one bed`);
+  const seen = new Set();
+  for (const [index, layer] of record.layers.entries()) {
+    reference(layer?.bedId, file, `${record.id}.layers[${index}].bedId`);
+    if (seen.has(layer?.bedId)) fail(file, `${record.id} mixes ${layer?.bedId} twice`);
+    seen.add(layer?.bedId);
+    if (typeof layer?.gainDb !== "number" || layer.gainDb > 0 || layer.gainDb < -60) fail(file, `${record.id}.layers[${index}].gainDb must be a number from -60 through 0`);
+  }
+  if (!audioCrossfades.has(record.crossfade)) fail(file, `${record.id}.crossfade must name one of the durations Soundscape declares: ${[...audioCrossfades].join(", ")}`);
+}
+
+for (const { file, value } of await readJsonDirectory("audio")) {
+  if (!audioRecordKinds.has(value.kind)) fail(file, `${value.id} kind must be one of ${[...audioRecordKinds].join(", ")}`);
+  requireString(value, "displayName", file);
+  requireString(value.metadata ?? {}, "implementationOwner", file);
+  requireString(value.metadata ?? {}, "maturity", file);
+  if (value.kind === "audio_bed" || value.kind === "audio_cue") {
+    validateVoice(value.voice, file, value.id);
+    validateAudioAsset(value, file);
+    requireString(value, "purpose", file);
+  }
+  if (value.kind === "audio_bed") {
+    if (value.voice?.loop !== true) fail(file, `${value.id} is a bed and must loop`);
+    audioBedIds.add(value.id);
+  }
+  if (value.kind === "audio_cue") {
+    if (value.voice?.loop !== false) fail(file, `${value.id} is a one-shot cue and must not loop`);
+    if (value.bus !== "Effects") fail(file, `${value.id} must play on the Effects bus`);
+    audioCueIds.add(value.id);
+  }
+  if (value.kind === "audio_ambience") {
+    validateAudioLayers(value, file);
+    reference(value.regionId, file, `${value.id}.regionId`);
+    if (!audioTimeSegments.includes(value.timeSegment)) fail(file, `${value.id}.timeSegment must be one of ${audioTimeSegments.join(", ")}`);
+    if (!audioWeatherConditions.includes(value.weather)) fail(file, `${value.id}.weather must be one of ${audioWeatherConditions.join(", ")}`);
+    if (value.bus !== "Ambience") fail(file, `${value.id} must play on the Ambience bus`);
+    audioAmbienceTriples.add(`${value.regionId}|${value.timeSegment}|${value.weather}`);
+  }
+  if (value.kind === "audio_music") {
+    validateAudioLayers(value, file);
+    if (!audioMusicStates.includes(value.state)) fail(file, `${value.id}.state must be one of ${audioMusicStates.join(", ")}`);
+    if (value.bus !== "Music") fail(file, `${value.id} must play on the Music bus`);
+    if (value.id !== `audio.music.${value.state}`) fail(file, `${value.id} must be named for the state it plays`);
+    audioMusicStatesSeen.add(value.state);
+  }
+  if (value.bus !== undefined && !audioBuses.has(value.bus)) fail(file, `${value.id}.bus must be one of ${[...audioBuses].join(", ")}`);
+}
+
+for (const bedId of audioBedIds) {
+  // A bed nothing mixes is a noodle to nowhere; the synth would render it and
+  // no ambience or music record would ever play it.
+  if (!references.some(item => item.id === bedId && item.field.includes(".layers["))) fail(audioFile, `${bedId} is mixed by no ambience or music record`);
+}
+for (const kind of emittedBattleEvents) {
+  if (!audioCueIds.has(`audio.cue.event.${kind}`)) fail(audioFile, `battle event ${kind} has no cue record: content/audio/cue.event.${kind}.json is missing`);
+}
+for (const state of audioMusicStates) {
+  if (!audioMusicStatesSeen.has(state)) fail(audioFile, `music state ${state} has no record`);
+}
+// Every authored region, every segment, every weather condition: the ambience
+// chooser must never be handed a triple it cannot answer, and the region list
+// is the one `content/world/*.region.json` declares -- there is no second list.
+for (const { value } of worldRecords.filter(({ value }) => value.kind === "world_region")) {
+  for (const segment of audioTimeSegments) {
+    for (const weather of audioWeatherConditions) {
+      if (!audioAmbienceTriples.has(`${value.id}|${segment}|${weather}`)) fail(audioFile, `no ambience record for ${value.id} at ${segment} in ${weather} weather`);
+    }
+  }
+}
+const audioCueCount = audioCueIds.size;
+const audioAmbienceCount = audioAmbienceTriples.size;
+
 // An enemy *skill* is the one reference that still resolves outside this ID
 // map. `content/skills/` authors the party's skills; an enemy's skill is
 // declared inline by the creature record that uses it and by the habitat that
@@ -1406,4 +1570,4 @@ if (failures.length) {
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
-console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${enemyCount} creature records, ${habitatCount} habitats, ${buildingCount} building records, ${machineCount} machine records, ${dungeonSpaceCount} authored dungeon spaces, ${siteRuleCount} site rules, ${relationshipSceneCount} relationship scenes, ${packCount} presentation packs carrying ${packOverrideCount} scene overrides, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
+console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${enemyCount} creature records, ${habitatCount} habitats, ${buildingCount} building records, ${machineCount} machine records, ${dungeonSpaceCount} authored dungeon spaces, ${siteRuleCount} site rules, ${relationshipSceneCount} relationship scenes, ${packCount} presentation packs carrying ${packOverrideCount} scene overrides, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${creaturePlateCount} creature still-image plates, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked; ${audioCueCount} audio cues and ${audioAmbienceCount} ambience triples resolve, ${audioPlaceholderCount} audio records still procedural placeholders.`);

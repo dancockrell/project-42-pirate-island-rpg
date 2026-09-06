@@ -1,0 +1,40 @@
+{
+  "id": "audio.cue.event.reaction_window_opened",
+  "kind": "audio_cue",
+  "displayName": "Battle Event: Reaction Window Opened",
+  "purpose": "the battle event reaction_window_opened, when no skill beat is bound to it",
+  "bus": "Effects",
+  "family": "shimmer_ward",
+  "voice": {
+    "waveform": "sine",
+    "pitchHz": 1042.8,
+    "pitchGlideHz": 50.5,
+    "noiseMix": 0.15,
+    "durationMs": 620,
+    "attackMs": 80,
+    "decayMs": 200,
+    "sustainLevel": 0.3,
+    "releaseMs": 320,
+    "lowpassHz": 11000.0,
+    "tremoloHz": 0.0,
+    "tremoloDepth": 0.0,
+    "loop": false,
+    "seed": 1616
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a recorded or synthesised take that reads as the battle event reaction_window_opened, when no skill beat is bound to it at gameplay distance",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

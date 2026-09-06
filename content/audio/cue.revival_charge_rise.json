@@ -1,0 +1,40 @@
+{
+  "id": "audio.cue.revival_charge_rise",
+  "kind": "audio_cue",
+  "displayName": "Revival Charge Rise",
+  "purpose": "the revival charge rise a skill beat names",
+  "bus": "Effects",
+  "family": "chime_heal",
+  "voice": {
+    "waveform": "sine",
+    "pitchHz": 524.0,
+    "pitchGlideHz": 111.2,
+    "noiseMix": 0.05,
+    "durationMs": 520,
+    "attackMs": 20,
+    "decayMs": 160,
+    "sustainLevel": 0.25,
+    "releaseMs": 320,
+    "lowpassHz": 9000.0,
+    "tremoloHz": 0.0,
+    "tremoloDepth": 0.0,
+    "loop": false,
+    "seed": 1371
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a recorded or synthesised take that reads as the revival charge rise a skill beat names at gameplay distance",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

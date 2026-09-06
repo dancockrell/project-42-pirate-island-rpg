@@ -65,7 +65,8 @@
           "mace"
         ],
         "cameraId": "presentation.camera.threatened_ally_three_shot",
-        "vfxId": "presentation.vfx.danger_line_to_ally"
+        "vfxId": "presentation.vfx.danger_line_to_ally",
+        "audioCueId": "audio.cue.brace_inhale"
       },
       {
         "beat": "shoulder_charge",
@@ -82,7 +83,8 @@
           "charge_trail"
         ],
         "cameraId": "presentation.camera.lateral_speed_track",
-        "vfxId": "presentation.vfx.teal_dust_charge_trail"
+        "vfxId": "presentation.vfx.teal_dust_charge_trail",
+        "audioCueId": "audio.cue.armored_sprint"
       },
       {
         "beat": "enemy_knockaside",
@@ -99,7 +101,8 @@
           "impact_burst"
         ],
         "cameraId": "presentation.camera.contact_punch_in",
-        "vfxId": "presentation.vfx.bronze_collision_burst"
+        "vfxId": "presentation.vfx.bronze_collision_burst",
+        "audioCueId": "audio.cue.body_check_impact"
       },
       {
         "beat": "cover_ally",
@@ -116,7 +119,8 @@
           "intercept_link"
         ],
         "cameraId": "presentation.camera.protector_ally_medium",
-        "vfxId": "presentation.vfx.teal_intercept_link"
+        "vfxId": "presentation.vfx.teal_intercept_link",
+        "audioCueId": "audio.cue.protective_lock"
       },
       {
         "beat": "guard_set",
@@ -132,7 +136,8 @@
           "mace"
         ],
         "cameraId": "presentation.camera.battle_wide_reset",
-        "vfxId": "presentation.vfx.intercept_marker_set"
+        "vfxId": "presentation.vfx.intercept_marker_set",
+        "audioCueId": "audio.cue.mace_guard_set"
       }
     ],
     "framing": "Betty, rescued ally, displaced enemy and the complete charge trail remain inside the safe frame.",

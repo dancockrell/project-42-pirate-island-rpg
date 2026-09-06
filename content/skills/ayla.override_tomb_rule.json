@@ -56,7 +56,8 @@
           "rule_stone"
         ],
         "cameraId": "presentation.camera.ayla_rule_stone_push",
-        "vfxId": "presentation.vfx.none"
+        "vfxId": "presentation.vfx.none",
+        "audioCueId": "audio.cue.stone_contact"
       },
       {
         "beat": "read_it_aloud",
@@ -71,7 +72,8 @@
           "site_marks"
         ],
         "cameraId": "presentation.camera.ayla_rule_stone_push",
-        "vfxId": "presentation.vfx.ayla.rule_struck_through"
+        "vfxId": "presentation.vfx.ayla.rule_struck_through",
+        "audioCueId": "audio.cue.spoken_rule"
       },
       {
         "beat": "strike_it_through",
@@ -86,7 +88,8 @@
           "rule_stone"
         ],
         "cameraId": "presentation.camera.ayla_rule_stone_push",
-        "vfxId": "presentation.vfx.ayla.rule_struck_through"
+        "vfxId": "presentation.vfx.ayla.rule_struck_through",
+        "audioCueId": "audio.cue.stone_cut"
       },
       {
         "beat": "cut_the_alternate",
@@ -102,7 +105,8 @@
           "site_marks"
         ],
         "cameraId": "presentation.camera.ayla_rule_stone_push",
-        "vfxId": "presentation.vfx.ayla.rule_struck_through"
+        "vfxId": "presentation.vfx.ayla.rule_struck_through",
+        "audioCueId": "audio.cue.stone_cut_short"
       },
       {
         "beat": "stand_away",
@@ -117,7 +121,8 @@
           "rule_stone"
         ],
         "cameraId": "presentation.camera.ayla_party_wide",
-        "vfxId": "presentation.vfx.ayla.recall_fade"
+        "vfxId": "presentation.vfx.ayla.recall_fade",
+        "audioCueId": "audio.cue.haft_settle"
       }
     ],
     "framing": "Ayla, her recurved bronze spear, every named subject and the complete effect remain inside the safe frame.",

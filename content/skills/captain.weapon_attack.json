@@ -63,7 +63,8 @@
           "steam_carbine"
         ],
         "cameraId": "presentation.camera.active_card_close",
-        "vfxId": "presentation.vfx.none"
+        "vfxId": "presentation.vfx.none",
+        "audioCueId": "audio.cue.boiler_pack_idle"
       },
       {
         "beat": "shoulder",
@@ -78,7 +79,8 @@
           "target"
         ],
         "cameraId": "presentation.camera.two_actor_track",
-        "vfxId": "presentation.vfx.teal_card_release"
+        "vfxId": "presentation.vfx.teal_card_release",
+        "audioCueId": "audio.cue.brass_stock_set"
       },
       {
         "beat": "discharge",
@@ -94,7 +96,8 @@
           "impact_arc"
         ],
         "cameraId": "presentation.camera.impact_punch_in",
-        "vfxId": "presentation.vfx.bronze_teal_impact_arc"
+        "vfxId": "presentation.vfx.bronze_teal_impact_arc",
+        "audioCueId": "audio.cue.steam_carbine_report"
       },
       {
         "beat": "cycle_action",
@@ -109,7 +112,8 @@
           "target"
         ],
         "cameraId": "presentation.camera.two_actor_medium",
-        "vfxId": "presentation.vfx.teal_gold_weapon_trail"
+        "vfxId": "presentation.vfx.teal_gold_weapon_trail",
+        "audioCueId": "audio.cue.lever_cycle_and_vent"
       },
       {
         "beat": "recall",
@@ -124,7 +128,8 @@
           "target"
         ],
         "cameraId": "presentation.camera.battle_wide_reset",
-        "vfxId": "presentation.vfx.card_recall_trail"
+        "vfxId": "presentation.vfx.card_recall_trail",
+        "audioCueId": "audio.cue.card_lock"
       }
     ],
     "framing": "Captain Michael, the target, the carbine muzzle, the complete impact arc and both characters' feet remain inside the safe frame.",

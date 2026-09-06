@@ -60,7 +60,8 @@
           "steam_carbine"
         ],
         "cameraId": "presentation.camera.active_card_close",
-        "vfxId": "presentation.vfx.none"
+        "vfxId": "presentation.vfx.none",
+        "audioCueId": "audio.cue.boiler_pack_idle"
       },
       {
         "beat": "break_plane",
@@ -75,7 +76,8 @@
           "destination_band"
         ],
         "cameraId": "presentation.camera.lateral_speed_track",
-        "vfxId": "presentation.vfx.teal_card_release"
+        "vfxId": "presentation.vfx.teal_card_release",
+        "audioCueId": "audio.cue.boot_pivot"
       },
       {
         "beat": "slide",
@@ -91,7 +93,8 @@
           "traversed_ground"
         ],
         "cameraId": "presentation.camera.vertical_arc_track",
-        "vfxId": "presentation.vfx.teal_slide_trail"
+        "vfxId": "presentation.vfx.teal_slide_trail",
+        "audioCueId": "audio.cue.gravel_stride_and_vent"
       },
       {
         "beat": "brace",
@@ -106,7 +109,8 @@
           "guard_ring"
         ],
         "cameraId": "presentation.camera.two_actor_medium",
-        "vfxId": "presentation.vfx.teal_guard_ring"
+        "vfxId": "presentation.vfx.teal_guard_ring",
+        "audioCueId": "audio.cue.guard_chime"
       },
       {
         "beat": "recall",
@@ -121,7 +125,8 @@
           "destination_band"
         ],
         "cameraId": "presentation.camera.battle_wide_reset",
-        "vfxId": "presentation.vfx.card_recall_trail"
+        "vfxId": "presentation.vfx.card_recall_trail",
+        "audioCueId": "audio.cue.card_lock"
       }
     ],
     "framing": "Captain Michael, the ground he crosses, the destination band and his feet at both ends of the traverse remain inside the safe frame.",

@@ -1,0 +1,22 @@
+{
+  "id": "audio.music.battle",
+  "kind": "audio_music",
+  "displayName": "Battle Music State",
+  "state": "battle",
+  "bus": "Music",
+  "crossfade": "music_cut",
+  "layers": [
+    {
+      "bedId": "audio.bed.music_bronze_drone",
+      "gainDb": -9.0
+    },
+    {
+      "bedId": "audio.bed.music_heart_pulse",
+      "gainDb": -12.0
+    }
+  ],
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

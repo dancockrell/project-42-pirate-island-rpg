@@ -1,0 +1,38 @@
+{
+  "id": "audio.bed.jungle_canopy",
+  "kind": "audio_bed",
+  "displayName": "Jungle Canopy",
+  "purpose": "a seamless jungle canopy layer an ambience or music record mixes",
+  "voice": {
+    "waveform": "sine",
+    "pitchHz": 520.0,
+    "pitchGlideHz": 0.0,
+    "noiseMix": 0.75,
+    "durationMs": 4000,
+    "attackMs": 400,
+    "decayMs": 600,
+    "sustainLevel": 1.0,
+    "releaseMs": 400,
+    "lowpassHz": 3800.0,
+    "tremoloHz": 1.7,
+    "tremoloDepth": 0.5,
+    "loop": true,
+    "seed": 4004
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a seamless recorded loop of jungle canopy with no audible seam at the wrap",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

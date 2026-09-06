@@ -1,0 +1,38 @@
+{
+  "id": "audio.bed.coastal_wind",
+  "kind": "audio_bed",
+  "displayName": "Coastal Wind",
+  "purpose": "a seamless coastal wind layer an ambience or music record mixes",
+  "voice": {
+    "waveform": "noise",
+    "pitchHz": 320.0,
+    "pitchGlideHz": 0.0,
+    "noiseMix": 1.0,
+    "durationMs": 4000,
+    "attackMs": 400,
+    "decayMs": 600,
+    "sustainLevel": 1.0,
+    "releaseMs": 400,
+    "lowpassHz": 900.0,
+    "tremoloHz": 0.13,
+    "tremoloDepth": 0.45,
+    "loop": true,
+    "seed": 4002
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a seamless recorded loop of coastal wind with no audible seam at the wrap",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

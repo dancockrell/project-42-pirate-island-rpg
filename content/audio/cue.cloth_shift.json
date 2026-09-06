@@ -1,0 +1,40 @@
+{
+  "id": "audio.cue.cloth_shift",
+  "kind": "audio_cue",
+  "displayName": "Cloth Shift",
+  "purpose": "the cloth shift a skill beat names",
+  "bus": "Effects",
+  "family": "cloth_leather",
+  "voice": {
+    "waveform": "noise",
+    "pitchHz": 269.3,
+    "pitchGlideHz": -44.9,
+    "noiseMix": 0.95,
+    "durationMs": 220,
+    "attackMs": 10,
+    "decayMs": 80,
+    "sustainLevel": 0.05,
+    "releaseMs": 120,
+    "lowpassHz": 4200.0,
+    "tremoloHz": 0.0,
+    "tremoloDepth": 0.0,
+    "loop": false,
+    "seed": 1126
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a recorded or synthesised take that reads as the cloth shift a skill beat names at gameplay distance",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

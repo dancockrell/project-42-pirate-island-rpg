@@ -1,0 +1,38 @@
+{
+  "id": "audio.bed.music_bronze_drone",
+  "kind": "audio_bed",
+  "displayName": "Bronze Drone",
+  "purpose": "a seamless bronze drone layer an ambience or music record mixes",
+  "voice": {
+    "waveform": "triangle",
+    "pitchHz": 110.0,
+    "pitchGlideHz": 0.0,
+    "noiseMix": 0.02,
+    "durationMs": 4000,
+    "attackMs": 400,
+    "decayMs": 600,
+    "sustainLevel": 1.0,
+    "releaseMs": 400,
+    "lowpassHz": 1600.0,
+    "tremoloHz": 0.09,
+    "tremoloDepth": 0.18,
+    "loop": true,
+    "seed": 4006
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a seamless recorded loop of bronze drone with no audible seam at the wrap",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

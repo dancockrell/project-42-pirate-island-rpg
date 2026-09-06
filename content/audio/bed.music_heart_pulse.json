@@ -1,0 +1,38 @@
+{
+  "id": "audio.bed.music_heart_pulse",
+  "kind": "audio_bed",
+  "displayName": "Heart Pulse",
+  "purpose": "a seamless heart pulse layer an ambience or music record mixes",
+  "voice": {
+    "waveform": "sine",
+    "pitchHz": 66.0,
+    "pitchGlideHz": 0.0,
+    "noiseMix": 0.1,
+    "durationMs": 4000,
+    "attackMs": 400,
+    "decayMs": 600,
+    "sustainLevel": 1.0,
+    "releaseMs": 400,
+    "lowpassHz": 700.0,
+    "tremoloHz": 1.6,
+    "tremoloDepth": 0.9,
+    "loop": true,
+    "seed": 4008
+  },
+  "asset": {
+    "status": "procedural_placeholder",
+    "generator": "placeholder_synth",
+    "runtimePath": "",
+    "licence": "",
+    "source": "",
+    "author": "",
+    "replacementGate": [
+      "a seamless recorded loop of heart pulse with no audible seam at the wrap",
+      "licence, source and author recorded in this record's asset block before the file is admitted"
+    ]
+  },
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

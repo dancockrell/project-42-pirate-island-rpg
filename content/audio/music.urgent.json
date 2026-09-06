@@ -1,0 +1,26 @@
+{
+  "id": "audio.music.urgent",
+  "kind": "audio_music",
+  "displayName": "Urgent Music State",
+  "state": "urgent",
+  "bus": "Music",
+  "crossfade": "music_cut",
+  "layers": [
+    {
+      "bedId": "audio.bed.music_bronze_drone",
+      "gainDb": -7.0
+    },
+    {
+      "bedId": "audio.bed.music_heart_pulse",
+      "gainDb": -9.0
+    },
+    {
+      "bedId": "audio.bed.music_toll",
+      "gainDb": -11.0
+    }
+  ],
+  "metadata": {
+    "implementationOwner": "godot-gdscript",
+    "maturity": "procedural-placeholder"
+  }
+}

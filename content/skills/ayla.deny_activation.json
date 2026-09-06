@@ -55,7 +55,8 @@
           "target"
         ],
         "cameraId": "presentation.camera.ayla_mechanism_close",
-        "vfxId": "presentation.vfx.none"
+        "vfxId": "presentation.vfx.none",
+        "audioCueId": "audio.cue.mechanism_ticking"
       },
       {
         "beat": "set_the_counter_mark",
@@ -70,7 +71,8 @@
           "denial_seal"
         ],
         "cameraId": "presentation.camera.ayla_mechanism_close",
-        "vfxId": "presentation.vfx.ayla.denial_seal"
+        "vfxId": "presentation.vfx.ayla.denial_seal",
+        "audioCueId": "audio.cue.chalk_on_stone"
       },
       {
         "beat": "strike_the_seal",
@@ -86,7 +88,8 @@
           "denial_seal"
         ],
         "cameraId": "presentation.camera.ayla_counter_punch",
-        "vfxId": "presentation.vfx.ayla.denial_seal"
+        "vfxId": "presentation.vfx.ayla.denial_seal",
+        "audioCueId": "audio.cue.seal_closes"
       },
       {
         "beat": "hold_it_shut",
@@ -101,7 +104,8 @@
           "target"
         ],
         "cameraId": "presentation.camera.ayla_mechanism_close",
-        "vfxId": "presentation.vfx.ayla.recall_fade"
+        "vfxId": "presentation.vfx.ayla.recall_fade",
+        "audioCueId": "audio.cue.mechanism_silent"
       }
     ],
     "framing": "Ayla, her recurved bronze spear, every named subject and the complete effect remain inside the safe frame.",
