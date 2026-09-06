@@ -17,6 +17,7 @@ use crate::geography::{AnchorDefinition, AnchorKind, Geography, RouteOption};
 use crate::habitat::{Habitats, LootTable};
 use crate::hunter::{self, Hunter, HunterKind};
 use crate::strategy::faction::FactionDefinitions;
+use crate::strategy::journal::{JournalEntry, StrategicJournal};
 use crate::strategy::recruitment::{RecruitmentStage, RecruitmentState};
 use crate::strategy::tick::{self, HOURS_PER_DAY, StrategicClock, StrategicEvent};
 use crate::world::{
@@ -158,6 +159,17 @@ pub struct ExpeditionState {
     /// the strategic clock existed resumes at hour zero of its own day.
     #[serde(default)]
     pub strategic_clock: StrategicClock,
+    /// S11: what the island did, as the save keeps it. Brief section 17 lists
+    /// "strategic event history" among the things a save must preserve; a
+    /// literal append-only list of it would grow for as long as a campaign
+    /// runs, so this is the bounded form -- a window of recent entries plus an
+    /// order-sensitive digest of everything older, which together lose
+    /// nothing that could distinguish two histories. Written only by
+    /// [`ExpeditionState::strategic_tick`], through
+    /// [`StrategicJournal::push`]. `serde(default)` so a save written before
+    /// the journal existed loads with an empty one.
+    #[serde(default)]
+    pub strategic_journal: StrategicJournal,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -384,6 +396,9 @@ impl ExpeditionState {
             // S4: the first hour of the first day. Nothing has been drawn yet,
             // so the determinism witness is still zero.
             strategic_clock: StrategicClock::new(),
+            // S11: a fresh campaign has no history yet -- no entries, nothing
+            // evicted, so the history digest is still zero.
+            strategic_journal: StrategicJournal::new(),
         };
         state.validate()?;
         Ok(state)
@@ -1263,7 +1278,25 @@ impl ExpeditionState {
         geography: &Geography,
         factions: &FactionDefinitions,
     ) -> Vec<StrategicEvent> {
-        tick::run_hour(self, geography, factions)
+        // S11: the hour's events are recorded before they are handed back, so
+        // the save's history does not depend on what the caller does with the
+        // return value. The journal is bounded: entries older than its window
+        // fold into its digest rather than accumulating, so a campaign of any
+        // length writes a save of the same size.
+        //
+        // The stamp is read before the hour runs, because that is the hour
+        // that ran: `run_hour` advances the clock, so afterwards
+        // `hour_of_day` names the next hour. Reading it here rather than
+        // matching the event's own fields also means a variant S5 adds needs
+        // no change in this method to be journalled correctly.
+        let day = self.campaign_day;
+        let hour = self.strategic_clock.hour_of_day;
+        let events = tick::run_hour(self, geography, factions);
+        for event in &events {
+            self.strategic_journal
+                .push(JournalEntry::new(day, hour, event.clone()));
+        }
+        events
     }
 
     /// S12: plays one authored recruitment beat for one woman.
