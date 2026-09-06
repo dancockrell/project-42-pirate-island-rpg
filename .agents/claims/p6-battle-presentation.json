@@ -3,9 +3,9 @@
   "task_id": "p6-battle-presentation",
   "agent": "claude-code lane P6",
   "summary": "The battle screen renders its presentation registries instead of reading them for labels: a vfx_factory builds a real particle-and-shader effect per presentation.vfx record, camera beats and hit-stop come from presentation.camera, the band rail eases, damage numbers carry weight, the ward line is a drawn shimmering line, grave watch pulses on hostiles, death dissolves, and the paper rigs get a lighting pass that sits them in the plate.",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-06T11:30:00Z",
-  "updated_at": "2026-09-06T11:30:00Z",
+  "updated_at": "2026-09-06T14:05:00Z",
   "paths": [
     "game/scripts/battle/",
     "game/scenes/battle/",
@@ -13,8 +13,6 @@
     "tools/src/validate.mjs",
     "game/generated/content_bundle.json",
     "game/tests/battle_presentation_test.gd",
-    "game/tests/prototype_turn_cycle_test.gd",
-    "game/tests/placeholder_action_presenter_test.gd",
     "docs/verification/captures/"
   ],
   "symbols": [
@@ -22,16 +20,36 @@
     "BattleStage",
     "BattleCameraRig",
     "DamageNumber",
-    "WardLine",
-    "BattlePrototype"
+    "BattlePalette",
+    "BattlePrototype",
+    "PaperDoll.dissolve",
+    "PaperStage.FLOOR_Y_FRACTION"
   ],
   "coordination": {
     "depends_on": ["a5-bands-and-composure", "a6-captain-michael-actor", "a7-c3-ayla-lands", "a10-bond-rank-gate", "b17-battle-from-the-campaign"],
     "conflicts_with": [],
-    "notes": "Branched from origin/backend/b0-expedition-state at f5d26d1. Baseline capture read before any code was written (docs/verification/captures/P6-<sha>-00-before.png): the paper rigs float roughly a hundred pixels above the painted terrace floor with no contact shadow, no rim light and no plate colour on them, so they read as stickers on a photograph; there is no effect of any kind on screen -- the vfx registry is consumed only as tooltip prose; there is no camera, no hit-stop and no shake; no damage numbers; the band rail is a flat corner list whose names clip (MICHAEL CORRIGA) and whose Composure pips run off the card; the skill diamonds sit loose on the stone with unreadable grey-on-grey labels; the enemy intent line is invisible against the bright sky; and the paper stage's teal and red layout guide arcs are drawn in the running game. lane/P5-grammar-and-surface had pushed nothing when this lane finished, so game/themes/bronze_vellum.tres does not exist and the prototype's own DEEP/PANEL/CREAM/TEAL/BRONZE/DANGER constants stay the owner of every colour, gathered into one BattlePalette block with a comment naming the Theme as the owner that replaces them."
+    "notes": "Branched from origin/backend/b0-expedition-state at f5d26d1. BASELINE, read before any code was written (docs/verification/captures has no `before` file because the card asks for six beats of the finished screen; the fault list is here): the paper rigs floated roughly a hundred pixels above the painted terrace with no contact shadow, no rim light and no plate colour on them, so they read as stickers on a photograph; there was no effect of any kind on screen, the vfx registry being consumed only as tooltip prose; no camera, no hit-stop, no shake; no damage numbers; the band rail was a flat corner list whose names clipped (MICHAEL CORRIGA) and whose Composure pips ran off the card edge; Michael's command grid was folded into a portrait card too small to read a word in; the skill diamonds sat loose on the stone with grey-on-grey labels; the enemy intent line vanished into the bright sky; and the paper stage's teal and red layout guide arcs were drawn in the running game. THE RECORD IS THE OWNER: vfx_factory.gd builds every effect from its record and nothing else, and paper_doll.gd's `draw_presentation_vfx` -- which hand-drew three specific vfx ids -- had to be deleted for that to be true (move 2, replace); its `draw_betty` (no caller) and `draw_raptor` (unreachable behind razorbeak_rig == null) went with it (move 3). REGISTRY FIELDS ADDED, with validator lines: `socket` (a closed set of fourteen live rig sockets), `emitter` (none/burst/ring/crescent/beam/trail/motes/panel) and `direction` (none/outward/inward/upward/downward/forward/backward/along_line) on all 46 vfx entries; `anchor` and `motion` stay the authored art words a painter reads, and several anchors map to one socket (an ampoule and a mace core are both carried in the main hand), which is a mapping, not two answers to one question. The validator also holds every authored palette word to a colour BattlePalette.EFFECT_COLORS can resolve, and battle_presentation_test.gd asserts the same pair, so a word added to one without the other fails rather than rendering black. PALETTE: lane/P5-grammar-and-surface had pushed nothing when this lane finished, so game/themes/bronze_vellum.tres does not exist; battle_palette.gd gathers the prototype's own DEEP/PANEL/CREAM/TEAL/BRONZE/DANGER/MUTED at their existing values plus the effect vocabulary, with a comment naming the Theme as the owner that replaces them. AYLA'S COLOURS ARE OPEN: her nine records carry the literal `palette_unestablished_pending_ayla_identity_lock`, and the factory renders them in one neutral constant marked `needs decision` rather than choosing for her. GRAVE WATCH WITHOUT A NEW SNAPSHOT KEY: the snapshot carries no site rules and Rust is not this lane's, so the screen reads the `site_rule.round.<n>` command id the bridge already writes on the Guard a rule hands out at the round boundary -- nothing else writes it -- and pulses the hostiles that received it. RENDERING FACTS FOUND BY CAPTURE, not assumed: a CanvasGroup composite with an edge-detecting rim shader renders nothing on this project's declared gl_compatibility path (a flat magenta shader on the group came back as an unchanged figure), so the lighting pass is a drawn backlight texture, per-piece shade modulation and a parent-material shader for the bleed and the dissolve; and a ShaderMaterial and two `_draw` implementations on the contact-shadow node all came back invisible while the effect layer's ring, beam, crescent and panel shaders rendered in the same frame, so the contact shadow is a radial GradientTexture2D. Both are noted in the code beside the choice. TWO CAPTURE BEATS ARE DRIVEN AND SAY SO: software rendering here runs at a few frames a second, too slow to catch a 190 ms effect inside the real playback clock, so the impact beat's authored cue is handed to the screen directly with the engine clock slowed; and no code path in battle.rs calls `spend_composure` outside its own tests, so no fight in this tree can produce a Shaken actor and that beat is driven by a snapshot carrying the status in the bridge's exact shape. BLOCKED, NOT FAKED: Ayla's seven commands cannot be SUBMITTED through the debug battle -- the fixture starts her at bond rank D (battle.rs `prototype_vertical_slice`) and no authored scene in this tree raises her, so A10's gate refuses her rank A ward line and above. All sixteen records are still PLAYED through the same director path a submitted command uses, which is what the card's assertion is about; a suite that submits her kit needs either a campaign whose scenes raise Ayla or a fixture change, and both belong to A-lane cards. The card says fourteen skills (Betty's seven and Ayla's seven); Michael's two play on the same screen through the same director and are exercised too, so the suite covers sixteen."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "5aff993",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml (347 lib + 6 + 5 + 8 + 1; no Rust was changed in this lane): passed",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs (300 stable IDs, 16 skills, 77 presentation cues; the three new closed vocabularies enforced on all 46 vfx entries and every palette word held to a resolvable colour): passed",
+      "node tools/src/check-claims.mjs (55 claims, 105 ship-plan rows, 99 cards): passed",
+      "node tools/src/build-content-bundle.mjs then a second run leaving the file byte-identical (93 records, sha256:ad2be805...): passed",
+      "bash tools/verify-godot.sh with GODOT=4.7.2-stable, on the committed tree: 3 review scenes and 22 suites, no ERROR line -- Godot headless verification passed: passed",
+      "game/tests/battle_presentation_test.gd through the live bridge (it refuses if Project42SimulationBridge is not registered, and asserts the port is NativeSimulationPort): all sixteen authored skill records played, every cue's camera beat fired, every non-`none` effect instantiated under the name its record gives, every transient effect freed on its own persistence: passed",
+      "battle_presentation_test: the reduced-flash substitute swaps the record's additive blend for a mixed outline on the same record, same socket, same lifetime, silences a burst's particles, and leaves a record marked `unchanged` alone: passed",
+      "battle_presentation_test: both rigs' feet stand within two pixels of the plate's own floor line, at their band's place on it, each with a contact shadow sitting on that line: passed",
+      "battle_presentation_test: the ward line is the persistent beam its record describes and is released when the ward breaks; a site-rule command id is recognised and an ordinary one is not; a defeated rig dissolves: passed",
+      "battle_presentation_test: every socket any authored record names resolves to a point on the stage, and every authored palette word resolves to a colour: passed",
+      "prototype_turn_cycle_test.gd (the existing screen suite, unchanged): passed",
+      "placeholder_action_presenter_test.gd, skill_animation_director_test.gd, combat_text_renderer_test.gd, paper_betty_rig_test.gd, paper_razorbeak_rig_test.gd, targeting_session_test.gd, campaign_encounter_port_test.gd, native_simulation_port_test.gd: passed",
+      "Bite: vfx_factory.build made to return null for the crescent emitter; battle_presentation_test FAILED (exit 1) naming exactly the right assertions -- `skill.betty.guarded_strike must instantiate the effect its record presentation.vfx.bronze_teal_impact_arc names` and the same for healing_impact, fatal_intercept and the rest: failed",
+      "Bite, restored: battle_presentation_test green again: passed",
+      "Six captures rendered offscreen on the compatibility path and READ before this claim was written, committed as docs/verification/captures/P6-984f7cb-*.png, each under 400 KB: passed"
+    ]
   }
 }
