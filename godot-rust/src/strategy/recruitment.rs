@@ -209,6 +209,27 @@ pub struct MilestoneRule {
     /// judged, so one authored beat may both answer her condition and move her.
     #[serde(default, alias = "clearsConditions")]
     pub clears_conditions: BTreeSet<String>,
+    /// A10: the bond rank this beat carries her to, as one of the seven
+    /// authored letters (`battle::rank_index`). `None` -- the usual case -- is a
+    /// beat that plays and leaves her rank where it was.
+    ///
+    /// It is on the *rule* rather than only on the scene so the rank travels
+    /// into [`RecruitmentState::milestone_rules`] with everything else the beat
+    /// means, and [`ExpeditionState::record_recruitment_milestone`] can read one
+    /// record instead of holding the authored scenes open a second time.
+    ///
+    /// Deliberately independent of [`MilestoneRule::advances_to`]: a beat may
+    /// move her stage without moving her rank, or her rank without her stage.
+    /// The two ladders answer different questions -- where she stands with his
+    /// faction, and how far she will go for him -- and collapsing them would
+    /// make bond rank a second spelling of recruitment stage.
+    ///
+    /// The raise is applied by `ExpeditionState`, not here: `RecruitmentState`
+    /// owns one woman and the rank map is campaign-wide, so this type carries
+    /// the authored intent and the campaign performs it. It never lowers: see
+    /// that method.
+    #[serde(default, alias = "raisesBondRankTo")]
+    pub raises_bond_rank_to: Option<String>,
 }
 
 impl MilestoneRule {
@@ -285,7 +306,9 @@ pub struct AuthoredScene {
     /// [`BASE_TREE_PRESENTATION_LEVEL`] for every record in this repository.
     #[serde(alias = "presentationLevel")]
     pub presentation_level: String,
-    /// The authored rule, verbatim.
+    /// The authored rule, verbatim -- including A10's
+    /// [`MilestoneRule::raises_bond_rank_to`], which content spells
+    /// `raisesBondRankTo` inside the record's `rule` object.
     pub rule: MilestoneRule,
 }
 
@@ -758,6 +781,99 @@ mod tests {
             assert_eq!(state.to_json(), before);
         }
 
+        /// A10, the link from the arc to the fight: recording the milestone of
+        /// a scene that carries `raisesBondRankTo` raises her bond rank, and a
+        /// beat that carries nothing leaves it alone.
+        #[test]
+        fn a_beat_that_says_so_raises_her_bond_rank_and_one_that_does_not_leaves_it() {
+            let mut state = campaign();
+            assert_eq!(state.bond_ranks[BETTY], "D", "every woman starts at D");
+
+            // A beat with a rule but no `raisesBondRankTo` moves her stage and
+            // nothing else.
+            assert_eq!(
+                state.record_recruitment_milestone(BETTY, "milestone.test.open_invitation"),
+                Ok(RecruitmentStage::Committed)
+            );
+            assert_eq!(state.bond_ranks[BETTY], "D");
+
+            // The same command, for a beat that says so.
+            let betty = state.recruitment.get_mut(BETTY).expect("fixture recruit");
+            betty.milestone_rules.insert(
+                "milestone.test.the_household".into(),
+                MilestoneRule {
+                    raises_bond_rank_to: Some("C".into()),
+                    ..MilestoneRule::default()
+                },
+            );
+            state
+                .record_recruitment_milestone(BETTY, "milestone.test.the_household")
+                .expect("the beat plays");
+            assert_eq!(state.bond_ranks[BETTY], "C");
+
+            // Ayla was not in the scene and did not move.
+            assert_eq!(state.bond_ranks[AYLA], "D");
+        }
+
+        /// It only ever goes up. A beat naming a letter at or below where she
+        /// already stands is recorded and moves nothing, and a letter outside
+        /// the seven is refused rather than stored.
+        #[test]
+        fn a_lower_letter_never_lowers_her_bond_rank() {
+            let mut state = campaign();
+            let betty = state.recruitment.get_mut(BETTY).expect("fixture recruit");
+            for (milestone, letter) in [
+                ("milestone.test.to_b", "B"),
+                ("milestone.test.back_to_d", "D"),
+                ("milestone.test.sideways", "B"),
+                ("milestone.test.nonsense", "SSSS"),
+            ] {
+                betty.milestone_rules.insert(
+                    milestone.into(),
+                    MilestoneRule {
+                        raises_bond_rank_to: Some(letter.into()),
+                        ..MilestoneRule::default()
+                    },
+                );
+            }
+
+            state
+                .record_recruitment_milestone(BETTY, "milestone.test.to_b")
+                .expect("the beat plays");
+            assert_eq!(state.bond_ranks[BETTY], "B");
+            for beat in [
+                "milestone.test.back_to_d",
+                "milestone.test.sideways",
+                "milestone.test.nonsense",
+            ] {
+                state
+                    .record_recruitment_milestone(BETTY, beat)
+                    .expect("the beat plays");
+                assert_eq!(state.bond_ranks[BETTY], "B", "{beat} moved her rank");
+            }
+        }
+
+        /// End to end, on the authored record rather than a fixture rule: the
+        /// scene C6 wrote is adopted, its milestone is recorded, and the rank
+        /// that opens her rank C Condition Cleanse is the one content named.
+        #[test]
+        fn the_authored_household_scene_carries_her_to_c() {
+            let mut state = campaign();
+            let scenes = authored_scenes();
+            let betty = state.recruitment.get_mut(BETTY).expect("fixture recruit");
+            betty.recruitment_stage = RecruitmentStage::Interested;
+            betty.trust_in_michael = Disposition::new(75);
+            betty
+                .adopt_authored_scenes(&scenes)
+                .expect("authored milestone IDs are stable IDs");
+
+            assert_eq!(state.bond_ranks[BETTY], "D");
+            state
+                .record_recruitment_milestone(BETTY, "milestone.betty.the_wreck_dead_are_buried")
+                .expect("the authored beat plays");
+            assert_eq!(state.bond_ranks[BETTY], "C");
+        }
+
         /// The lane's whole point, at the command boundary: she is as drawn to
         /// him as the simulation can express and she does not move.
         #[test]
@@ -789,12 +905,13 @@ mod tests {
     /// throughout, that no rule can move a woman backwards, and that at least
     /// one rule rests on trust rather than on attraction -- the content-side
     /// half of `attraction_alone_does_not_move_her_through_the_command`.
-    #[test]
-    fn every_authored_scene_rule_loads() {
+    /// Every `content/relationships/*.json` record, deserialized. The one
+    /// reader of that directory in this file, so the authored-content tests and
+    /// the campaign end-to-end test below cannot disagree about what content
+    /// says.
+    fn authored_scenes() -> Vec<AuthoredScene> {
         let scene_directory = concat!(env!("CARGO_MANIFEST_DIR"), "/../content/relationships/");
-        const AYLA: &str = "character.heroine.ayla";
         let mut scenes: Vec<AuthoredScene> = Vec::new();
-        let mut milestone_ids: BTreeSet<String> = BTreeSet::new();
         for entry in std::fs::read_dir(scene_directory).expect("content/relationships/ is readable")
         {
             let path = entry.expect("a readable directory entry").path();
@@ -802,37 +919,71 @@ mod tests {
                 continue;
             }
             let text = std::fs::read_to_string(&path).expect("the scene file is readable");
-            let scene: AuthoredScene = serde_json::from_str(&text)
-                .unwrap_or_else(|error| panic!("{} is an AuthoredScene: {error}", path.display()));
+            scenes.push(
+                serde_json::from_str(&text).unwrap_or_else(|error| {
+                    panic!("{} is an AuthoredScene: {error}", path.display())
+                }),
+            );
+        }
+        scenes.sort_by(|left, right| left.id.cmp(&right.id));
+        scenes
+    }
+
+    #[test]
+    fn every_authored_scene_rule_loads() {
+        const AYLA: &str = "character.heroine.ayla";
+        let scenes = authored_scenes();
+        let mut milestone_ids: BTreeSet<String> = BTreeSet::new();
+        for scene in &scenes {
             assert!(
                 scene.woman_id == BETTY || scene.woman_id == AYLA,
                 "{} authors a woman who does not exist: {}",
-                path.display(),
+                scene.id,
                 scene.woman_id
             );
             assert_eq!(
-                scene.presentation_level,
-                BASE_TREE_PRESENTATION_LEVEL,
+                scene.presentation_level, BASE_TREE_PRESENTATION_LEVEL,
                 "{} carries a presentation level the base tree may not",
-                path.display()
+                scene.id
             );
             assert!(
                 scene.rule.advances_to.rank() > scene.rule.requires_stage_at_least.rank(),
                 "{} cannot move her: advancesTo is not past requiresStageAtLeast",
-                path.display()
+                scene.id
             );
             assert!(
                 milestone_ids.insert(scene.grants_milestone_id.clone()),
                 "{} grants a milestone another scene already grants: {}",
-                path.display(),
+                scene.id,
                 scene.grants_milestone_id
             );
-            scenes.push(scene);
+            // A10: an authored raise is one of the seven letters. The validator
+            // refuses any other spelling in the content tree; this refuses it
+            // again here, so the two locks cannot drift apart.
+            if let Some(raises_to) = &scene.rule.raises_bond_rank_to {
+                assert!(
+                    crate::battle::rank_index(raises_to).is_some(),
+                    "{} raises her to `{raises_to}`, which is not one of the seven authored bond ranks",
+                    scene.id
+                );
+            }
         }
 
         assert!(
             !scenes.is_empty(),
             "content/relationships/ authors no scenes"
+        );
+        // A10: rank C is what opens Betty's Condition Cleanse, and exactly one
+        // authored scene carries her there. If this ever finds none, her rank C
+        // command is unreachable for the whole campaign and no other test says so.
+        assert_eq!(
+            scenes
+                .iter()
+                .filter(|scene| scene.woman_id == BETTY
+                    && scene.rule.raises_bond_rank_to.as_deref() == Some("C"))
+                .count(),
+            1,
+            "exactly one authored Betty scene must carry her from D to C"
         );
         assert!(
             scenes.iter().any(|scene| scene

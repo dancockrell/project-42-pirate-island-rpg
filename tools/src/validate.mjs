@@ -54,11 +54,17 @@ for (const name of (await readdir(characterDir)).filter(name => name.endsWith(".
   if (value.art?.status === "placeholder" && value.metadata?.releaseLegal !== false) fail(file, "placeholder character must set metadata.releaseLegal=false");
 }
 
+// The seven authored bond-rank letters, in order, low to high. One list, two
+// readers: a skill's own `bondRank` and (A10) a relationship scene's
+// `rule.raisesBondRankTo`. `battle::rank_index` is its twin in Rust; the ladder
+// is letters and there is no numeric spelling of it anywhere.
+const bondRanks = ["D", "C", "B", "A", "S", "SS", "SSS"];
+
 for (const { file, value } of await readJsonDirectory("skills")) {
   skillCount += 1;
   requireString(value, "displayName", file);
   reference(value.ownerId, file, "ownerId");
-  if (!new Set(["D", "C", "B", "A", "S", "SS", "SSS"]).has(value.bondRank)) fail(file, "bondRank must be D, C, B, A, S, SS or SSS");
+  if (!bondRanks.includes(value.bondRank)) fail(file, `bondRank must be one of ${bondRanks.join(", ")}`);
   if (!value.rules || typeof value.rules !== "object") fail(file, "rules must be an object");
   if (!Array.isArray(value.animation?.beats) || value.animation.beats.length < 4) fail(file, "animation must contain at least four explicit beats");
   if (!value.animation?.framing?.includes("safe frame")) fail(file, "animation framing must state its safe-frame requirement");
@@ -452,6 +458,11 @@ for (const { file, value } of await readJsonDirectory("relationships")) {
       if (!Array.isArray(rule[field])) fail(file, `rule.${field} must be an array of authored condition IDs`);
       else if (rule[field].some(condition => typeof condition !== "string" || !condition.startsWith("condition."))) fail(file, `rule.${field} must contain condition.<...> stable IDs`);
     }
+    // A10: optional, and when present it is one of the seven authored letters
+    // and nothing else -- no number, no eighth rung, no lowercase. The scene
+    // that carries it is what opens a woman's higher-ranked commands, so a
+    // misspelling here would silently leave a skill locked for the campaign.
+    if (rule.raisesBondRankTo !== undefined && !bondRanks.includes(rule.raisesBondRankTo)) fail(file, `rule.raisesBondRankTo ${rule.raisesBondRankTo} must be one of the seven authored bond ranks: ${bondRanks.join(", ")}`);
   }
   if (!Array.isArray(value.beats) || value.beats.length === 0) fail(file, "beats must contain at least one authored beat");
   else {

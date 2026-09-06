@@ -157,6 +157,11 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
                 statuses: Vec::new(),
                 intercepts_for: None,
                 skill_uses_remaining: BTreeMap::new(),
+                // A10: the slice submits only rank D commands, so the floor is
+                // where these three actually stand and the bond gate never
+                // fires here. That is the point: the gate is a fact of the
+                // relationship, not a tax on the first fight.
+                bond_rank: "D".into(),
             },
             Actor {
                 id: ActorId("character.heroine.betty".into()),
@@ -172,6 +177,11 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
                 statuses: Vec::new(),
                 intercepts_for: None,
                 skill_uses_remaining: BTreeMap::new(),
+                // A10: the slice submits only rank D commands, so the floor is
+                // where these three actually stand and the bond gate never
+                // fires here. That is the point: the gate is a fact of the
+                // relationship, not a tax on the first fight.
+                bond_rank: "D".into(),
             },
             Actor {
                 id: ActorId("enemy.raptor.razorbeak.prototype".into()),
@@ -187,6 +197,11 @@ fn the_first_chapter_vertical_slice_runs_start_to_finish() {
                 statuses: Vec::new(),
                 intercepts_for: None,
                 skill_uses_remaining: BTreeMap::new(),
+                // A10: the slice submits only rank D commands, so the floor is
+                // where these three actually stand and the bond gate never
+                // fires here. That is the point: the gate is a fact of the
+                // relationship, not a tax on the first fight.
+                bond_rank: "D".into(),
             },
         ],
     );

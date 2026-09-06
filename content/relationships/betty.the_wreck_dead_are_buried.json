@@ -15,7 +15,8 @@
     "blockedByConditions": [],
     "clearsConditions": [
       "condition.betty.wreck_dead_unburied"
-    ]
+    ],
+    "raisesBondRankTo": "C"
   },
   "beats": [
     {
@@ -44,7 +45,8 @@
       "Placeholder prose. Every beat text is a stand-in; final lines are unwritten and are not approved dialogue.",
       "The beat that answers her outstanding condition and moves her in the same breath: clearsConditions settles condition.betty.wreck_dead_unburied before the rest of the rule is judged, which is what unblocks scene.betty.the_lamp_left_burning.",
       "Trust, not attraction, is the floor here. Brief section 5.6: attraction creates openings, it does not resolve allegiance.",
-      "presentationLevel is fade_to_black; the adult pack overrides beats by ID and is a separate artifact (C8/B10/E9)."
+      "presentationLevel is fade_to_black; the adult pack overrides beats by ID and is a separate artifact (C8/B10/E9).",
+      "raisesBondRankTo is C: this is her first household scene, the first thing she has promised anyone since the ship went down, and it is what opens her rank C Condition Cleanse. Before it she fights with her rank D Guarded Strike alone (A10)."
     ]
   }
 }

@@ -82,6 +82,36 @@ pub fn skill_rank(skill_id: &str) -> Option<&'static str> {
     }
 }
 
+/// The seven authored bond-rank letters, as an order. `D` is the floor every
+/// woman starts at and `SSS` the top; there is no eighth rung and no numeric
+/// spelling anywhere -- the ladder crosses the bridge as a letter (A10).
+///
+/// One table, two readers: the Composure gate (a Shaken actor may not spend a
+/// command at `SS` or above) and the bond gate (a woman may not spend a command
+/// ranked above where her relationship actually stands). A letter this does not
+/// know is `None`, and both gates treat that as "not rank-governed" rather than
+/// guessing -- the enemy vocabulary and `skill.system.*` have no bond rank at all.
+pub fn rank_index(rank: &str) -> Option<u8> {
+    match rank {
+        "D" => Some(0),
+        "C" => Some(1),
+        "B" => Some(2),
+        "A" => Some(3),
+        "S" => Some(4),
+        "SS" => Some(5),
+        "SSS" => Some(6),
+        _ => None,
+    }
+}
+
+/// The rank at which the Composure gate closes a command to a Shaken actor.
+const SHAKEN_CLOSES_AT_RANK: &str = "SS";
+
+/// Where a woman's bond stands before an authored scene has moved it. A10:
+/// `ExpeditionState::bond_ranks` starts every established woman here, and an
+/// `Actor` built without a rank is read as standing here too.
+pub const STARTING_BOND_RANK: &str = "D";
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StatusKind {
     Bleeding,
@@ -133,6 +163,17 @@ pub struct Actor {
     pub statuses: Vec<StatusInstance>,
     pub intercepts_for: Option<ActorId>,
     pub skill_uses_remaining: BTreeMap<String, u8>,
+    /// A10: where this actor's bond actually stands, as one of the seven
+    /// authored letters ([`rank_index`]). It is a fact of the *relationship*,
+    /// not of the fight: `ExpeditionState::bond_ranks` owns it and authored
+    /// scenes are the only thing that raise it. A command whose
+    /// [`skill_rank`] sits above this is refused with
+    /// [`BattleError::BondRankTooLow`] before anything mutates.
+    ///
+    /// [`STARTING_BOND_RANK`] is the floor; a letter outside the seven is read
+    /// as the floor rather than trusted, so a malformed save cannot unlock a
+    /// rank SSS command by spelling one wrong.
+    pub bond_rank: String,
 }
 impl Actor {
     pub fn is_alive(&self) -> bool {
@@ -401,6 +442,15 @@ pub enum BattleError {
     UnsupportedSkill(String),
     RetreatNotAllowed,
     IllegalRetreatActor(ActorId),
+    /// A10: the command is ranked above where this woman's bond stands. Bond
+    /// rank is a fact of the relationship -- it moves when an authored scene's
+    /// milestone is recorded, never on a timer -- so this is not a cooldown to
+    /// wait out. `required` and `current` are both authored letters.
+    BondRankTooLow {
+        skill_id: String,
+        required: String,
+        current: String,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -458,6 +508,14 @@ impl Battle {
                     statuses: Vec::new(),
                     intercepts_for: None,
                     skill_uses_remaining: BTreeMap::new(),
+                    // A10: the slice is a static fixture -- nothing builds it
+                    // from an `ExpeditionState` -- so it carries the ranks that
+                    // keep the vertical slice playing exactly as it did before
+                    // the gate existed. Betty is raised below; everyone else
+                    // stands at the floor, which is enough for every command
+                    // they own (all rank D) and for the unranked enemy and
+                    // system vocabulary.
+                    bond_rank: STARTING_BOND_RANK.to_owned(),
                 }
             };
         let mut betty = actor(
@@ -476,6 +534,11 @@ impl Battle {
         betty
             .skill_uses_remaining
             .insert("skill.betty.combat_revival".into(), 1);
+        // The slice demonstrates her whole authored kit, up to the rank SSS
+        // Combat Revival, so the fixture Betty stands at the top of the ladder.
+        // The campaign's Betty does not: `ExpeditionState::new` starts her at D
+        // and only an authored scene raises her.
+        "SSS".clone_into(&mut betty.bond_rank);
 
         let mut ayla = actor(
             "character.heroine.ayla",
@@ -762,11 +825,34 @@ impl Battle {
                 status: StatusKind::Stunned,
             });
         }
-        if actor.is_shaken() && matches!(skill_rank(&command.skill_id), Some("SS") | Some("SSS")) {
+        // Both gates read the same ladder ([`rank_index`]) and both stand before
+        // any mutation. A skill with no authored rank -- the enemy vocabulary,
+        // `skill.system.*` -- is governed by neither.
+        let required_rank = skill_rank(&command.skill_id);
+        let required_index = required_rank.and_then(rank_index);
+        if actor.is_shaken()
+            && required_index.is_some_and(|required| {
+                required >= rank_index(SHAKEN_CLOSES_AT_RANK).expect("SS is an authored rank")
+            })
+        {
             return Err(BattleError::ShakenCannotUse {
                 skill_id: command.skill_id,
                 actor_id: command.actor_id,
             });
+        }
+        // A10: a command ranked above where her bond actually stands is refused
+        // here, before anything moves. An unrecognised stored letter is read as
+        // the floor rather than trusted.
+        if let (Some(required), Some(required_index)) = (required_rank, required_index) {
+            let current_index = rank_index(&actor.bond_rank)
+                .unwrap_or_else(|| rank_index(STARTING_BOND_RANK).expect("D is an authored rank"));
+            if required_index > current_index {
+                return Err(BattleError::BondRankTooLow {
+                    skill_id: command.skill_id,
+                    required: required.to_owned(),
+                    current: actor.bond_rank.clone(),
+                });
+            }
         }
         if !matches!(
             command.skill_id.as_str(),
@@ -1753,6 +1839,11 @@ mod tests {
             statuses: Vec::new(),
             intercepts_for: None,
             skill_uses_remaining: BTreeMap::new(),
+            // A10: the shared test fixture stands at the top of the ladder so
+            // every test written before the bond gate existed still exercises
+            // what it was written to exercise. The two tests that are *about*
+            // the gate set the rank they mean.
+            bond_rank: "SSS".to_owned(),
         }
     }
     fn prototype() -> Battle {
@@ -3465,6 +3556,132 @@ mod tests {
         );
         assert_eq!(ayla.statuses.len(), 1);
         assert_eq!(ayla.statuses[0].kind, StatusKind::Shaken);
+    }
+
+    /// A10: a battle in which Betty may cleanse Ayla, with Betty's bond rank
+    /// left for the caller to set. Everything else is identical between the two
+    /// tests below, so the only thing that differs is where her bond stands.
+    fn cleanse_battle(betty_bond_rank: &str) -> Battle {
+        let mut betty = actor("character.heroine.betty", Faction::Party, 3, 100, 0, 12);
+        betty.band = Band::PartyFront.index();
+        betty_bond_rank.clone_into(&mut betty.bond_rank);
+        let mut ayla = actor("character.heroine.ayla", Faction::Party, 3, 100, 0, 10);
+        ayla.band = Band::PartyFront.index();
+        ayla.statuses.push(StatusInstance {
+            id: "status.ayla.bleeding".into(),
+            kind: StatusKind::Bleeding,
+            remaining_rounds: 2,
+            source_id: ActorId("enemy.test".into()),
+        });
+        let mut battle = Battle::new(
+            "battle.bond_rank",
+            [
+                betty,
+                ayla,
+                actor("enemy.test", Faction::Hostile, 3, 50, 0, 8),
+            ],
+        );
+        battle.start();
+        battle
+    }
+
+    /// A10, the refusal. Condition Cleanse is authored at rank C; a Betty whose
+    /// bond still stands at D cannot spend it, and the refusal lands before
+    /// anything moves -- Ayla still bleeds and the turn is still Betty's.
+    #[test]
+    fn betty_at_bond_rank_d_cannot_spend_her_rank_c_command() {
+        let mut battle = cleanse_battle("D");
+        let before = battle.snapshot();
+        let error = battle
+            .submit(SkillCommand {
+                command_id: "cleanse".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.condition_cleanse".into(),
+                target_ids: vec![ActorId("character.heroine.ayla".into())],
+            })
+            .unwrap_err();
+        assert_eq!(
+            error,
+            BattleError::BondRankTooLow {
+                skill_id: "skill.betty.condition_cleanse".into(),
+                required: "C".into(),
+                current: "D".into(),
+            }
+        );
+        let after = battle.snapshot();
+        assert_eq!(before.actors, after.actors, "the refusal mutated an actor");
+        assert_eq!(before.round, after.round);
+        assert_eq!(before.phase, after.phase);
+        assert_eq!(before.active_actor_id, after.active_actor_id);
+        assert_eq!(
+            battle
+                .actor(&ActorId("character.heroine.ayla".into()))
+                .unwrap()
+                .statuses
+                .len(),
+            1,
+            "the bleed the refused cleanse would have removed is still there"
+        );
+        // Her rank D command is untouched by the gate: it is the rank C one
+        // that is above her, not the fight.
+        battle
+            .submit(SkillCommand {
+                command_id: "strike".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.guarded_strike".into(),
+                target_ids: vec![ActorId("enemy.test".into())],
+            })
+            .expect("a rank D command is hers from the first fight");
+    }
+
+    /// A10, the other way. The same command, the same battle, once an authored
+    /// scene has carried her to C.
+    #[test]
+    fn betty_at_bond_rank_c_may_spend_her_rank_c_command() {
+        let mut battle = cleanse_battle("C");
+        battle
+            .submit(SkillCommand {
+                command_id: "cleanse".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.condition_cleanse".into(),
+                target_ids: vec![ActorId("character.heroine.ayla".into())],
+            })
+            .expect("a rank C command resolves once her bond stands at C");
+        assert!(
+            battle
+                .actor(&ActorId("character.heroine.ayla".into()))
+                .unwrap()
+                .statuses
+                .is_empty(),
+            "the cleanse resolved exactly as it did before the gate existed"
+        );
+    }
+
+    /// The ladder is the seven authored letters and nothing else, and an
+    /// unrecognised stored letter reads as the floor rather than as the top --
+    /// a malformed save must not unlock a rank SSS command.
+    #[test]
+    fn the_bond_ladder_is_the_seven_authored_letters() {
+        let ladder = ["D", "C", "B", "A", "S", "SS", "SSS"];
+        for (index, letter) in ladder.iter().enumerate() {
+            assert_eq!(rank_index(letter), Some(index as u8), "{letter}");
+        }
+        assert_eq!(rank_index("E"), None);
+        assert_eq!(rank_index("SSSS"), None);
+        assert_eq!(rank_index("1"), None);
+        assert_eq!(rank_index("d"), None);
+        assert_eq!(rank_index(STARTING_BOND_RANK), Some(0));
+
+        let mut battle = cleanse_battle("SSSS");
+        let error = battle
+            .submit(SkillCommand {
+                command_id: "cleanse".into(),
+                actor_id: ActorId("character.heroine.betty".into()),
+                skill_id: "skill.betty.condition_cleanse".into(),
+                target_ids: vec![ActorId("character.heroine.ayla".into())],
+            })
+            .unwrap_err();
+        assert!(matches!(error, BattleError::BondRankTooLow { .. }));
     }
 
     /// The Composure gate decides which commands a Shaken actor may spend, and
