@@ -46,6 +46,14 @@ func render(event: Dictionary) -> Dictionary:
 		"actor_revived": return append(" [color=#4fc7b4]COMBAT REVIVAL[/color] %s returns with %d Vitality, zero Guard and no negative conditions." % [name_at(subjects, 0), payload.get("vitality", 0)])
 		"bonus_turn_granted": return append(" %s receives an immediate bonus turn; normal initiative will resume afterward." % name_at(subjects, 0))
 		"actor_defeated": return append(" %s is defeated." % name_at(subjects, 0))
+		# A7's four. They reached the screen as "[Unrendered event: ...]" before
+		# this pass, which is the renderer admitting it had nothing to say about
+		# a whole heroine's kit.
+		"status_applied": return append(" %s is now %s." % [name_at(subjects, 0), readable_id(payload.get("status_kind", "afflicted"))])
+		"ward_line_placed": return append(" [color=#4fc7b4]WARD[/color] %s draws a ward line along the near edge of band %d. The next hostile that crosses it is stopped." % [name_at(subjects, 0), payload.get("band", 0)])
+		"ward_line_triggered": return append(" %s crosses the ward and is stopped; %s's line is spent protecting %s." % [name_at(subjects, 0), name_at(subjects, 1), name_at(subjects, 1)])
+		"activation_denied": return append(" %s reads the mechanism and denies %s its activation." % [name_at(subjects, 0), name_at(subjects, 1)])
+		"site_rule_overridden": return append(" [color=#b78a4b]RULE STRUCK THROUGH[/color] %s reads %s aloud and it stops holding for the rest of this fight." % [name_at(subjects, 0), readable_id(payload.get("rule_id", "a site rule"))])
 		"round_started": return append(" [color=#b78a4b]ROUND %d[/color] begins." % payload.get("round", 0))
 		"battle_ended": return replace("[color=#4fc7b4]VICTORY[/color] The hostile can no longer fight." if payload.get("victory", false) else "[color=#c24e45]DEFEAT[/color] The encounter ends; midnight return is pending.")
 		"command_rejected": return replace("[color=#c24e45]REJECTED[/color] %s." % readable_id(payload.get("reason", "unknown_reason")))

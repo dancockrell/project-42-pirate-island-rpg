@@ -18,7 +18,7 @@ func configure(next_skill_id: String, next_rank: String, next_display_name: Stri
 	rank = next_rank
 	display_name = next_display_name
 	story_locked = not available
-	custom_minimum_size = Vector2(112, 86)
+	custom_minimum_size = Vector2(118, 92)
 	tooltip_text = "%s rank — %s\nStable skill ID: %s%s" % [rank, display_name, skill_id, "\nLocked until its authored bond milestone." if story_locked else ""]
 	if command_button != null:
 		set_command_enabled(available)
@@ -54,5 +54,10 @@ func _draw() -> void:
 	var font := ThemeDB.fallback_font
 	var rank_font_size := 12 if rank.length() > 1 else 15
 	draw_string(font,center + Vector2(-17,5),rank,HORIZONTAL_ALIGNMENT_CENTER,34,rank_font_size,Color("fff1cc") if not story_locked else Color("b9a686"))
-	var label_color := Color("d8e5d9") if not story_locked else Color("9f9279")
-	draw_string(font,Vector2(2,size.y - 7),display_name,HORIZONTAL_ALIGNMENT_CENTER,size.x - 4,10,label_color)
+	# The command's name is a label the player reads at a glance in a lit room,
+	# not a caption. It sits on its own dark plate and it is not grey-on-grey:
+	# a locked command is still legible, it is just visibly not available.
+	var label_color := Color("f2ead6") if not story_locked else Color("b6ac93")
+	var plate := Rect2(2, size.y - 22, size.x - 4, 18)
+	draw_rect(plate, Color("0b1413", .62), true)
+	draw_string(font,Vector2(2,size.y - 8),display_name.to_upper(),HORIZONTAL_ALIGNMENT_CENTER,size.x - 4,11,label_color)

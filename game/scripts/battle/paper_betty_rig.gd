@@ -34,6 +34,14 @@ var satchel: PaperBettyPiece
 var ampoule_rack: PaperBettyPiece
 var home_position := Vector2.ZERO
 var pose_tween: Tween
+## The design grid the rig is laid out on, and where her boots and her stance
+## sit inside it. `build` scales the whole grid as one object, so these are what
+## lets the stage stand her on the plate's floor line rather than in the air
+## above it, and what sizes the contact shadow under her.
+const DESIGN_GRID := Vector2(520.0, 560.0)
+const GROUND_CENTRE := Vector2(260.0, 506.0)
+const GROUND_WIDTH := 132.0
+var uniform_scale := 1.0
 
 func build(canvas: Vector2) -> void:
 	for child in get_children():
@@ -44,8 +52,8 @@ func build(canvas: Vector2) -> void:
 	# field. Scale uniformly from the design grid so her adult silhouette stays
 	# proportioned, while every boot, mace head and coat-tail still clears the
 	# eight-percent safe frame.
-	var uniform_scale := minf(canvas.x / 520.0, canvas.y / 560.0) * .94
-	position = Vector2((canvas.x - 520.0 * uniform_scale) * .50, canvas.y * .035)
+	uniform_scale = minf(canvas.x / DESIGN_GRID.x, canvas.y / DESIGN_GRID.y) * .94
+	position = Vector2((canvas.x - DESIGN_GRID.x * uniform_scale) * .50, canvas.y * .035)
 	scale = Vector2.ONE * uniform_scale
 	home_position = position
 	torso = add_piece("torso", Vector2(112, 154), Vector2(260, 190), 0.0)
@@ -92,6 +100,42 @@ func add_child_piece(parent_piece: PaperBettyPiece, kind: String, piece_size: Ve
 
 func piece_z(kind: String) -> int:
 	return {"coat_tail": 1, "leg": 2, "boot": 3, "torso": 4, "satchel": 5, "ampoule_rack": 5, "arm": 6, "mace": 7, "head": 8, "hair": 9}.get(kind, 0)
+
+## The terrace's shade climbs the figure: her boots and legs stand in it, her
+## head and shoulders keep the sky. One modulation per piece, so the light has
+## a direction without a shader that this project's compatibility path cannot
+## run. `shade` is the strength the doll's lighting pass names.
+func apply_lighting(shade: float) -> void:
+	var low := Color.WHITE.darkened(shade)
+	var mid := Color.WHITE.darkened(shade * .55)
+	for piece in [left_leg, right_leg, left_boot, right_boot, coat_left, coat_right]:
+		if piece != null:
+			piece.self_modulate = low
+	for piece in [torso, satchel, ampoule_rack]:
+		if piece != null:
+			piece.self_modulate = mid
+	# Every piece renders through the doll's lighting material, which carries
+	# the plate's colour bleed and the death dissolve.
+	for piece in get_children():
+		mark_child_material(piece)
+
+
+func mark_child_material(piece: Node) -> void:
+	if piece is CanvasItem:
+		(piece as CanvasItem).use_parent_material = true
+	for child in piece.get_children():
+		mark_child_material(child)
+
+
+## Where her boot soles meet the floor, in the parent doll's coordinates.
+func ground_point() -> Vector2:
+	return position + GROUND_CENTRE * uniform_scale
+
+
+## How wide her stance is on the floor, for the contact shadow.
+func ground_width() -> float:
+	return GROUND_WIDTH * uniform_scale
+
 
 func set_pose(pose_name: String) -> void:
 	if torso == null:

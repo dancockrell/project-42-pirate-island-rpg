@@ -66,20 +66,36 @@ func _draw() -> void:
 		draw_circle(Vector2(40, 33), 2.5, Color("3b9b82"))
 		draw_arc(Vector2(35, 36), 9, deg_to_rad(20), deg_to_rad(160), 8, Color("a94f50"), 2)
 	draw_composure(s)
-	if shaken:
-		draw_string(ThemeDB.fallback_font, Vector2(6, s.y - 5), "SHAKEN", HORIZONTAL_ALIGNMENT_CENTER, 58, 10, Color("e08079"))
+	draw_shaken(s)
 
 func draw_composure(s: Vector2) -> void:
 	# Ten pips, one for each point of Composure. A count, not a bar and not a
-	# percentage: the player must be able to see how many are left.
+	# percentage: the player must be able to see how many are left at a glance,
+	# so each pip sits in its own dark well and the spent ones stay visible as
+	# empty sockets rather than fading into the card.
 	var filled := clampi(composure, 0, COMPOSURE_PIPS)
-	var origin := Vector2(74, s.y - 16)
+	var spacing := (s.x - 88.0) / float(COMPOSURE_PIPS)
+	var origin := Vector2(78.0 + spacing * .5, s.y - 18.0)
+	var lit := Color("e0665c") if shaken else Color("5fdcc6")
+	draw_style_box(make_box(Color("0a1211", .82), Color(lit, .35), 1, 8), Rect2(70, s.y - 30, s.x - 78, 24))
 	for index in COMPOSURE_PIPS:
-		var centre := origin + Vector2(index * 11.5, 0)
+		var centre := origin + Vector2(spacing * float(index), 0.0)
 		if index < filled:
-			draw_circle(centre, 3.5, Color("c24e45") if shaken else Color("4fc7b4"))
+			draw_circle(centre, 5.0, Color(lit, .30))
+			draw_circle(centre, 3.6, lit)
 		else:
-			draw_arc(centre, 3.5, 0, TAU, 12, Color("6d7c78"), 1.5, true)
+			draw_arc(centre, 3.6, 0, TAU, 14, Color("55635f"), 1.6, true)
+
+
+func draw_shaken(s: Vector2) -> void:
+	# Shaken is a state that changes what the player may do with this actor, so
+	# it is a marked tab on the card, not eight grey pixels along the bottom
+	# edge. The frame already carries the danger colour; this names it.
+	if not shaken:
+		return
+	var tab := Rect2(s.x - 76, 8, 68, 20)
+	draw_style_box(make_box(Color("6c221f"), Color("e08079"), 2, 6), tab)
+	draw_string(ThemeDB.fallback_font, Vector2(tab.position.x, tab.position.y + 15), "SHAKEN", HORIZONTAL_ALIGNMENT_CENTER, tab.size.x, 11, Color("ffd9d2"))
 
 func make_box(background: Color, border: Color, width: int, radius: int) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
