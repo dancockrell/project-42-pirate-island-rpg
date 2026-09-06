@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "task_id": "b8-save-slots-continue",
+  "agent": "claude-code (lane B8)",
+  "summary": "B8: the expedition bridge gains save_json/load_json over ExpeditionState's existing canonical JSON, and CampaignSession gains new_game, save_to_slot, continue_newest and list_slots over user://saves/<slot>.json, with newest decided by the save's own campaign day and strategic hour rather than by file time.",
+  "status": "active",
+  "claimed_at": "2026-09-06T00:00:00Z",
+  "updated_at": "2026-09-06T00:00:00Z",
+  "paths": [
+    "godot-rust/src/godot_bridge.rs",
+    "game/scripts/campaign/campaign_session.gd",
+    "game/scripts/simulation/expedition_port.gd",
+    "game/scripts/simulation/native_expedition_port.gd",
+    "game/tests/save_slots_test.gd"
+  ],
+  "symbols": [
+    "Project42ExpeditionBridge::save_json",
+    "Project42ExpeditionBridge::load_json",
+    "ExpeditionPort.save_json",
+    "ExpeditionPort.load_json",
+    "NativeExpeditionPort.save_json",
+    "NativeExpeditionPort.load_json",
+    "CampaignSession.new_game",
+    "CampaignSession.save_to_slot",
+    "CampaignSession.continue_newest",
+    "CampaignSession.list_slots"
+  ],
+  "coordination": {
+    "depends_on": [
+      "e6-save-migration-fixtures"
+    ],
+    "conflicts_with": [],
+    "notes": "B16 is changing configure and resolve_midnight in godot_bridge.rs and B17 begin_pending_battle/create_debug_battle; this lane appends two #[func]s at the end of the Project42ExpeditionBridge impl block and touches no existing function there, so all three merge as keep-both tails."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
