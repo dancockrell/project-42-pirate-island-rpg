@@ -13,6 +13,9 @@ var elapsed := 0.0
 var paused := false
 var ready_ok := false
 var save_notice := ""
+var troop_sprites := {}
+var troop_texture: Texture2D
+var troop_material: ShaderMaterial
 
 func save_campaign(path: String = "user://pirate-island-save.json") -> bool:
 	var payload: String = port.save_island()
@@ -86,6 +89,10 @@ func _ready() -> void:
 				cells.append(Vector2i(x,y))
 	port.create_island()
 	assert(port.configure_island_land(cells, Vector2i(data.start[0],data.start[1])))
+	assert(port.install_preview_factions())
+	troop_texture = ImageTexture.create_from_image(Image.load_from_file("res://assets/island/troops.png"))
+	troop_material = ShaderMaterial.new()
+	troop_material.shader = load("res://assets/island/troop_chroma.gdshader")
 	var terrain := Sprite2D.new()
 	terrain.texture = ImageTexture.create_from_image(Image.load_from_file("res://assets/island/terrain.png"))
 	terrain.centered = false
@@ -127,6 +134,36 @@ func advance_tick() -> void:
 
 func refresh_snapshot() -> void:
 	snapshot = port.island_snapshot()
+	var present := {}
+	for entry in snapshot.actors:
+		if entry.id == MICHAEL:
+			continue
+		present[entry.id] = true
+		if not troop_sprites.has(entry.id):
+			var troop := Sprite2D.new()
+			var column := 0
+			if entry.faction == "faction.pirates.prototype":
+				column = 1
+			elif entry.faction == "faction.cthulhu.prototype":
+				column = 2
+			var atlas := AtlasTexture.new()
+			atlas.atlas = troop_texture
+			atlas.region = Rect2(column * 418, 0, 418, 627)
+			atlas.filter_clip = true
+			troop.texture = atlas
+			troop.material = troop_material
+			troop.centered = false
+			troop.offset = -Vector2([255,160,187][column],540)
+			troop.scale = Vector2.ONE * 0.105
+			troop.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			map_root.add_child(troop)
+			troop_sprites[entry.id] = troop
+		troop_sprites[entry.id].position = (Vector2(entry.x,entry.y) + Vector2.ONE * 0.5) * cell_size
+		troop_sprites[entry.id].z_index = int(entry.y)
+	for id in troop_sprites.keys():
+		if not present.has(id):
+			troop_sprites[id].queue_free()
+			troop_sprites.erase(id)
 	var person: Dictionary = {}
 	for entry in snapshot.actors:
 		if entry.id == MICHAEL:
@@ -135,6 +172,7 @@ func refresh_snapshot() -> void:
 	var destination := (Vector2(person.x, person.y) + Vector2.ONE * 0.5) * cell_size
 	actor.project_heading(destination - actor.position)
 	actor.position = destination
+	actor.z_index = int(person.y)
 	status.text = "PIRATE ISLAND   |   Michael   |   Click land to travel   |   Space: pause   |   F5: save   |   F9: load\n%s  •  Development scene / standing sprite; animation pending  %s" % ["PAUSED" if paused else "Exploring", save_notice]
 
 func _process(delta: float) -> void:

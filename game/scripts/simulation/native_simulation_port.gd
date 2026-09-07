@@ -19,6 +19,9 @@ func is_available() -> bool:
 func create_island() -> Dictionary:
 	return bridge.create_island() if is_available() else error_snapshot("native_bridge_unavailable")
 
+func install_preview_factions() -> bool:
+	return is_available() and bridge.install_preview_factions()
+
 func save_island() -> String:
 	return bridge.save_island() if is_available() else ""
 

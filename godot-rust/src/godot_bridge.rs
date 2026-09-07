@@ -23,6 +23,12 @@ struct Project42SimulationBridge {
 #[godot_api]
 impl Project42SimulationBridge {
     #[func]
+    fn install_preview_factions(&mut self) -> bool {
+        self.island
+            .as_mut()
+            .is_some_and(|world| world.install_preview_factions().is_ok())
+    }
+    #[func]
     fn save_island(&self) -> GString {
         self.island
             .as_ref()
@@ -105,6 +111,8 @@ impl Project42SimulationBridge {
             actors.push(
                 &vdict! {
                     "id" => id.as_str(), "x" => position.x, "y" => position.y,
+                    "faction" => world.actors[id].faction_id.as_str(),
+                    "definition" => world.actors[id].definition_id.as_str(),
                     "moving" => world.travel_orders.contains_key(id)
                 }
                 .to_variant(),

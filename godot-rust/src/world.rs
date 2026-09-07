@@ -164,11 +164,16 @@ fn mix_seed(mut seed: u64, day: u32, region_id: &str, slot: u8) -> u64 {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProductionRule {
     pub id: String,
+    #[serde(alias = "producerArchetypeId")]
     pub producer_archetype_id: String,
+    #[serde(alias = "outputDefinitionId")]
     pub actor_definition_id: String,
+    #[serde(alias = "actorKind")]
     pub actor_kind: String,
     pub costs: BTreeMap<String, u32>,
+    #[serde(alias = "productionTicks")]
     pub production_ticks: u32,
+    #[serde(alias = "populationUse")]
     pub population_use: u32,
 }
 
@@ -539,6 +544,106 @@ impl MapPlacement {
 }
 
 impl FactionWorld {
+    /// Three-faction integration scenario using the existing authored unit rules.
+    /// Economy sizes are preview budgets, not final faction balancing.
+    pub fn install_preview_factions(&mut self) -> Result<(), String> {
+        if self.tick != 0 || self.factions.len() != 1 || !self.travel_orders.is_empty() {
+            return Err("scenario_already_started".into());
+        }
+        let mut staged = self.clone();
+        let objective = *staged
+            .positions
+            .get("character.protagonist.captain")
+            .ok_or("missing_michael")?;
+        staged
+            .navigation
+            .destinations
+            .insert("island.contested_clearing".into(), objective);
+        let entries = [
+            (
+                "faction.colonial_powers.prototype",
+                IslandPoint { x: 12, y: 11 },
+                include_str!("../../content/production/colonial_fort_soldiers.json"),
+            ),
+            (
+                "faction.pirates.prototype",
+                IslandPoint { x: 35, y: 15 },
+                include_str!("../../content/production/tide_quay_deckhands.json"),
+            ),
+            (
+                "faction.cthulhu.prototype",
+                IslandPoint { x: 28, y: 23 },
+                include_str!("../../content/production/drowned_shrine_cultists.json"),
+            ),
+        ];
+        for (id, preferred, source) in entries {
+            let rule: ProductionRule =
+                serde_json::from_str(source).map_err(|_| "invalid_authored_production")?;
+            let spawn = staged
+                .navigation
+                .walkable
+                .iter()
+                .filter(|point| staged.navigation.path(**point, objective).is_some())
+                .min_by_key(|point| {
+                    i64::from(point.x).abs_diff(i64::from(preferred.x))
+                        + i64::from(point.y).abs_diff(i64::from(preferred.y))
+                })
+                .copied()
+                .ok_or("no_connected_spawn")?;
+            let building_id = format!("preview.{id}.producer");
+            let spawn_id = format!("preview.{id}.holding");
+            staged
+                .navigation
+                .destinations
+                .insert(spawn_id.clone(), spawn);
+            let building = FactionBuilding {
+                id: building_id.clone(),
+                faction_id: id.into(),
+                archetype_id: rule.producer_archetype_id.clone(),
+                node_id: spawn_id.clone(),
+                rally_point_id: spawn_id,
+                operational: true,
+                queue_capacity: 1,
+                production_queue: Vec::new(),
+            };
+            staged.factions.insert(
+                id.into(),
+                FactionState {
+                    id: id.into(),
+                    resources: rule
+                        .costs
+                        .iter()
+                        .map(|(id, cost)| (id.clone(), cost.saturating_mul(2)))
+                        .collect(),
+                    population_used: 0,
+                    population_capacity: 6,
+                    wobble_limit: 0,
+                    buildings: [(building_id.clone(), building)].into_iter().collect(),
+                },
+            );
+            let policy = FactionPolicy {
+                income_per_tick: rule.costs.keys().map(|id| (id.clone(), 1)).collect(),
+                storage_caps: rule.costs.keys().map(|id| (id.clone(), 20)).collect(),
+                production: [(building_id, rule)].into_iter().collect(),
+                objectives: vec![DispatchCandidate {
+                    action_id: format!("preview.{id}.advance"),
+                    assignment: "occupy_clearing".into(),
+                    target_node_id: "island.contested_clearing".into(),
+                    score: DispatchScore {
+                        strategic_position: 10,
+                        ..Default::default()
+                    },
+                    wobble: 0,
+                }],
+            };
+            staged
+                .set_policy(id, policy)
+                .map_err(|_| "invalid_preview_policy")?;
+        }
+        *self = staged;
+        Ok(())
+    }
+
     pub fn set_policy(
         &mut self,
         faction_id: &str,

@@ -1,6 +1,20 @@
 # Island development scene
 
 Run res://scenes/world/island.tscn in the existing game project.
+The scene now installs three preview factions at startup: colonials, pirates and
+Cthulhu. They use existing content/production rules, with six-unit preview caps
+and provisional economy budgets. Units rally toward a contested clearing.
+This is production/dispatch integration, not combat or full asymmetrical balance.
+Buildings exist in simulation but do not yet have visible building art.
+
+troops.png preserves the shared troops-01/keyed-source.png bytes; SHA256
+adddcb1310be7d960d0e689c272491b9fda2c47e30e7475abcf97dd5242c1696.
+Source prompts and provenance remain in the shared library. troop_chroma.gdshader
+applies the existing Cattle Trail binary magenta criterion at display time.
+This is not a pre-extracted alpha atlas; rendered edge review is still required.
+Only the three male idle appearances are used in this initial projection.
+Female identities, directional poses and animations await proper NPC data.
+Do not infer unit sex or recruitment eligibility from this temporary renderer.
 Click land to travel; Space pauses; F5 saves and F9 loads.
 No paid service is required to run it.
 
