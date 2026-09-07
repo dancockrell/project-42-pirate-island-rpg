@@ -3,13 +3,13 @@
   "task_id": "island-simulation-travel",
   "agent": "codex-root",
   "summary": "Replace dispatch teleportation with authoritative grid travel and pause",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-07T16:20:00Z",
   "updated_at": "2026-09-07T16:20:00Z",
   "paths": ["godot-rust/src/world.rs", "godot-rust/src/godot_bridge.rs", "game/scripts/simulation/native_simulation_port.gd", "game/tests/island_bridge_test.gd", "game/bin/windows/project42_sim.windows.template_debug.x86_64.dll"],
   "coordination": {"notes": "No overlap with sprite presentation or shelved 3D roof claims. Grid cells are physical navigation cells, not one node per room."},
   "completion": {
-    "commit": "a336389",
+    "commit": "3e68f30",
     "checks": [
       "45 Rust tests passed, including four added navigation/pause regression tests",
       "Paused island and production ticks preserve identical world state",
@@ -17,7 +17,11 @@
       "Blocked route waits and resumes via alternate open cells",
       "Unreachable replacement order preserves previous state",
       "Coordinate-limit arithmetic tested; rustfmt and git diff --check passed",
-      "No Godot bridge wiring, visual movement test, crowd avoidance, terrain costs, large-island performance or persistence claim",
+      "Godot-ext single-job build passed; installed matching debug DLL",
+      "Actual headless Godot native bridge test passed: solo Michael start, land move, ocean and unknown-actor rejection, no teleport, pause and arrival",
+      "NativeSimulationPort is the sole scene-facing bridge owner",
+      "48 by 32 ellipse is an integration fixture, not final island geography",
+      "No visual movement review, crowd avoidance, terrain costs, large-island performance or persistence claim",
       "Local checkpoint only, not pushed"
     ]
   }
