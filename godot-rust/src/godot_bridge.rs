@@ -5,7 +5,7 @@ use crate::battle::{
     RecoveryOpening, StatusInstance, StatusKind,
 };
 use crate::protocol::{CommandEnvelope, CommandKind, PROTOCOL_VERSION};
-use crate::world::{FactionWorld, IslandPoint};
+use crate::world::{FactionWorld, FactionWorldEvent, IslandPoint};
 
 const BATTLE_ID: &str = "battle.prototype.returning_names";
 
@@ -159,10 +159,23 @@ impl Project42SimulationBridge {
 
     #[func]
     fn tick_island(&mut self) -> VarDictionary {
+        let mut strikes = VarArray::new();
         if let Some(world) = self.island.as_mut() {
-            world.advance_island_tick();
+            for event in world.advance_island_tick() {
+                if let FactionWorldEvent::UnitStruck { attacker_id, target_id, damage,
+                    origin, target_position, attacker_definition } = event {
+                    strikes.push(&vdict! {
+                        "attacker" => attacker_id.as_str(), "target" => target_id.as_str(),
+                        "damage" => damage, "definition" => attacker_definition.as_str(),
+                        "origin" => Vector2i::new(origin.x, origin.y),
+                        "destination" => Vector2i::new(target_position.x, target_position.y)
+                    }.to_variant());
+                }
+            }
         }
-        self.island_snapshot()
+        let mut snapshot = self.island_snapshot();
+        snapshot.set("strikes", &strikes);
+        snapshot
     }
 
     #[func]

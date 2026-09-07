@@ -278,6 +278,9 @@ pub enum FactionWorldEvent {
         attacker_id: String,
         target_id: String,
         damage: u32,
+        origin: IslandPoint,
+        target_position: IslandPoint,
+        attacker_definition: String,
     },
     UnitFallen {
         actor_id: String,
@@ -670,6 +673,9 @@ impl FactionWorld {
             let total = damage.entry(target_id.clone()).or_default();
             *total = total.saturating_add(amount);
             events.push(FactionWorldEvent::UnitStruck {
+                origin: self.positions[&attacker_id],
+                target_position: self.positions[&target_id],
+                attacker_definition: self.actors[&attacker_id].definition_id.clone(),
                 attacker_id,
                 target_id,
                 damage: amount,

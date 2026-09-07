@@ -14,6 +14,14 @@ the strategic route remains queued and resumes when the firing target is lost.
 Movement and attacks share target legality. This is not yet pursuit, retreat,
 formation spacing or final tactical AI. Player-directed factions without an
 autonomous policy are not forced to hold by this behavior.
+Each actual strike now emits immutable hit positions and attacker definition
+through the native bridge. The scene draws a brief two-pixel effect from attacker
+to target: warm shot, pale melee strike, or muted teal cultist effect. These last
+one simulation tick and freeze with pause. No random cosmetic attacks are emitted.
+Effects survive lethal target removal because they use event positions, not
+lookups of surviving sprites. Successful campaign loading clears old effects.
+Chest-height offsets are provisional; authored weapon sockets and animated
+attack/recoil poses are still missing. Native render review remains outstanding.
 Dead units leave saved casualty records and release their
 population slots. Midnight conversion/resurrection, diplomacy changes, combat
 animation, building damage and final faction balance remain unfinished.

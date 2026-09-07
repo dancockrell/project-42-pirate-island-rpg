@@ -18,6 +18,14 @@ var troop_textures: Array[Texture2D] = []
 var building_sprites := {}
 var fort_texture: Texture2D
 var building_art: Dictionary
+var hit_effects: Array[Line2D] = []
+var last_strikes: Array = []
+
+func clear_hit_effects() -> void:
+	for effect in hit_effects:
+		effect.queue_free()
+	hit_effects.clear()
+	last_strikes.clear()
 
 func save_campaign(path: String = "user://pirate-island-save.json") -> bool:
 	var payload: String = port.save_island()
@@ -63,6 +71,7 @@ func load_campaign(path: String = "user://pirate-island-save.json") -> bool:
 		var payload := file.get_as_text()
 		file.close()
 		if port.load_island(payload):
+			clear_hit_effects()
 			paused = bool(port.island_snapshot().paused)
 			elapsed = 0
 			refresh_snapshot()
@@ -136,8 +145,27 @@ func set_paused(value: bool) -> void:
 	refresh_snapshot()
 
 func advance_tick() -> void:
-	port.tick_island()
+	if paused:
+		return
+	clear_hit_effects()
+	var result: Dictionary = port.tick_island()
 	refresh_snapshot()
+	last_strikes = result.get("strikes", [])
+	for strike in last_strikes:
+		var effect := Line2D.new()
+		# Provisional chest-height effects, not authored weapon-socket animation.
+		var from := (Vector2(strike.origin) + Vector2.ONE * 0.5) * cell_size - Vector2(0, 12)
+		var to := (Vector2(strike.destination) + Vector2.ONE * 0.5) * cell_size - Vector2(0, 12)
+		effect.points = PackedVector2Array([from, to])
+		effect.width = 2
+		effect.default_color = Color("e7c680")
+		if strike.definition == "actor_def.cthulhu.drowned_cultist":
+			effect.default_color = Color("84bdac")
+		elif strike.definition == "actor_def.pirates.deckhand":
+			effect.default_color = Color("d8d6cb")
+		effect.z_index = 100
+		map_root.add_child(effect)
+		hit_effects.append(effect)
 
 func refresh_snapshot() -> void:
 	snapshot = port.island_snapshot()

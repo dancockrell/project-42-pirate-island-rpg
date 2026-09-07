@@ -73,8 +73,21 @@ func run() -> void:
 			DirAccess.remove_absolute(path + suffix)
 	print("PASS: save/load restores native position and pause; corrupt primary falls back; invalid load preserves live state")
 	scene.set_paused(false)
+	var observed_strikes := 0
 	for step in range(60):
 		scene.advance_tick()
+		assert(scene.hit_effects.size() == scene.last_strikes.size())
+		observed_strikes += scene.last_strikes.size()
+		for index in scene.last_strikes.size():
+			var strike: Dictionary = scene.last_strikes[index]
+			assert(strike.damage > 0)
+			assert(scene.hit_effects[index].points[1] == (Vector2(strike.destination) + Vector2.ONE * 0.5) * 32 - Vector2(0,12))
+	assert(observed_strikes > 0)
+	scene.set_paused(true)
+	var paused_effects: Array = scene.hit_effects.duplicate()
+	scene.advance_tick()
+	assert(scene.hit_effects == paused_effects)
+	scene.set_paused(false)
 	assert(scene.snapshot.actors.size() <= 19)
 	assert(scene.snapshot.casualties > 0)
 	assert(scene.troop_sprites.size() == scene.snapshot.actors.size() - 1)
@@ -108,6 +121,7 @@ func run() -> void:
 	scene.refresh_snapshot()
 	assert(scene.building_sprites.size() == 1)
 	print("PASS: native building positions, transparent fort, operating state and removal/load projection")
+	print("PASS: native strike events project one effect per hit at recorded target positions; pause preserves effects")
 	print("PASS: autonomous skirmish casualties, capped survivors, removed dead sprites, roster preserved through load")
 	print("PASS: real island scene, authored land, sprite/native position agreement, travel and pause")
 	quit()
