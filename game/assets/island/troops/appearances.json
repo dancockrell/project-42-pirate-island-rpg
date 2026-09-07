@@ -8,7 +8,13 @@
   "actor_def.pirates.deckhand": {
     "legacy_unknown_variant": "male",
     "variants": {
-      "male": { "texture": "res://assets/island/troops/pirate.png", "pivot": [143,363], "scale": 0.105 }
+      "male": { "texture": "res://assets/island/troops/pirate.png", "pivot": [143,363], "scale": 0.105 },
+      "female": {
+        "texture": "res://assets/island/troops/pirate-female.png", "pivot": [302,1080], "scale": 0.03025,
+        "status": "development-standing",
+        "source": "procedural/sprites/candidates/pirate-island/troops-01/pirate-female-revision-01/extracted/cell_00_00.png",
+        "sha256": "52326f77901ee1d4643359d32fea47e25915bfd9146fd3e667b8e66b0c5afc19"
+      }
     }
   },
   "actor_def.cthulhu.drowned_cultist": {

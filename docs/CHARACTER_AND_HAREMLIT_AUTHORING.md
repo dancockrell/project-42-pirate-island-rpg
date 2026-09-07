@@ -4,7 +4,7 @@
 
 ## Recruitment, faction membership, and party contract
 
-**Authority:** the following consolidates the user's NPC-pool decisions. These are required game rules, not a claim that the current native island implements them. The current slice has production, movement, combat, casualties and faction elimination, but no recruitment or companion roster.
+**Authority:** the following consolidates the user's NPC-pool decisions. These are required game rules, not a claim that every branch is implemented. The current development slice has one authored pirate offer, persistent male/female pirate population, same-person faction transfer, four explicit companion slots, group movement and casualty-backed dead slots. It does not yet implement procedural romance quests, diplomatic recruitment consequences, midnight conversion/restoration, or female appearances for every faction. See [the island implementation notes](../game/assets/island/README.md) for exact provisional limits and test scope.
 
 - Michael begins as the sole shipwreck survivor in his faction. Do not seed four allies merely to satisfy a five-character screenshot.
 - Every adult female person is potentially recruitable under the right conditions, irrespective of current faction, ordinary/hero status, madness, or suitable undead form. Conditions may involve relationships, quests, artifacts or restoration; potential eligibility is not instant success.

@@ -8,20 +8,55 @@ The three preview factions are mutually hostile; Michael begins neutral.
 Shift-click a person to inspect their name, faction and short biography;
 Shift-click empty ground closes the panel without issuing movement. Selection
 tracks the actor ID rather than the displayed name, which need not be unique.
-personas.json supplies provisional fictional name/history pools for the three
-currently admitted male troop definitions. Rust embeds it: rebuild the extension
+personas.json supplies provisional fictional name/history pools for three
+troop definitions, including a male/female pirate population variation.
+Rust embeds it: rebuild the extension
 after changing it. NamedPerson is stored on the existing produced actor and
 moves with that actor into its casualty record; names and history are not
 rerolled on save/load. Older actors without identity data remain unknown.
-No female actor is inferred from a male sprite; matching female candidates are
-under separate review. Biography text is not yet a playable personal quest.
-Recruitment, faction transfer and the four-companion roster are still unfinished.
+No female actor is inferred from a male sprite. The pirate woman uses the
+reviewed revision-01 standing source; female colonial and cultist production
+remain disabled while their artwork needs correction. Biography text is not
+yet a procedural quest system.
+
+## First recruitment encounter
+
+The pirate female pool authors an offer to leave over withheld shares. This is
+one deliberately simple encounter condition, not universal automatic consent or
+a completed romance progression. Inspect her, bring living Michael within two
+clear navigation cells, and use Talk. Join faction appears after that discussion;
+acceptance rechecks access and life state. Health is not a recruitment threshold.
+The same actor joins Michael, preserving identity, provenance, current health and
+appearance. Source production queues and their costs remain unchanged; only her
+own population use transfers. Repeated acceptance must not duplicate her.
+Immigrant accommodation provisionally raises Michael's capacity to cover actual
+members; housing and wages are not modeled by this initial encounter.
+
+Joining the faction leaves all four companion slots unchanged. Choose an explicit
+slot to add/replace a living recruit; clearing or replacing a slot retains the
+woman's faction membership and stops her old party order. Land clicks submit
+Michael and living active companions through existing pathfinding toward nearby
+distinct destinations, never teleporting. Invalid group requests retain previous
+orders. Dead slots retain the person's identity and do not issue movement.
+Membership, permanent attachment, discussion and slots persist through saves.
+Midnight undead conversion and restoration are still unimplemented.
+
+## Character presentation boundary
+
 troops/appearances.json owns existing texture, pivot and scale by unit definition
 and person sex, never current faction. Thus an allegiance change and sprite
 recreation preserve costume. Explicit legacy-unknown mappings retain the three
 old male appearances without inventing missing identity fields. Unsupported
 definitions/sex variants have no arbitrary colonial fallback and the HUD reports
-missing art. No female production is enabled until matching art is integrated.
+missing art. The pirate female texture is the exact shared revision cutout,
+SHA256 52326f77901ee1d4643359d32fea47e25915bfd9146fd3e667b8e66b0c5afc19.
+Her 0.03025 scale is approximately 36 image pixels high; [302,1080] is a
+provisional support-point estimate between the boot contacts. It needs a common
+ground-plane render comparison, not a claim of precisely calibrated stature.
+Fine dithering, lack of directional walking/attacking poses, and actual native
+visual review remain open. This development standing integration is not final
+shipped-art or animation acceptance. Source, prompt, alpha correction and review
+remain in shared troops-01/pirate-female-revision-01; no raw source was removed.
 Right-click a nearby unit to queue one steam-carbine shot. A hit provokes that
 faction into retaliation. Range and line of sight are native checks; reload and
 pause delay firing. A successful movement order cancels a queued shot, while an

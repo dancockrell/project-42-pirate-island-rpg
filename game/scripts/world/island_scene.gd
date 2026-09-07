@@ -12,6 +12,15 @@ var pause_button := Button.new()
 var save_button := Button.new()
 var load_button := Button.new()
 var inspection := Label.new()
+var conversation_actions := HBoxContainer.new()
+var talk_button := Button.new()
+var recruit_button := Button.new()
+var conversation_notice := ""
+var conversation_status := Label.new()
+var party_controls := VBoxContainer.new()
+var party_heading := Label.new()
+var party_buttons: Array[Button] = []
+var dismiss_buttons: Array[Button] = []
 var inspected_id := ""
 var inspected_person: Dictionary = {}
 var campaign_path := "user://pirate-island-save.json"
@@ -176,6 +185,43 @@ func _ready() -> void:
 	inspection.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inspection.visible = false
 	stack.add_child(inspection)
+	stack.add_child(conversation_actions)
+	for button in [talk_button, recruit_button]:
+		button.custom_minimum_size = Vector2(120,36)
+		button.mouse_filter = Control.MOUSE_FILTER_STOP
+		conversation_actions.add_child(button)
+	talk_button.text = "Talk"
+	recruit_button.text = "Join faction"
+	talk_button.pressed.connect(talk_action)
+	recruit_button.pressed.connect(recruit_action)
+	conversation_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	conversation_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(conversation_status)
+	stack.add_child(party_controls)
+	party_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	party_controls.add_child(party_heading)
+	var slots := GridContainer.new()
+	slots.columns = 2
+	party_controls.add_child(slots)
+	for slot in range(4):
+		var row := HBoxContainer.new()
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		slots.add_child(row)
+		var assign := Button.new()
+		assign.custom_minimum_size = Vector2(90,36)
+		assign.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		assign.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		assign.mouse_filter = Control.MOUSE_FILTER_STOP
+		assign.pressed.connect(assign_action.bind(slot))
+		row.add_child(assign)
+		party_buttons.append(assign)
+		var dismiss := Button.new()
+		dismiss.text = "×"
+		dismiss.custom_minimum_size = Vector2(36,36)
+		dismiss.mouse_filter = Control.MOUSE_FILTER_STOP
+		dismiss.pressed.connect(dismiss_action.bind(slot))
+		row.add_child(dismiss)
+		dismiss_buttons.append(dismiss)
 	get_viewport().size_changed.connect(_fit)
 	_fit()
 	refresh_snapshot()
@@ -189,7 +235,15 @@ func _fit() -> void:
 	map_root.position = ((area - Vector2(1536,1024) * zoom) * 0.5).round()
 
 func request_move(cell: Vector2i) -> bool:
-	return port.move_island_actor(MICHAEL, cell)
+	var accepted: bool = port.move_island_party(cell)
+	if not accepted:
+		save_notice = port.party_move_failure(cell)
+		if save_notice.is_empty():
+			save_notice = "The party cannot reach that spot. Choose clear land nearby."
+	else:
+		save_notice = ""
+	refresh_snapshot()
+	return accepted
 
 func set_paused(value: bool) -> void:
 	paused = value
@@ -334,18 +388,73 @@ func nearest_actor(point: Vector2, include_michael: bool = true) -> String:
 func inspect_actor(id: String) -> void:
 	inspected_id = id
 	inspected_person = {}
+	conversation_notice = ""
 	refresh_inspection()
+
+func talk_action() -> void:
+	var offer: String = port.talk_island_person(inspected_id)
+	conversation_notice = "" if not offer.is_empty() else "Move Michael closer, with a clear path between you, to talk."
+	refresh_snapshot()
+
+func recruit_action() -> void:
+	conversation_notice = "Joined your faction. Choose a companion slot below." if port.recruit_island_person(inspected_id) else "Could not join. Talk first and keep Michael close enough to speak."
+	refresh_snapshot()
+
+func assign_action(slot: int) -> void:
+	conversation_notice = "Companion slot updated." if port.assign_island_companion(inspected_id, slot) else "Choose a living woman in Michael’s faction who is not already in another slot."
+	refresh_snapshot()
+
+func dismiss_action(slot: int) -> void:
+	conversation_notice = "Party slot cleared; faction membership is unchanged." if port.dismiss_island_companion(slot) else "That slot could not be cleared."
+	refresh_snapshot()
+
+func refresh_party_controls(live: bool) -> void:
+	var slots: Array = snapshot.get("party", ["", "", "", ""])
+	var michael_alive: bool = snapshot.actors.any(func(entry): return entry.id == MICHAEL)
+	var eligible: bool = michael_alive and live and inspected_person.get("sex", "") == "female" and inspected_person.get("faction", "") == "faction.michael" and inspected_person.get("loyal_to_michael", false)
+	var living_count := 0
+	for entry in snapshot.actors:
+		if slots.has(entry.id):
+			living_count += 1
+	party_controls.visible = eligible or slots.any(func(id): return not str(id).is_empty())
+	party_heading.text = "Companions · %d/4 living" % living_count
+	if eligible:
+		party_heading.text += " · Choose a slot for %s" % inspected_person.get("name", "")
+	for slot in range(4):
+		var id: String = slots[slot] if slot < slots.size() else ""
+		var name_text := "Empty"
+		if not id.is_empty():
+			var remembered_names: Array = snapshot.get("party_names", [])
+			name_text = str(remembered_names[slot]) + " · Fallen or absent" if slot < remembered_names.size() and not str(remembered_names[slot]).is_empty() else "Fallen or absent"
+			for entry in snapshot.actors:
+				if entry.id == id:
+					name_text = entry.name
+		var button := party_buttons[slot]
+		button.text = "%d · %s" % [slot + 1, name_text]
+		button.disabled = not eligible or slots.has(inspected_id)
+		button.tooltip_text = "Assign %s to slot %d%s" % [inspected_person.get("name", "selected woman"), slot + 1, " (replaces %s in the party only)" % name_text if not id.is_empty() else ""]
+		dismiss_buttons[slot].disabled = id.is_empty()
+		dismiss_buttons[slot].tooltip_text = "Clear slot %d; keep faction membership" % (slot + 1)
 
 func refresh_inspection() -> void:
 	inspection.visible = not inspected_id.is_empty()
-	if not inspection.visible:
-		return
 	var live := false
 	for entry in snapshot.actors:
 		if entry.id == inspected_id:
 			inspected_person = entry.duplicate(true)
 			live = true
 			break
+	refresh_party_controls(live)
+	var offer: String = inspected_person.get("recruitment_offer", "")
+	var michael_alive: bool = snapshot.actors.any(func(entry): return entry.id == MICHAEL)
+	var potential: bool = michael_alive and live and inspected_person.get("sex", "") == "female" and inspected_person.get("faction", "") != "faction.michael" and not offer.is_empty()
+	talk_button.visible = potential
+	recruit_button.visible = potential and inspected_person.get("discussed", false)
+	conversation_actions.visible = potential
+	conversation_status.text = conversation_notice
+	conversation_status.visible = not conversation_notice.is_empty()
+	if not inspection.visible:
+		return
 	var name_text: String = inspected_person.get("name", "Unknown person")
 	var faction_text: String = inspected_person.get("faction", "Unknown faction")
 	match faction_text:
@@ -356,6 +465,8 @@ func refresh_inspection() -> void:
 	# A missing live actor can mean death or departure; do not invent which.
 	var state_text := faction_text if live else "Dead or departed · Last seen: " + faction_text
 	inspection.text = "%s · %s\n%s\nShift-click empty land to close." % [name_text, state_text, inspected_person.get("biography", "")]
+	if live and inspected_person.get("discussed", false) and not offer.is_empty():
+		inspection.text += "\n“%s”" % offer
 
 func _process(delta: float) -> void:
 	if not ready_ok or paused:

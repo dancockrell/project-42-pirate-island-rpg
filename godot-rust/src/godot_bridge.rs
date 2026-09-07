@@ -134,6 +134,9 @@ impl Project42SimulationBridge {
                     "name" => person.map(|p| p.display_name.as_str()).unwrap_or("Unknown unit"),
                     "biography" => person.map(|p| p.backstory.as_str()).unwrap_or(""),
                     "sex" => sex,
+                    "discussed" => person.is_some_and(|p| p.discussed),
+                    "loyal_to_michael" => person.is_some_and(|p| p.loyal_to_michael),
+                    "recruitment_offer" => person.map(|p| p.recruitment_offer.as_str()).unwrap_or(""),
                     "age" => person.and_then(|p| p.age).map(i64::from).unwrap_or(-1),
                     "health" => world.unit_combat.get(id).map(|v| v.health).unwrap_or(0),
                     "max_health" => world.combat_profiles.get(&world.actors[id].definition_id).map(|v| v.health).unwrap_or(0),
@@ -165,7 +168,80 @@ impl Project42SimulationBridge {
         for point in &world.navigation.walkable {
             land.push(&Vector2i::new(point.x, point.y).to_variant());
         }
-        vdict! { "tick" => world.tick as i64, "paused" => world.paused, "actors" => &actors, "buildings" => &buildings, "land" => &land, "casualties" => world.casualties.len() as i64 }
+        let mut party = VarArray::new();
+        let mut party_names = VarArray::new();
+        for id in &world.party {
+            party.push(&id.as_str().to_variant());
+            let name = world
+                .actors
+                .get(id)
+                .or_else(|| world.casualties.get(id).map(|c| &c.actor))
+                .and_then(|a| a.person.as_ref())
+                .map(|p| p.display_name.as_str())
+                .unwrap_or("");
+            party_names.push(&name.to_variant());
+        }
+        vdict! { "tick" => world.tick as i64, "paused" => world.paused, "actors" => &actors, "buildings" => &buildings, "land" => &land, "casualties" => world.casualties.len() as i64, "party" => &party, "party_names" => &party_names }
+    }
+
+    #[func]
+    fn talk_island_person(&mut self, id: GString) -> GString {
+        self.island
+            .as_mut()
+            .map(|w| w.talk_island_person(&id.to_string()))
+            .unwrap_or_default()
+            .as_str()
+            .into()
+    }
+
+    #[func]
+    fn recruit_island_person(&mut self, id: GString) -> bool {
+        self.island
+            .as_mut()
+            .is_some_and(|w| w.recruit_island_person(&id.to_string()))
+    }
+
+    #[func]
+    fn assign_island_companion(&mut self, id: GString, slot: i64) -> bool {
+        usize::try_from(slot).ok().is_some_and(|slot| {
+            self.island
+                .as_mut()
+                .is_some_and(|w| w.assign_island_companion(&id.to_string(), slot))
+        })
+    }
+
+    #[func]
+    fn dismiss_island_companion(&mut self, slot: i64) -> bool {
+        usize::try_from(slot).ok().is_some_and(|slot| {
+            self.island
+                .as_mut()
+                .is_some_and(|w| w.dismiss_island_companion(slot))
+        })
+    }
+
+    #[func]
+    fn move_island_party(&mut self, target: Vector2i) -> bool {
+        self.island.as_mut().is_some_and(|w| {
+            w.move_island_party(IslandPoint {
+                x: target.x,
+                y: target.y,
+            })
+        })
+    }
+
+    #[func]
+    fn party_move_failure(&self, target: Vector2i) -> GString {
+        self.island
+            .as_ref()
+            .map(|w| {
+                w.party_move_failure(IslandPoint {
+                    x: target.x,
+                    y: target.y,
+                })
+            })
+            .unwrap_or_else(|| "Island unavailable.".into())
+            .as_str()
+            .into()
     }
 
     #[func]

@@ -23,6 +23,12 @@ pub struct NamedPerson {
     /// Hex string survives JSON consumers that represent numbers as doubles.
     #[serde(default)]
     pub generation_seed: Option<String>,
+    #[serde(default)]
+    pub recruitment_offer: String,
+    #[serde(default)]
+    pub discussed: bool,
+    #[serde(default)]
+    pub loyal_to_michael: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -44,16 +50,20 @@ struct PersonaPool {
     given_names: Vec<String>,
     family_names: Vec<String>,
     histories: Vec<String>,
+    #[serde(default)]
+    recruitment_offer: String,
 }
 
 fn produced_person(definition: &str, id: &str, serial: u64) -> Option<NamedPerson> {
-    static POOLS: std::sync::OnceLock<BTreeMap<String, PersonaPool>> = std::sync::OnceLock::new();
+    static POOLS: std::sync::OnceLock<BTreeMap<String, Vec<PersonaPool>>> =
+        std::sync::OnceLock::new();
     let pools = POOLS.get_or_init(|| {
         serde_json::from_str(include_str!("../../game/assets/island/personas.json"))
             .expect("validated persona catalog")
     });
-    let pool = pools.get(definition)?;
     let seed = mix_seed(serial, 0, id, 0);
+    let variants = pools.get(definition)?;
+    let pool = variants.get((seed % variants.len().max(1) as u64) as usize)?;
     let pick = |values: &[String], rotation: u32| {
         values[(seed.rotate_left(rotation) % values.len() as u64) as usize].clone()
     };
@@ -72,6 +82,7 @@ fn produced_person(definition: &str, id: &str, serial: u64) -> Option<NamedPerso
         ),
         backstory: pick(&pool.histories, 37),
         generation_seed: Some(format!("{seed:016x}")),
+        recruitment_offer: pool.recruitment_offer.clone(),
         ..Default::default()
     })
 }
@@ -84,6 +95,9 @@ impl NamedPerson {
             && self.display_name.len() <= 120
             && !self.display_name.chars().any(char::is_control)
             && self.backstory.len() <= 4096
+            && self.recruitment_offer.len() <= 4096
+            && (!self.loyal_to_michael
+                || (self.sex == PersonSex::Female && self.age.is_some_and(|age| age >= 18)))
             && self.age.is_none_or(|age| age >= 18)
             && self
                 .generation_seed
@@ -426,6 +440,9 @@ pub enum FactionWorldError {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FactionWorld {
+    /// Fixed slots preserve deliberate replacement and dead companion identity.
+    #[serde(default)]
+    pub party: [String; 4],
     #[serde(default)]
     pub player_attack_target: Option<String>,
     pub tick: u64,
@@ -1438,6 +1455,9 @@ impl FactionWorld {
         for (id, faction) in &world.factions {
             if id != &faction.id
                 || faction.population_used > faction.population_capacity
+                || world
+                    .minimum_population(id)
+                    .is_none_or(|minimum| faction.population_used < minimum)
                 || faction.wobble_limit < 0
                 || faction.buildings.len() > 4096
             {
@@ -1553,6 +1573,26 @@ impl FactionWorld {
                 return Err("invalid_saved_casualty".into());
             }
         }
+        let mut seen = BTreeSet::new();
+        for id in world.party.iter().filter(|id| !id.is_empty()) {
+            if !seen.insert(id) {
+                return Err("duplicate_saved_companion".into());
+            }
+            let actor = world
+                .actors
+                .get(id)
+                .or_else(|| world.casualties.get(id).map(|c| &c.actor))
+                .ok_or("missing_saved_companion")?;
+            let person = actor.person.as_ref().ok_or("invalid_saved_companion")?;
+            if actor.faction_id != "faction.michael"
+                || person.sex != PersonSex::Female
+                || !person.age.is_some_and(|age| age >= 18)
+                || !person.loyal_to_michael
+                || (world.actors.contains_key(id) && world.living_person(id).is_none())
+            {
+                return Err("invalid_saved_companion".into());
+            }
+        }
         let mut world = world;
         for (id, policy) in world.policies.clone() {
             world
@@ -1637,6 +1677,244 @@ impl FactionWorld {
             .positions
             .insert(actor_id, IslandPoint { x: 8, y: 16 });
         world
+    }
+
+    fn minimum_population(&self, faction_id: &str) -> Option<u32> {
+        let faction = self.factions.get(faction_id)?;
+        let reservations = faction
+            .buildings
+            .values()
+            .flat_map(|b| &b.production_queue)
+            .map(|q| q.rule.population_use);
+        let live = self
+            .unit_combat
+            .iter()
+            .filter(|(id, _)| {
+                self.actors
+                    .get(*id)
+                    .is_some_and(|a| a.faction_id == faction_id)
+            })
+            .map(|(_, state)| state.population_use);
+        reservations
+            .chain(live)
+            .try_fold(0u32, |sum, population| sum.checked_add(population))
+    }
+
+    fn living_actor(&self, id: &str) -> bool {
+        self.actors.contains_key(id)
+            && self.positions.contains_key(id)
+            && self
+                .unit_combat
+                .get(id)
+                .is_some_and(|state| state.health > 0)
+    }
+
+    fn cancel_actor_travel(&mut self, id: &str) {
+        self.travel_orders.remove(id);
+        self.navigation.destinations.remove(&format!("move.{id}"));
+        if let Some(actor) = self.actors.get_mut(id) {
+            actor.current_assignment_id = None;
+        }
+    }
+
+    fn living_person(&self, id: &str) -> Option<&NamedPerson> {
+        self.unit_combat.get(id).filter(|state| state.health > 0)?;
+        self.positions.get(id)?;
+        self.actors
+            .get(id)?
+            .person
+            .as_ref()
+            .filter(|person| person.alive_today)
+    }
+
+    fn accessible_recruit(&self, id: &str) -> bool {
+        let captain = "character.protagonist.captain";
+        if !self.living_actor(captain) || id == captain {
+            return false;
+        }
+        let Some(person) = self.living_person(id) else {
+            return false;
+        };
+        if person.sex != PersonSex::Female
+            || !person.age.is_some_and(|age| age >= 18)
+            || person.recruitment_offer.trim().is_empty()
+        {
+            return false;
+        }
+        let a = self.positions[captain];
+        let b = self.positions[id];
+        u64::from(a.x.abs_diff(b.x)) + u64::from(a.y.abs_diff(b.y)) <= 2
+            && self.navigation.clear_line(a, b)
+    }
+
+    pub fn talk_island_person(&mut self, id: &str) -> String {
+        if !self.accessible_recruit(id) {
+            return String::new();
+        }
+        let person = self.actors.get_mut(id).unwrap().person.as_mut().unwrap();
+        person.discussed = true;
+        person.recruitment_offer.clone()
+    }
+
+    pub fn recruit_island_person(&mut self, id: &str) -> bool {
+        if !self.accessible_recruit(id) {
+            return false;
+        }
+        let actor = &self.actors[id];
+        if actor.faction_id == "faction.michael" || !actor.person.as_ref().unwrap().discussed {
+            return false;
+        }
+        let source = actor.faction_id.clone();
+        if self
+            .minimum_population(&source)
+            .is_none_or(|minimum| self.factions[&source].population_used < minimum)
+        {
+            return false;
+        }
+        let population = self.unit_combat[id].population_use;
+        let Some(source_used) = self
+            .factions
+            .get(&source)
+            .and_then(|f| f.population_used.checked_sub(population))
+        else {
+            return false;
+        };
+        let Some(destination_used) = self
+            .factions
+            .get("faction.michael")
+            .and_then(|f| f.population_used.checked_add(population))
+        else {
+            return false;
+        };
+        self.factions.get_mut(&source).unwrap().population_used = source_used;
+        let destination = self.factions.get_mut("faction.michael").unwrap();
+        destination.population_used = destination_used;
+        // Provisional immigrant accommodation, not additional army production.
+        destination.population_capacity = destination.population_capacity.max(destination_used);
+        let actor = self.actors.get_mut(id).unwrap();
+        actor.faction_id = "faction.michael".into();
+        actor.current_assignment_id = None;
+        actor.person.as_mut().unwrap().loyal_to_michael = true;
+        self.cancel_actor_travel(id);
+        if self.player_attack_target.as_deref() == Some(id) {
+            self.player_attack_target = None;
+        }
+        true
+    }
+
+    pub fn assign_island_companion(&mut self, id: &str, slot: usize) -> bool {
+        if slot >= 4 || !self.living_actor("character.protagonist.captain") {
+            return false;
+        }
+        let Some(person) = self.living_person(id) else {
+            return false;
+        };
+        if person.sex != PersonSex::Female
+            || !person.age.is_some_and(|age| age >= 18)
+            || !person.loyal_to_michael
+            || self.actors[id].faction_id != "faction.michael"
+            || self
+                .party
+                .iter()
+                .enumerate()
+                .any(|(i, other)| i != slot && other == id)
+        {
+            return false;
+        }
+        let previous = std::mem::replace(&mut self.party[slot], id.into());
+        if previous != id {
+            self.cancel_actor_travel(&previous);
+        }
+        self.cancel_actor_travel(id);
+        true
+    }
+
+    pub fn dismiss_island_companion(&mut self, slot: usize) -> bool {
+        if slot >= 4
+            || self.party[slot].is_empty()
+            || !self.living_actor("character.protagonist.captain")
+        {
+            return false;
+        }
+        let id = std::mem::take(&mut self.party[slot]);
+        // Remain safely where she is, without an obsolete party travel order.
+        self.cancel_actor_travel(&id);
+        true
+    }
+
+    fn plan_party_move(&self, target: IslandPoint) -> Result<Vec<(String, IslandPoint)>, String> {
+        let captain = "character.protagonist.captain";
+        if !self.living_actor(captain)
+            || self
+                .navigation
+                .path(self.positions[captain], target)
+                .is_none()
+        {
+            return Err("Michael cannot reach that destination.".into());
+        }
+        let mut orders = vec![(captain.to_string(), target)];
+        let mut occupied = BTreeSet::from([target]);
+        for id in &self.party {
+            if id.is_empty() || self.casualties.contains_key(id) {
+                continue;
+            }
+            let Some(person) = self.living_person(id) else {
+                return Err("A companion is unavailable.".into());
+            };
+            if !person.loyal_to_michael || self.actors[id].faction_id != "faction.michael" {
+                return Err(format!(
+                    "{} is not an available companion.",
+                    person.display_name
+                ));
+            }
+            let start = self.positions[id];
+            let mut candidates: Vec<_> = self
+                .navigation
+                .walkable
+                .iter()
+                .copied()
+                .filter(|point| {
+                    !occupied.contains(point)
+                        && u64::from(point.x.abs_diff(target.x))
+                            + u64::from(point.y.abs_diff(target.y))
+                            <= 3
+                })
+                .collect();
+            candidates.sort_by_key(|point| {
+                (
+                    u64::from(point.x.abs_diff(target.x)) + u64::from(point.y.abs_diff(target.y)),
+                    *point,
+                )
+            });
+            let Some(destination) = candidates
+                .into_iter()
+                .find(|point| self.navigation.path(start, *point).is_some())
+            else {
+                return Err(format!(
+                    "{} cannot reach the party destination.",
+                    person.display_name
+                ));
+            };
+            occupied.insert(destination);
+            orders.push((id.clone(), destination));
+        }
+        Ok(orders)
+    }
+
+    pub fn party_move_failure(&self, target: IslandPoint) -> String {
+        self.plan_party_move(target).err().unwrap_or_default()
+    }
+
+    pub fn move_island_party(&mut self, target: IslandPoint) -> bool {
+        let Ok(orders) = self.plan_party_move(target) else {
+            return false;
+        };
+        // Preflight completed for everyone before mutating any current order.
+        for (id, destination) in orders {
+            self.order_move(&id, destination)
+                .expect("preflighted party destination");
+        }
+        true
     }
 
     /// Player and AI use the same travel queue. Destination coordinates are
@@ -2800,9 +3078,10 @@ mod tests {
 
     #[test]
     fn persona_catalog_is_safe_and_produced_identity_survives_death_and_reload() {
-        let pools: BTreeMap<String, PersonaPool> =
+        let pools: BTreeMap<String, Vec<PersonaPool>> =
             serde_json::from_str(include_str!("../../game/assets/island/personas.json")).unwrap();
-        for pool in pools.values() {
+        assert!(pools.values().all(|variants| !variants.is_empty()));
+        for pool in pools.values().flatten() {
             assert!(pool.age_min >= 18 && pool.age_min <= pool.age_max);
             for values in [&pool.given_names, &pool.family_names, &pool.histories] {
                 assert!(!values.is_empty());
@@ -3080,6 +3359,407 @@ mod tests {
             volume.occupied_local_cubes().unwrap_err(),
             MapPlacementError::OverlappingModules(GridCube { x: 1, y: 0, z: 0 })
         );
+    }
+
+    fn recruitment_fixture() -> (FactionWorld, Vec<String>) {
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        for _ in 0..2 {
+            world.advance_island_tick();
+        }
+        let template_id = world
+            .actors
+            .values()
+            .find(|a| a.definition_id == "actor_def.pirates.deckhand")
+            .unwrap()
+            .instance_id
+            .clone();
+        let template = world.actors[&template_id].clone();
+        let combat = world.unit_combat[&template_id].clone();
+        let mut ids = vec![template_id];
+        for i in 1..5 {
+            let id = format!("test.recruit.{i}");
+            let mut actor = template.clone();
+            actor.instance_id = id.clone();
+            world.actors.insert(id.clone(), actor);
+            world.unit_combat.insert(id.clone(), combat.clone());
+            ids.push(id);
+        }
+        let faction = world.factions.get_mut("faction.pirates.prototype").unwrap();
+        faction.population_used += 4;
+        faction.population_capacity = 20;
+        for (i, id) in ids.iter().enumerate() {
+            world.actors.get_mut(id).unwrap().person = Some(NamedPerson {
+                id: id.clone(),
+                display_name: format!("Test Deckhand {i}"),
+                alive_today: true,
+                sex: PersonSex::Female,
+                age: Some(20),
+                recruitment_offer: "A fair share, and I keep my sword.".into(),
+                ..Default::default()
+            });
+            world
+                .positions
+                .insert(id.clone(), world.positions["character.protagonist.captain"]);
+        }
+        world.policies.clear();
+        world.hostilities.clear();
+        world.travel_orders.clear();
+        for f in world.factions.values_mut() {
+            for b in f.buildings.values_mut() {
+                b.operational = false;
+            }
+        }
+        (world, ids)
+    }
+
+    #[test]
+    fn recruitment_transfers_five_people_without_clones_or_queue_loss_and_selects_four() {
+        let (mut world, ids) = recruitment_fixture();
+        let faction = "faction.pirates.prototype";
+        let building = world.factions[faction]
+            .buildings
+            .keys()
+            .next()
+            .unwrap()
+            .clone();
+        world
+            .factions
+            .get_mut(faction)
+            .unwrap()
+            .buildings
+            .get_mut(&building)
+            .unwrap()
+            .operational = true;
+        let rule = serde_json::from_str(include_str!(
+            "../../content/production/tide_quay_deckhands.json"
+        ))
+        .unwrap();
+        world.enqueue_production(faction, &building, rule).unwrap();
+        world
+            .factions
+            .get_mut(faction)
+            .unwrap()
+            .buildings
+            .get_mut(&building)
+            .unwrap()
+            .operational = false;
+        let queue = world.factions[faction].buildings[&building]
+            .production_queue
+            .clone();
+        let resources = world.factions[faction].resources.clone();
+        let initial_population = world.factions[faction].population_used;
+        let count = world.actors.len();
+        for id in &ids {
+            let actor_before = world.actors[id].clone();
+            let state_before = world.unit_combat[id].clone();
+            let position = world.positions[id];
+            world.order_move(id, position).unwrap();
+            world.player_attack_target = Some(id.clone());
+            assert!(!world.recruit_island_person(id));
+            assert!(!world.talk_island_person(id).is_empty());
+            assert!(world.recruit_island_person(id));
+            assert!(!world.recruit_island_person(id));
+            assert_eq!(world.actors[id].provenance, actor_before.provenance);
+            assert_eq!(world.unit_combat[id], state_before);
+            assert_eq!(
+                world.actors[id].person.as_ref().unwrap().display_name,
+                actor_before.person.unwrap().display_name
+            );
+            assert!(world.actors[id].person.as_ref().unwrap().loyal_to_michael);
+            assert!(!world.travel_orders.contains_key(id));
+            assert!(
+                !world
+                    .navigation
+                    .destinations
+                    .contains_key(&format!("move.{id}"))
+            );
+            assert!(world.player_attack_target.is_none());
+        }
+        assert_eq!(world.actors.len(), count);
+        assert_eq!(
+            world.factions[faction].population_used,
+            initial_population - 5
+        );
+        assert_eq!(
+            world.factions[faction].buildings[&building].production_queue,
+            queue
+        );
+        assert_eq!(world.factions[faction].resources, resources);
+        assert_eq!(world.factions["faction.michael"].population_used, 6);
+        assert_eq!(world.factions["faction.michael"].population_capacity, 6);
+        assert!(world.party.iter().all(String::is_empty));
+        for (slot, id) in ids.iter().take(4).enumerate() {
+            assert!(world.assign_island_companion(id, slot));
+        }
+        assert!(!world.assign_island_companion(&ids[0], 1));
+        assert!(!world.assign_island_companion(&ids[4], 4));
+        assert!(world.assign_island_companion(&ids[4], 0));
+        assert_eq!(world.actors[&ids[0]].faction_id, "faction.michael");
+        assert!(world.dismiss_island_companion(1));
+        assert_eq!(world.actors[&ids[1]].faction_id, "faction.michael");
+        world.eliminate_faction(faction).unwrap();
+        assert!(ids.iter().all(|id| world.actors.contains_key(id)));
+        assert_eq!(
+            FactionWorld::load_json(&world.save_json().unwrap()).unwrap(),
+            world
+        );
+    }
+
+    #[test]
+    fn recruitment_revalidates_access_identity_and_population_without_mutation() {
+        let (world, ids) = recruitment_fixture();
+        let id = &ids[0];
+        for mode in 0..8 {
+            let mut invalid = world.clone();
+            invalid.talk_island_person(id);
+            match mode {
+                0 => {
+                    invalid
+                        .actors
+                        .get_mut(id)
+                        .unwrap()
+                        .person
+                        .as_mut()
+                        .unwrap()
+                        .sex = PersonSex::Male
+                }
+                1 => invalid.actors.get_mut(id).unwrap().person = None,
+                2 => {
+                    invalid
+                        .actors
+                        .get_mut(id)
+                        .unwrap()
+                        .person
+                        .as_mut()
+                        .unwrap()
+                        .age = None
+                }
+                3 => invalid
+                    .actors
+                    .get_mut(id)
+                    .unwrap()
+                    .person
+                    .as_mut()
+                    .unwrap()
+                    .recruitment_offer
+                    .clear(),
+                4 => {
+                    invalid
+                        .positions
+                        .insert(id.clone(), IslandPoint { x: 30, y: 16 });
+                }
+                5 => {
+                    invalid
+                        .unit_combat
+                        .get_mut("character.protagonist.captain")
+                        .unwrap()
+                        .health = 0
+                }
+                6 => {
+                    invalid
+                        .factions
+                        .get_mut("faction.pirates.prototype")
+                        .unwrap()
+                        .population_used = 0
+                }
+                _ => {
+                    invalid
+                        .factions
+                        .get_mut("faction.michael")
+                        .unwrap()
+                        .population_used = u32::MAX
+                }
+            }
+            let before = invalid.clone();
+            assert!(!invalid.recruit_island_person(id));
+            assert_eq!(invalid, before);
+        }
+        let mut blocked = world.clone();
+        let a = world.positions[id];
+        blocked
+            .positions
+            .insert(id.clone(), IslandPoint { x: a.x + 2, y: a.y });
+        blocked
+            .navigation
+            .walkable
+            .remove(&IslandPoint { x: a.x + 1, y: a.y });
+        assert!(blocked.talk_island_person(id).is_empty());
+    }
+
+    #[test]
+    fn party_travel_is_atomic_persistent_and_retains_dead_identity() {
+        let (mut world, ids) = recruitment_fixture();
+        for (slot, id) in ids.iter().take(4).enumerate() {
+            world.talk_island_person(id);
+            assert!(world.recruit_island_person(id));
+            assert!(world.assign_island_companion(id, slot));
+        }
+        let positions = world.positions.clone();
+        assert!(world.move_island_party(IslandPoint { x: 12, y: 16 }));
+        assert_eq!(world.positions, positions);
+        let goals: BTreeSet<_> = world
+            .travel_orders
+            .values()
+            .map(|id| world.navigation.destinations[id])
+            .collect();
+        assert_eq!(goals.len(), 5);
+        let before = world.clone();
+        assert!(!world.move_island_party(IslandPoint { x: -100, y: -100 }));
+        assert_eq!(world, before);
+        let stranded = &ids[0];
+        let old = world.positions[stranded];
+        world
+            .positions
+            .insert(stranded.clone(), IslandPoint { x: 1000, y: 1000 });
+        world
+            .navigation
+            .walkable
+            .insert(IslandPoint { x: 1000, y: 1000 });
+        let before = world.clone();
+        assert!(!world.move_island_party(IslandPoint { x: 12, y: 16 }));
+        assert!(
+            world
+                .party_move_failure(IslandPoint { x: 12, y: 16 })
+                .contains(&world.actors[stranded].person.as_ref().unwrap().display_name)
+        );
+        assert_eq!(world, before);
+        world.positions.insert(stranded.clone(), old);
+        world
+            .navigation
+            .walkable
+            .remove(&IslandPoint { x: 1000, y: 1000 });
+        world.paused = true;
+        let paused = world.clone();
+        world.advance_island_tick();
+        assert_eq!(world, paused);
+        assert_eq!(
+            FactionWorld::load_json(&world.save_json().unwrap()).unwrap(),
+            world
+        );
+        world.paused = false;
+        for _ in 0..10 {
+            world.advance_island_tick();
+        }
+        assert_eq!(
+            world.positions["character.protagonist.captain"],
+            IslandPoint { x: 12, y: 16 }
+        );
+        assert!(world.travel_orders.is_empty());
+        // Use the real combat death path, not a synthetic casualty replacement.
+        let victim = &ids[0];
+        let enemy = &ids[4];
+        let pos = world.positions[victim];
+        world.positions.insert(enemy.clone(), pos);
+        world.unit_combat.get_mut(enemy).unwrap().next_attack_tick = 0;
+        world.unit_combat.get_mut(victim).unwrap().health = 1;
+        world
+            .hostilities
+            .insert(("faction.pirates.prototype".into(), "faction.michael".into()));
+        // Keep victim as the unique target in reach.
+        for id in ids.iter().skip(1).take(3).chain(std::iter::once(
+            &"character.protagonist.captain".to_string(),
+        )) {
+            world
+                .positions
+                .insert(id.clone(), IslandPoint { x: 30, y: 16 });
+        }
+        world.resolve_island_skirmish();
+        assert!(world.casualties.contains_key(victim));
+        assert_eq!(&world.party[0], victim);
+        assert!(
+            world.casualties[victim]
+                .actor
+                .person
+                .as_ref()
+                .unwrap()
+                .loyal_to_michael
+        );
+        assert_eq!(
+            FactionWorld::load_json(&world.save_json().unwrap()).unwrap(),
+            world
+        );
+        assert!(world.move_island_party(IslandPoint { x: 28, y: 16 }));
+        assert!(!world.travel_orders.contains_key(victim));
+        for mode in 0..4 {
+            let mut bad = world.clone();
+            match mode {
+                0 => bad.party[1] = bad.party[0].clone(),
+                1 => bad.party[0] = "missing".into(),
+                2 => bad.party[0] = "character.protagonist.captain".into(),
+                _ => bad.party[0] = enemy.clone(),
+            };
+            assert!(FactionWorld::load_json(&bad.save_json().unwrap()).is_err());
+        }
+        let mut legacy: serde_json::Value =
+            serde_json::from_str(&world.save_json().unwrap()).unwrap();
+        legacy["world"].as_object_mut().unwrap().remove("party");
+        assert!(
+            FactionWorld::load_json(&legacy.to_string())
+                .unwrap()
+                .party
+                .iter()
+                .all(String::is_empty)
+        );
+    }
+
+    #[test]
+    fn legacy_captain_without_person_can_travel_and_recruit_known_people() {
+        let (mut world, ids) = recruitment_fixture();
+        world
+            .actors
+            .get_mut("character.protagonist.captain")
+            .unwrap()
+            .person = None;
+        let mut world = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        assert!(!world.talk_island_person(&ids[0]).is_empty());
+        assert!(world.recruit_island_person(&ids[0]));
+        assert!(world.assign_island_companion(&ids[0], 0));
+        assert!(world.move_island_party(IslandPoint { x: 12, y: 16 }));
+        assert!(
+            world
+                .party_move_failure(IslandPoint { x: 12, y: 16 })
+                .is_empty()
+        );
+        assert!(world.dismiss_island_companion(0));
+        assert!(
+            !world
+                .navigation
+                .destinations
+                .contains_key(&format!("move.{}", ids[0]))
+        );
+        assert_eq!(world.actors[&ids[0]].current_assignment_id, None);
+    }
+
+    #[test]
+    fn undercounted_queue_population_is_rejected_on_load_and_transfer() {
+        let (mut world, ids) = recruitment_fixture();
+        let faction = "faction.pirates.prototype";
+        let building = world.factions[faction]
+            .buildings
+            .keys()
+            .next()
+            .unwrap()
+            .clone();
+        world
+            .factions
+            .get_mut(faction)
+            .unwrap()
+            .buildings
+            .get_mut(&building)
+            .unwrap()
+            .operational = true;
+        let rule = serde_json::from_str(include_str!(
+            "../../content/production/tide_quay_deckhands.json"
+        ))
+        .unwrap();
+        world.enqueue_production(faction, &building, rule).unwrap();
+        world.talk_island_person(&ids[0]);
+        world.factions.get_mut(faction).unwrap().population_used = 5; // Five live people PLUS one reserved: six required.
+        assert!(FactionWorld::load_json(&world.save_json().unwrap()).is_err());
+        let before = world.clone();
+        assert!(!world.recruit_island_person(&ids[0]));
+        assert_eq!(world, before);
     }
 
     #[test]

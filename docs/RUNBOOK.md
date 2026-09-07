@@ -10,8 +10,15 @@ Expected current entry: tropical island, Michael alone, the colonial watch fort,
 and three provisional autonomous factions producing units and fighting.
 Click land to travel; Space pauses/resumes; F5 saves and F9 loads while the game
 has keyboard focus. These in-game shortcuts are separate from editor shortcuts.
-The current scene is a development slice: standing sprites, incomplete building
-art, provisional faction rules and no recruited party yet.
+Shift-click a pirate woman to inspect her. Bring Michael close, Talk, then use
+Join faction for the current authored offer. Choose an explicit companion slot;
+joining the faction does not automatically fill one. Land clicks then move
+Michael and living active companions through the same navigation system.
+The current scene remains a development slice: standing sprites, incomplete
+building art, provisional faction rules and one simple recruitment encounter.
+Four-slot membership and dead identities save/load; full romance, diplomacy
+and midnight resurrection are not implemented. See
+[island implementation notes](../game/assets/island/README.md).
 
 For a bounded low-resource check without opening an editor or visible window:
 

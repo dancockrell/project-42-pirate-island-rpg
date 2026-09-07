@@ -24,6 +24,7 @@ func run() -> void:
 	await process_frame
 	scene.set_process(false)
 	assert(scene.ready_ok)
+	var fresh_campaign: String = scene.port.save_island()
 	assert(not scene.inspection.visible)
 	var inspect_click := InputEventMouseButton.new()
 	inspect_click.button_index = MOUSE_BUTTON_LEFT
@@ -69,10 +70,11 @@ func run() -> void:
 				assert(not scene.request_move(Vector2i(building.x + offset[0], building.y + offset[1])))
 			assert(scene.building_sprites[building.id].position == (Vector2(building.x,building.y) + Vector2.ONE * 0.5) * 32)
 			assert(scene.building_sprites[building.id].texture.get_image().detect_alpha() == Image.ALPHA_BIT)
-	assert(scene.troop_textures.size() == 3)
+	assert(scene.troop_textures.size() == 4)
 	for texture in scene.troop_textures.values():
 		assert(texture.get_image().detect_alpha() == Image.ALPHA_BIT)
 	assert(not scene.request_move(Vector2i(0,0)))
+	assert(not scene.save_notice.is_empty() and scene.status.text.contains(scene.save_notice))
 	var start: Vector2 = scene.actor.position
 	assert(scene.request_move(Vector2i(20,16)))
 	scene.set_paused(true)
@@ -148,6 +150,10 @@ func run() -> void:
 	var appearance_before: Dictionary = scene.appearance_for(inspected_unit)
 	var allegiance_probe: Dictionary = save_integers(JSON.parse_string(payload))
 	allegiance_probe.world.actors[inspected_unit.id].faction_id = "faction.michael"
+	var moved_population: int = allegiance_probe.world.unit_combat[inspected_unit.id].population_use
+	allegiance_probe.world.factions[inspected_unit.faction].population_used -= moved_population
+	allegiance_probe.world.factions["faction.michael"].population_used += moved_population
+	allegiance_probe.world.factions["faction.michael"].population_capacity = maxi(allegiance_probe.world.factions["faction.michael"].population_capacity, allegiance_probe.world.factions["faction.michael"].population_used)
 	assert(scene.port.load_island(JSON.stringify(allegiance_probe)))
 	scene.troop_sprites[inspected_unit.id].queue_free()
 	scene.troop_sprites.erase(inspected_unit.id)
@@ -156,7 +162,9 @@ func run() -> void:
 	assert(scene.troop_sprites[inspected_unit.id].offset == -Vector2(appearance_before.pivot[0], appearance_before.pivot[1]))
 	var unadmitted: Dictionary = inspected_unit.duplicate(true)
 	unadmitted.sex = "female"
+	unadmitted.definition = "actor_def.colonial.line_marine"
 	assert(scene.appearance_for(unadmitted).is_empty()) # no male masquerading as a female
+	unadmitted.definition = inspected_unit.definition
 	unadmitted.sex = "unknown"
 	assert(scene.appearance_for(unadmitted) == appearance_before) # legacy presentation only
 	unadmitted.definition = "actor_def.not_admitted"
@@ -242,4 +250,102 @@ func run() -> void:
 		if FileAccess.file_exists(defeat_path + suffix):
 			DirAccess.remove_absolute(defeat_path + suffix)
 	print("PASS: actual lethal retaliation, paused defeat, save/reload defeat, no dead movement or attacks")
+	check_recruitment(scene, fresh_campaign)
 	quit()
+
+func check_recruitment(scene: Node, fresh_campaign: String) -> void:
+	assert(scene.port.load_island(fresh_campaign))
+	scene.paused = false
+	scene.refresh_snapshot()
+	assert(scene.snapshot.party == ["", "", "", ""])
+	var woman: Dictionary = {}
+	for step in range(30):
+		scene.advance_tick()
+		for entry in scene.snapshot.actors:
+			if entry.sex == "female":
+				woman = entry
+				break
+		if not woman.is_empty():
+			break
+	assert(not woman.is_empty()) # actual production, not an invented companion
+	scene.inspect_actor(woman.id)
+	assert(scene.talk_button.visible and not scene.recruit_button.visible)
+	assert(scene.talk_button.mouse_filter == Control.MOUSE_FILTER_STOP)
+	var before_talk: String = scene.port.save_island()
+	assert(not scene.port.recruit_island_person(woman.id))
+	assert(scene.port.save_island() == before_talk)
+	scene.talk_button.pressed.emit() # initial producer is outside talking range
+	assert(not scene.recruit_button.visible)
+	assert(scene.conversation_status.text.contains("closer"))
+	# Isolate this generated encounter from the ongoing war and put Michael nearby.
+	var nearby: Dictionary = save_integers(JSON.parse_string(scene.port.save_island()))
+	nearby.world.positions[scene.MICHAEL] = {"x": int(woman.x), "y": int(woman.y)}
+	nearby.world.policies.clear()
+	nearby.world.hostilities.clear()
+	nearby.world.travel_orders.clear()
+	assert(scene.port.load_island(JSON.stringify(nearby)))
+	scene.refresh_snapshot()
+	scene.set_paused(true)
+	var encounter_tick: int = scene.snapshot.tick
+	scene.talk_button.pressed.emit()
+	assert(scene.inspected_person.discussed and scene.recruit_button.visible)
+	assert(not scene.inspected_person.recruitment_offer.is_empty())
+	assert(scene.inspection.text.contains(scene.inspected_person.recruitment_offer))
+	var before_join: Dictionary = save_integers(JSON.parse_string(scene.port.save_island()))
+	var roster_count: int = scene.snapshot.actors.size()
+	scene.recruit_button.pressed.emit()
+	assert(scene.snapshot.actors.size() == roster_count)
+	assert(scene.inspected_person.id == woman.id and scene.inspected_person.name == woman.name)
+	assert(scene.inspected_person.biography == woman.biography and scene.inspected_person.health == woman.health)
+	assert(scene.inspected_person.faction == "faction.michael" and scene.inspected_person.loyal_to_michael)
+	assert(scene.paused and scene.snapshot.tick == encounter_tick)
+	assert(not scene.recruit_button.visible and scene.party_controls.visible)
+	assert(scene.snapshot.party == ["", "", "", ""]) # faction membership is not a party slot
+	var after_join: Dictionary = save_integers(JSON.parse_string(scene.port.save_island()))
+	assert(after_join.world.factions[woman.faction].population_used == before_join.world.factions[woman.faction].population_used - 1)
+	assert(after_join.world.factions["faction.michael"].population_used == before_join.world.factions["faction.michael"].population_used + 1)
+	scene.party_buttons[0].pressed.emit()
+	assert(scene.snapshot.party[0] == woman.id)
+	assert(scene.party_buttons[0].text.contains(woman.name))
+	assert(scene.request_move(Vector2i(20,18)))
+	assert(scene.snapshot.tick == encounter_tick)
+	scene.set_paused(false)
+	var party_save: String = scene.port.save_island()
+	var ordered: Dictionary = save_integers(JSON.parse_string(party_save))
+	assert(ordered.world.travel_orders.has(woman.id) and ordered.world.travel_orders.has(scene.MICHAEL))
+	scene.advance_tick()
+	assert(scene.port.save_island() != party_save)
+	assert(Vector2i(scene.inspected_person.x, scene.inspected_person.y) != Vector2i(woman.x, woman.y))
+	assert(scene.port.load_island(party_save))
+	scene.refresh_snapshot()
+	assert(scene.snapshot.party[0] == woman.id and scene.inspected_person.loyal_to_michael)
+	assert(scene.inspected_person.name == woman.name and scene.inspected_person.discussed)
+	assert(scene.party_heading.text.contains("1/4 living"))
+	scene.dismiss_buttons[0].pressed.emit()
+	assert(scene.snapshot.party[0].is_empty() and scene.inspected_person.faction == "faction.michael")
+	assert(scene.port.load_island(party_save))
+	scene.refresh_snapshot()
+	var lethal: Dictionary = save_integers(JSON.parse_string(party_save))
+	var attacker: Dictionary = {}
+	for entry in scene.snapshot.actors:
+		if entry.faction != "faction.michael":
+			attacker = entry
+			break
+	assert(not attacker.is_empty())
+	lethal.world.positions[scene.MICHAEL] = {"x": 20, "y": 18}
+	lethal.world.positions[attacker.id] = lethal.world.positions[woman.id].duplicate()
+	lethal.world.travel_orders.clear()
+	lethal.world.unit_combat[woman.id].health = 1
+	lethal.world.unit_combat[attacker.id].next_attack_tick = 0
+	lethal.world.hostilities = [[attacker.faction, "faction.michael"]]
+	assert(scene.port.load_island(JSON.stringify(lethal)))
+	scene.refresh_snapshot()
+	scene.advance_tick()
+	assert(scene.snapshot.party[0] == woman.id and scene.snapshot.party_names[0] == woman.name)
+	assert(scene.party_heading.text.contains("0/4 living"))
+	assert(scene.party_buttons[0].text.contains(woman.name) and scene.party_buttons[0].text.contains("Fallen"))
+	var fallen_save: String = scene.port.save_island()
+	assert(scene.port.load_island(fallen_save))
+	scene.refresh_snapshot()
+	assert(scene.party_buttons[0].text.contains(woman.name))
+	print("PASS: actual produced female dialogue, explicit same-identity recruitment, population transfer, four-slot party, group order and save restore")

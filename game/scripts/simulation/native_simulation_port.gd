@@ -40,6 +40,24 @@ func island_snapshot() -> Dictionary:
 func move_island_actor(actor_id: String, target: Vector2i) -> bool:
 	return is_available() and bridge.move_island_actor(actor_id, target)
 
+func move_island_party(target: Vector2i) -> bool:
+	return is_available() and bridge.move_island_party(target)
+
+func party_move_failure(target: Vector2i) -> String:
+	return bridge.party_move_failure(target) if is_available() else "The island is unavailable."
+
+func talk_island_person(actor_id: String) -> String:
+	return bridge.talk_island_person(actor_id) if is_available() else ""
+
+func recruit_island_person(actor_id: String) -> bool:
+	return is_available() and bridge.recruit_island_person(actor_id)
+
+func assign_island_companion(actor_id: String, slot: int) -> bool:
+	return is_available() and bridge.assign_island_companion(actor_id, slot)
+
+func dismiss_island_companion(slot: int) -> bool:
+	return is_available() and bridge.dismiss_island_companion(slot)
+
 func tick_island() -> Dictionary:
 	return bridge.tick_island() if is_available() else error_snapshot("native_bridge_unavailable")
 
