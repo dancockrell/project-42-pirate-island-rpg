@@ -13,9 +13,17 @@ animation, building damage and final faction balance remain unfinished.
 The colonial watch fort now has a provisional transparent sprite projected from
 its native building position. Operating state dims inactive forts, and removed
 buildings disappear on the next snapshot. Other producer archetypes remain
-without art: they must not masquerade as colonial forts. Building footprints
-still need to participate in navigation; current doorway placement is not a
-complete collision solution. No construction/damage animation yet.
+without art: they must not masquerade as colonial forts. The fort's five-cell
+ground obstruction now participates in native movement and shot visibility;
+the entrance remains open. Elimination removes its obstruction, while inactive
+buildings continue blocking. No construction/damage animation yet.
+The coarse ground footprint still needs rendered overlay review against the art.
+
+buildings.json owns the sprite path, pivot, scale and blocked cell offsets.
+Rust embeds this contract, so changes require rebuilding the native extension.
+New saves preserve per-building obstacles. Historical saves without that field
+still load with empty obstacles; migration of these development saves remains
+unfinished and must be resolved before release.
 
 watch_fort.png is the exact shared watch-fort-01/extracted/cell_00_00.png.
 SHA256: 34c8f250350f73f4cb6ae78c82a7bf9aca4266040a221d60e40e9f2527494c56.
@@ -66,4 +74,4 @@ and final island scale remain unfinished.
 Checks:
 Godot headless tests/island_scene_test.gd passes actual scene load, native position
 projection, terrain rejection, travel and pause. The separate native bridge test
-and all 52 Rust tests pass. Headless success does not prove rendered visual quality.
+and all 53 Rust tests pass. Headless success does not prove rendered visual quality.

@@ -1,0 +1,9 @@
+{
+  "site_archetype.colonial.watch_fort": {
+    "texture": "res://assets/island/watch_fort.png",
+    "pivot": [775, 825],
+    "source_width": 1125,
+    "display_width": 150,
+    "blocked_offsets": [[-2, -1], [-1, -1], [0, -1], [-2, 0], [-1, 0]]
+  }
+}

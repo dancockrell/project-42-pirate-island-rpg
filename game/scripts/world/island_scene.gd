@@ -17,6 +17,7 @@ var troop_sprites := {}
 var troop_textures: Array[Texture2D] = []
 var building_sprites := {}
 var fort_texture: Texture2D
+var building_art: Dictionary
 
 func save_campaign(path: String = "user://pirate-island-save.json") -> bool:
 	var payload: String = port.save_island()
@@ -91,7 +92,8 @@ func _ready() -> void:
 	port.create_island()
 	assert(port.configure_island_land(cells, Vector2i(data.start[0],data.start[1])))
 	assert(port.install_preview_factions())
-	var fort_image := Image.load_from_file("res://assets/island/watch_fort.png")
+	building_art = JSON.parse_string(FileAccess.get_file_as_string("res://assets/island/buildings.json"))
+	var fort_image := Image.load_from_file(building_art["site_archetype.colonial.watch_fort"].texture)
 	assert(fort_image != null and fort_image.detect_alpha() == Image.ALPHA_BIT)
 	fort_texture = ImageTexture.create_from_image(fort_image)
 	for appearance in ["colonial", "pirate", "cultist"]:
@@ -150,8 +152,9 @@ func refresh_snapshot() -> void:
 			fort.texture = fort_texture
 			fort.centered = false
 			# Door apron is the native producer/rally anchor.
-			fort.offset = -Vector2(775, 825)
-			fort.scale = Vector2.ONE * (150.0 / 1125.0)
+			var art: Dictionary = building_art[building.archetype]
+			fort.offset = -Vector2(art.pivot[0], art.pivot[1])
+			fort.scale = Vector2.ONE * (float(art.display_width) / float(art.source_width))
 			fort.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			map_root.add_child(fort)
 			building_sprites[building.id] = fort

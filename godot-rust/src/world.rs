@@ -408,9 +408,15 @@ pub struct IslandPoint {
 pub struct IslandNavigation {
     pub walkable: BTreeSet<IslandPoint>,
     pub destinations: BTreeMap<String, IslandPoint>,
+    #[serde(default)]
+    pub building_obstacles: BTreeMap<String, BTreeSet<IslandPoint>>,
 }
 
 impl IslandNavigation {
+    pub fn traversable(&self, point: IslandPoint) -> bool {
+        self.walkable.contains(&point)
+            && !self.building_obstacles.values().any(|cells| cells.contains(&point))
+    }
     fn clear_line(&self, start: IslandPoint, goal: IslandPoint) -> bool {
         // Combat profiles cap range at load time; use wide arithmetic at map edges.
         let (mut x, mut y) = (i64::from(start.x), i64::from(start.y));
@@ -421,7 +427,7 @@ impl IslandNavigation {
         let sy = if y < gy { 1 } else { -1 };
         let mut error = dx + dy;
         loop {
-            if !self.walkable.contains(&IslandPoint {
+            if !self.traversable(IslandPoint {
                 x: x as i32,
                 y: y as i32,
             }) {
@@ -444,7 +450,7 @@ impl IslandNavigation {
     /// Deterministic shortest path over equal-cost land cells. Bounded by the
     /// finite authored walkable set; never traverses ocean or blocked cells.
     pub fn path(&self, start: IslandPoint, goal: IslandPoint) -> Option<Vec<IslandPoint>> {
-        if !self.walkable.contains(&start) || !self.walkable.contains(&goal) {
+        if !self.traversable(start) || !self.traversable(goal) {
             return None;
         }
         let mut frontier = VecDeque::from([start]);
@@ -465,7 +471,7 @@ impl IslandNavigation {
                     continue;
                 };
                 let next = IslandPoint { x, y };
-                if self.walkable.contains(&next) && !parents.contains_key(&next) {
+                if self.traversable(next) && !parents.contains_key(&next) {
                     parents.insert(next, point);
                     frontier.push_back(next);
                 }
@@ -829,6 +835,32 @@ impl FactionWorld {
                 }
             }
         }
+        // The same checked-in contract controls sprite scale/pivot and physical cells.
+        #[derive(Deserialize)]
+        struct Footprint { blocked_offsets: Vec<[i32; 2]> }
+        let footprints: BTreeMap<String, Footprint> = serde_json::from_str(include_str!(
+            "../../game/assets/island/buildings.json"
+        )).map_err(|_| "invalid_building_contract")?;
+        for faction in staged.factions.values() {
+            for building in faction.buildings.values() {
+                if let Some(footprint) = footprints.get(&building.archetype_id) {
+                    let entrance = staged.navigation.destinations[&building.node_id];
+                    let cells: BTreeSet<_> = footprint.blocked_offsets.iter().map(|[dx,dy]|
+                        IslandPoint { x: entrance.x + dx, y: entrance.y + dy }
+                    ).collect();
+                    if cells.contains(&entrance) || staged.positions.values().any(|p| cells.contains(p)) {
+                        return Err("occupied_building_footprint".into());
+                    }
+                    staged.navigation.building_obstacles.insert(building.id.clone(), cells);
+                }
+            }
+        }
+        // No holding may be sealed off by the installed footprints.
+        if staged.factions.values().flat_map(|f| f.buildings.values()).any(|b|
+            staged.navigation.path(staged.navigation.destinations[&b.node_id], objective).is_none()
+        ) {
+            return Err("building_blocks_holding_access".into());
+        }
         *self = staged;
         Ok(())
     }
@@ -891,6 +923,9 @@ impl FactionWorld {
             .factions
             .get_mut(faction_id)
             .ok_or_else(|| FactionWorldError::UnknownFaction(faction_id.into()))?;
+        for id in faction.buildings.keys() {
+            self.navigation.building_obstacles.remove(id);
+        }
         faction.buildings.clear();
         faction.resources.clear();
         faction.population_used = 0;
@@ -1056,13 +1091,28 @@ impl FactionWorld {
                 }
             }
         }
+        let building_ids: BTreeSet<_> = world.factions.values()
+            .flat_map(|f| f.buildings.keys()).collect();
+        if world.navigation.building_obstacles.len() > 4096
+            || world.navigation.building_obstacles.iter().any(|(id, cells)|
+                !building_ids.contains(id) || cells.len() > 256)
+        {
+            return Err("invalid_saved_building_obstacles".into());
+        }
+        for building in world.factions.values().flat_map(|f| f.buildings.values()) {
+            if let Some(entrance) = world.navigation.destinations.get(&building.node_id) {
+                if !world.navigation.traversable(*entrance) {
+                    return Err("blocked_saved_building_entrance".into());
+                }
+            }
+        }
         for (id, actor) in &world.actors {
             if id != &actor.instance_id || !world.factions.contains_key(&actor.faction_id) {
                 return Err("invalid_saved_actor".into());
             }
         }
         for (id, point) in &world.positions {
-            if !world.actors.contains_key(id) || !world.navigation.walkable.contains(point) {
+            if !world.actors.contains_key(id) || !world.navigation.traversable(*point) {
                 return Err("invalid_saved_position".into());
             }
         }
@@ -1482,6 +1532,7 @@ mod tests {
         FactionWorld {
             factions: [(faction.id.clone(), faction)].into_iter().collect(),
             navigation: IslandNavigation {
+                building_obstacles: BTreeMap::new(),
                 walkable: (0..5)
                     .flat_map(|x| (0..3).map(move |y| IslandPoint { x, y }))
                     .collect(),
@@ -1824,6 +1875,7 @@ mod tests {
     #[test]
     fn navigation_avoids_water_and_handles_coordinate_limits() {
         let nav = IslandNavigation {
+            building_obstacles: BTreeMap::new(),
             walkable: [
                 IslandPoint { x: i32::MAX, y: 0 },
                 IslandPoint { x: i32::MAX, y: 1 },
@@ -2045,12 +2097,43 @@ mod tests {
     #[test]
     fn skirmish_blocks_shots_through_nonwalkable_terrain() {
         let navigation = IslandNavigation {
+            building_obstacles: BTreeMap::new(),
             walkable: [IslandPoint { x: 0, y: 0 }, IslandPoint { x: 2, y: 0 }]
                 .into_iter()
                 .collect(),
             destinations: Default::default(),
         };
         assert!(!navigation.clear_line(IslandPoint { x: 0, y: 0 }, IslandPoint { x: 2, y: 0 }));
+    }
+
+    #[test]
+    fn fort_footprint_routes_around_walls_and_survives_save() {
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        let (id, cells) = world.navigation.building_obstacles.iter().next().unwrap();
+        let id = id.clone();
+        let cells = cells.clone();
+        assert_eq!(cells.len(), 5);
+        let entrance = world.navigation.destinations[
+            &world.factions["faction.colonial_powers.prototype"].buildings[&id].node_id];
+        assert!(world.navigation.traversable(entrance));
+        for cell in &cells {
+            assert!(!world.navigation.traversable(*cell));
+            assert!(world.navigation.path(entrance, *cell).is_none());
+            assert!(!world.navigation.clear_line(entrance, *cell));
+        }
+        let from = IslandPoint { x: entrance.x - 3, y: entrance.y };
+        let route = world.navigation.path(from, entrance).unwrap();
+        assert!(route.len() > 4);
+        assert!(route.iter().all(|cell| !cells.contains(cell)));
+        let loaded = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        assert_eq!(loaded.navigation, world.navigation);
+        world.eliminate_faction("faction.colonial_powers.prototype").unwrap();
+        assert!(!world.navigation.building_obstacles.contains_key(&id));
+        assert!(cells.iter().all(|cell| world.navigation.traversable(*cell)));
+        let mut invalid = loaded;
+        invalid.navigation.building_obstacles.insert("missing".into(), cells);
+        assert!(FactionWorld::load_json(&invalid.save_json().unwrap()).is_err());
     }
 
     #[test]

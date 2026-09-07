@@ -28,6 +28,9 @@ func run() -> void:
 		assert(building.operational)
 		assert(building.queued == 0)
 		if building.archetype == "site_archetype.colonial.watch_fort":
+			assert(scene.request_move(Vector2i(building.x, building.y)))
+			for offset in scene.building_art[building.archetype].blocked_offsets:
+				assert(not scene.request_move(Vector2i(building.x + offset[0], building.y + offset[1])))
 			assert(scene.building_sprites[building.id].position == (Vector2(building.x,building.y) + Vector2.ONE * 0.5) * 32)
 			assert(scene.building_sprites[building.id].texture.get_image().detect_alpha() == Image.ALPHA_BIT)
 	assert(scene.troop_textures.size() == 3)
@@ -95,6 +98,7 @@ func run() -> void:
 	assert(scene.building_sprites[fort_id].modulate != Color.WHITE)
 	saved.world.policies.erase("faction.colonial_powers.prototype")
 	colonial.buildings.clear()
+	saved.world.navigation.building_obstacles.erase(fort_id)
 	assert(scene.port.load_island(JSON.stringify(saved)))
 	scene.refresh_snapshot()
 	assert(scene.building_sprites.is_empty())
