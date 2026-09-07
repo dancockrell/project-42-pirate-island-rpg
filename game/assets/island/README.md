@@ -16,6 +16,12 @@ rerolled on save/load. Older actors without identity data remain unknown.
 No female actor is inferred from a male sprite; matching female candidates are
 under separate review. Biography text is not yet a playable personal quest.
 Recruitment, faction transfer and the four-companion roster are still unfinished.
+troops/appearances.json owns existing texture, pivot and scale by unit definition
+and person sex, never current faction. Thus an allegiance change and sprite
+recreation preserve costume. Explicit legacy-unknown mappings retain the three
+old male appearances without inventing missing identity fields. Unsupported
+definitions/sex variants have no arbitrary colonial fallback and the HUD reports
+missing art. No female production is enabled until matching art is integrated.
 Right-click a nearby unit to queue one steam-carbine shot. A hit provokes that
 faction into retaliation. Range and line of sight are native checks; reload and
 pause delay firing. A successful movement order cancels a queued shot, while an

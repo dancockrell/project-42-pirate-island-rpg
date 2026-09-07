@@ -70,7 +70,7 @@ func run() -> void:
 			assert(scene.building_sprites[building.id].position == (Vector2(building.x,building.y) + Vector2.ONE * 0.5) * 32)
 			assert(scene.building_sprites[building.id].texture.get_image().detect_alpha() == Image.ALPHA_BIT)
 	assert(scene.troop_textures.size() == 3)
-	for texture in scene.troop_textures:
+	for texture in scene.troop_textures.values():
 		assert(texture.get_image().detect_alpha() == Image.ALPHA_BIT)
 	assert(not scene.request_move(Vector2i(0,0)))
 	var start: Vector2 = scene.actor.position
@@ -144,6 +144,24 @@ func run() -> void:
 	assert(scene.inspection.text.contains(inspected_unit.name))
 	assert(scene.inspection.text.contains(inspected_unit.biography))
 	var payload: String = scene.port.save_island()
+	# Ownership never determines costume, even when a sprite must be recreated.
+	var appearance_before: Dictionary = scene.appearance_for(inspected_unit)
+	var allegiance_probe: Dictionary = save_integers(JSON.parse_string(payload))
+	allegiance_probe.world.actors[inspected_unit.id].faction_id = "faction.michael"
+	assert(scene.port.load_island(JSON.stringify(allegiance_probe)))
+	scene.troop_sprites[inspected_unit.id].queue_free()
+	scene.troop_sprites.erase(inspected_unit.id)
+	scene.refresh_snapshot()
+	assert(scene.troop_sprites[inspected_unit.id].texture == scene.troop_textures[appearance_before.texture])
+	assert(scene.troop_sprites[inspected_unit.id].offset == -Vector2(appearance_before.pivot[0], appearance_before.pivot[1]))
+	var unadmitted: Dictionary = inspected_unit.duplicate(true)
+	unadmitted.sex = "female"
+	assert(scene.appearance_for(unadmitted).is_empty()) # no male masquerading as a female
+	unadmitted.sex = "unknown"
+	assert(scene.appearance_for(unadmitted) == appearance_before) # legacy presentation only
+	unadmitted.definition = "actor_def.not_admitted"
+	assert(scene.appearance_for(unadmitted).is_empty())
+	print("PASS: character art survives allegiance change and sprite recreation; unadmitted identities have no false fallback")
 	assert(scene.port.load_island(payload))
 	scene.refresh_snapshot()
 	assert(scene.troop_sprites.size() == survivors)

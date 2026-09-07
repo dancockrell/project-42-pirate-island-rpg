@@ -1,0 +1,20 @@
+{
+  "actor_def.colonial.line_marine": {
+    "legacy_unknown_variant": "male",
+    "variants": {
+      "male": { "texture": "res://assets/island/troops/colonial.png", "pivot": [116,366], "scale": 0.105 }
+    }
+  },
+  "actor_def.pirates.deckhand": {
+    "legacy_unknown_variant": "male",
+    "variants": {
+      "male": { "texture": "res://assets/island/troops/pirate.png", "pivot": [143,363], "scale": 0.105 }
+    }
+  },
+  "actor_def.cthulhu.drowned_cultist": {
+    "legacy_unknown_variant": "male",
+    "variants": {
+      "male": { "texture": "res://assets/island/troops/cultist.png", "pivot": [127,374], "scale": 0.105 }
+    }
+  }
+}

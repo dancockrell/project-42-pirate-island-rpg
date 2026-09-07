@@ -22,7 +22,9 @@ var paused := false
 var ready_ok := false
 var save_notice := ""
 var troop_sprites := {}
-var troop_textures: Array[Texture2D] = []
+var troop_textures := {}
+var troop_art: Dictionary
+var missing_appearance_count := 0
 var building_sprites := {}
 var fort_texture: Texture2D
 var building_art: Dictionary
@@ -121,10 +123,14 @@ func _ready() -> void:
 	var fort_image := Image.load_from_file(building_art["site_archetype.colonial.watch_fort"].texture)
 	assert(fort_image != null and fort_image.detect_alpha() == Image.ALPHA_BIT)
 	fort_texture = ImageTexture.create_from_image(fort_image)
-	for appearance in ["colonial", "pirate", "cultist"]:
-		var cutout := Image.load_from_file("res://assets/island/troops/%s.png" % appearance)
-		assert(cutout != null and cutout.detect_alpha() == Image.ALPHA_BIT)
-		troop_textures.append(ImageTexture.create_from_image(cutout))
+	troop_art = JSON.parse_string(FileAccess.get_file_as_string("res://assets/island/troops/appearances.json"))
+	for definition in troop_art.values():
+		for appearance in definition.variants.values():
+			var cutout := Image.load_from_file(appearance.texture)
+			assert(cutout != null and cutout.detect_alpha() == Image.ALPHA_BIT)
+			assert(float(appearance.scale) > 0 and float(appearance.scale) <= 1)
+			assert(appearance.pivot.size() == 2)
+			troop_textures[appearance.texture] = ImageTexture.create_from_image(cutout)
 	var terrain := Sprite2D.new()
 	terrain.texture = ImageTexture.create_from_image(Image.load_from_file("res://assets/island/terrain.png"))
 	terrain.centered = false
@@ -243,22 +249,18 @@ func refresh_snapshot() -> void:
 			building_sprites[id].queue_free()
 			building_sprites.erase(id)
 	var present := {}
+	missing_appearance_count = 0
 	for entry in snapshot.actors:
 		if entry.id == MICHAEL:
+			continue
+		var appearance := appearance_for(entry)
+		if appearance.is_empty():
+			missing_appearance_count += 1
 			continue
 		present[entry.id] = true
 		if not troop_sprites.has(entry.id):
 			var troop := Sprite2D.new()
-			var column := 0
-			if entry.faction == "faction.pirates.prototype":
-				column = 1
-			elif entry.faction == "faction.cthulhu.prototype":
-				column = 2
-			troop.texture = troop_textures[column]
 			troop.centered = false
-			# Original authored ground pivots minus source trim origins.
-			troop.offset = -[Vector2(116,366), Vector2(143,363), Vector2(127,374)][column]
-			troop.scale = Vector2.ONE * 0.105
 			troop.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			map_root.add_child(troop)
 			var health := ProgressBar.new()
@@ -269,6 +271,10 @@ func refresh_snapshot() -> void:
 			health.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			troop.add_child(health)
 			troop_sprites[entry.id] = troop
+		var troop: Sprite2D = troop_sprites[entry.id]
+		troop.texture = troop_textures[appearance.texture]
+		troop.offset = -Vector2(appearance.pivot[0], appearance.pivot[1])
+		troop.scale = Vector2.ONE * float(appearance.scale)
 		var health: ProgressBar = troop_sprites[entry.id].get_node("Health")
 		health.max_value = maxi(int(entry.max_health),1)
 		health.value = int(entry.health)
@@ -299,6 +305,18 @@ func refresh_snapshot() -> void:
 	actor.position = destination
 	actor.z_index = int(person.y)
 	status.text = "PIRATE ISLAND · Michael HP %s/%s · %s\nClick land to travel. Right-click to fire. Shift-click to inspect.\nDevelopment slice · standing sprites. %s" % [person.health, person.max_health, "PAUSED" if paused else "Exploring", save_notice]
+	if missing_appearance_count > 0:
+		status.text += "\nMissing character art: %d" % missing_appearance_count
+
+func appearance_for(entry: Dictionary) -> Dictionary:
+	var definition: Dictionary = troop_art.get(entry.definition, {})
+	var variants: Dictionary = definition.get("variants", {})
+	var variant: String = entry.get("sex", "unknown")
+	# Older versions only produced these three male appearances. Preserve their
+	# presentation without inventing missing personal identity in the native save.
+	if variant == "unknown":
+		variant = definition.get("legacy_unknown_variant", "")
+	return variants.get(variant, {})
 
 func nearest_actor(point: Vector2, include_michael: bool = true) -> String:
 	var closest := ""
