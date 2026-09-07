@@ -224,7 +224,7 @@ pub struct ProducedActor {
     pub provenance: ActorProductionProvenance,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DispatchScore {
     pub goal_progress: i32,
     pub target_threat: i32,
@@ -251,7 +251,7 @@ impl DispatchScore {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DispatchCandidate {
     pub action_id: String,
     pub assignment: String,
@@ -269,6 +269,9 @@ impl DispatchCandidate {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FactionWorldEvent {
+    FactionEliminated {
+        faction_id: String,
+    },
     ProductionQueued {
         faction_id: String,
         building_id: String,
@@ -298,6 +301,8 @@ pub enum FactionWorldEvent {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FactionWorldError {
+    FactionEliminated(String),
+    InvalidPolicy(String),
     UnknownFaction(String),
     UnknownBuilding(String),
     UnknownActor(String),
@@ -331,8 +336,21 @@ pub struct FactionWorld {
     pub navigation: IslandNavigation,
     pub positions: BTreeMap<String, IslandPoint>,
     pub travel_orders: BTreeMap<String, String>,
+    #[serde(default)]
+    pub policies: BTreeMap<String, FactionPolicy>,
+    #[serde(default)]
+    pub eliminated_factions: BTreeSet<String>,
     next_actor_serial: u64,
     next_order_serial: u64,
+}
+
+/// Scenario-authored economy and priorities; no universal recruitment power.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FactionPolicy {
+    pub income_per_tick: BTreeMap<String, u32>,
+    pub storage_caps: BTreeMap<String, u32>,
+    pub production: BTreeMap<String, ProductionRule>,
+    pub objectives: Vec<DispatchCandidate>,
 }
 
 /// Physical navigation cells, not rooms or strategic graph nodes.
@@ -521,6 +539,163 @@ impl MapPlacement {
 }
 
 impl FactionWorld {
+    pub fn set_policy(
+        &mut self,
+        faction_id: &str,
+        policy: FactionPolicy,
+    ) -> Result<(), FactionWorldError> {
+        if self.eliminated_factions.contains(faction_id) {
+            return Err(FactionWorldError::FactionEliminated(faction_id.into()));
+        }
+        let faction = self
+            .factions
+            .get(faction_id)
+            .ok_or_else(|| FactionWorldError::UnknownFaction(faction_id.into()))?;
+        if policy
+            .income_per_tick
+            .keys()
+            .any(|resource| !policy.storage_caps.contains_key(resource))
+            || policy.production.len() > 4096
+            || policy.objectives.len() > 256
+        {
+            return Err(FactionWorldError::InvalidPolicy(faction_id.into()));
+        }
+        for (building_id, rule) in &policy.production {
+            let building = faction
+                .buildings
+                .get(building_id)
+                .ok_or_else(|| FactionWorldError::UnknownBuilding(building_id.clone()))?;
+            if building.archetype_id != rule.producer_archetype_id
+                || rule.production_ticks == 0
+                || !self.navigation.destinations.contains_key(&building.node_id)
+            {
+                return Err(FactionWorldError::InvalidPolicy(faction_id.into()));
+            }
+        }
+        for objective in &policy.objectives {
+            if !self
+                .navigation
+                .destinations
+                .contains_key(&objective.target_node_id)
+                || i64::from(objective.wobble).abs() > i64::from(faction.wobble_limit)
+            {
+                return Err(FactionWorldError::InvalidPolicy(faction_id.into()));
+            }
+        }
+        self.policies.insert(faction_id.into(), policy);
+        Ok(())
+    }
+
+    pub fn eliminate_faction(
+        &mut self,
+        faction_id: &str,
+    ) -> Result<FactionWorldEvent, FactionWorldError> {
+        if self.eliminated_factions.contains(faction_id) {
+            return Err(FactionWorldError::FactionEliminated(faction_id.into()));
+        }
+        let faction = self
+            .factions
+            .get_mut(faction_id)
+            .ok_or_else(|| FactionWorldError::UnknownFaction(faction_id.into()))?;
+        faction.buildings.clear();
+        faction.resources.clear();
+        faction.population_used = 0;
+        self.policies.remove(faction_id);
+        let removed: Vec<String> = self
+            .actors
+            .values()
+            .filter(|actor| actor.faction_id == faction_id)
+            .map(|actor| actor.instance_id.clone())
+            .collect();
+        for id in removed {
+            self.actors.remove(&id);
+            self.positions.remove(&id);
+            self.travel_orders.remove(&id);
+            self.navigation.destinations.remove(&format!("move.{id}"));
+        }
+        self.eliminated_factions.insert(faction_id.into());
+        Ok(FactionWorldEvent::FactionEliminated {
+            faction_id: faction_id.into(),
+        })
+    }
+
+    fn advance_faction_decisions(&mut self) -> Vec<FactionWorldEvent> {
+        let mut events = Vec::new();
+        for (id, policy) in self.policies.clone() {
+            if self.eliminated_factions.contains(&id) {
+                continue;
+            }
+            let Some(faction) = self.factions.get_mut(&id) else {
+                continue;
+            };
+            // Income requires an actual operational holding, not a surviving ID.
+            if !faction
+                .buildings
+                .values()
+                .any(|building| building.operational)
+            {
+                continue;
+            }
+            for (resource, income) in &policy.income_per_tick {
+                if let Some(cap) = policy.storage_caps.get(resource) {
+                    let stored = faction.resources.entry(resource.clone()).or_default();
+                    *stored = stored.saturating_add(*income).min(*cap);
+                }
+            }
+            for (building_id, rule) in &policy.production {
+                // One active cycle per producer. Queue capacity is not free parallel throughput.
+                let idle = self.factions[&id]
+                    .buildings
+                    .get(building_id)
+                    .is_some_and(|building| {
+                        building.operational && building.production_queue.is_empty()
+                    });
+                if idle {
+                    if let Ok(event) = self.enqueue_production(&id, building_id, rule.clone()) {
+                        events.push(event);
+                    }
+                }
+            }
+            let idle_actors: Vec<String> = self
+                .actors
+                .values()
+                .filter(|actor| {
+                    actor.faction_id == id && !self.travel_orders.contains_key(&actor.instance_id)
+                })
+                .map(|actor| actor.instance_id.clone())
+                .collect();
+            for actor_id in idle_actors {
+                let Some(start) = self.positions.get(&actor_id).copied() else {
+                    continue;
+                };
+                let reachable: Vec<DispatchCandidate> = policy
+                    .objectives
+                    .iter()
+                    .filter(|objective| {
+                        self.navigation
+                            .destinations
+                            .get(&objective.target_node_id)
+                            .is_some_and(|goal| self.navigation.path(start, *goal).is_some())
+                    })
+                    .cloned()
+                    .collect();
+                if let Some(best) = reachable.iter().max_by(|a, b| {
+                    a.total()
+                        .cmp(&b.total())
+                        .then_with(|| b.action_id.cmp(&a.action_id))
+                }) {
+                    if self.navigation.destinations.get(&best.target_node_id) == Some(&start) {
+                        continue;
+                    }
+                }
+                if let Ok(event) = self.dispatch_actor(&actor_id, &reachable) {
+                    events.push(event);
+                }
+            }
+        }
+        events
+    }
+
     pub fn save_json(&self) -> Result<String, String> {
         #[derive(Serialize)]
         struct Save<'a> {
@@ -602,6 +777,23 @@ impl FactionWorld {
             {
                 return Err("invalid_saved_travel".into());
             }
+        }
+        for id in &world.eliminated_factions {
+            let Some(faction) = world.factions.get(id) else {
+                return Err("invalid_eliminated_faction".into());
+            };
+            if !faction.buildings.is_empty()
+                || world.policies.contains_key(id)
+                || world.actors.values().any(|actor| &actor.faction_id == id)
+            {
+                return Err("eliminated_faction_has_live_state".into());
+            }
+        }
+        let mut world = world;
+        for (id, policy) in world.policies.clone() {
+            world
+                .set_policy(&id, policy)
+                .map_err(|_| "invalid_saved_policy")?;
         }
         Ok(world)
     }
@@ -688,6 +880,9 @@ impl FactionWorld {
         building_id: &str,
         rule: ProductionRule,
     ) -> Result<FactionWorldEvent, FactionWorldError> {
+        if self.eliminated_factions.contains(faction_id) {
+            return Err(FactionWorldError::FactionEliminated(faction_id.into()));
+        }
         if rule.production_ticks == 0 {
             return Err(FactionWorldError::InvalidProductionTicks);
         }
@@ -821,7 +1016,8 @@ impl FactionWorld {
         if self.paused {
             return Vec::new();
         }
-        let mut events = self.advance_production_tick();
+        let mut events = self.advance_faction_decisions();
+        events.extend(self.advance_production_tick());
         for (actor_id, destination_id) in self.travel_orders.clone() {
             let (Some(start), Some(goal)) = (
                 self.positions.get(&actor_id).copied(),
@@ -1358,6 +1554,127 @@ mod tests {
         data["world"]["factions"] = serde_json::json!({});
         assert!(FactionWorld::load_json(&data.to_string()).is_err());
         assert!(FactionWorld::load_json("{broken").is_err());
+    }
+
+    fn autonomous_world() -> FactionWorld {
+        let mut world = production_world();
+        world
+            .set_policy(
+                "faction.colonial_powers.prototype",
+                FactionPolicy {
+                    income_per_tick: [
+                        ("resource.provisions".into(), 1),
+                        ("resource.iron".into(), 1),
+                    ]
+                    .into_iter()
+                    .collect(),
+                    storage_caps: [
+                        ("resource.provisions".into(), 10),
+                        ("resource.iron".into(), 10),
+                    ]
+                    .into_iter()
+                    .collect(),
+                    production: [("site.colonial.watch_fort.instance_1".into(), marine_rule())]
+                        .into_iter()
+                        .collect(),
+                    objectives: vec![candidate(
+                        "dispatch.raid",
+                        "network_node.smuggler_cove",
+                        20,
+                        0,
+                    )],
+                },
+            )
+            .unwrap();
+        world
+    }
+
+    #[test]
+    fn autonomous_faction_builds_and_dispatches_without_player_commands() {
+        let mut world = autonomous_world();
+        let mut history = Vec::new();
+        for _ in 0..40 {
+            history.extend(world.advance_island_tick());
+        }
+        assert!(
+            history
+                .iter()
+                .any(|e| matches!(e, FactionWorldEvent::ProductionQueued { .. }))
+        );
+        assert!(
+            history
+                .iter()
+                .any(|e| matches!(e, FactionWorldEvent::ActorProduced { .. }))
+        );
+        assert!(
+            history
+                .iter()
+                .any(|e| matches!(e, FactionWorldEvent::ActorAssigned { .. }))
+        );
+        assert_eq!(world.actors.len(), 4); // population cap, not unlimited spawning
+        assert!(
+            world
+                .actors
+                .values()
+                .all(|a| a.node_id == "network_node.smuggler_cove")
+        );
+        assert!(
+            world.factions["faction.colonial_powers.prototype"]
+                .resources
+                .values()
+                .all(|amount| *amount <= 10)
+        );
+        world.paused = true;
+        let frozen = world.clone();
+        world.advance_island_tick();
+        assert_eq!(world, frozen);
+    }
+
+    #[test]
+    fn eliminated_faction_stays_gone_after_save_reload_and_many_ticks() {
+        let mut world = autonomous_world();
+        for _ in 0..6 {
+            world.advance_island_tick();
+        }
+        world
+            .eliminate_faction("faction.colonial_powers.prototype")
+            .unwrap();
+        let mut restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        for _ in 0..100 {
+            restored.advance_island_tick();
+        }
+        assert!(restored.actors.is_empty());
+        assert!(restored.policies.is_empty());
+        assert!(restored.travel_orders.is_empty());
+        assert!(
+            restored.factions["faction.colonial_powers.prototype"]
+                .buildings
+                .is_empty()
+        );
+        assert!(matches!(
+            restored.enqueue_production(
+                "faction.colonial_powers.prototype",
+                "site.colonial.watch_fort.instance_1",
+                marine_rule()
+            ),
+            Err(FactionWorldError::FactionEliminated(_))
+        ));
+    }
+
+    #[test]
+    fn autonomous_save_continuation_is_deterministic() {
+        let mut original = autonomous_world();
+        for _ in 0..5 {
+            original.advance_island_tick();
+        }
+        let mut restored = FactionWorld::load_json(&original.save_json().unwrap()).unwrap();
+        for _ in 0..40 {
+            assert_eq!(
+                original.advance_island_tick(),
+                restored.advance_island_tick()
+            );
+            assert_eq!(original, restored);
+        }
     }
 
     #[test]
