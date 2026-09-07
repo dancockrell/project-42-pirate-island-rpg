@@ -35,8 +35,12 @@ population slots. Midnight conversion/resurrection, diplomacy changes, combat
 animation and final faction balance remain unfinished.
 Producers now have provisional 80-point health persisted in saves. Autonomous
 units without an in-range troop target can strike a hostile producer's entrance
-when in range and line of sight. A destroyed building loses its queued resources,
-releases queued population and removes its obstacle/policy entry. Losing the last
+when in range and line of sight.
+Units hold their position while a legal siege target exists, including reload;
+once it falls they resume their retained strategic route. Movement and attacks
+share one native siege-target rule rather than separate distance checks.
+A destroyed building loses its queued resources, releases queued population and
+removes its obstacle/policy entry. Losing the last
 producer invokes persistent faction elimination. Long-range siege targeting,
 building attack orders for Michael, final durability and destruction art remain
 unfinished; current strategic orders still rally to the clearing.

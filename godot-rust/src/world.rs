@@ -695,6 +695,37 @@ impl FactionWorld {
             .map(|(_, id)| id)
     }
 
+    fn island_siege_target(&self, id: &str) -> Option<(String, String, IslandPoint)> {
+        let actor = self.actors.get(id)?;
+        let origin = *self.positions.get(id)?;
+        let profile = self.combat_profiles.get(&actor.definition_id)?;
+        if !self.policies.contains_key(&actor.faction_id)
+            || !self.unit_combat.get(id).is_some_and(|s| s.health > 0)
+        {
+            return None;
+        }
+        self.factions
+            .values()
+            .filter(|f| {
+                self.hostilities
+                    .contains(&(actor.faction_id.clone(), f.id.clone()))
+            })
+            .flat_map(|f| f.buildings.values())
+            .filter_map(|b| {
+                let position = *self.navigation.destinations.get(&b.node_id)?;
+                let distance = origin
+                    .x
+                    .abs_diff(position.x)
+                    .saturating_add(origin.y.abs_diff(position.y));
+                (b.health > 0
+                    && distance <= profile.range
+                    && self.navigation.clear_line(origin, position))
+                .then_some((distance, b.id.clone(), b.faction_id.clone(), position))
+            })
+            .min()
+            .map(|(_, building, faction, position)| (building, faction, position))
+    }
+
     fn resolve_island_skirmish(&mut self) -> Vec<FactionWorldEvent> {
         let mut strikes = Vec::new();
         let mut building_strikes = Vec::new();
@@ -719,27 +750,7 @@ impl FactionWorld {
                 let Some(origin) = self.positions.get(id).copied() else {
                     continue;
                 };
-                let target = self
-                    .factions
-                    .values()
-                    .filter(|f| {
-                        self.hostilities
-                            .contains(&(actor.faction_id.clone(), f.id.clone()))
-                    })
-                    .flat_map(|f| f.buildings.values())
-                    .filter_map(|b| {
-                        let position = *self.navigation.destinations.get(&b.node_id)?;
-                        let distance = origin
-                            .x
-                            .abs_diff(position.x)
-                            .saturating_add(origin.y.abs_diff(position.y));
-                        (b.health > 0
-                            && distance <= profile.range
-                            && self.navigation.clear_line(origin, position))
-                        .then_some((distance, b.id.clone(), b.faction_id.clone(), position))
-                    })
-                    .min();
-                if let Some((_, building, faction, destination)) = target {
+                if let Some((building, faction, destination)) = self.island_siege_target(id) {
                     building_strikes.push((
                         id.clone(),
                         building,
@@ -1637,7 +1648,8 @@ impl FactionWorld {
             .iter()
             .filter(|(id, actor)| {
                 self.policies.contains_key(&actor.faction_id)
-                    && self.island_firing_target(id).is_some()
+                    && (self.island_firing_target(id).is_some()
+                        || self.island_siege_target(id).is_some())
             })
             .map(|(id, _)| id.clone())
             .collect();
@@ -2572,18 +2584,27 @@ mod tests {
             .unwrap();
         let fort_id = fort.id.clone();
         let entrance = world.navigation.destinations[&fort.node_id];
-        world.positions.insert(pirate, entrance);
+        world.positions.insert(pirate.clone(), entrance);
+        let onward = world.navigation.destinations["island.contested_clearing"];
+        world.order_move(&pirate, onward).unwrap();
+        assert!(world.island_siege_target(&pirate).is_some());
         for faction in world.factions.values_mut() {
             for building in faction.buildings.values_mut() {
                 building.operational = false;
             }
         }
         let mut saw_elimination = false;
+        let before = world.positions[&pirate];
+        world.advance_island_tick();
+        assert_eq!(world.positions[&pirate], before);
+        assert!(world.travel_orders.contains_key(&pirate));
         for _ in 0..100 {
             saw_elimination |= world.advance_island_tick().iter().any(|e|
                 matches!(e, FactionWorldEvent::FactionEliminated {faction_id} if faction_id == "faction.colonial_powers.prototype"));
         }
         assert!(saw_elimination);
+        assert_ne!(world.positions[&pirate], before);
+        assert!(world.island_siege_target(&pirate).is_none());
         assert!(
             world.factions["faction.colonial_powers.prototype"]
                 .buildings
