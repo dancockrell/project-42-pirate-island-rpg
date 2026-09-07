@@ -4,7 +4,15 @@ Run res://scenes/world/island.tscn in the existing game project.
 The scene now installs three preview factions at startup: colonials, pirates and
 Cthulhu. They use existing content/production rules, with six-unit preview caps
 and provisional economy budgets. Units rally toward a contested clearing.
-The three preview factions are mutually hostile; Michael remains neutral.
+The three preview factions are mutually hostile; Michael begins neutral.
+Right-click a nearby unit to queue one steam-carbine shot. A hit provokes that
+faction into retaliation. Range and line of sight are native checks; reload and
+pause delay firing. A successful movement order cancels a queued shot, while an
+invalid destination preserves it. No automatic pursuit or Echo skills yet.
+Provisional Michael profile: 30 health, 4 damage, 4-cell range, 5-tick reload.
+His health appears in the HUD. Death pauses with a fallen message, leaves a
+native casualty record, and can be saved/reloaded. Dead Michael cannot move or
+fire. This is not yet the midnight resurrection or companion rescue system.
 On-island skirmishes now use distinct provisional health, damage, range and
 cooldown profiles. Attacks resolve simultaneously and cannot shoot through
 nonwalkable cells. Autonomous units hold whenever a living hostile is in range
@@ -92,4 +100,4 @@ and final island scale remain unfinished.
 Checks:
 Godot headless tests/island_scene_test.gd passes actual scene load, native position
 projection, terrain rejection, travel and pause. The separate native bridge test
-and all 55 Rust tests pass. Headless success does not prove rendered visual quality.
+and all 56 Rust tests pass. Headless success does not prove rendered visual quality.

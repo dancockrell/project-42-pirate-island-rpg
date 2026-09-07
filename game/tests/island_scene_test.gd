@@ -139,4 +139,36 @@ func run() -> void:
 	assert(scene.last_strikes.any(func(hit): return hit.attacker == scene.MICHAEL))
 	assert(scene.status.text.contains("Michael HP"))
 	print("PASS: player carbine command crosses native bridge and produces authoritative hit feedback")
+	var lethal: Dictionary = save_integers(JSON.parse_string(scene.port.save_island()))
+	# The first target may have died from Michael's shot; select a survivor.
+	for unit in scene.snapshot.actors:
+		if unit.id != scene.MICHAEL:
+			enemy = unit
+			break
+	lethal.world.hostilities = [[enemy.faction, "faction.michael"]]
+	lethal.world.unit_combat[scene.MICHAEL].health = 1
+	lethal.world.unit_combat[enemy.id].next_attack_tick = 0
+	lethal.world.positions[enemy.id] = lethal.world.positions[scene.MICHAEL].duplicate()
+	lethal.world.travel_orders.erase(enemy.id)
+	lethal.world.travel_orders.erase(scene.MICHAEL)
+	lethal.world.policies.clear()
+	assert(scene.port.load_island(JSON.stringify(lethal)))
+	scene.refresh_snapshot()
+	scene.advance_tick()
+	assert(scene.paused and not scene.actor.visible)
+	assert(scene.status.text.contains("Michael has fallen"))
+	var defeat_path := "user://island-scene-defeat-test.json"
+	assert(scene.save_campaign(defeat_path))
+	assert(scene.port.load_island(payload))
+	scene.paused = false
+	scene.refresh_snapshot()
+	assert(scene.actor.visible)
+	assert(scene.load_campaign(defeat_path))
+	assert(scene.paused and not scene.actor.visible)
+	assert(not scene.request_move(Vector2i(20,18)))
+	assert(not scene.port.aim_island_carbine(enemy.id))
+	for suffix in ["", ".bak", ".tmp"]:
+		if FileAccess.file_exists(defeat_path + suffix):
+			DirAccess.remove_absolute(defeat_path + suffix)
+	print("PASS: actual lethal retaliation, paused defeat, save/reload defeat, no dead movement or attacks")
 	quit()

@@ -1373,6 +1373,9 @@ impl FactionWorld {
         if self.navigation.path(start, destination).is_none() {
             return Err(FactionWorldError::UnreachableDestination(destination_id));
         }
+        if actor_id == "character.protagonist.captain" {
+            self.player_attack_target = None;
+        }
         self.navigation
             .destinations
             .insert(destination_id.clone(), destination);
@@ -2411,6 +2414,15 @@ mod tests {
         assert!(!world.aim_carbine("missing"));
         assert!(world.aim_carbine(&target));
         let hp = world.unit_combat[&target].health;
+        assert!(
+            world
+                .order_move(captain, IslandPoint { x: -100, y: -100 })
+                .is_err()
+        );
+        assert_eq!(world.player_attack_target.as_deref(), Some(target.as_str()));
+        world.order_move(captain, position).unwrap();
+        assert!(world.player_attack_target.is_none());
+        assert!(world.aim_carbine(&target));
         assert!(
             !world
                 .hostilities
