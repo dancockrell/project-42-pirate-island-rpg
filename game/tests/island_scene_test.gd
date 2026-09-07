@@ -24,6 +24,22 @@ func run() -> void:
 	await process_frame
 	scene.set_process(false)
 	assert(scene.ready_ok)
+	assert(not scene.inspection.visible)
+	var inspect_click := InputEventMouseButton.new()
+	inspect_click.button_index = MOUSE_BUTTON_LEFT
+	inspect_click.pressed = true
+	inspect_click.shift_pressed = true
+	inspect_click.position = scene.map_root.get_global_transform_with_canvas() * (scene.actor.position - Vector2(0,12))
+	var before_inspection: String = scene.port.save_island()
+	scene._unhandled_input(inspect_click)
+	assert(scene.inspected_id == scene.MICHAEL and scene.inspection.visible)
+	assert(scene.inspected_person.name == "Michael")
+	assert(scene.inspection.text.contains(scene.inspected_person.biography))
+	assert(scene.port.save_island() == before_inspection)
+	inspect_click.position = scene.map_root.get_global_transform_with_canvas() * Vector2.ZERO
+	scene._unhandled_input(inspect_click)
+	assert(scene.inspected_id.is_empty() and not scene.inspection.visible)
+	assert(scene.port.save_island() == before_inspection)
 	assert(scene.pause_button.text == "Pause")
 	scene.pause_button.pressed.emit()
 	assert(scene.paused and scene.pause_button.text == "Resume")
@@ -117,10 +133,22 @@ func run() -> void:
 			assert(scene.troop_sprites[unit.id].position == (Vector2(unit.x,unit.y) + Vector2.ONE * 0.5) * 32)
 	assert(factions.size() >= 1)
 	var survivors: int = scene.troop_sprites.size()
+	var inspected_unit: Dictionary = {}
+	for unit in scene.snapshot.actors:
+		if unit.id != scene.MICHAEL:
+			inspected_unit = unit
+			break
+	assert(not inspected_unit.is_empty())
+	assert(not inspected_unit.name.is_empty() and not inspected_unit.biography.is_empty())
+	scene.inspect_actor(inspected_unit.id)
+	assert(scene.inspection.text.contains(inspected_unit.name))
+	assert(scene.inspection.text.contains(inspected_unit.biography))
 	var payload: String = scene.port.save_island()
 	assert(scene.port.load_island(payload))
 	scene.refresh_snapshot()
 	assert(scene.troop_sprites.size() == survivors)
+	assert(scene.inspected_id == inspected_unit.id and scene.inspected_person == inspected_unit)
+	print("PASS: Shift-click inspects native identities without movement, selection survives snapshot and save restoration")
 	# Building projection is restored from state, including removal and operation.
 	var saved: Dictionary = save_integers(JSON.parse_string(payload))
 	var colonial: Dictionary = saved.world.factions["faction.colonial_powers.prototype"]
@@ -172,7 +200,11 @@ func run() -> void:
 	lethal.world.policies.clear()
 	assert(scene.port.load_island(JSON.stringify(lethal)))
 	scene.refresh_snapshot()
+	scene.inspect_actor(scene.MICHAEL)
+	var remembered_name: String = scene.inspected_person.name
 	scene.advance_tick()
+	assert(scene.inspected_id == scene.MICHAEL)
+	assert(scene.inspection.text.contains(remembered_name) and scene.inspection.text.contains("Dead or departed"))
 	assert(scene.paused and not scene.actor.visible)
 	assert(scene.pause_button.disabled and scene.pause_button.text == "Fallen")
 	assert(scene.status.text.contains("Michael has fallen"))
@@ -182,8 +214,10 @@ func run() -> void:
 	scene.paused = false
 	scene.refresh_snapshot()
 	assert(scene.actor.visible)
+	assert(not scene.inspection.text.contains("Dead or departed"))
 	assert(scene.load_campaign(defeat_path))
 	assert(scene.paused and not scene.actor.visible)
+	assert(scene.inspection.text.contains(remembered_name) and scene.inspection.text.contains("Dead or departed"))
 	assert(not scene.request_move(Vector2i(20,18)))
 	assert(not scene.port.aim_island_carbine(enemy.id))
 	for suffix in ["", ".bak", ".tmp"]:

@@ -1,0 +1,32 @@
+{
+  "actor_def.colonial.line_marine": {
+    "sex": "male", "age_min": 22, "age_max": 39,
+    "given_names": ["Thomas", "Elias", "Samuel", "William", "Arthur", "Edmund"],
+    "family_names": ["Ward", "Hale", "Reed", "Bell", "Price", "Shaw"],
+    "histories": [
+      "A former dock guard who enlisted for regular wages. He keeps his boots polished even in the island mud.",
+      "A cooper's son who knows how a sound barrel should ring. He counts supply casks before he counts enemy flags.",
+      "He learned to read from discarded shipping notices. He still saves every letter that reaches the garrison."
+    ]
+  },
+  "actor_def.pirates.deckhand": {
+    "sex": "male", "age_min": 21, "age_max": 42,
+    "given_names": ["Francis", "Mateo", "Jonas", "Henry", "Tobias", "Lucas"],
+    "family_names": ["Vale", "Rook", "Costa", "Pike", "Moss", "Vega"],
+    "histories": [
+      "He came aboard as a cook's helper and stayed for a share of the prize money. He can stretch a pot of stew remarkably far.",
+      "A former ferry hand who knows the price of a broken rope. He checks his knots twice and his captain's promises three times.",
+      "He once repaired fishing nets for a living. He wants enough gold to own a boat whose course is his to choose."
+    ]
+  },
+  "actor_def.cthulhu.drowned_cultist": {
+    "sex": "male", "age_min": 23, "age_max": 44,
+    "given_names": ["Silas", "Gabriel", "Nathan", "Leon", "Isaac", "Simon"],
+    "family_names": ["Marsh", "Voss", "Grey", "Finch", "Locke", "Holt"],
+    "histories": [
+      "Before the shrine, he copied cargo tallies. He still writes numbers in the margins of his prayers.",
+      "He used to mend lamps along the waterfront. Since the dreams began, he cannot sleep beside an unlit wick.",
+      "He followed a missing brother's trail to the shrine. He remembers the search more clearly than what he found."
+    ]
+  }
+}

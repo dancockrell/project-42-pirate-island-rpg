@@ -5,6 +5,17 @@ The scene now installs three preview factions at startup: colonials, pirates and
 Cthulhu. They use existing content/production rules, with six-unit preview caps
 and provisional economy budgets. Units rally toward a contested clearing.
 The three preview factions are mutually hostile; Michael begins neutral.
+Shift-click a person to inspect their name, faction and short biography;
+Shift-click empty ground closes the panel without issuing movement. Selection
+tracks the actor ID rather than the displayed name, which need not be unique.
+personas.json supplies provisional fictional name/history pools for the three
+currently admitted male troop definitions. Rust embeds it: rebuild the extension
+after changing it. NamedPerson is stored on the existing produced actor and
+moves with that actor into its casualty record; names and history are not
+rerolled on save/load. Older actors without identity data remain unknown.
+No female actor is inferred from a male sprite; matching female candidates are
+under separate review. Biography text is not yet a playable personal quest.
+Recruitment, faction transfer and the four-companion roster are still unfinished.
 Right-click a nearby unit to queue one steam-carbine shot. A hit provokes that
 faction into retaliation. Range and line of sight are native checks; reload and
 pause delay firing. A successful movement order cancels a queued shot, while an
@@ -41,9 +52,11 @@ once it falls they resume their retained strategic route. Movement and attacks
 share one native siege-target rule rather than separate distance checks.
 A destroyed building loses its queued resources, releases queued population and
 removes its obstacle/policy entry. Losing the last
-producer invokes persistent faction elimination. Long-range siege targeting,
-building attack orders for Michael, final durability and destruction art remain
-unfinished; current strategic orders still rally to the clearing.
+producer invokes persistent faction elimination. Rallied troops now choose
+reachable hostile holdings, weighing route length, defenders and damage.
+Finite-supply campaign tests reach and destroy a holding without teleportation;
+unlimited replacement income can still sustain a stalemate. Building attack
+orders for Michael, final durability and destruction art remain unfinished.
 The colonial watch fort now has a provisional transparent sprite projected from
 its native building position. Operating state dims inactive forts, and removed
 buildings disappear on the next snapshot. Other producer archetypes remain

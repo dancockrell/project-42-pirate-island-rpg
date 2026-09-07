@@ -117,11 +117,24 @@ impl Project42SimulationBridge {
         };
         let mut actors = VarArray::new();
         for (id, position) in &world.positions {
+            let person = world.actors[id].person.as_ref();
+            let sex = person
+                .map(|p| match p.sex {
+                    crate::world::PersonSex::Male => "male",
+                    crate::world::PersonSex::Female => "female",
+                    crate::world::PersonSex::Other => "other",
+                    crate::world::PersonSex::Unknown => "unknown",
+                })
+                .unwrap_or("unknown");
             actors.push(
                 &vdict! {
                     "id" => id.as_str(), "x" => position.x, "y" => position.y,
                     "faction" => world.actors[id].faction_id.as_str(),
                     "definition" => world.actors[id].definition_id.as_str(),
+                    "name" => person.map(|p| p.display_name.as_str()).unwrap_or("Unknown unit"),
+                    "biography" => person.map(|p| p.backstory.as_str()).unwrap_or(""),
+                    "sex" => sex,
+                    "age" => person.and_then(|p| p.age).map(i64::from).unwrap_or(-1),
                     "health" => world.unit_combat.get(id).map(|v| v.health).unwrap_or(0),
                     "max_health" => world.combat_profiles.get(&world.actors[id].definition_id).map(|v| v.health).unwrap_or(0),
                     "moving" => world.travel_orders.contains_key(id)

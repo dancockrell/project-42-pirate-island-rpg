@@ -1,22 +1,95 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeathMemory {
     pub killed_by_player_count: u32,
     pub last_death_day: Option<u32>,
     pub last_death_context_id: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NamedPerson {
     pub id: String,
     pub display_name: String,
     pub alive_today: bool,
     pub death_memory: DeathMemory,
+    #[serde(default)]
+    pub sex: PersonSex,
+    #[serde(default)]
+    pub age: Option<u16>,
+    #[serde(default)]
+    pub backstory: String,
+    /// Hex string survives JSON consumers that represent numbers as doubles.
+    #[serde(default)]
+    pub generation_seed: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PersonSex {
+    #[default]
+    Unknown,
+    Male,
+    Female,
+    Other,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PersonaPool {
+    sex: PersonSex,
+    age_min: u16,
+    age_max: u16,
+    given_names: Vec<String>,
+    family_names: Vec<String>,
+    histories: Vec<String>,
+}
+
+fn produced_person(definition: &str, id: &str, serial: u64) -> Option<NamedPerson> {
+    static POOLS: std::sync::OnceLock<BTreeMap<String, PersonaPool>> = std::sync::OnceLock::new();
+    let pools = POOLS.get_or_init(|| {
+        serde_json::from_str(include_str!("../../game/assets/island/personas.json"))
+            .expect("validated persona catalog")
+    });
+    let pool = pools.get(definition)?;
+    let seed = mix_seed(serial, 0, id, 0);
+    let pick = |values: &[String], rotation: u32| {
+        values[(seed.rotate_left(rotation) % values.len() as u64) as usize].clone()
+    };
+    Some(NamedPerson {
+        id: id.into(),
+        display_name: format!(
+            "{} {}",
+            pick(&pool.given_names, 0),
+            pick(&pool.family_names, 13)
+        ),
+        alive_today: true,
+        sex: pool.sex,
+        age: Some(
+            pool.age_min
+                + (seed.rotate_left(23) % u64::from(pool.age_max - pool.age_min + 1)) as u16,
+        ),
+        backstory: pick(&pool.histories, 37),
+        generation_seed: Some(format!("{seed:016x}")),
+        ..Default::default()
+    })
 }
 
 impl NamedPerson {
+    fn valid_for_actor(&self, id: &str, alive: bool) -> bool {
+        self.id == id
+            && self.alive_today == alive
+            && !self.display_name.trim().is_empty()
+            && self.display_name.len() <= 120
+            && !self.display_name.chars().any(char::is_control)
+            && self.backstory.len() <= 4096
+            && self.age.is_none_or(|age| age >= 18)
+            && self
+                .generation_seed
+                .as_ref()
+                .is_none_or(|seed| seed.len() == 16 && seed.bytes().all(|c| c.is_ascii_hexdigit()))
+    }
     pub fn record_player_caused_death(&mut self, day: u32, context_id: &str) {
         self.alive_today = false;
         self.death_memory.killed_by_player_count += 1;
@@ -226,6 +299,8 @@ pub struct ActorProductionProvenance {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProducedActor {
+    #[serde(default)]
+    pub person: Option<NamedPerson>,
     pub instance_id: String,
     pub definition_id: String,
     pub actor_kind: String,
@@ -835,7 +910,10 @@ impl FactionWorld {
                 continue;
             }
             let state = self.unit_combat.remove(&id).unwrap();
-            let actor = self.actors.remove(&id).unwrap();
+            let mut actor = self.actors.remove(&id).unwrap();
+            if let Some(person) = actor.person.as_mut() {
+                person.alive_today = false;
+            }
             let position = self.positions.remove(&id).unwrap();
             if let Some(faction) = self.factions.get_mut(&actor.faction_id) {
                 faction.population_used =
@@ -1406,6 +1484,13 @@ impl FactionWorld {
             }
         }
         for (id, actor) in &world.actors {
+            if actor
+                .person
+                .as_ref()
+                .is_some_and(|person| !person.valid_for_actor(id, true))
+            {
+                return Err("invalid_saved_person".into());
+            }
             if id != &actor.instance_id || !world.factions.contains_key(&actor.faction_id) {
                 return Err("invalid_saved_actor".into());
             }
@@ -1453,6 +1538,14 @@ impl FactionWorld {
             }
         }
         for (id, casualty) in &world.casualties {
+            if casualty
+                .actor
+                .person
+                .as_ref()
+                .is_some_and(|person| !person.valid_for_actor(id, false))
+            {
+                return Err("invalid_saved_casualty_person".into());
+            }
             if id != &casualty.actor.instance_id
                 || world.actors.contains_key(id)
                 || casualty.death_tick > world.tick
@@ -1514,6 +1607,16 @@ impl FactionWorld {
         world.actors.insert(
             actor_id.clone(),
             ProducedActor {
+                person: Some(NamedPerson {
+                    id: actor_id.clone(),
+                    display_name: "Michael".into(),
+                    alive_today: true,
+                    sex: PersonSex::Male,
+                    age: Some(20),
+                    backstory: "Captain of the Handsome Jack. Shipwreck survivor and inventor."
+                        .into(),
+                    ..Default::default()
+                }),
                 instance_id: actor_id.clone(),
                 definition_id: actor_id.clone(),
                 actor_kind: "hero".into(),
@@ -1678,6 +1781,11 @@ impl FactionWorld {
         for (faction_id, building_id, node_id, rally_point_id, order) in completed {
             self.next_actor_serial += 1;
             let actor = ProducedActor {
+                person: produced_person(
+                    &order.rule.actor_definition_id,
+                    &format!("actor_instance.{faction_id}.{}", self.next_actor_serial),
+                    self.next_actor_serial,
+                ),
                 instance_id: format!("actor_instance.{faction_id}.{}", self.next_actor_serial),
                 definition_id: order.rule.actor_definition_id,
                 actor_kind: order.rule.actor_kind,
@@ -1919,6 +2027,7 @@ mod tests {
                 last_death_day: None,
                 last_death_context_id: None,
             },
+            ..Default::default()
         };
         person.record_player_caused_death(4, "encounter.port.argument");
         let mut world = WorldClock {
@@ -2687,6 +2796,75 @@ mod tests {
         assert!(world.aim_carbine(&target));
         let events = world.advance_island_tick();
         assert!(!events.iter().any(|event| matches!(event, FactionWorldEvent::UnitStruck {attacker_id, ..} if attacker_id == captain)));
+    }
+
+    #[test]
+    fn persona_catalog_is_safe_and_produced_identity_survives_death_and_reload() {
+        let pools: BTreeMap<String, PersonaPool> =
+            serde_json::from_str(include_str!("../../game/assets/island/personas.json")).unwrap();
+        for pool in pools.values() {
+            assert!(pool.age_min >= 18 && pool.age_min <= pool.age_max);
+            for values in [&pool.given_names, &pool.family_names, &pool.histories] {
+                assert!(!values.is_empty());
+                assert!(values.iter().all(|v| !v.trim().is_empty()));
+            }
+        }
+        assert!(produced_person("actor_def.unknown_machine", "machine.1", 1).is_none());
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        for _ in 0..4 {
+            world.advance_island_tick();
+        }
+        let originals: BTreeMap<_, _> = world
+            .actors
+            .iter()
+            .map(|(id, a)| (id.clone(), a.person.clone().unwrap()))
+            .collect();
+        assert!(originals.len() > 1);
+        for (id, person) in &originals {
+            assert!(person.valid_for_actor(id, true));
+        }
+        let mut restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        assert_eq!(world, restored);
+        for _ in 0..100 {
+            assert_eq!(world.advance_island_tick(), restored.advance_island_tick());
+        }
+        assert_eq!(world, restored);
+        assert!(!world.casualties.is_empty());
+        for (id, casualty) in &world.casualties {
+            let person = casualty.actor.person.as_ref().unwrap();
+            assert!(person.valid_for_actor(id, false));
+            if let Some(original) = originals.get(id) {
+                let mut expected = original.clone();
+                expected.alive_today = false;
+                assert_eq!(&expected, person);
+            }
+        }
+        let mut invalid = world.clone();
+        invalid
+            .actors
+            .get_mut("character.protagonist.captain")
+            .unwrap()
+            .person
+            .as_mut()
+            .unwrap()
+            .id = "someone.else".into();
+        assert_eq!(
+            FactionWorld::load_json(&invalid.save_json().unwrap()),
+            Err("invalid_saved_person".into())
+        );
+        // Older saves have no identity field. Never reroll or guess one at load.
+        let mut legacy: serde_json::Value =
+            serde_json::from_str(&world.save_json().unwrap()).unwrap();
+        for actor in legacy["world"]["actors"]
+            .as_object_mut()
+            .unwrap()
+            .values_mut()
+        {
+            actor.as_object_mut().unwrap().remove("person");
+        }
+        let loaded = FactionWorld::load_json(&legacy.to_string()).unwrap();
+        assert!(loaded.actors.values().all(|a| a.person.is_none()));
     }
 
     #[test]

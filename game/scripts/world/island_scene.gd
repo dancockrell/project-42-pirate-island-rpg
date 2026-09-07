@@ -11,6 +11,9 @@ var hud_panel := PanelContainer.new()
 var pause_button := Button.new()
 var save_button := Button.new()
 var load_button := Button.new()
+var inspection := Label.new()
+var inspected_id := ""
+var inspected_person: Dictionary = {}
 var campaign_path := "user://pirate-island-save.json"
 var snapshot: Dictionary
 var cell_size := 32
@@ -163,6 +166,10 @@ func _ready() -> void:
 	pause_button.pressed.connect(func(): set_paused(not paused))
 	save_button.pressed.connect(save_action)
 	load_button.pressed.connect(load_action)
+	inspection.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	inspection.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inspection.visible = false
+	stack.add_child(inspection)
 	get_viewport().size_changed.connect(_fit)
 	_fit()
 	refresh_snapshot()
@@ -209,6 +216,7 @@ func advance_tick() -> void:
 
 func refresh_snapshot() -> void:
 	snapshot = port.island_snapshot()
+	refresh_inspection()
 	var visible_buildings := {}
 	for building in snapshot.buildings:
 		# Other archetypes await their own art, never substitute a colonial fort.
@@ -290,7 +298,46 @@ func refresh_snapshot() -> void:
 	actor.project_heading(destination - actor.position)
 	actor.position = destination
 	actor.z_index = int(person.y)
-	status.text = "PIRATE ISLAND · Michael HP %s/%s · %s\nClick land to travel. Right-click a unit to fire.\nDevelopment slice · standing sprites. %s" % [person.health, person.max_health, "PAUSED" if paused else "Exploring", save_notice]
+	status.text = "PIRATE ISLAND · Michael HP %s/%s · %s\nClick land to travel. Right-click to fire. Shift-click to inspect.\nDevelopment slice · standing sprites. %s" % [person.health, person.max_health, "PAUSED" if paused else "Exploring", save_notice]
+
+func nearest_actor(point: Vector2, include_michael: bool = true) -> String:
+	var closest := ""
+	var distance := 24.0
+	for entry in snapshot.actors:
+		if entry.id == MICHAEL and not include_michael:
+			continue
+		var chest := (Vector2(entry.x, entry.y) + Vector2.ONE * 0.5) * cell_size - Vector2(0, 12)
+		var gap := chest.distance_to(point)
+		if gap < distance:
+			closest = entry.id
+			distance = gap
+	return closest
+
+func inspect_actor(id: String) -> void:
+	inspected_id = id
+	inspected_person = {}
+	refresh_inspection()
+
+func refresh_inspection() -> void:
+	inspection.visible = not inspected_id.is_empty()
+	if not inspection.visible:
+		return
+	var live := false
+	for entry in snapshot.actors:
+		if entry.id == inspected_id:
+			inspected_person = entry.duplicate(true)
+			live = true
+			break
+	var name_text: String = inspected_person.get("name", "Unknown person")
+	var faction_text: String = inspected_person.get("faction", "Unknown faction")
+	match faction_text:
+		"faction.michael": faction_text = "Michael’s faction"
+		"faction.colonial_powers.prototype": faction_text = "Colonial powers"
+		"faction.pirates.prototype": faction_text = "Pirates"
+		"faction.cthulhu.prototype": faction_text = "Cthulhu"
+	# A missing live actor can mean death or departure; do not invent which.
+	var state_text := faction_text if live else "Dead or departed · Last seen: " + faction_text
+	inspection.text = "%s · %s\n%s\nShift-click empty land to close." % [name_text, state_text, inspected_person.get("biography", "")]
 
 func _process(delta: float) -> void:
 	if not ready_ok or paused:
@@ -309,17 +356,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE:
 		set_paused(not paused)
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var point := map_root.to_local(get_global_mouse_position())
-		request_move(Vector2i(floori(point.x / cell_size), floori(point.y / cell_size)))
+		var point: Vector2 = map_root.get_global_transform_with_canvas().affine_inverse() * event.position
+		if event.shift_pressed:
+			inspect_actor(nearest_actor(point))
+		else:
+			request_move(Vector2i(floori(point.x / cell_size), floori(point.y / cell_size)))
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
-		var point := map_root.to_local(get_global_mouse_position())
-		var closest := ""
-		var distance := 24.0
-		for id in troop_sprites:
-			var gap: float = (troop_sprites[id].position - Vector2(0, 12)).distance_to(point)
-			if gap < distance:
-				closest = id
-				distance = gap
+		var point: Vector2 = map_root.get_global_transform_with_canvas().affine_inverse() * event.position
+		var closest := nearest_actor(point, false)
 		if not closest.is_empty():
 			save_notice = "Carbine aimed" if port.aim_island_carbine(closest) else "No clear shot in range"
 			refresh_snapshot()
