@@ -1,5 +1,7 @@
 # Project 42 3D Production Plan
 
+**SHELVED — 7 September 2026.** The user explicitly chose a 2D sprite pipeline and no 3D art. Everything below is historical. Follow [current visual authority](VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md); do not restart 3D model, garment or scenery jobs for Pirate Island.
+
 ## Production decision
 
 Project 42 is now a **fully 3D island game with a 2D theatrical interface**.

@@ -1,6 +1,7 @@
 # Project 42: Pirate Island — Design Authority
 
 **Status:** Accepted direction, 4 September 2026
+**Visual amendment, 7 September 2026:** 2D pixel-art sprites at the approved elevated three-quarter perspective; no 3D art. Follow [visual authority](VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md). Earlier isometric language denotes the fixed-view board, not permission for 3D assets or a different projection.
 **Authority:** This is the canonical product and production contract. If another document, prototype, scene, or asset conflicts with it, this document wins until an explicit recorded decision changes it.
 
 ## Product promise

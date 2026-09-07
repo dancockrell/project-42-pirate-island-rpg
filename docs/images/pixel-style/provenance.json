@@ -1,0 +1,12 @@
+{
+  "status": "user-approved style references; not runtime assets",
+  "approvedOn": "2026-09-07",
+  "source": "User supplied two PNGs and one MP4 in this conversation",
+  "rights": "Original authorship and redistribution license not independently established; reference-only, not CC0 or shipped assets",
+  "scope": "2D sprite rendering and elevated three-quarter perspective; not Cattle Trail branding, setting or written design instructions",
+  "files": [
+    {"path":"character-sheet.png","sha256":"77fdec9084ad4377e4f9e72a6c7ce4cb25f23c6055b79b650759243c1151fc19"},
+    {"path":"style-board.png","sha256":"5b9bfbbdca878eda99f896f8c7daa4f9d261ffd320f16524b90c25347af11bd3"},
+    {"path":"motion-reference.mp4","sha256":"203ba5fd3ae95622227d26ab2d565ff312ce675e87def4c859b5f389146aff9a","width":1280,"height":720,"fps":24,"durationSeconds":15.069002,"review":"Frame at 5 seconds inspected, not full motion audit"}
+  ]
+}

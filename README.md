@@ -1,5 +1,7 @@
 # Project 42: Pirate Island RPG
 
+**Current art direction: detailed 2D pixel-art sprites at the approved elevated three-quarter perspective. No 3D art; earlier 3D production is shelved.** See [visual authority](docs/VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md).
+
 This repository implements a HaremLit adventure on top of a living, multi-faction RTS simulation of Pirate Island. Michael and four adult female companions are five controllable heroes on one large fixed-view isometric board. The women actively investigate the island, bring competing theories and personal quest lines, and ask the player to direct, equip, protect, and support their work.
 
 The canonical product contract is [docs/GAME_BUILD_PLAN.md](docs/GAME_BUILD_PLAN.md). It supersedes the earlier side-view route-and-battle direction. Existing battle, character, native-bridge, asset, and rig work remains useful technical evidence where it does not conflict with the new authority; implementation already present does not overrule the product decision.

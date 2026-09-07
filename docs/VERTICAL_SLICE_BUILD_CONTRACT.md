@@ -1,5 +1,7 @@
 # Project 42: Autonomous Island Vertical Slice
 
+**Visual amendment, 7 September 2026:** use the [approved 2D sprite direction](VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md). Historical 3D/rig requirements are shelved. The animation-free simulation proof below is not art acceptance; the visual slice must prove coherent sprite animation at the reference perspective.
+
 This contract implements the first slice in [GAME_BUILD_PLAN.md](GAME_BUILD_PLAN.md). That design authority wins over the older side-view battle slice this file replaces.
 
 ## Slice promise

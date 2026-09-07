@@ -1,0 +1,8 @@
+{
+  "schema_version": 1, "task_id": "pixel-art-direction", "agent": "codex-root",
+  "summary": "Record explicit 2D sprite approval and shelve conflicting 3D production",
+  "status": "active", "claimed_at": "2026-09-07T00:00:00Z", "updated_at": "2026-09-07T00:00:00Z",
+  "paths": ["docs/VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md", "docs/THREE_D_PRODUCTION_PLAN.md", "docs/VIDEO_ART_PIPELINE.md", "docs/GAME_BUILD_PLAN.md", "docs/VERTICAL_SLICE_BUILD_CONTRACT.md", "docs/images/pixel-style/", "README.md"],
+  "coordination": {"depends_on": [], "conflicts_with": [], "notes": "Preserve historical geometry and other task files; no engine changes."},
+  "completion": {"commit": null, "checks": []}
+}

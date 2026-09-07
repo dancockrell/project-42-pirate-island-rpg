@@ -1,5 +1,7 @@
 # Video art mining pipeline
 
+**7 September 2026:** [Current visual authority](VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md) requires 2D pixel sprites and shelves 3D art. The older reel slate and rates below are historical tooling guidance, not approved current prompts or mandatory sprite frame counts. No 3D turns, model jobs or orbit-camera assets for Pirate Island. Generated frames require sprite identity, pivot, direction, pixel-grid and temporal checks before admission.
+
 The canonical reel slate is `content/art/video_reel_plan.json`. Each `prompt` is copied into Magnific unchanged. Metadata stays outside the prompt.
 
 ## Production flow
