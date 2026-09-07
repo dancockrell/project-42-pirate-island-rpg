@@ -1,5 +1,15 @@
 # Video art mining pipeline
 
+## Current sprite-source inspection
+
+Before treating a generated sheet as runtime sprites, run `python tools/inspect_sprite_source.py <source.png> --manifest <frames.json>` from the repository root, using a Python environment with Pillow. Run `python tools/test_sprite_source.py` for the synthetic regression suite. The inspector is read-only: it never cleans, repaints, slices or overwrites source art. Omitting the manifest produces a diagnostic report and a failed admission result, not guessed frame coordinates.
+
+The authored JSON contract is `schemaVersion: 1`, `sourceSha256` for the exact PNG, and `frames`. Each frame requires a unique `id`, `action`, `direction`, integer pixel `rect: [x,y,width,height]`, frame-local integer `footPivot: [x,y]`, positive `durationSeconds` and explicit boolean `loop`. Example frame: `{"id":"idle.south.0","action":"idle","direction":"south","rect":[0,0,64,96],"footPivot":[32,96],"durationSeconds":0.125,"loop":true}`. These sample dimensions are illustrative, not approved sprite scale. Rectangles may be irregular; the tool does not assume the reference sheet uses a uniform grid.
+
+Structural admission checks exact source identity, PNG bounds, actual transparency, visible frame content, valid pivots, timing and unique frame IDs. It does not certify character likeness, coherent action order, palette, pixel-grid quality, sorting or loop continuity. A structural pass always leaves `artAdmission: not-assessed`. Assets are not automatically added to runtime variation pools.
+
+Checkpoint: the approved 1254 × 1254 character reference has **zero transparent pixels** and no authored frame metadata. It correctly fails cutout-atlas admission while remaining the approved style reference. Original bytes are preserved. Eight regression tests passed, including opaque-checkerboard rejection, invalid frame fields, empty frames and read-only source preservation. No new sprites, animation or playable scene are claimed by this tool.
+
 **7 September 2026:** [Current visual authority](VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md) requires 2D pixel sprites and shelves 3D art. The older reel slate and rates below are historical tooling guidance, not approved current prompts or mandatory sprite frame counts. No 3D turns, model jobs or orbit-camera assets for Pirate Island. Generated frames require sprite identity, pivot, direction, pixel-grid and temporal checks before admission.
 
 The canonical reel slate is `content/art/video_reel_plan.json`. Each `prompt` is copied into Magnific unchanged. Metadata stays outside the prompt.
