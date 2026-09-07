@@ -124,14 +124,17 @@ impl Project42SimulationBridge {
         for faction in world.factions.values() {
             for building in faction.buildings.values() {
                 if let Some(position) = world.navigation.destinations.get(&building.node_id) {
-                    buildings.push(&vdict! {
-                        "id" => building.id.as_str(),
-                        "faction" => building.faction_id.as_str(),
-                        "archetype" => building.archetype_id.as_str(),
-                        "x" => position.x, "y" => position.y,
-                        "operational" => building.operational,
-                        "queued" => building.production_queue.len() as i64
-                    }.to_variant());
+                    buildings.push(
+                        &vdict! {
+                            "id" => building.id.as_str(),
+                            "faction" => building.faction_id.as_str(),
+                            "archetype" => building.archetype_id.as_str(),
+                            "x" => position.x, "y" => position.y,
+                            "operational" => building.operational,
+                            "queued" => building.production_queue.len() as i64
+                        }
+                        .to_variant(),
+                    );
                 }
             }
         }
@@ -162,14 +165,24 @@ impl Project42SimulationBridge {
         let mut strikes = VarArray::new();
         if let Some(world) = self.island.as_mut() {
             for event in world.advance_island_tick() {
-                if let FactionWorldEvent::UnitStruck { attacker_id, target_id, damage,
-                    origin, target_position, attacker_definition } = event {
-                    strikes.push(&vdict! {
-                        "attacker" => attacker_id.as_str(), "target" => target_id.as_str(),
-                        "damage" => damage, "definition" => attacker_definition.as_str(),
-                        "origin" => Vector2i::new(origin.x, origin.y),
-                        "destination" => Vector2i::new(target_position.x, target_position.y)
-                    }.to_variant());
+                if let FactionWorldEvent::UnitStruck {
+                    attacker_id,
+                    target_id,
+                    damage,
+                    origin,
+                    target_position,
+                    attacker_definition,
+                } = event
+                {
+                    strikes.push(
+                        &vdict! {
+                            "attacker" => attacker_id.as_str(), "target" => target_id.as_str(),
+                            "damage" => damage, "definition" => attacker_definition.as_str(),
+                            "origin" => Vector2i::new(origin.x, origin.y),
+                            "destination" => Vector2i::new(target_position.x, target_position.y)
+                        }
+                        .to_variant(),
+                    );
                 }
             }
         }

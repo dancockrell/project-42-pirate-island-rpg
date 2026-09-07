@@ -418,7 +418,10 @@ pub struct IslandNavigation {
 impl IslandNavigation {
     pub fn traversable(&self, point: IslandPoint) -> bool {
         self.walkable.contains(&point)
-            && !self.building_obstacles.values().any(|cells| cells.contains(&point))
+            && !self
+                .building_obstacles
+                .values()
+                .any(|cells| cells.contains(&point))
     }
     fn clear_line(&self, start: IslandPoint, goal: IslandPoint) -> bool {
         // Combat profiles cap range at load time; use wide arithmetic at map edges.
@@ -630,15 +633,27 @@ impl FactionWorld {
         }
         let profile = self.combat_profiles.get(&actor.definition_id)?;
         let origin = self.positions.get(id)?;
-        self.actors.iter().filter(|(other_id, other)| {
-            self.hostilities.contains(&(actor.faction_id.clone(), other.faction_id.clone()))
-                && self.unit_combat.get(*other_id).is_some_and(|v| v.health > 0)
-        }).filter_map(|(other_id, _)| {
-            let point = self.positions.get(other_id)?;
-            let distance = origin.x.abs_diff(point.x).saturating_add(origin.y.abs_diff(point.y));
-            (distance <= profile.range && self.navigation.clear_line(*origin, *point))
-                .then_some((distance, other_id))
-        }).min().map(|(_, id)| id)
+        self.actors
+            .iter()
+            .filter(|(other_id, other)| {
+                self.hostilities
+                    .contains(&(actor.faction_id.clone(), other.faction_id.clone()))
+                    && self
+                        .unit_combat
+                        .get(*other_id)
+                        .is_some_and(|v| v.health > 0)
+            })
+            .filter_map(|(other_id, _)| {
+                let point = self.positions.get(other_id)?;
+                let distance = origin
+                    .x
+                    .abs_diff(point.x)
+                    .saturating_add(origin.y.abs_diff(point.y));
+                (distance <= profile.range && self.navigation.clear_line(*origin, *point))
+                    .then_some((distance, other_id))
+            })
+            .min()
+            .map(|(_, id)| id)
     }
 
     fn resolve_island_skirmish(&mut self) -> Vec<FactionWorldEvent> {
@@ -837,38 +852,67 @@ impl FactionWorld {
             }
         }
         staged.navigation.building_obstacles = staged.authored_building_obstacles()?;
-        if staged.positions.values().any(|point| !staged.navigation.traversable(*point)) {
+        if staged
+            .positions
+            .values()
+            .any(|point| !staged.navigation.traversable(*point))
+        {
             return Err("occupied_building_footprint".into());
         }
         // No holding may be sealed off by the installed footprints.
-        if staged.factions.values().flat_map(|f| f.buildings.values()).any(|b|
-            staged.navigation.path(staged.navigation.destinations[&b.node_id], objective).is_none()
-        ) {
+        if staged
+            .factions
+            .values()
+            .flat_map(|f| f.buildings.values())
+            .any(|b| {
+                staged
+                    .navigation
+                    .path(staged.navigation.destinations[&b.node_id], objective)
+                    .is_none()
+            })
+        {
             return Err("building_blocks_holding_access".into());
         }
         *self = staged;
         Ok(())
     }
 
-    fn authored_building_obstacles(&self) -> Result<BTreeMap<String, BTreeSet<IslandPoint>>, String> {
+    fn authored_building_obstacles(
+        &self,
+    ) -> Result<BTreeMap<String, BTreeSet<IslandPoint>>, String> {
         // New scenarios and old-save migration share the same asset contract.
         #[derive(Deserialize)]
-        struct Footprint { blocked_offsets: Vec<[i32; 2]> }
-        let footprints: BTreeMap<String, Footprint> = serde_json::from_str(include_str!(
-            "../../game/assets/island/buildings.json"
-        )).map_err(|_| "invalid_building_contract")?;
+        struct Footprint {
+            blocked_offsets: Vec<[i32; 2]>,
+        }
+        let footprints: BTreeMap<String, Footprint> =
+            serde_json::from_str(include_str!("../../game/assets/island/buildings.json"))
+                .map_err(|_| "invalid_building_contract")?;
         let mut obstacles = BTreeMap::new();
         for faction in self.factions.values() {
             for building in faction.buildings.values() {
                 if let Some(footprint) = footprints.get(&building.archetype_id) {
-                    let entrance = self.navigation.destinations.get(&building.node_id)
+                    let entrance = self
+                        .navigation
+                        .destinations
+                        .get(&building.node_id)
                         .ok_or("missing_building_entrance")?;
-                    let cells: BTreeSet<_> = footprint.blocked_offsets.iter().map(|[dx,dy]|
-                        Ok(IslandPoint {
-                            x: entrance.x.checked_add(*dx).ok_or("building_coordinate_overflow")?,
-                            y: entrance.y.checked_add(*dy).ok_or("building_coordinate_overflow")?,
+                    let cells: BTreeSet<_> = footprint
+                        .blocked_offsets
+                        .iter()
+                        .map(|[dx, dy]| {
+                            Ok(IslandPoint {
+                                x: entrance
+                                    .x
+                                    .checked_add(*dx)
+                                    .ok_or("building_coordinate_overflow")?,
+                                y: entrance
+                                    .y
+                                    .checked_add(*dy)
+                                    .ok_or("building_coordinate_overflow")?,
+                            })
                         })
-                    ).collect::<Result<_, String>>()?;
+                        .collect::<Result<_, String>>()?;
                     if cells.contains(entrance) {
                         return Err("occupied_building_footprint".into());
                     }
@@ -1065,8 +1109,11 @@ impl FactionWorld {
             version: u32,
             world: FactionWorld,
         }
-        let json: serde_json::Value = serde_json::from_str(text).map_err(|_| "invalid_save_json")?;
-        let needs_obstacles = json.pointer("/world/navigation/building_obstacles").is_none();
+        let json: serde_json::Value =
+            serde_json::from_str(text).map_err(|_| "invalid_save_json")?;
+        let needs_obstacles = json
+            .pointer("/world/navigation/building_obstacles")
+            .is_none();
         let save: Save = serde_json::from_value(json).map_err(|_| "invalid_save_json")?;
         if save.version != 1 {
             return Err("unsupported_save_version".into());
@@ -1110,11 +1157,17 @@ impl FactionWorld {
                 }
             }
         }
-        let building_ids: BTreeSet<_> = world.factions.values()
-            .flat_map(|f| f.buildings.keys()).collect();
+        let building_ids: BTreeSet<_> = world
+            .factions
+            .values()
+            .flat_map(|f| f.buildings.keys())
+            .collect();
         if world.navigation.building_obstacles.len() > 4096
-            || world.navigation.building_obstacles.iter().any(|(id, cells)|
-                !building_ids.contains(id) || cells.len() > 256)
+            || world
+                .navigation
+                .building_obstacles
+                .iter()
+                .any(|(id, cells)| !building_ids.contains(id) || cells.len() > 256)
         {
             return Err("invalid_saved_building_obstacles".into());
         }
@@ -1422,10 +1475,15 @@ impl FactionWorld {
         // Decide from one pre-movement snapshot, not partially moved ID order.
         // Keep the strategic travel order so movement resumes when the shot is lost.
         // Only autonomous factions hold; player-directed actors retain movement.
-        let holding: BTreeSet<String> = self.actors.iter().filter(|(id, actor)|
-            self.policies.contains_key(&actor.faction_id)
-                && self.island_firing_target(id).is_some()
-        ).map(|(id, _)| id.clone()).collect();
+        let holding: BTreeSet<String> = self
+            .actors
+            .iter()
+            .filter(|(id, actor)| {
+                self.policies.contains_key(&actor.faction_id)
+                    && self.island_firing_target(id).is_some()
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
         for (actor_id, destination_id) in self.travel_orders.clone() {
             if holding.contains(&actor_id) {
                 continue;
@@ -2143,25 +2201,33 @@ mod tests {
         let id = id.clone();
         let cells = cells.clone();
         assert_eq!(cells.len(), 5);
-        let entrance = world.navigation.destinations[
-            &world.factions["faction.colonial_powers.prototype"].buildings[&id].node_id];
+        let entrance = world.navigation.destinations
+            [&world.factions["faction.colonial_powers.prototype"].buildings[&id].node_id];
         assert!(world.navigation.traversable(entrance));
         for cell in &cells {
             assert!(!world.navigation.traversable(*cell));
             assert!(world.navigation.path(entrance, *cell).is_none());
             assert!(!world.navigation.clear_line(entrance, *cell));
         }
-        let from = IslandPoint { x: entrance.x - 3, y: entrance.y };
+        let from = IslandPoint {
+            x: entrance.x - 3,
+            y: entrance.y,
+        };
         let route = world.navigation.path(from, entrance).unwrap();
         assert!(route.len() > 4);
         assert!(route.iter().all(|cell| !cells.contains(cell)));
         let loaded = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
         assert_eq!(loaded.navigation, world.navigation);
-        world.eliminate_faction("faction.colonial_powers.prototype").unwrap();
+        world
+            .eliminate_faction("faction.colonial_powers.prototype")
+            .unwrap();
         assert!(!world.navigation.building_obstacles.contains_key(&id));
         assert!(cells.iter().all(|cell| world.navigation.traversable(*cell)));
         let mut invalid = loaded;
-        invalid.navigation.building_obstacles.insert("missing".into(), cells);
+        invalid
+            .navigation
+            .building_obstacles
+            .insert("missing".into(), cells);
         assert!(FactionWorld::load_json(&invalid.save_json().unwrap()).is_err());
     }
 
@@ -2169,34 +2235,76 @@ mod tests {
     fn legacy_save_gets_authored_obstacles_without_teleporting_actors() {
         let mut world = FactionWorld::prototype_island();
         world.install_preview_factions().unwrap();
-        let mut legacy: serde_json::Value = serde_json::from_str(&world.save_json().unwrap()).unwrap();
-        legacy["world"]["navigation"].as_object_mut().unwrap().remove("building_obstacles");
+        let mut legacy: serde_json::Value =
+            serde_json::from_str(&world.save_json().unwrap()).unwrap();
+        legacy["world"]["navigation"]
+            .as_object_mut()
+            .unwrap()
+            .remove("building_obstacles");
         let restored = FactionWorld::load_json(&legacy.to_string()).unwrap();
         assert_eq!(restored, world);
-        let blocked = *world.navigation.building_obstacles.values().next().unwrap().iter().next().unwrap();
+        let blocked = *world
+            .navigation
+            .building_obstacles
+            .values()
+            .next()
+            .unwrap()
+            .iter()
+            .next()
+            .unwrap();
         legacy["world"]["positions"]["character.protagonist.captain"] =
             serde_json::json!({"x": blocked.x, "y": blocked.y});
-        assert_eq!(FactionWorld::load_json(&legacy.to_string()).unwrap_err(), "invalid_saved_position");
+        assert_eq!(
+            FactionWorld::load_json(&legacy.to_string()).unwrap_err(),
+            "invalid_saved_position"
+        );
         // Overflow is rejected, never a panic from an untrusted old save.
-        let building = world.factions["faction.colonial_powers.prototype"].buildings.values().next().unwrap();
+        let building = world.factions["faction.colonial_powers.prototype"]
+            .buildings
+            .values()
+            .next()
+            .unwrap();
         legacy["world"]["navigation"]["destinations"][&building.node_id] =
             serde_json::json!({"x": i32::MIN, "y": i32::MIN});
-        assert_eq!(FactionWorld::load_json(&legacy.to_string()).unwrap_err(), "building_coordinate_overflow");
+        assert_eq!(
+            FactionWorld::load_json(&legacy.to_string()).unwrap_err(),
+            "building_coordinate_overflow"
+        );
     }
 
     #[test]
     fn autonomous_ranged_holds_while_melee_closes_and_resumes_when_target_is_lost() {
         let mut world = FactionWorld::prototype_island();
         world.install_preview_factions().unwrap();
-        for _ in 0..4 { world.advance_island_tick(); }
-        let marine = world.actors.values().find(|a| a.definition_id == "actor_def.colonial.line_marine").unwrap().instance_id.clone();
-        let pirate = world.actors.values().find(|a| a.definition_id == "actor_def.pirates.deckhand").unwrap().instance_id.clone();
+        for _ in 0..4 {
+            world.advance_island_tick();
+        }
+        let marine = world
+            .actors
+            .values()
+            .find(|a| a.definition_id == "actor_def.colonial.line_marine")
+            .unwrap()
+            .instance_id
+            .clone();
+        let pirate = world
+            .actors
+            .values()
+            .find(|a| a.definition_id == "actor_def.pirates.deckhand")
+            .unwrap()
+            .instance_id
+            .clone();
         world.actors.retain(|id, _| id == &marine || id == &pirate);
-        world.positions.retain(|id, _| world.actors.contains_key(id));
-        world.unit_combat.retain(|id, _| world.actors.contains_key(id));
+        world
+            .positions
+            .retain(|id, _| world.actors.contains_key(id));
+        world
+            .unit_combat
+            .retain(|id, _| world.actors.contains_key(id));
         world.travel_orders.clear();
         for faction in world.factions.values_mut() {
-            for building in faction.buildings.values_mut() { building.operational = false; }
+            for building in faction.buildings.values_mut() {
+                building.operational = false;
+            }
         }
         let origin = IslandPoint { x: 20, y: 16 };
         let enemy = IslandPoint { x: 23, y: 16 };
