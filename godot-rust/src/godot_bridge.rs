@@ -23,6 +23,12 @@ struct Project42SimulationBridge {
 #[godot_api]
 impl Project42SimulationBridge {
     #[func]
+    fn aim_island_carbine(&mut self, target: GString) -> bool {
+        self.island
+            .as_mut()
+            .is_some_and(|world| world.aim_carbine(&target.to_string()))
+    }
+    #[func]
     fn install_preview_factions(&mut self) -> bool {
         self.island
             .as_mut()
@@ -50,6 +56,9 @@ impl Project42SimulationBridge {
             || !world
                 .positions
                 .contains_key("character.protagonist.captain")
+                && !world
+                    .casualties
+                    .contains_key("character.protagonist.captain")
         {
             return false;
         }

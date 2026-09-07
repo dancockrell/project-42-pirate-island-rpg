@@ -345,6 +345,8 @@ pub enum FactionWorldError {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FactionWorld {
+    #[serde(default)]
+    pub player_attack_target: Option<String>,
     pub tick: u64,
     pub paused: bool,
     pub factions: BTreeMap<String, FactionState>,
@@ -625,6 +627,30 @@ impl MapPlacement {
 }
 
 impl FactionWorld {
+    pub fn aim_carbine(&mut self, target: &str) -> bool {
+        const CAPTAIN: &str = "character.protagonist.captain";
+        let (Some(player), Some(other)) = (self.actors.get(CAPTAIN), self.actors.get(target))
+        else {
+            return false;
+        };
+        let (Some(from), Some(to), Some(profile)) = (
+            self.positions.get(CAPTAIN),
+            self.positions.get(target),
+            self.combat_profiles.get(CAPTAIN),
+        ) else {
+            return false;
+        };
+        if player.faction_id == other.faction_id
+            || !self.unit_combat.get(target).is_some_and(|s| s.health > 0)
+            || from.x.abs_diff(to.x).saturating_add(from.y.abs_diff(to.y)) > profile.range
+            || !self.navigation.clear_line(*from, *to)
+        {
+            return false;
+        }
+        self.player_attack_target = Some(target.into());
+        true
+    }
+
     fn island_firing_target(&self, id: &str) -> Option<&String> {
         let actor = self.actors.get(id)?;
         let state = self.unit_combat.get(id)?;
@@ -636,6 +662,13 @@ impl FactionWorld {
         self.actors
             .iter()
             .filter(|(other_id, other)| {
+                if id == "character.protagonist.captain" {
+                    return self.player_attack_target.as_ref() == Some(*other_id)
+                        && self
+                            .unit_combat
+                            .get(*other_id)
+                            .is_some_and(|s| s.health > 0);
+                }
                 self.hostilities
                     .contains(&(actor.faction_id.clone(), other.faction_id.clone()))
                     && self
@@ -681,6 +714,13 @@ impl FactionWorld {
         let mut events = Vec::new();
         // Resolve simultaneously: ID ordering must not grant first-kill immunity.
         for (attacker_id, target_id, amount, cooldown) in strikes {
+            if attacker_id == "character.protagonist.captain" {
+                let first = self.actors[&attacker_id].faction_id.clone();
+                let second = self.actors[&target_id].faction_id.clone();
+                self.hostilities.insert((first.clone(), second.clone()));
+                self.hostilities.insert((second, first));
+                self.player_attack_target = None;
+            }
             self.unit_combat
                 .get_mut(&attacker_id)
                 .unwrap()
@@ -710,6 +750,11 @@ impl FactionWorld {
                     faction.population_used.saturating_sub(state.population_use);
             }
             self.travel_orders.remove(&id);
+            if self.player_attack_target.as_ref() == Some(&id)
+                || id == "character.protagonist.captain"
+            {
+                self.player_attack_target = None;
+            }
             self.navigation.destinations.remove(&format!("move.{id}"));
             self.casualties.insert(
                 id.clone(),
@@ -1246,6 +1291,24 @@ impl FactionWorld {
     /// Michael is scenario-seeded alone; no automatic companion recruitment.
     pub fn prototype_island() -> Self {
         let mut world = Self::default();
+        // Provisional basic carbine, not Michael's future Echo skill deck.
+        world.combat_profiles.insert(
+            "character.protagonist.captain".into(),
+            IslandCombatProfile {
+                health: 30,
+                damage: 4,
+                range: 4,
+                cooldown_ticks: 5,
+            },
+        );
+        world.unit_combat.insert(
+            "character.protagonist.captain".into(),
+            IslandCombatState {
+                health: 30,
+                next_attack_tick: 0,
+                population_use: 1,
+            },
+        );
         for x in 0..48 {
             for y in 0..32 {
                 if (x - 24_i32).pow(2) * 196 + (y - 16_i32).pow(2) * 484 < 484 * 196 {
@@ -2325,6 +2388,53 @@ mod tests {
         world.unit_combat.get_mut(&pirate).unwrap().health = 0;
         world.advance_island_tick();
         assert_eq!(world.positions[&marine], IslandPoint { x: 21, y: 16 });
+    }
+
+    #[test]
+    fn player_carbine_is_queued_paused_and_provokes_retaliation_on_hit() {
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        for _ in 0..4 {
+            world.advance_island_tick();
+        }
+        let target = world
+            .actors
+            .values()
+            .find(|a| a.definition_id == "actor_def.pirates.deckhand")
+            .unwrap()
+            .instance_id
+            .clone();
+        let captain = "character.protagonist.captain";
+        let position = world.positions[&target];
+        world.positions.insert(captain.into(), position);
+        assert!(!world.aim_carbine(captain));
+        assert!(!world.aim_carbine("missing"));
+        assert!(world.aim_carbine(&target));
+        let hp = world.unit_combat[&target].health;
+        assert!(
+            !world
+                .hostilities
+                .contains(&("faction.pirates.prototype".into(), "faction.michael".into()))
+        );
+        world.paused = true;
+        assert!(world.advance_island_tick().is_empty());
+        assert_eq!(world.unit_combat[&target].health, hp);
+        assert_eq!(
+            FactionWorld::load_json(&world.save_json().unwrap()).unwrap(),
+            world
+        );
+        world.paused = false;
+        let events = world.advance_island_tick();
+        assert!(events.iter().any(|event| matches!(event, FactionWorldEvent::UnitStruck {attacker_id, target_id, ..} if attacker_id == captain && target_id == &target)));
+        assert!(world.player_attack_target.is_none());
+        assert!(
+            world
+                .hostilities
+                .contains(&("faction.pirates.prototype".into(), "faction.michael".into()))
+        );
+        assert!(world.aim_carbine(&target));
+        let events = world.advance_island_tick();
+        assert!(!events.iter().any(|event| matches!(event, FactionWorldEvent::UnitStruck {attacker_id, ..} if attacker_id == captain)));
     }
 
     #[test]

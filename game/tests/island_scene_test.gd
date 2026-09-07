@@ -124,4 +124,19 @@ func run() -> void:
 	print("PASS: native strike events project one effect per hit at recorded target positions; pause preserves effects")
 	print("PASS: autonomous skirmish casualties, capped survivors, removed dead sprites, roster preserved through load")
 	print("PASS: real island scene, authored land, sprite/native position agreement, travel and pause")
+	var combat_save: Dictionary = save_integers(JSON.parse_string(scene.port.save_island()))
+	var enemy: Dictionary = {}
+	for unit in scene.snapshot.actors:
+		if unit.id != scene.MICHAEL:
+			enemy = unit
+			break
+	assert(not enemy.is_empty())
+	combat_save.world.positions[scene.MICHAEL] = {"x": int(enemy.x), "y": int(enemy.y)}
+	assert(scene.port.load_island(JSON.stringify(combat_save)))
+	scene.refresh_snapshot()
+	assert(scene.port.aim_island_carbine(enemy.id))
+	scene.advance_tick()
+	assert(scene.last_strikes.any(func(hit): return hit.attacker == scene.MICHAEL))
+	assert(scene.status.text.contains("Michael HP"))
+	print("PASS: player carbine command crosses native bridge and produces authoritative hit feedback")
 	quit()

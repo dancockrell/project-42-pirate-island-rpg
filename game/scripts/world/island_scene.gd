@@ -235,12 +235,18 @@ func refresh_snapshot() -> void:
 	for entry in snapshot.actors:
 		if entry.id == MICHAEL:
 			person = entry
-	assert(not person.is_empty())
+	if person.is_empty():
+		actor.visible = false
+		paused = true
+		port.pause_island(true)
+		status.text = "Michael has fallen.   F9: load a saved campaign   |   F5: save this outcome"
+		return
+	actor.visible = true
 	var destination := (Vector2(person.x, person.y) + Vector2.ONE * 0.5) * cell_size
 	actor.project_heading(destination - actor.position)
 	actor.position = destination
 	actor.z_index = int(person.y)
-	status.text = "PIRATE ISLAND   |   Michael   |   Click land to travel   |   Space: pause   |   F5: save   |   F9: load\n%s  •  Development scene / standing sprite; animation pending  %s" % ["PAUSED" if paused else "Exploring", save_notice]
+	status.text = "PIRATE ISLAND | Michael HP %s/%s | Click: travel | Right-click unit: fire | Space: pause | F5: save | F9: load\n%s • Standing sprites; animation pending %s" % [person.health, person.max_health, "PAUSED" if paused else "Exploring", save_notice]
 
 func _process(delta: float) -> void:
 	if not ready_ok or paused:
@@ -263,3 +269,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var point := map_root.to_local(get_global_mouse_position())
 		request_move(Vector2i(floori(point.x / cell_size), floori(point.y / cell_size)))
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		var point := map_root.to_local(get_global_mouse_position())
+		var closest := ""
+		var distance := 24.0
+		for id in troop_sprites:
+			var gap: float = (troop_sprites[id].position - Vector2(0, 12)).distance_to(point)
+			if gap < distance:
+				closest = id
+				distance = gap
+		if not closest.is_empty():
+			save_notice = "Carbine aimed" if port.aim_island_carbine(closest) else "No clear shot in range"
+			refresh_snapshot()

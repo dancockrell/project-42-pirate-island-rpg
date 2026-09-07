@@ -43,6 +43,9 @@ func move_island_actor(actor_id: String, target: Vector2i) -> bool:
 func tick_island() -> Dictionary:
 	return bridge.tick_island() if is_available() else error_snapshot("native_bridge_unavailable")
 
+func aim_island_carbine(target: String) -> bool:
+	return is_available() and bridge.aim_island_carbine(target)
+
 func pause_island(paused: bool) -> void:
 	if is_available():
 		bridge.pause_island(paused)
