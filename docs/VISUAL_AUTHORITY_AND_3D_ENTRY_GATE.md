@@ -42,6 +42,8 @@ The hidden RTS, faction economies, large dynamic island, five-character party, n
 
 # Historical 3D entry gate — shelved, not executable authority
 
+> **Historical prototype contract — superseded where it defines product direction (5 September 2026).** The [current build plan](GAME_BUILD_PLAN.md) governs the fixed isometric autonomous RTS, five controllable heroes, dual clocks, and companion-led progression. The side-view stage, card-to-active-fighter composition, and animation-first production sequence below are not current requirements. Preserve this body as implementation/reference provenance; reuse individual assets only after review for the current board.
+
 ## Decision
 
 No new character model, environment model, turntable, or image-to-3D job may

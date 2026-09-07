@@ -1,5 +1,7 @@
 # Betty 3D Asset Contract
 
+> **Historical prototype contract — superseded where it defines product direction (5 September 2026).** The [current build plan](GAME_BUILD_PLAN.md) governs the fixed isometric autonomous RTS, five controllable heroes, dual clocks, and companion-led progression. The side-view stage, card-to-active-fighter composition, and animation-first production sequence below are not current requirements. Preserve this body as implementation/reference provenance; reuse individual assets only after review for the current board.
+
 ## Current gate: visual authority reopened
 
 **No new 3D request is currently authorized.** The earlier selected image and

@@ -31,10 +31,9 @@ Betty's current Magnific images are stored as component references under `work/a
 
 ## Shared professional asset platform
 
-This repository is also the home of the **shared tabletop asset platform** used
-by Project 42, DR Companion, and future professional work. It is not a dumping
+The public [Shared Game Environment Library](https://github.com/dancockrell/shared-game-environment-library) owns shared CC0 source packs and catalogs. This repository retains Pirate Island consumer admission and project-specific asset work. It is not a dumping
 ground for downloaded models. `content/art/shared_asset_ledger.json` is the
-machine-validated source of truth for every shared candidate and admitted asset;
+machine-validated local record for shared candidates and consumer admission;
 `docs/SHARED_ASSET_PLATFORM.md` defines the legal, visual, technical, and
 project-boundary rules.
 

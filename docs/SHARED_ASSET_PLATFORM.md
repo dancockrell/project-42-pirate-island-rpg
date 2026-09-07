@@ -2,8 +2,7 @@
 
 Status: **production contract**
 
-This repository supplies a shared asset platform for Project 42, DR Companion,
-and later paid professional work. The goal is not indiscriminate reuse. The
+The [Shared Game Environment Library](https://github.com/dancockrell/shared-game-environment-library) owns public CC0 sources and shared catalogs. This document governs the existing Pirate Island consumer ledger, project-specific assets, and admission requirements for reuse in Project 42, DR Companion, and later professional work. The goal is not indiscriminate reuse. The
 goal is to build a small, high-quality physical vocabulary that makes all of
 those games faster to construct and more coherent at play distance.
 

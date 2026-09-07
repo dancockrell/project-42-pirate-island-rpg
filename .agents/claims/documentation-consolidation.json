@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "task_id": "documentation-consolidation",
+  "agent": "Codex GitHub documentation audit",
+  "summary": "Consolidate current autonomous RTS direction and label earlier side-view prototype contracts",
+  "status": "completed",
+  "claimed_at": "2026-09-05T06:30:05.179875+00:00",
+  "updated_at": "2026-09-05T06:33:48.969984+00:00",
+  "paths": [
+    "README.md",
+    "docs/GAME_BUILD_PLAN.md",
+    "docs/ARCHITECTURE.md",
+    "docs/CHARACTER_AND_HAREMLIT_AUTHORING.md",
+    "docs/SHARED_ASSET_PLATFORM.md",
+    "docs/VERTICAL_SLICE_BUILD_CONTRACT.md",
+    "docs/THREE_D_PRODUCTION_PLAN.md",
+    "docs/VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md",
+    "docs/BETTY_3D_ASSET_CONTRACT.md",
+    "docs/VIDEO_ART_PIPELINE.md",
+    "docs/RUNBOOK.md"
+  ],
+  "symbols": [],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [],
+    "notes": "Reviewed PRs 2, 3 and 4. PR 3 contains the newer continuation brief and expedition work. Preserve those branches and runtime work; this changes main documentation only and identifies integration requirements."
+  },
+  "completion": {
+    "commit": "e77c9e6e00aa3f66232ffa5fd96164b1db684492",
+    "checks": [
+      "git diff --check: passed",
+      "New relative Markdown links against tracked Git tree: passed",
+      "Commit secret-scanning hook: passed",
+      "Manual review against user direction and open PR scope: passed",
+      "Application/runtime suites: not_run (documentation-only change)"
+    ]
+  }
+}

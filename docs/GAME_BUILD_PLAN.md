@@ -28,7 +28,7 @@ The central mystery is escalating, rule-governed weirdness caused by Cthulhu's p
 8. **No numeric heat UI.** World day may be known. Cthulhu's hidden heat/patience state is communicated through inferable diegetic evidence, never an exact meter.
 9. **Wrongness has rules.** Weather, time, and causality distort according to authored thresholds and causal state. Effects have prerequisites, tells, consequences, and clue links; they are never arbitrary random horror.
 10. **Simulation truth is singular.** Rust owns authoritative world and combat state. Godot projects it and submits commands. Content records define authored possibilities. Presentation never invents outcomes.
-11. **Fixed isometric, animation-ready, not animated.** This phase adds no animation content. Actors and structures are rigged and socketed so later animation does not require an asset or schema redesign.
+11. **Fixed-view 2D sprites.** Use the approved elevated three-quarter perspective. Actor production uses directional sprite frames, stable foot pivots and authored action timing. The simulation proof may be static; visual acceptance must demonstrate sprite animation. No 3D rigs or model production are required.
 12. **Toybox clarity over historicism.** Western fantasy, Bronze-Age mythic mashup, and eastern/wushu fantasy mashup are intentional broad families. Specialized faction overlays make them legible at board scale.
 
 ## Campaign clocks and confrontation
@@ -171,7 +171,7 @@ The prior side-view battle prototype is retained as historical technical evidenc
 
 Tile and structure kits include stable IDs, isometric orientation, board scale, exact standard cube modules, construction/damage pieces, contained selection/collision/visual bounds, contained spawn points, contained tether sockets, contained influence/state hooks, faction-overlay material slots, detail-density rules, provenance, and approval metadata.
 
-Actor assets require a stable root, ground anchor, selection bounds, facing contract, equipment and effect sockets, separable rig parts or bones, and identity metadata. Animation is out of scope now; future attachment points are not.
+Actor sprites require a stable ground anchor, selection bounds, facing contract, frame canvas, action timings, equipment/effect attachment points and identity metadata. These are 2D pixel-space contracts, not bones or a 3D rig. Keep animation as presentation of authoritative events, not another simulation owner.
 
 Base art families are western fantasy, Bronze-Age mythic mashup, and eastern/wushu fantasy mashup. Mini-kits and overlays specialize elves, treefolk, cult forces, pirates, smugglers, imperial forces, and later factions. Art is admitted only after board-scale silhouette review, isometric fit, metadata validation, provenance review, and an in-context screenshot.
 
@@ -198,7 +198,7 @@ All important state has paired channels: color plus shape/pattern/text; weather 
 
 ## First vertical slice
 
-The first new-direction slice is one isometric board with two connected regions, three ordinary RTS factions plus Cthulhu's hidden faction, Michael, one fully authored companion investigator, and three rig-ready heroine stand-ins. It proves:
+The first simulation slice is one fixed-view board with two connected regions, three ordinary RTS factions plus Cthulhu's hidden faction, Michael, one fully authored companion investigator, and three clearly marked heroine stand-ins. It proves:
 
 1. world ticks advance autonomously;
 2. factions gather resources, progress real build/production queues, deploy units, and select explainable actions;
@@ -213,7 +213,7 @@ The first new-direction slice is one isometric board with two connected regions,
 11. save/load and replay preserve the exact next decision;
 12. a baseline policy remains on schedule for minimum Day-100 preparation across approved seeds.
 
-It does not require final art, all companion arcs, broad content, complete combat replacement, or animation.
+This simulation proof does not require final art, all companion arcs, broad content, complete combat replacement, or animation. It does not replace the separate 2D sprite visual acceptance slice in the visual authority.
 
 ## Milestones
 
