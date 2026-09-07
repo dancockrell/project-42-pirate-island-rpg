@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "task_id": "island-simulation-travel",
+  "agent": "codex-root",
+  "summary": "Replace dispatch teleportation with authoritative grid travel and pause",
+  "status": "active",
+  "claimed_at": "2026-09-07T16:20:00Z",
+  "updated_at": "2026-09-07T16:20:00Z",
+  "paths": ["godot-rust/src/world.rs"],
+  "coordination": {"notes": "No overlap with sprite presentation or shelved 3D roof claims. Grid cells are physical navigation cells, not one node per room."},
+  "completion": {"commit": null, "checks": []}
+}

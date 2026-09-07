@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeathMemory {
@@ -285,6 +285,14 @@ pub enum FactionWorldEvent {
         target_node_id: String,
         total_score: i32,
     },
+    ActorMoved {
+        actor_id: String,
+        position: IslandPoint,
+    },
+    ActorArrived {
+        actor_id: String,
+        destination_id: String,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -304,6 +312,8 @@ pub enum FactionWorldError {
         available: u32,
     },
     NoDispatchCandidates,
+    MissingIslandPosition(String),
+    UnreachableDestination(String),
     WobbleOutOfBounds {
         action_id: String,
         wobble: i32,
@@ -314,10 +324,62 @@ pub enum FactionWorldError {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FactionWorld {
     pub tick: u64,
+    pub paused: bool,
     pub factions: BTreeMap<String, FactionState>,
     pub actors: BTreeMap<String, ProducedActor>,
+    pub navigation: IslandNavigation,
+    pub positions: BTreeMap<String, IslandPoint>,
+    pub travel_orders: BTreeMap<String, String>,
     next_actor_serial: u64,
     next_order_serial: u64,
+}
+
+/// Physical navigation cells, not rooms or strategic graph nodes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct IslandPoint {
+    pub x: i32,
+    pub y: i32,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct IslandNavigation {
+    pub walkable: BTreeSet<IslandPoint>,
+    pub destinations: BTreeMap<String, IslandPoint>,
+}
+
+impl IslandNavigation {
+    /// Deterministic shortest path over equal-cost land cells. Bounded by the
+    /// finite authored walkable set; never traverses ocean or blocked cells.
+    pub fn path(&self, start: IslandPoint, goal: IslandPoint) -> Option<Vec<IslandPoint>> {
+        if !self.walkable.contains(&start) || !self.walkable.contains(&goal) {
+            return None;
+        }
+        let mut frontier = VecDeque::from([start]);
+        let mut parents = BTreeMap::from([(start, start)]);
+        while let Some(point) = frontier.pop_front() {
+            if point == goal {
+                let mut path = vec![goal];
+                let mut cursor = goal;
+                while cursor != start {
+                    cursor = parents[&cursor];
+                    path.push(cursor);
+                }
+                path.reverse();
+                return Some(path);
+            }
+            for (dx, dy) in [(0, -1), (-1, 0), (1, 0), (0, 1)] {
+                let (Some(x), Some(y)) = (point.x.checked_add(dx), point.y.checked_add(dy)) else {
+                    continue;
+                };
+                let next = IslandPoint { x, y };
+                if self.walkable.contains(&next) && !parents.contains_key(&next) {
+                    parents.insert(next, point);
+                    frontier.push_back(next);
+                }
+            }
+        }
+        None
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -531,6 +593,9 @@ impl FactionWorld {
     }
 
     pub fn advance_production_tick(&mut self) -> Vec<FactionWorldEvent> {
+        if self.paused {
+            return Vec::new();
+        }
         self.tick += 1;
         let mut completed = Vec::new();
         for faction in self.factions.values_mut() {
@@ -580,7 +645,48 @@ impl FactionWorld {
                 },
             };
             self.actors.insert(actor.instance_id.clone(), actor.clone());
+            if let Some(position) = self.navigation.destinations.get(&actor.node_id) {
+                self.positions.insert(actor.instance_id.clone(), *position);
+            }
             events.push(FactionWorldEvent::ActorProduced { actor });
+        }
+        events
+    }
+
+    /// Single simulation step used by the island runtime. Production and travel
+    /// share the same pause boundary and clock. Rendering never advances these.
+    pub fn advance_island_tick(&mut self) -> Vec<FactionWorldEvent> {
+        if self.paused {
+            return Vec::new();
+        }
+        let mut events = self.advance_production_tick();
+        for (actor_id, destination_id) in self.travel_orders.clone() {
+            let (Some(start), Some(goal)) = (
+                self.positions.get(&actor_id).copied(),
+                self.navigation.destinations.get(&destination_id).copied(),
+            ) else {
+                continue;
+            };
+            let Some(path) = self.navigation.path(start, goal) else {
+                continue;
+            };
+            if let Some(next) = path.get(1).copied() {
+                self.positions.insert(actor_id.clone(), next);
+                events.push(FactionWorldEvent::ActorMoved {
+                    actor_id: actor_id.clone(),
+                    position: next,
+                });
+            }
+            if self.positions.get(&actor_id) == Some(&goal) {
+                if let Some(actor) = self.actors.get_mut(&actor_id) {
+                    actor.node_id = destination_id.clone();
+                }
+                self.travel_orders.remove(&actor_id);
+                events.push(FactionWorldEvent::ActorArrived {
+                    actor_id,
+                    destination_id,
+                });
+            }
         }
         events
     }
@@ -602,7 +708,7 @@ impl FactionWorld {
             .get(&actor.faction_id)
             .ok_or_else(|| FactionWorldError::UnknownFaction(actor.faction_id.clone()))?;
         for candidate in candidates {
-            if candidate.wobble.abs() > faction.wobble_limit {
+            if i64::from(candidate.wobble).abs() > i64::from(faction.wobble_limit) {
                 return Err(FactionWorldError::WobbleOutOfBounds {
                     action_id: candidate.action_id.clone(),
                     wobble: candidate.wobble,
@@ -618,12 +724,31 @@ impl FactionWorld {
                     .then_with(|| right.action_id.cmp(&left.action_id))
             })
             .expect("non-empty candidates checked above");
+        let start = self
+            .positions
+            .get(actor_id)
+            .copied()
+            .ok_or_else(|| FactionWorldError::MissingIslandPosition(actor_id.to_owned()))?;
+        let goal = self
+            .navigation
+            .destinations
+            .get(&chosen.target_node_id)
+            .copied()
+            .ok_or_else(|| {
+                FactionWorldError::UnreachableDestination(chosen.target_node_id.clone())
+            })?;
+        if self.navigation.path(start, goal).is_none() {
+            return Err(FactionWorldError::UnreachableDestination(
+                chosen.target_node_id.clone(),
+            ));
+        }
         let actor = self
             .actors
             .get_mut(actor_id)
             .expect("actor was validated above");
         actor.current_assignment_id = Some(chosen.action_id.clone());
-        actor.node_id = chosen.target_node_id.clone();
+        self.travel_orders
+            .insert(actor_id.to_owned(), chosen.target_node_id.clone());
         Ok(FactionWorldEvent::ActorAssigned {
             actor_id: actor_id.to_owned(),
             faction_id: actor.faction_id.clone(),
@@ -665,6 +790,24 @@ mod tests {
         };
         FactionWorld {
             factions: [(faction.id.clone(), faction)].into_iter().collect(),
+            navigation: IslandNavigation {
+                walkable: (0..5)
+                    .flat_map(|x| (0..3).map(move |y| IslandPoint { x, y }))
+                    .collect(),
+                destinations: [
+                    ("network_node.river_fork".into(), IslandPoint { x: 0, y: 1 }),
+                    (
+                        "network_node.smuggler_cove".into(),
+                        IslandPoint { x: 4, y: 1 },
+                    ),
+                    (
+                        "network_node.black_beach".into(),
+                        IslandPoint { x: 2, y: 2 },
+                    ),
+                ]
+                .into_iter()
+                .collect(),
+            },
             ..FactionWorld::default()
         }
     }
@@ -876,7 +1019,7 @@ mod tests {
     }
 
     #[test]
-    fn dispatch_chooses_highest_utility_and_moves_the_actor() {
+    fn dispatch_chooses_highest_utility_and_queues_travel() {
         let (mut world, actor_id) = world_with_produced_actor();
         let event = world
             .dispatch_actor(
@@ -902,6 +1045,117 @@ mod tests {
         assert_eq!(
             actor.current_assignment_id.as_deref(),
             Some("dispatch.colonial.reinforce")
+        );
+    }
+
+    #[test]
+    fn island_travel_is_tick_owned_and_pause_freezes_everything() {
+        let (mut world, actor_id) = world_with_produced_actor();
+        let origin = world.positions[&actor_id];
+        world
+            .dispatch_actor(
+                &actor_id,
+                &[candidate("raid", "network_node.smuggler_cove", 10, 0)],
+            )
+            .unwrap();
+        assert_eq!(world.positions[&actor_id], origin);
+        assert_eq!(world.actors[&actor_id].node_id, "network_node.river_fork");
+        world.paused = true;
+        let frozen = world.clone();
+        assert!(world.advance_island_tick().is_empty());
+        assert!(world.advance_production_tick().is_empty());
+        assert_eq!(world, frozen);
+        world.paused = false;
+        let first = world.advance_island_tick();
+        assert!(
+            first
+                .iter()
+                .any(|event| matches!(event, FactionWorldEvent::ActorMoved { .. }))
+        );
+        assert_eq!(world.positions[&actor_id], IslandPoint { x: 1, y: 1 });
+        assert_eq!(world.actors[&actor_id].node_id, "network_node.river_fork");
+        for _ in 0..3 {
+            world.advance_island_tick();
+        }
+        assert_eq!(world.positions[&actor_id], IslandPoint { x: 4, y: 1 });
+        assert_eq!(
+            world.actors[&actor_id].node_id,
+            "network_node.smuggler_cove"
+        );
+        assert!(!world.travel_orders.contains_key(&actor_id));
+    }
+
+    #[test]
+    fn blocked_island_route_waits_then_resumes_without_teleporting() {
+        let (mut world, actor_id) = world_with_produced_actor();
+        world
+            .dispatch_actor(
+                &actor_id,
+                &[candidate("raid", "network_node.smuggler_cove", 10, 0)],
+            )
+            .unwrap();
+        for y in 0..3 {
+            world.navigation.walkable.remove(&IslandPoint { x: 1, y });
+        }
+        let origin = world.positions[&actor_id];
+        world.advance_island_tick();
+        assert_eq!(world.positions[&actor_id], origin);
+        assert!(world.travel_orders.contains_key(&actor_id));
+        world.navigation.walkable.insert(IslandPoint { x: 1, y: 0 });
+        world.advance_island_tick();
+        assert_eq!(world.positions[&actor_id], IslandPoint { x: 0, y: 0 });
+        for _ in 0..8 {
+            world.advance_island_tick();
+        }
+        assert_eq!(
+            world.actors[&actor_id].node_id,
+            "network_node.smuggler_cove"
+        );
+    }
+
+    #[test]
+    fn unreachable_dispatch_does_not_replace_existing_order() {
+        let (mut world, actor_id) = world_with_produced_actor();
+        world
+            .dispatch_actor(
+                &actor_id,
+                &[candidate("raid", "network_node.smuggler_cove", 10, 0)],
+            )
+            .unwrap();
+        let before = world.clone();
+        assert!(matches!(
+            world.dispatch_actor(&actor_id, &[candidate("bad", "ocean", 20, 0)]),
+            Err(FactionWorldError::UnreachableDestination(_))
+        ));
+        assert_eq!(world, before);
+    }
+
+    #[test]
+    fn navigation_avoids_water_and_handles_coordinate_limits() {
+        let nav = IslandNavigation {
+            walkable: [
+                IslandPoint { x: i32::MAX, y: 0 },
+                IslandPoint { x: i32::MAX, y: 1 },
+            ]
+            .into_iter()
+            .collect(),
+            destinations: BTreeMap::new(),
+        };
+        assert_eq!(
+            nav.path(
+                IslandPoint { x: i32::MAX, y: 0 },
+                IslandPoint { x: i32::MAX, y: 1 }
+            )
+            .unwrap()
+            .len(),
+            2
+        );
+        assert!(
+            nav.path(
+                IslandPoint { x: 0, y: 0 },
+                IslandPoint { x: i32::MAX, y: 1 }
+            )
+            .is_none()
         );
     }
 
