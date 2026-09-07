@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -160,7 +161,7 @@ fn mix_seed(mut seed: u64, day: u32, region_id: &str, slot: u8) -> u64 {
     seed ^ (seed >> 29)
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProductionRule {
     pub id: String,
     pub producer_archetype_id: String,
@@ -171,7 +172,7 @@ pub struct ProductionRule {
     pub population_use: u32,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProductionOrder {
     pub id: String,
     pub rule: ProductionRule,
@@ -179,7 +180,7 @@ pub struct ProductionOrder {
     pub reserved_costs: BTreeMap<String, u32>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FactionBuilding {
     pub id: String,
     pub faction_id: String,
@@ -191,7 +192,7 @@ pub struct FactionBuilding {
     pub production_queue: Vec<ProductionOrder>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FactionState {
     pub id: String,
     pub resources: BTreeMap<String, u32>,
@@ -202,7 +203,7 @@ pub struct FactionState {
     pub buildings: BTreeMap<String, FactionBuilding>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ActorProductionProvenance {
     pub faction_id: String,
     pub producer_building_id: String,
@@ -212,7 +213,7 @@ pub struct ActorProductionProvenance {
     pub rally_point_id: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProducedActor {
     pub instance_id: String,
     pub definition_id: String,
@@ -321,7 +322,7 @@ pub enum FactionWorldError {
     },
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FactionWorld {
     pub tick: u64,
     pub paused: bool,
@@ -335,13 +336,13 @@ pub struct FactionWorld {
 }
 
 /// Physical navigation cells, not rooms or strategic graph nodes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IslandPoint {
     pub x: i32,
     pub y: i32,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IslandNavigation {
     pub walkable: BTreeSet<IslandPoint>,
     pub destinations: BTreeMap<String, IslandPoint>,
@@ -520,6 +521,91 @@ impl MapPlacement {
 }
 
 impl FactionWorld {
+    pub fn save_json(&self) -> Result<String, String> {
+        #[derive(Serialize)]
+        struct Save<'a> {
+            version: u32,
+            world: &'a FactionWorld,
+        }
+        serde_json::to_string(&Save {
+            version: 1,
+            world: self,
+        })
+        .map_err(|error| error.to_string())
+    }
+
+    /// Deserialize into a new value; callers replace live state only after all
+    /// validation succeeds. File-size and collection caps bound untrusted saves.
+    pub fn load_json(text: &str) -> Result<Self, String> {
+        if text.len() > 8 * 1024 * 1024 {
+            return Err("save_too_large".into());
+        }
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Save {
+            version: u32,
+            world: FactionWorld,
+        }
+        let save: Save = serde_json::from_str(text).map_err(|_| "invalid_save_json")?;
+        if save.version != 1 {
+            return Err("unsupported_save_version".into());
+        }
+        let world = save.world;
+        if world.navigation.walkable.len() > 16384
+            || world.actors.len() > 4096
+            || world.factions.len() > 64
+            || world.tick == u64::MAX
+            || world.next_actor_serial == u64::MAX
+            || world.next_order_serial == u64::MAX
+        {
+            return Err("save_limits_exceeded".into());
+        }
+        for (id, faction) in &world.factions {
+            if id != &faction.id
+                || faction.population_used > faction.population_capacity
+                || faction.wobble_limit < 0
+                || faction.buildings.len() > 4096
+            {
+                return Err("invalid_saved_faction".into());
+            }
+            for (building_id, building) in &faction.buildings {
+                if building_id != &building.id
+                    || &building.faction_id != id
+                    || building.production_queue.len() > building.queue_capacity
+                    || building.queue_capacity > 4096
+                {
+                    return Err("invalid_saved_building".into());
+                }
+                for order in &building.production_queue {
+                    if order.remaining_ticks == 0
+                        || order.remaining_ticks > order.rule.production_ticks
+                        || order.rule.producer_archetype_id != building.archetype_id
+                    {
+                        return Err("invalid_saved_production".into());
+                    }
+                }
+            }
+        }
+        for (id, actor) in &world.actors {
+            if id != &actor.instance_id || !world.factions.contains_key(&actor.faction_id) {
+                return Err("invalid_saved_actor".into());
+            }
+        }
+        for (id, point) in &world.positions {
+            if !world.actors.contains_key(id) || !world.navigation.walkable.contains(point) {
+                return Err("invalid_saved_position".into());
+            }
+        }
+        for (id, destination) in &world.travel_orders {
+            if !world.positions.contains_key(id)
+                || !world.navigation.destinations.contains_key(destination)
+            {
+                return Err("invalid_saved_travel".into());
+            }
+        }
+        Ok(world)
+    }
+
     /// Small physical island fixture for runtime integration, not the final map.
     /// Michael is scenario-seeded alone; no automatic companion recruitment.
     pub fn prototype_island() -> Self {
@@ -1233,6 +1319,45 @@ mod tests {
             )
             .is_none()
         );
+    }
+
+    #[test]
+    fn saved_world_resumes_pending_production_and_travel_identically() {
+        let (mut original, actor_id) = world_with_produced_actor();
+        original
+            .enqueue_production(
+                "faction.colonial_powers.prototype",
+                "site.colonial.watch_fort.instance_1",
+                marine_rule(),
+            )
+            .unwrap();
+        original
+            .order_move(&actor_id, IslandPoint { x: 4, y: 1 })
+            .unwrap();
+        original.advance_island_tick();
+        let payload = original.save_json().unwrap();
+        let mut restored = FactionWorld::load_json(&payload).unwrap();
+        assert_eq!(original, restored);
+        for _ in 0..10 {
+            assert_eq!(
+                original.advance_island_tick(),
+                restored.advance_island_tick()
+            );
+            assert_eq!(original, restored);
+        }
+    }
+
+    #[test]
+    fn saved_world_rejects_version_and_dangling_actor() {
+        let world = FactionWorld::prototype_island();
+        let mut data: serde_json::Value =
+            serde_json::from_str(&world.save_json().unwrap()).unwrap();
+        data["version"] = 99.into();
+        assert!(FactionWorld::load_json(&data.to_string()).is_err());
+        data["version"] = 1.into();
+        data["world"]["factions"] = serde_json::json!({});
+        assert!(FactionWorld::load_json(&data.to_string()).is_err());
+        assert!(FactionWorld::load_json("{broken").is_err());
     }
 
     #[test]

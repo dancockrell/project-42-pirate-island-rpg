@@ -23,6 +23,40 @@ struct Project42SimulationBridge {
 #[godot_api]
 impl Project42SimulationBridge {
     #[func]
+    fn save_island(&self) -> GString {
+        self.island
+            .as_ref()
+            .and_then(|world| world.save_json().ok())
+            .unwrap_or_default()
+            .as_str()
+            .into()
+    }
+
+    #[func]
+    fn load_island(&mut self, payload: GString) -> bool {
+        let Ok(world) = FactionWorld::load_json(&payload.to_string()) else {
+            return false;
+        };
+        let Some(current) = self.island.as_ref() else {
+            return false;
+        };
+        if world.navigation.walkable != current.navigation.walkable
+            || !world
+                .positions
+                .contains_key("character.protagonist.captain")
+        {
+            return false;
+        }
+        self.island = Some(world);
+        true
+    }
+
+    #[func]
+    fn valid_island_save(&self, payload: GString) -> bool {
+        FactionWorld::load_json(&payload.to_string()).is_ok()
+    }
+
+    #[func]
     fn create_island(&mut self) -> VarDictionary {
         self.island = Some(FactionWorld::prototype_island());
         self.island_snapshot()

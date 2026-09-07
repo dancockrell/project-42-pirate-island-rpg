@@ -19,6 +19,15 @@ func is_available() -> bool:
 func create_island() -> Dictionary:
 	return bridge.create_island() if is_available() else error_snapshot("native_bridge_unavailable")
 
+func save_island() -> String:
+	return bridge.save_island() if is_available() else ""
+
+func load_island(payload: String) -> bool:
+	return is_available() and bridge.load_island(payload)
+
+func valid_island_save(payload: String) -> bool:
+	return is_available() and bridge.valid_island_save(payload)
+
 func configure_island_land(cells: Array[Vector2i], start: Vector2i) -> bool:
 	return is_available() and bridge.configure_island_land(cells, start)
 
