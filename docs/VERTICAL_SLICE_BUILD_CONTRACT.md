@@ -13,7 +13,7 @@ The player experience must read as an RTS with five embodied characters inside i
 ## Required content
 
 - Two connected regions whose visible network contains a loop, a chokepoint, an alternate route, and at least five typed tethers. It must not form three fixed lanes.
-- Michael, one fully authored female investigator, and three selectable rig-ready heroine stand-ins.
+- Michael starting alone; one fully authored recruitable female investigator and sufficient generated adult female NPCs to demonstrate choosing four active companions from a larger recruited faction population. Follow the shared-pool and transfer rules in [CHARACTER_AND_HAREMLIT_AUTHORING.md](CHARACTER_AND_HAREMLIT_AUTHORING.md). All visible members need admitted 2D sprites; no automatically allied rig-ready stand-ins.
 - Four ordinary factions—eastern/wushu fox people, colonial powers, pirates, and elves—with resource flow, build and production queues, supply, territory, units, and independent bilateral relationships.
 - One hidden Cthulhu faction whose utility and unconventional build cycle advance its Day-100 plan.
 - One standard-cube-volume structure per visible ordinary faction.

@@ -6,7 +6,7 @@
 
 ## Product promise
 
-Project 42 is a HaremLit adventure played on top of a living, multi-faction RTS simulation of a mysterious island. The player commands Michael and four adult female companions as five hero characters on one large, fixed-view isometric board. The island continues to build, spawn, raid, bargain, spread, and decay whether or not the heroes intervene.
+Project 42 is a HaremLit adventure played on top of a living, multi-faction RTS simulation of a mysterious island. Michael begins alone. The player can recruit adult women from the island's ordinary and notable NPC population into his faction and select up to four as active companions on one large, fixed-view isometric board. There is no separate mandatory four-woman starting cast; faction membership is broader than the party. The [character authoring contract](CHARACTER_AND_HAREMLIT_AUTHORING.md) owns recruitment, loyalty and companion-slot rules. The island continues to build, spawn, raid, bargain, spread, and decay whether or not the heroes intervene.
 
 The shortest product definition is: **it is an RTS, with us as characters.** The simulation has the structures, production, movement, territorial pressure, faction AI, and evolving map of an RTS, but the player is not an omniscient commander detached above it. The player's agency is embodied in five hero units with limited position, travel time, perception, equipment, relationships, and personal risk. They can influence armies and settlements, but they do so by being present, earning trust, giving support, opening routes, fighting, investigating, negotiating, sabotaging, or directing allied capability the fiction has actually granted them.
 

@@ -668,6 +668,9 @@ impl FactionWorld {
         self.actors
             .iter()
             .filter(|(other_id, other)| {
+                if actor.faction_id == other.faction_id {
+                    return false;
+                }
                 if id == "character.protagonist.captain" {
                     return self.player_attack_target.as_ref() == Some(*other_id)
                         && self
@@ -727,6 +730,20 @@ impl FactionWorld {
     }
 
     fn resolve_island_skirmish(&mut self) -> Vec<FactionWorldEvent> {
+        // Allegiance can change between command submission and resolution.
+        // Cancel an obsolete shot, rather than preserving a latent attack that
+        // could fire after another later allegiance change.
+        if self.player_attack_target.as_ref().is_some_and(|target| {
+            match (
+                self.actors.get("character.protagonist.captain"),
+                self.actors.get(target),
+            ) {
+                (Some(player), Some(other)) => player.faction_id == other.faction_id,
+                _ => true,
+            }
+        }) {
+            self.player_attack_target = None;
+        }
         let mut strikes = Vec::new();
         let mut building_strikes = Vec::new();
         for (id, actor) in &self.actors {
@@ -2670,6 +2687,42 @@ mod tests {
         assert!(world.aim_carbine(&target));
         let events = world.advance_island_tick();
         assert!(!events.iter().any(|event| matches!(event, FactionWorldEvent::UnitStruck {attacker_id, ..} if attacker_id == captain)));
+    }
+
+    #[test]
+    fn queued_carbine_cancels_when_target_changes_to_michaels_faction() {
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        for _ in 0..4 {
+            world.advance_island_tick();
+        }
+        let target = world
+            .actors
+            .values()
+            .find(|a| a.definition_id == "actor_def.pirates.deckhand")
+            .unwrap()
+            .instance_id
+            .clone();
+        let captain = "character.protagonist.captain";
+        world
+            .positions
+            .insert(captain.into(), world.positions[&target]);
+        assert!(world.aim_carbine(&target));
+        let hp = world.unit_combat[&target].health;
+        // Exercise the ownership boundary itself; this is not a recruitment API.
+        world.actors.get_mut(&target).unwrap().faction_id = "faction.michael".into();
+        assert!(world.island_firing_target(captain).is_none());
+        let events = world.resolve_island_skirmish();
+        assert!(!events.iter().any(|e| matches!(e, FactionWorldEvent::UnitStruck { attacker_id, .. } if attacker_id == captain)));
+        assert_eq!(world.unit_combat[&target].health, hp);
+        assert!(world.player_attack_target.is_none());
+        assert!(
+            !world
+                .hostilities
+                .contains(&("faction.michael".into(), "faction.michael".into()))
+        );
+        world.actors.get_mut(&target).unwrap().faction_id = "faction.pirates.prototype".into();
+        assert!(world.island_firing_target(captain).is_none());
     }
 
     #[test]
