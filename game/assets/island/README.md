@@ -22,8 +22,10 @@ The coarse ground footprint still needs rendered overlay review against the art.
 buildings.json owns the sprite path, pivot, scale and blocked cell offsets.
 Rust embeds this contract, so changes require rebuilding the native extension.
 New saves preserve per-building obstacles. Historical saves without that field
-still load with empty obstacles; migration of these development saves remains
-unfinished and must be resolved before release.
+reconstruct them through the same building contract used by new scenarios.
+If an old actor position is now inside a wall, loading is rejected without
+teleporting or overwriting the current campaign. Such a save still requires an
+explicit recovery policy before release; no silent unit movement is performed.
 
 watch_fort.png is the exact shared watch-fort-01/extracted/cell_00_00.png.
 SHA256: 34c8f250350f73f4cb6ae78c82a7bf9aca4266040a221d60e40e9f2527494c56.
@@ -74,4 +76,4 @@ and final island scale remain unfinished.
 Checks:
 Godot headless tests/island_scene_test.gd passes actual scene load, native position
 projection, terrain rejection, travel and pause. The separate native bridge test
-and all 53 Rust tests pass. Headless success does not prove rendered visual quality.
+and all 54 Rust tests pass. Headless success does not prove rendered visual quality.

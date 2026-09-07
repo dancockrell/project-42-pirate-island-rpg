@@ -835,25 +835,9 @@ impl FactionWorld {
                 }
             }
         }
-        // The same checked-in contract controls sprite scale/pivot and physical cells.
-        #[derive(Deserialize)]
-        struct Footprint { blocked_offsets: Vec<[i32; 2]> }
-        let footprints: BTreeMap<String, Footprint> = serde_json::from_str(include_str!(
-            "../../game/assets/island/buildings.json"
-        )).map_err(|_| "invalid_building_contract")?;
-        for faction in staged.factions.values() {
-            for building in faction.buildings.values() {
-                if let Some(footprint) = footprints.get(&building.archetype_id) {
-                    let entrance = staged.navigation.destinations[&building.node_id];
-                    let cells: BTreeSet<_> = footprint.blocked_offsets.iter().map(|[dx,dy]|
-                        IslandPoint { x: entrance.x + dx, y: entrance.y + dy }
-                    ).collect();
-                    if cells.contains(&entrance) || staged.positions.values().any(|p| cells.contains(p)) {
-                        return Err("occupied_building_footprint".into());
-                    }
-                    staged.navigation.building_obstacles.insert(building.id.clone(), cells);
-                }
-            }
+        staged.navigation.building_obstacles = staged.authored_building_obstacles()?;
+        if staged.positions.values().any(|point| !staged.navigation.traversable(*point)) {
+            return Err("occupied_building_footprint".into());
         }
         // No holding may be sealed off by the installed footprints.
         if staged.factions.values().flat_map(|f| f.buildings.values()).any(|b|
@@ -863,6 +847,35 @@ impl FactionWorld {
         }
         *self = staged;
         Ok(())
+    }
+
+    fn authored_building_obstacles(&self) -> Result<BTreeMap<String, BTreeSet<IslandPoint>>, String> {
+        // New scenarios and old-save migration share the same asset contract.
+        #[derive(Deserialize)]
+        struct Footprint { blocked_offsets: Vec<[i32; 2]> }
+        let footprints: BTreeMap<String, Footprint> = serde_json::from_str(include_str!(
+            "../../game/assets/island/buildings.json"
+        )).map_err(|_| "invalid_building_contract")?;
+        let mut obstacles = BTreeMap::new();
+        for faction in self.factions.values() {
+            for building in faction.buildings.values() {
+                if let Some(footprint) = footprints.get(&building.archetype_id) {
+                    let entrance = self.navigation.destinations.get(&building.node_id)
+                        .ok_or("missing_building_entrance")?;
+                    let cells: BTreeSet<_> = footprint.blocked_offsets.iter().map(|[dx,dy]|
+                        Ok(IslandPoint {
+                            x: entrance.x.checked_add(*dx).ok_or("building_coordinate_overflow")?,
+                            y: entrance.y.checked_add(*dy).ok_or("building_coordinate_overflow")?,
+                        })
+                    ).collect::<Result<_, String>>()?;
+                    if cells.contains(entrance) {
+                        return Err("occupied_building_footprint".into());
+                    }
+                    obstacles.insert(building.id.clone(), cells);
+                }
+            }
+        }
+        Ok(obstacles)
     }
 
     pub fn set_policy(
@@ -1051,11 +1064,13 @@ impl FactionWorld {
             version: u32,
             world: FactionWorld,
         }
-        let save: Save = serde_json::from_str(text).map_err(|_| "invalid_save_json")?;
+        let json: serde_json::Value = serde_json::from_str(text).map_err(|_| "invalid_save_json")?;
+        let needs_obstacles = json.pointer("/world/navigation/building_obstacles").is_none();
+        let save: Save = serde_json::from_value(json).map_err(|_| "invalid_save_json")?;
         if save.version != 1 {
             return Err("unsupported_save_version".into());
         }
-        let world = save.world;
+        let mut world = save.world;
         if world.navigation.walkable.len() > 16384
             || world.actors.len() > 4096
             || world.factions.len() > 64
@@ -1064,6 +1079,9 @@ impl FactionWorld {
             || world.next_order_serial == u64::MAX
         {
             return Err("save_limits_exceeded".into());
+        }
+        if needs_obstacles {
+            world.navigation.building_obstacles = world.authored_building_obstacles()?;
         }
         for (id, faction) in &world.factions {
             if id != &faction.id
@@ -2134,6 +2152,25 @@ mod tests {
         let mut invalid = loaded;
         invalid.navigation.building_obstacles.insert("missing".into(), cells);
         assert!(FactionWorld::load_json(&invalid.save_json().unwrap()).is_err());
+    }
+
+    #[test]
+    fn legacy_save_gets_authored_obstacles_without_teleporting_actors() {
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        let mut legacy: serde_json::Value = serde_json::from_str(&world.save_json().unwrap()).unwrap();
+        legacy["world"]["navigation"].as_object_mut().unwrap().remove("building_obstacles");
+        let restored = FactionWorld::load_json(&legacy.to_string()).unwrap();
+        assert_eq!(restored, world);
+        let blocked = *world.navigation.building_obstacles.values().next().unwrap().iter().next().unwrap();
+        legacy["world"]["positions"]["character.protagonist.captain"] =
+            serde_json::json!({"x": blocked.x, "y": blocked.y});
+        assert_eq!(FactionWorld::load_json(&legacy.to_string()).unwrap_err(), "invalid_saved_position");
+        // Overflow is rejected, never a panic from an untrusted old save.
+        let building = world.factions["faction.colonial_powers.prototype"].buildings.values().next().unwrap();
+        legacy["world"]["navigation"]["destinations"][&building.node_id] =
+            serde_json::json!({"x": i32::MIN, "y": i32::MIN});
+        assert_eq!(FactionWorld::load_json(&legacy.to_string()).unwrap_err(), "building_coordinate_overflow");
     }
 
     #[test]
