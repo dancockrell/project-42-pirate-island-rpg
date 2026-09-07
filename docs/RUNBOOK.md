@@ -10,6 +10,13 @@ Expected current entry: tropical island, Michael alone, the colonial watch fort,
 and three provisional autonomous factions producing units and fighting.
 Click land to travel; Space pauses/resumes; F5 saves and F9 loads while the game
 has keyboard focus. These in-game shortcuts are separate from editor shortcuts.
+Use the mouse wheel to zoom toward the cursor, and middle-drag to pan. The
+camera keeps the fixed elevated perspective and stays inside the map bounds.
+The **Michael** button (Home) centers on him at the current zoom; **Island**
+(End) restores the overview. **+ / −** also work without a mouse wheel.
+These controls remain available while paused and never issue movement orders.
+Camera framing is local presentation state, not part of the campaign save.
+
 Shift-click a pirate woman to inspect her. Bring Michael close, Talk, then use
 Join faction for the current authored offer. Choose an explicit companion slot;
 joining the faction does not automatically fill one. Land clicks then move

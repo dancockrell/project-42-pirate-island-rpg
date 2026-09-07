@@ -25,6 +25,80 @@ func run() -> void:
 	scene.set_process(false)
 	assert(scene.ready_ok)
 	var fresh_campaign: String = scene.port.save_island()
+	# Camera is presentation-only: wheel, drag, focus and resize never move actors,
+	# advance the world or change a queued order, including while paused.
+	scene.set_paused(true)
+	var camera_save: String = scene.port.save_island()
+	var viewport_center: Vector2 = scene.get_viewport_rect().size * 0.5
+	scene.zoom_camera(2.0, viewport_center)
+	assert(is_equal_approx(scene.camera_zoom, 2.0))
+	var anchor := viewport_center + Vector2(40,20)
+	var land_under_cursor: Vector2 = scene.world_at_screen(anchor)
+	var wheel := InputEventMouseButton.new()
+	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
+	wheel.pressed = true
+	wheel.position = anchor
+	scene._unhandled_input(wheel)
+	assert(scene.world_at_screen(anchor).distance_to(land_under_cursor) < 0.001)
+	var drag_start := InputEventMouseButton.new()
+	drag_start.button_index = MOUSE_BUTTON_MIDDLE
+	drag_start.pressed = true
+	scene._unhandled_input(drag_start)
+	assert(scene.camera_dragging)
+	var drag := InputEventMouseMotion.new()
+	drag.button_mask = MOUSE_BUTTON_MASK_MIDDLE
+	drag.relative = Vector2(30,20)
+	var center_before_drag: Vector2 = scene.camera_center
+	var expected_center: Vector2 = center_before_drag - drag.relative / scene.map_root.scale.x
+	scene._input(drag)
+	assert(scene.camera_center.distance_to(expected_center) < 0.001)
+	drag_start.pressed = false
+	scene._input(drag_start)
+	assert(not scene.camera_dragging)
+	scene._input(drag)
+	assert(scene.camera_center.distance_to(expected_center) < 0.001)
+	scene.center_button.pressed.emit()
+	assert(scene.camera_center.distance_to(scene.actor.position) < 0.001)
+	# Picking uses the same transformed ground coordinates at any camera setting.
+	var zoom_inspect := InputEventMouseButton.new()
+	zoom_inspect.button_index = MOUSE_BUTTON_LEFT
+	zoom_inspect.pressed = true
+	zoom_inspect.shift_pressed = true
+	zoom_inspect.position = scene.map_root.get_global_transform_with_canvas() * (scene.actor.position - Vector2(0,12))
+	scene._unhandled_input(zoom_inspect)
+	assert(scene.inspected_id == scene.MICHAEL)
+	scene.inspect_actor("")
+	scene.zoom_camera(100.0, viewport_center)
+	assert(scene.camera_zoom == 4.0 and scene.zoom_in_button.disabled)
+	scene.pan_camera(Vector2(100000,100000))
+	assert(scene.map_root.position.x <= 0.001 and scene.map_root.position.y <= 0.001)
+	scene.pan_camera(Vector2(-200000,-200000))
+	var far_corner: Vector2 = scene.map_root.position + scene.map_size * scene.map_root.scale
+	assert(far_corner.x >= scene.get_viewport_rect().size.x - 0.001)
+	assert(far_corner.y >= scene.get_viewport_rect().size.y - 0.001)
+	var camera_before_invalid: Vector2 = scene.camera_center
+	scene.zoom_camera(NAN, viewport_center)
+	scene.pan_camera(Vector2(INF,0))
+	assert(scene.camera_center == camera_before_invalid and scene.camera_zoom == 4.0)
+	var original_size: Vector2i = root.size
+	root.size = Vector2i(960,720)
+	await process_frame
+	scene._fit()
+	assert(scene.camera_zoom == 4.0)
+	assert(scene.map_root.scale.is_finite() and scene.map_root.position.is_finite())
+	root.size = original_size
+	await process_frame
+	scene.overview_button.pressed.emit()
+	assert(scene.camera_zoom == 1.0 and scene.zoom_out_button.disabled)
+	assert(scene.camera_center == scene.map_size * 0.5)
+	drag_start.pressed = true
+	scene._unhandled_input(drag_start)
+	scene._notification(Node.NOTIFICATION_WM_WINDOW_FOCUS_OUT)
+	assert(not scene.camera_dragging)
+	assert(scene.port.save_island() == camera_save)
+	scene.set_paused(false)
+	assert(scene.port.save_island() == fresh_campaign)
+	print("PASS: bounded cursor zoom, drag, focus, resize and transformed picking preserve the paused native world")
 	assert(not scene.inspection.visible)
 	var inspect_click := InputEventMouseButton.new()
 	inspect_click.button_index = MOUSE_BUTTON_LEFT
@@ -268,6 +342,15 @@ func check_recruitment(scene: Node, fresh_campaign: String) -> void:
 		if not woman.is_empty():
 			break
 	assert(not woman.is_empty()) # actual production, not an invented companion
+	var woman_sprite: Sprite2D = scene.troop_sprites[woman.id]
+	var woman_bar: ProgressBar = woman_sprite.get_node("Health")
+	assert((woman_bar.scale * woman_sprite.scale).distance_to(Vector2.ONE) < 0.001)
+	assert(woman_bar.size == Vector2(32,4))
+	assert(woman_bar.position.y * woman_sprite.scale.y < woman_sprite.offset.y * woman_sprite.scale.y)
+	for sprite in scene.troop_sprites.values():
+		var bar: ProgressBar = sprite.get_node("Health")
+		assert((bar.scale * sprite.scale).distance_to(Vector2.ONE) < 0.001)
+		assert(bar.size == woman_bar.size)
 	scene.inspect_actor(woman.id)
 	assert(scene.talk_button.visible and not scene.recruit_button.visible)
 	assert(scene.talk_button.mouse_filter == Control.MOUSE_FILTER_STOP)

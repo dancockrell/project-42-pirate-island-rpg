@@ -11,6 +11,14 @@ var hud_panel := PanelContainer.new()
 var pause_button := Button.new()
 var save_button := Button.new()
 var load_button := Button.new()
+var zoom_in_button := Button.new()
+var zoom_out_button := Button.new()
+var center_button := Button.new()
+var overview_button := Button.new()
+var map_size := Vector2(1536,1024)
+var camera_center := map_size * 0.5
+var camera_zoom := 1.0
+var camera_dragging := false
 var inspection := Label.new()
 var conversation_actions := HBoxContainer.new()
 var talk_button := Button.new()
@@ -110,6 +118,8 @@ func _ready() -> void:
 	add_child(map_root)
 	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/island/navigation.json"))
 	cell_size = int(data.cellSize)
+	map_size = Vector2(data.size[0], data.size[1])
+	camera_center = map_size * 0.5
 	var polygon := PackedVector2Array()
 	for point in data.landPolygon:
 		polygon.append(Vector2(point[0], point[1]))
@@ -181,6 +191,24 @@ func _ready() -> void:
 	pause_button.pressed.connect(func(): set_paused(not paused))
 	save_button.pressed.connect(save_action)
 	load_button.pressed.connect(load_action)
+	var camera_actions := HBoxContainer.new()
+	stack.add_child(camera_actions)
+	for button in [zoom_out_button, zoom_in_button, center_button, overview_button]:
+		button.custom_minimum_size = Vector2(64,36)
+		button.mouse_filter = Control.MOUSE_FILTER_STOP
+		camera_actions.add_child(button)
+	zoom_out_button.text = "−"
+	zoom_in_button.text = "+"
+	center_button.text = "Michael"
+	overview_button.text = "Island"
+	zoom_in_button.tooltip_text = "Zoom in (mouse wheel); middle-drag to pan"
+	zoom_out_button.tooltip_text = "Zoom out (mouse wheel)"
+	center_button.tooltip_text = "Center on Michael without changing his orders (Home)"
+	overview_button.tooltip_text = "Show the whole island (End)"
+	zoom_in_button.pressed.connect(func(): zoom_camera(1.25, get_viewport_rect().size * 0.5))
+	zoom_out_button.pressed.connect(func(): zoom_camera(0.8, get_viewport_rect().size * 0.5))
+	center_button.pressed.connect(center_on_michael)
+	overview_button.pressed.connect(show_island)
 	inspection.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	inspection.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inspection.visible = false
@@ -230,9 +258,67 @@ func _ready() -> void:
 func _fit() -> void:
 	var area := get_viewport_rect().size
 	hud_panel.size.x = maxf(310, minf(area.x - 24, 720))
-	var zoom := minf(area.x / 1536.0, area.y / 1024.0)
-	map_root.scale = Vector2.ONE * zoom
-	map_root.position = ((area - Vector2(1536,1024) * zoom) * 0.5).round()
+	apply_camera()
+
+func apply_camera() -> void:
+	var area := get_viewport_rect().size
+	if area.x <= 0 or area.y <= 0:
+		return
+	var scale_factor := minf(area.x / map_size.x, area.y / map_size.y) * camera_zoom
+	var half_visible := area / (2.0 * scale_factor)
+	# Center letterboxed axes; otherwise never pan past the terrain rectangle.
+	for axis in range(2):
+		camera_center[axis] = map_size[axis] * 0.5 if half_visible[axis] >= map_size[axis] * 0.5 else clampf(camera_center[axis], half_visible[axis], map_size[axis] - half_visible[axis])
+	map_root.scale = Vector2.ONE * scale_factor
+	map_root.position = area * 0.5 - camera_center * scale_factor
+	zoom_out_button.disabled = camera_zoom <= 1.0
+	zoom_in_button.disabled = camera_zoom >= 4.0
+
+func world_at_screen(point: Vector2) -> Vector2:
+	return map_root.get_global_transform_with_canvas().affine_inverse() * point
+
+func zoom_camera(factor: float, anchor: Vector2) -> void:
+	if not is_finite(factor) or factor <= 0 or not anchor.is_finite():
+		return
+	var before := world_at_screen(anchor)
+	camera_zoom = clampf(camera_zoom * factor, 1.0, 4.0)
+	apply_camera()
+	# Keep the land under the cursor still unless a map boundary prevents it.
+	camera_center += before - world_at_screen(anchor)
+	apply_camera()
+
+func pan_camera(screen_delta: Vector2) -> void:
+	if not screen_delta.is_finite():
+		return
+	camera_center -= screen_delta / map_root.scale.x
+	apply_camera()
+
+func center_on_michael() -> void:
+	if actor.visible:
+		camera_center = actor.position
+		apply_camera()
+
+func show_island() -> void:
+	camera_zoom = 1.0
+	camera_center = map_size * 0.5
+	apply_camera()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		camera_dragging = false
+
+func _input(event: InputEvent) -> void:
+	# Finish an active drag even over HUD controls, which consume unhandled input.
+	if not camera_dragging:
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_MIDDLE and not event.pressed:
+		camera_dragging = false
+		get_viewport().set_input_as_handled()
+	elif event is InputEventMouseMotion:
+		camera_dragging = (event.button_mask & MOUSE_BUTTON_MASK_MIDDLE) != 0
+		if camera_dragging:
+			pan_camera(event.relative)
+			get_viewport().set_input_as_handled()
 
 func request_move(cell: Vector2i) -> bool:
 	var accepted: bool = port.move_island_party(cell)
@@ -319,9 +405,14 @@ func refresh_snapshot() -> void:
 			map_root.add_child(troop)
 			var health := ProgressBar.new()
 			health.name = "Health"
-			health.position = Vector2(-155,-400)
-			health.size = Vector2(310,26)
+			var health_background := StyleBoxFlat.new()
+			health_background.bg_color = Color("252b29")
+			var health_fill := StyleBoxFlat.new()
+			health_fill.bg_color = Color("c27157")
+			health.add_theme_stylebox_override("background", health_background)
+			health.add_theme_stylebox_override("fill", health_fill)
 			health.show_percentage = false
+			health.size = Vector2(32,4)
 			health.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			troop.add_child(health)
 			troop_sprites[entry.id] = troop
@@ -330,6 +421,10 @@ func refresh_snapshot() -> void:
 		troop.offset = -Vector2(appearance.pivot[0], appearance.pivot[1])
 		troop.scale = Vector2.ONE * float(appearance.scale)
 		var health: ProgressBar = troop_sprites[entry.id].get_node("Health")
+		# Source cutouts have different resolutions; health UI uses world pixels,
+		# not source-image pixels. Its size must not change with sex or costume.
+		health.scale = Vector2.ONE / float(appearance.scale)
+		health.position = Vector2(-16, -float(appearance.pivot[1]) * float(appearance.scale) - 6) / float(appearance.scale)
 		health.max_value = maxi(int(entry.max_health),1)
 		health.value = int(entry.health)
 		health.visible = int(entry.health) < int(entry.max_health)
@@ -344,6 +439,7 @@ func refresh_snapshot() -> void:
 		if entry.id == MICHAEL:
 			person = entry
 	if person.is_empty():
+		center_button.disabled = true
 		actor.visible = false
 		paused = true
 		port.pause_island(true)
@@ -352,6 +448,7 @@ func refresh_snapshot() -> void:
 		status.text = "Michael has fallen. Load a saved campaign or save this outcome.\n" + save_notice
 		return
 	actor.visible = true
+	center_button.disabled = false
 	pause_button.disabled = false
 	pause_button.text = "Resume" if paused else "Pause"
 	var destination := (Vector2(person.x, person.y) + Vector2.ONE * 0.5) * cell_size
@@ -478,20 +575,33 @@ func _process(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
+		if event.physical_keycode == KEY_HOME:
+			center_on_michael()
+		if event.physical_keycode == KEY_END:
+			show_island()
 		if event.physical_keycode == KEY_F5:
 			save_action()
 		if event.physical_keycode == KEY_F9:
 			load_action()
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE:
 		set_paused(not paused)
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			zoom_camera(1.25 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 0.8, event.position)
+			get_viewport().set_input_as_handled()
+			return
+		if event.button_index == MOUSE_BUTTON_MIDDLE:
+			camera_dragging = true
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var point: Vector2 = map_root.get_global_transform_with_canvas().affine_inverse() * event.position
+		var point := world_at_screen(event.position)
 		if event.shift_pressed:
 			inspect_actor(nearest_actor(point))
 		else:
 			request_move(Vector2i(floori(point.x / cell_size), floori(point.y / cell_size)))
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
-		var point: Vector2 = map_root.get_global_transform_with_canvas().affine_inverse() * event.position
+		var point := world_at_screen(event.position)
 		var closest := nearest_actor(point, false)
 		if not closest.is_empty():
 			save_notice = "Carbine aimed" if port.aim_island_carbine(closest) else "No clear shot in range"
