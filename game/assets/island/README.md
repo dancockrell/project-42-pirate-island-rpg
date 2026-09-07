@@ -7,7 +7,14 @@ and provisional economy budgets. Units rally toward a contested clearing.
 The three preview factions are mutually hostile; Michael remains neutral.
 On-island skirmishes now use distinct provisional health, damage, range and
 cooldown profiles. Attacks resolve simultaneously and cannot shoot through
-nonwalkable cells. Dead units leave saved casualty records and release their
+nonwalkable cells. Autonomous units hold whenever a living hostile is in range
+and has line of sight, including during reload. All hold decisions use the same
+pre-movement snapshot. Ranged troops therefore engage before melee troops stop;
+the strategic route remains queued and resumes when the firing target is lost.
+Movement and attacks share target legality. This is not yet pursuit, retreat,
+formation spacing or final tactical AI. Player-directed factions without an
+autonomous policy are not forced to hold by this behavior.
+Dead units leave saved casualty records and release their
 population slots. Midnight conversion/resurrection, diplomacy changes, combat
 animation, building damage and final faction balance remain unfinished.
 The colonial watch fort now has a provisional transparent sprite projected from
@@ -77,4 +84,4 @@ and final island scale remain unfinished.
 Checks:
 Godot headless tests/island_scene_test.gd passes actual scene load, native position
 projection, terrain rejection, travel and pause. The separate native bridge test
-and all 54 Rust tests pass. Headless success does not prove rendered visual quality.
+and all 55 Rust tests pass. Headless success does not prove rendered visual quality.

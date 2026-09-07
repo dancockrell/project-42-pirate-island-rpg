@@ -619,43 +619,38 @@ impl MapPlacement {
 }
 
 impl FactionWorld {
+    fn island_firing_target(&self, id: &str) -> Option<&String> {
+        let actor = self.actors.get(id)?;
+        let state = self.unit_combat.get(id)?;
+        if state.health == 0 {
+            return None;
+        }
+        let profile = self.combat_profiles.get(&actor.definition_id)?;
+        let origin = self.positions.get(id)?;
+        self.actors.iter().filter(|(other_id, other)| {
+            self.hostilities.contains(&(actor.faction_id.clone(), other.faction_id.clone()))
+                && self.unit_combat.get(*other_id).is_some_and(|v| v.health > 0)
+        }).filter_map(|(other_id, _)| {
+            let point = self.positions.get(other_id)?;
+            let distance = origin.x.abs_diff(point.x).saturating_add(origin.y.abs_diff(point.y));
+            (distance <= profile.range && self.navigation.clear_line(*origin, *point))
+                .then_some((distance, other_id))
+        }).min().map(|(_, id)| id)
+    }
+
     fn resolve_island_skirmish(&mut self) -> Vec<FactionWorldEvent> {
         let mut strikes = Vec::new();
         for (id, actor) in &self.actors {
-            let (Some(state), Some(profile), Some(origin)) = (
+            let (Some(state), Some(profile)) = (
                 self.unit_combat.get(id),
                 self.combat_profiles.get(&actor.definition_id),
-                self.positions.get(id),
             ) else {
                 continue;
             };
             if state.health == 0 || self.tick < state.next_attack_tick {
                 continue;
             }
-            let target = self
-                .actors
-                .iter()
-                .filter(|(other_id, other)| {
-                    self.hostilities
-                        .contains(&(actor.faction_id.clone(), other.faction_id.clone()))
-                        && self
-                            .unit_combat
-                            .get(*other_id)
-                            .is_some_and(|v| v.health > 0)
-                })
-                .filter_map(|(other_id, _)| {
-                    let point = self.positions.get(other_id)?;
-                    let distance = origin
-                        .x
-                        .abs_diff(point.x)
-                        .saturating_add(origin.y.abs_diff(point.y));
-                    if distance > profile.range || !self.navigation.clear_line(*origin, *point) {
-                        return None;
-                    }
-                    Some((distance, other_id))
-                })
-                .min();
-            if let Some((_, target_id)) = target {
+            if let Some(target_id) = self.island_firing_target(id) {
                 strikes.push((
                     id.clone(),
                     target_id.clone(),
@@ -1418,7 +1413,17 @@ impl FactionWorld {
         }
         let mut events = self.advance_faction_decisions();
         events.extend(self.advance_production_tick());
+        // Decide from one pre-movement snapshot, not partially moved ID order.
+        // Keep the strategic travel order so movement resumes when the shot is lost.
+        // Only autonomous factions hold; player-directed actors retain movement.
+        let holding: BTreeSet<String> = self.actors.iter().filter(|(id, actor)|
+            self.policies.contains_key(&actor.faction_id)
+                && self.island_firing_target(id).is_some()
+        ).map(|(id, _)| id.clone()).collect();
         for (actor_id, destination_id) in self.travel_orders.clone() {
+            if holding.contains(&actor_id) {
+                continue;
+            }
             let (Some(start), Some(goal)) = (
                 self.positions.get(&actor_id).copied(),
                 self.navigation.destinations.get(&destination_id).copied(),
@@ -2171,6 +2176,41 @@ mod tests {
         legacy["world"]["navigation"]["destinations"][&building.node_id] =
             serde_json::json!({"x": i32::MIN, "y": i32::MIN});
         assert_eq!(FactionWorld::load_json(&legacy.to_string()).unwrap_err(), "building_coordinate_overflow");
+    }
+
+    #[test]
+    fn autonomous_ranged_holds_while_melee_closes_and_resumes_when_target_is_lost() {
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        for _ in 0..4 { world.advance_island_tick(); }
+        let marine = world.actors.values().find(|a| a.definition_id == "actor_def.colonial.line_marine").unwrap().instance_id.clone();
+        let pirate = world.actors.values().find(|a| a.definition_id == "actor_def.pirates.deckhand").unwrap().instance_id.clone();
+        world.actors.retain(|id, _| id == &marine || id == &pirate);
+        world.positions.retain(|id, _| world.actors.contains_key(id));
+        world.unit_combat.retain(|id, _| world.actors.contains_key(id));
+        world.travel_orders.clear();
+        for faction in world.factions.values_mut() {
+            for building in faction.buildings.values_mut() { building.operational = false; }
+        }
+        let origin = IslandPoint { x: 20, y: 16 };
+        let enemy = IslandPoint { x: 23, y: 16 };
+        world.positions.insert(marine.clone(), origin);
+        world.positions.insert(pirate.clone(), enemy);
+        world.unit_combat.get_mut(&marine).unwrap().next_attack_tick = 1000;
+        world.unit_combat.get_mut(&pirate).unwrap().next_attack_tick = 1000;
+        world.order_move(&marine, enemy).unwrap();
+        world.order_move(&pirate, origin).unwrap();
+        world.advance_island_tick();
+        assert_eq!(world.positions[&marine], origin); // holds even while reloading
+        assert_eq!(world.positions[&pirate], IslandPoint { x: 22, y: 16 });
+        assert!(world.travel_orders.contains_key(&marine));
+        world.advance_island_tick();
+        assert_eq!(world.positions[&pirate], IslandPoint { x: 21, y: 16 });
+        world.advance_island_tick();
+        assert_eq!(world.positions[&pirate], IslandPoint { x: 21, y: 16 }); // melee range
+        world.unit_combat.get_mut(&pirate).unwrap().health = 0;
+        world.advance_island_tick();
+        assert_eq!(world.positions[&marine], IslandPoint { x: 21, y: 16 });
     }
 
     #[test]
