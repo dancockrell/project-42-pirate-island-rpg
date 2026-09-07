@@ -4,11 +4,36 @@
 
 ## Godot editor
 
-Open `game/project.godot` in Godot 4.7.2 or a later compatible Godot 4 maintenance release. The main scene is already configured. Press F6/F5 to show the battle prototype.
+Open `game/project.godot` in Godot 4.7.2 or a later compatible Godot 4 maintenance release. F5 launches the current 2D island. F6 launches whichever scene is open, so it is not interchangeable with F5.
+
+Expected current entry: tropical island, Michael alone, the colonial watch fort,
+and three provisional autonomous factions producing units and fighting.
+Click land to travel; Space pauses/resumes; F5 saves and F9 loads while the game
+has keyboard focus. These in-game shortcuts are separate from editor shortcuts.
+The current scene is a development slice: standing sprites, incomplete building
+art, provisional faction rules and no recruited party yet.
+
+For a bounded low-resource check without opening an editor or visible window:
+
+```powershell
+& ./.local-tools/godot-4.7.2/Godot_v4.7.2-stable_win64_console.exe --headless --path game --quit-after 120
+& ./.local-tools/godot-4.7.2/Godot_v4.7.2-stable_win64_console.exe --headless --path game --script res://tests/island_scene_test.gd --quit-after 120
+```
+
+The scene test resolves the configured main scene, then verifies native travel,
+pause, collision, production/combat and persistence. This does not render an art
+approval screenshot. Build the native extension after Rust or embedded building
+contract changes. Avoid running the broad historical verifier merely to test
+this island: it also loads shelved 3D fixtures.
+
+## Historical battle fixture
+
+Open `game/scenes/battle/battle_prototype.tscn` explicitly to inspect the retained
+battle experiment. It is not the game entry or the current visual authority.
 
 Expected screen: four vertical heroine cards on the left; one large active placeholder actor and one large razorbeak placeholder on the battle plane; descriptive observation text; a visible enemy-intent line; and all seven Betty skills in a two-row command grid. `Fatal Intercept` is visible but disabled because it is an automatic reaction. Manual skills enter the targeting session, prompt for legal targets in authored order, submit stable IDs through `SimulationPort`, play the authored action beats, then project the returned mechanical events.
 
-## Betty 3D candidate review
+## Shelved Betty 3D candidate review (historical)
 
 Open `game/scenes/review/betty_3d_candidate_review.tscn` and press F6. This is
 an isolated camera-and-silhouette review, not a second battle scene. It uses

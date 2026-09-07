@@ -66,8 +66,9 @@ Godot reads the asset contract once and submits its walkable cells to Rust
 at initialization. Rust owns routes, movement, positions, travel orders and pause.
 The API rejects map changes after ticks/orders begin. This is not room-node travel.
 
-The original battle scene remains default; this island scene is a working
-integration preview, not the full game. Michael begins alone. Four companions
+The island is now the configured game entry scene: launching the project starts
+this working integration preview, not the historical battle fixture or a finished
+game. Michael begins alone. Four companions
 must be recruited rather than silently granted. Current pose frames are standing
 art; movement is tick-stepped, not an approved walk animation. Foliage occlusion,
 pixel-density matching, terrain-mask visual review, complete autonomous factions

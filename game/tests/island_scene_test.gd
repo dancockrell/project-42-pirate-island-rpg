@@ -17,7 +17,9 @@ func _initialize() -> void:
 	call_deferred("run")
 
 func run() -> void:
-	var scene = load("res://scenes/world/island.tscn").instantiate()
+	var entry: String = ProjectSettings.get_setting("application/run/main_scene")
+	assert(entry == "res://scenes/world/island.tscn")
+	var scene = load(entry).instantiate()
 	root.add_child(scene)
 	await process_frame
 	scene.set_process(false)
