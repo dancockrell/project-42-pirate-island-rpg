@@ -26,7 +26,26 @@ approval screenshot. Build the native extension after Rust or embedded building
 contract changes. Avoid running the broad historical verifier merely to test
 this island: it also loads shelved 3D fixtures.
 
-## Historical battle fixture
+## Actual island render capture (explicit approval required)
+
+Headless mode disables rendering, so it cannot provide screenshot evidence.
+When a brief rendering session is approved, the existing project can capture
+its real island viewport at 640x480 with a 15 FPS cap, after 60 deterministic
+simulation ticks. This opens no editor but does require a rendering window.
+Do not run it under the standing headless-only restriction without approval.
+
+```powershell
+& ./.local-tools/godot-4.7.2/Godot_v4.7.2-stable_win64_console.exe --path game --rendering-method gl_compatibility --audio-driver Dummy --script res://tests/island_render_capture.gd --quit-after 120
+```
+
+The PNG and adjacent JSON are saved to the Godot user directory. Override with
+`-- --output=<fresh-absolute-path.png>`; existing evidence is never overwritten.
+The JSON records simulation tick/state, engine, image hash and source-art hashes.
+Inspect sprite scale, ground pivots, fort/wall placement, interface readability
+and the actual pixel edges before recording a visual verdict. This capture is
+not an animation proof. The tool deliberately exits with code 2 in headless mode.
+
+## Historical battle fixture (retained)
 
 Open `game/scenes/battle/battle_prototype.tscn` explicitly to inspect the retained
 battle experiment. It is not the game entry or the current visual authority.
