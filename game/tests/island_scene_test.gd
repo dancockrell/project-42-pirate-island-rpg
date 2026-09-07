@@ -24,6 +24,24 @@ func run() -> void:
 	await process_frame
 	scene.set_process(false)
 	assert(scene.ready_ok)
+	assert(scene.pause_button.text == "Pause")
+	scene.pause_button.pressed.emit()
+	assert(scene.paused and scene.pause_button.text == "Resume")
+	scene.campaign_path = "user://island-hud-controls-test.json"
+	scene.save_button.pressed.emit()
+	assert(scene.save_notice == "Saved")
+	scene.pause_button.pressed.emit()
+	assert(not scene.paused)
+	scene.load_button.pressed.emit()
+	assert(scene.paused and scene.save_notice == "Loaded")
+	scene.pause_button.pressed.emit()
+	assert(not scene.paused)
+	for suffix in ["", ".bak", ".tmp"]:
+		if FileAccess.file_exists(scene.campaign_path + suffix):
+			DirAccess.remove_absolute(scene.campaign_path + suffix)
+	assert(scene.pause_button.mouse_filter == Control.MOUSE_FILTER_STOP)
+	assert(scene.hud_panel.size.x <= scene.get_viewport_rect().size.x)
+	print("PASS: visible pause/save/load actions share native campaign state and preserve test-only files")
 	assert(scene.snapshot.buildings.size() == 3)
 	assert(scene.building_sprites.size() == 1)
 	for building in scene.snapshot.buildings:
@@ -156,6 +174,7 @@ func run() -> void:
 	scene.refresh_snapshot()
 	scene.advance_tick()
 	assert(scene.paused and not scene.actor.visible)
+	assert(scene.pause_button.disabled and scene.pause_button.text == "Fallen")
 	assert(scene.status.text.contains("Michael has fallen"))
 	var defeat_path := "user://island-scene-defeat-test.json"
 	assert(scene.save_campaign(defeat_path))

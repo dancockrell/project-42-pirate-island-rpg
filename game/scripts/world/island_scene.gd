@@ -7,6 +7,11 @@ var port = Port.new()
 var actor = Actor.new()
 var map_root := Node2D.new()
 var status := Label.new()
+var hud_panel := PanelContainer.new()
+var pause_button := Button.new()
+var save_button := Button.new()
+var load_button := Button.new()
+var campaign_path := "user://pirate-island-save.json"
 var snapshot: Dictionary
 var cell_size := 32
 var elapsed := 0.0
@@ -26,6 +31,14 @@ func clear_hit_effects() -> void:
 		effect.queue_free()
 	hit_effects.clear()
 	last_strikes.clear()
+
+func save_action() -> void:
+	save_notice = "Saved" if save_campaign(campaign_path) else "Save failed — previous save retained"
+	refresh_snapshot()
+
+func load_action() -> void:
+	save_notice = "Loaded" if load_campaign(campaign_path) else "Could not load — current game unchanged"
+	refresh_snapshot()
 
 func save_campaign(path: String = "user://pirate-island-save.json") -> bool:
 	var payload: String = port.save_island()
@@ -119,11 +132,37 @@ func _ready() -> void:
 	actor.scale = Vector2.ONE * 0.065
 	var hud := CanvasLayer.new()
 	add_child(hud)
-	status.position = Vector2(20,18)
+	hud_panel.position = Vector2(12,12)
+	var background := StyleBoxFlat.new()
+	background.bg_color = Color(0.06, 0.11, 0.13, 0.94)
+	background.content_margin_left = 12
+	background.content_margin_right = 12
+	background.content_margin_top = 8
+	background.content_margin_bottom = 8
+	hud_panel.add_theme_stylebox_override("panel", background)
+	hud.add_child(hud_panel)
+	var stack := VBoxContainer.new()
+	hud_panel.add_child(stack)
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	status.add_theme_color_override("font_shadow_color", Color.BLACK)
 	status.add_theme_constant_override("shadow_offset_x", 2)
 	status.add_theme_constant_override("shadow_offset_y", 2)
-	hud.add_child(status)
+	stack.add_child(status)
+	var actions := HBoxContainer.new()
+	stack.add_child(actions)
+	for button in [pause_button, save_button, load_button]:
+		button.custom_minimum_size = Vector2(92,36)
+		button.mouse_filter = Control.MOUSE_FILTER_STOP
+		actions.add_child(button)
+	pause_button.tooltip_text = "Pause or resume the island (Space)"
+	save_button.text = "Save"
+	save_button.tooltip_text = "Save this campaign (F5)"
+	load_button.text = "Load"
+	load_button.tooltip_text = "Load your saved campaign (F9)"
+	pause_button.pressed.connect(func(): set_paused(not paused))
+	save_button.pressed.connect(save_action)
+	load_button.pressed.connect(load_action)
 	get_viewport().size_changed.connect(_fit)
 	_fit()
 	refresh_snapshot()
@@ -131,6 +170,7 @@ func _ready() -> void:
 
 func _fit() -> void:
 	var area := get_viewport_rect().size
+	hud_panel.size.x = maxf(310, minf(area.x - 24, 720))
 	var zoom := minf(area.x / 1536.0, area.y / 1024.0)
 	map_root.scale = Vector2.ONE * zoom
 	map_root.position = ((area - Vector2(1536,1024) * zoom) * 0.5).round()
@@ -239,14 +279,18 @@ func refresh_snapshot() -> void:
 		actor.visible = false
 		paused = true
 		port.pause_island(true)
-		status.text = "Michael has fallen.   F9: load a saved campaign   |   F5: save this outcome"
+		pause_button.text = "Fallen"
+		pause_button.disabled = true
+		status.text = "Michael has fallen. Load a saved campaign or save this outcome.\n" + save_notice
 		return
 	actor.visible = true
+	pause_button.disabled = false
+	pause_button.text = "Resume" if paused else "Pause"
 	var destination := (Vector2(person.x, person.y) + Vector2.ONE * 0.5) * cell_size
 	actor.project_heading(destination - actor.position)
 	actor.position = destination
 	actor.z_index = int(person.y)
-	status.text = "PIRATE ISLAND | Michael HP %s/%s | Click: travel | Right-click unit: fire | Space: pause | F5: save | F9: load\n%s • Standing sprites; animation pending %s" % [person.health, person.max_health, "PAUSED" if paused else "Exploring", save_notice]
+	status.text = "PIRATE ISLAND · Michael HP %s/%s · %s\nClick land to travel. Right-click a unit to fire.\nDevelopment slice · standing sprites. %s" % [person.health, person.max_health, "PAUSED" if paused else "Exploring", save_notice]
 
 func _process(delta: float) -> void:
 	if not ready_ok or paused:
@@ -259,11 +303,9 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode == KEY_F5:
-			save_notice = "Saved" if save_campaign() else "Save failed — previous save retained"
-			refresh_snapshot()
+			save_action()
 		if event.physical_keycode == KEY_F9:
-			save_notice = "Loaded" if load_campaign() else "Could not load — current game unchanged"
-			refresh_snapshot()
+			load_action()
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE:
 		set_paused(not paused)
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
