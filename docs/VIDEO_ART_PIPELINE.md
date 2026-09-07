@@ -64,3 +64,17 @@ VFX plates contain one complete effect on black, with no subject, environment, t
 ## Reel-level rejection
 
 Reject an environment reel when topology changes or more than one-third of candidate frames show motion damage. Reject a character reel when identity changes, the signature weapon mutates, required anatomy leaves frame, or the action cannot be read in three selected keyframes. Reject a loop when its first and last poses do not match closely enough for game playback.
+# Runtime integration checkpoint — 7 September 2026
+
+Michael's shared generated standing source now has an authored four-direction
+manifest at `game/assets/sprites/michael/frames.json` and an actual Godot
+presentation consumer at `game/scripts/world/directional_sprite.gd`.
+The source is copied byte-for-byte from the shared library; its SHA256 is checked
+before loading. This copy is a review payload, not a second source-art authority.
+
+Run `game/scenes/review/sprite_review.tscn` for the four-facing scale review;
+`game/tests/directional_sprite_test.gd` checks heading selection, frame regions,
+nearest sampling, stationary heading retention and absence of simulation movement.
+This is not walk animation or final visual admission. Broad partial alpha, equipment
+side drift and camera/pixel-density differences remain explicit source defects.
+The old battle scene remains the default until a playable island replacement works.
