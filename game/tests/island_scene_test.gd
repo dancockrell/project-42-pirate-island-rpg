@@ -46,18 +46,20 @@ func run() -> void:
 	scene.set_paused(false)
 	for step in range(60):
 		scene.advance_tick()
-	assert(scene.snapshot.actors.size() == 19) # Michael plus six units per preview faction
-	assert(scene.troop_sprites.size() == 18)
+	assert(scene.snapshot.actors.size() <= 19)
+	assert(scene.snapshot.casualties > 0)
+	assert(scene.troop_sprites.size() == scene.snapshot.actors.size() - 1)
 	var factions := {}
 	for unit in scene.snapshot.actors:
 		if unit.id != scene.MICHAEL:
 			factions[unit.faction] = true
 			assert(scene.troop_sprites[unit.id].position == (Vector2(unit.x,unit.y) + Vector2.ONE * 0.5) * 32)
-	assert(factions.size() == 3)
+	assert(factions.size() >= 1)
+	var survivors: int = scene.troop_sprites.size()
 	var payload: String = scene.port.save_island()
 	assert(scene.port.load_island(payload))
 	scene.refresh_snapshot()
-	assert(scene.troop_sprites.size() == 18)
-	print("PASS: three autonomous factions produce 18 capped units, all projected from Rust, preserved through load")
+	assert(scene.troop_sprites.size() == survivors)
+	print("PASS: autonomous skirmish casualties, capped survivors, removed dead sprites, roster preserved through load")
 	print("PASS: real island scene, authored land, sprite/native position agreement, travel and pause")
 	quit()

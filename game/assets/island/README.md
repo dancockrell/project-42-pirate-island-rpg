@@ -4,7 +4,12 @@ Run res://scenes/world/island.tscn in the existing game project.
 The scene now installs three preview factions at startup: colonials, pirates and
 Cthulhu. They use existing content/production rules, with six-unit preview caps
 and provisional economy budgets. Units rally toward a contested clearing.
-This is production/dispatch integration, not combat or full asymmetrical balance.
+The three preview factions are mutually hostile; Michael remains neutral.
+On-island skirmishes now use distinct provisional health, damage, range and
+cooldown profiles. Attacks resolve simultaneously and cannot shoot through
+nonwalkable cells. Dead units leave saved casualty records and release their
+population slots. Midnight conversion/resurrection, diplomacy changes, combat
+animation, building damage and final faction balance remain unfinished.
 Buildings exist in simulation but do not yet have visible building art.
 
 troops.png preserves the shared troops-01/keyed-source.png bytes; SHA256

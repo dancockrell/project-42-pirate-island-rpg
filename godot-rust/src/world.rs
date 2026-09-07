@@ -274,6 +274,14 @@ impl DispatchCandidate {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FactionWorldEvent {
+    UnitStruck {
+        attacker_id: String,
+        target_id: String,
+        damage: u32,
+    },
+    UnitFallen {
+        actor_id: String,
+    },
     FactionEliminated {
         faction_id: String,
     },
@@ -345,8 +353,39 @@ pub struct FactionWorld {
     pub policies: BTreeMap<String, FactionPolicy>,
     #[serde(default)]
     pub eliminated_factions: BTreeSet<String>,
+    #[serde(default)]
+    pub combat_profiles: BTreeMap<String, IslandCombatProfile>,
+    #[serde(default)]
+    pub unit_combat: BTreeMap<String, IslandCombatState>,
+    #[serde(default)]
+    pub hostilities: BTreeSet<(String, String)>,
+    #[serde(default)]
+    pub casualties: BTreeMap<String, IslandCasualty>,
     next_actor_serial: u64,
     next_order_serial: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IslandCombatProfile {
+    pub health: u32,
+    pub damage: u32,
+    pub range: u32,
+    pub cooldown_ticks: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IslandCombatState {
+    pub health: u32,
+    pub next_attack_tick: u64,
+    pub population_use: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IslandCasualty {
+    pub actor: ProducedActor,
+    pub position: IslandPoint,
+    pub death_tick: u64,
+    pub population_use: u32,
 }
 
 /// Scenario-authored economy and priorities; no universal recruitment power.
@@ -372,6 +411,36 @@ pub struct IslandNavigation {
 }
 
 impl IslandNavigation {
+    fn clear_line(&self, start: IslandPoint, goal: IslandPoint) -> bool {
+        // Combat profiles cap range at load time; use wide arithmetic at map edges.
+        let (mut x, mut y) = (i64::from(start.x), i64::from(start.y));
+        let (gx, gy) = (i64::from(goal.x), i64::from(goal.y));
+        let dx = (gx - x).abs();
+        let dy = -(gy - y).abs();
+        let sx = if x < gx { 1 } else { -1 };
+        let sy = if y < gy { 1 } else { -1 };
+        let mut error = dx + dy;
+        loop {
+            if !self.walkable.contains(&IslandPoint {
+                x: x as i32,
+                y: y as i32,
+            }) {
+                return false;
+            }
+            if x == gx && y == gy {
+                return true;
+            }
+            let doubled = error * 2;
+            if doubled >= dy {
+                error += dy;
+                x += sx;
+            }
+            if doubled <= dx {
+                error += dx;
+                y += sy;
+            }
+        }
+    }
     /// Deterministic shortest path over equal-cost land cells. Bounded by the
     /// finite authored walkable set; never traverses ocean or blocked cells.
     pub fn path(&self, start: IslandPoint, goal: IslandPoint) -> Option<Vec<IslandPoint>> {
@@ -544,6 +613,96 @@ impl MapPlacement {
 }
 
 impl FactionWorld {
+    fn resolve_island_skirmish(&mut self) -> Vec<FactionWorldEvent> {
+        let mut strikes = Vec::new();
+        for (id, actor) in &self.actors {
+            let (Some(state), Some(profile), Some(origin)) = (
+                self.unit_combat.get(id),
+                self.combat_profiles.get(&actor.definition_id),
+                self.positions.get(id),
+            ) else {
+                continue;
+            };
+            if state.health == 0 || self.tick < state.next_attack_tick {
+                continue;
+            }
+            let target = self
+                .actors
+                .iter()
+                .filter(|(other_id, other)| {
+                    self.hostilities
+                        .contains(&(actor.faction_id.clone(), other.faction_id.clone()))
+                        && self
+                            .unit_combat
+                            .get(*other_id)
+                            .is_some_and(|v| v.health > 0)
+                })
+                .filter_map(|(other_id, _)| {
+                    let point = self.positions.get(other_id)?;
+                    let distance = origin
+                        .x
+                        .abs_diff(point.x)
+                        .saturating_add(origin.y.abs_diff(point.y));
+                    if distance > profile.range || !self.navigation.clear_line(*origin, *point) {
+                        return None;
+                    }
+                    Some((distance, other_id))
+                })
+                .min();
+            if let Some((_, target_id)) = target {
+                strikes.push((
+                    id.clone(),
+                    target_id.clone(),
+                    profile.damage,
+                    profile.cooldown_ticks,
+                ));
+            }
+        }
+        let mut damage = BTreeMap::<String, u32>::new();
+        let mut events = Vec::new();
+        // Resolve simultaneously: ID ordering must not grant first-kill immunity.
+        for (attacker_id, target_id, amount, cooldown) in strikes {
+            self.unit_combat
+                .get_mut(&attacker_id)
+                .unwrap()
+                .next_attack_tick = self.tick.saturating_add(u64::from(cooldown.max(1)));
+            let total = damage.entry(target_id.clone()).or_default();
+            *total = total.saturating_add(amount);
+            events.push(FactionWorldEvent::UnitStruck {
+                attacker_id,
+                target_id,
+                damage: amount,
+            });
+        }
+        for (id, amount) in damage {
+            let state = self.unit_combat.get_mut(&id).unwrap();
+            state.health = state.health.saturating_sub(amount);
+            if state.health != 0 {
+                continue;
+            }
+            let state = self.unit_combat.remove(&id).unwrap();
+            let actor = self.actors.remove(&id).unwrap();
+            let position = self.positions.remove(&id).unwrap();
+            if let Some(faction) = self.factions.get_mut(&actor.faction_id) {
+                faction.population_used =
+                    faction.population_used.saturating_sub(state.population_use);
+            }
+            self.travel_orders.remove(&id);
+            self.navigation.destinations.remove(&format!("move.{id}"));
+            self.casualties.insert(
+                id.clone(),
+                IslandCasualty {
+                    actor,
+                    position,
+                    death_tick: self.tick,
+                    population_use: state.population_use,
+                },
+            );
+            events.push(FactionWorldEvent::UnitFallen { actor_id: id });
+        }
+        events
+    }
+
     /// Three-faction integration scenario using the existing authored unit rules.
     /// Economy sizes are preview budgets, not final faction balancing.
     pub fn install_preview_factions(&mut self) -> Result<(), String> {
@@ -640,6 +799,36 @@ impl FactionWorld {
                 .set_policy(id, policy)
                 .map_err(|_| "invalid_preview_policy")?;
         }
+        for (definition, health, damage, range, cooldown_ticks) in [
+            ("actor_def.colonial.line_marine", 12, 3, 4, 6),
+            ("actor_def.pirates.deckhand", 10, 2, 1, 2),
+            ("actor_def.cthulhu.drowned_cultist", 9, 2, 3, 4),
+        ] {
+            staged.combat_profiles.insert(
+                definition.into(),
+                IslandCombatProfile {
+                    health,
+                    damage,
+                    range,
+                    cooldown_ticks,
+                },
+            );
+        }
+        for first in [
+            "faction.colonial_powers.prototype",
+            "faction.pirates.prototype",
+            "faction.cthulhu.prototype",
+        ] {
+            for second in [
+                "faction.colonial_powers.prototype",
+                "faction.pirates.prototype",
+                "faction.cthulhu.prototype",
+            ] {
+                if first != second {
+                    staged.hostilities.insert((first.into(), second.into()));
+                }
+            }
+        }
         *self = staged;
         Ok(())
     }
@@ -714,6 +903,7 @@ impl FactionWorld {
             .collect();
         for id in removed {
             self.actors.remove(&id);
+            self.unit_combat.remove(&id);
             self.positions.remove(&id);
             self.travel_orders.remove(&id);
             self.navigation.destinations.remove(&format!("move.{id}"));
@@ -892,6 +1082,33 @@ impl FactionWorld {
                 || world.actors.values().any(|actor| &actor.faction_id == id)
             {
                 return Err("eliminated_faction_has_live_state".into());
+            }
+        }
+        for profile in world.combat_profiles.values() {
+            if profile.health == 0
+                || profile.damage == 0
+                || profile.range > 32
+                || profile.cooldown_ticks == 0
+            {
+                return Err("invalid_saved_combat_profile".into());
+            }
+        }
+        for (id, state) in &world.unit_combat {
+            let actor = world.actors.get(id).ok_or("dangling_combat_state")?;
+            let profile = world
+                .combat_profiles
+                .get(&actor.definition_id)
+                .ok_or("missing_combat_profile")?;
+            if state.health == 0 || state.health > profile.health {
+                return Err("invalid_saved_health".into());
+            }
+        }
+        for (id, casualty) in &world.casualties {
+            if id != &casualty.actor.instance_id
+                || world.actors.contains_key(id)
+                || casualty.death_tick > world.tick
+            {
+                return Err("invalid_saved_casualty".into());
             }
         }
         let mut world = world;
@@ -1107,6 +1324,16 @@ impl FactionWorld {
                 },
             };
             self.actors.insert(actor.instance_id.clone(), actor.clone());
+            if let Some(profile) = self.combat_profiles.get(&actor.definition_id) {
+                self.unit_combat.insert(
+                    actor.instance_id.clone(),
+                    IslandCombatState {
+                        health: profile.health,
+                        next_attack_tick: self.tick,
+                        population_use: order.rule.population_use,
+                    },
+                );
+            }
             if let Some(position) = self.navigation.destinations.get(&actor.node_id) {
                 self.positions.insert(actor.instance_id.clone(), *position);
             }
@@ -1151,6 +1378,7 @@ impl FactionWorld {
                 });
             }
         }
+        events.extend(self.resolve_island_skirmish());
         events
     }
 
@@ -1780,6 +2008,49 @@ mod tests {
             );
             assert_eq!(original, restored);
         }
+    }
+
+    #[test]
+    fn preview_factions_fight_and_preserve_casualties_without_attacking_michael() {
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        let mut history = Vec::new();
+        for _ in 0..100 {
+            history.extend(world.advance_island_tick());
+        }
+        assert!(
+            history
+                .iter()
+                .any(|e| matches!(e, FactionWorldEvent::UnitStruck { .. }))
+        );
+        assert!(
+            history
+                .iter()
+                .any(|e| matches!(e, FactionWorldEvent::UnitFallen { .. }))
+        );
+        assert!(!world.casualties.is_empty());
+        assert!(world.actors.contains_key("character.protagonist.captain"));
+        for id in world.casualties.keys() {
+            assert!(!world.actors.contains_key(id));
+            assert!(!world.positions.contains_key(id));
+            assert!(!world.travel_orders.contains_key(id));
+        }
+        let mut restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        for _ in 0..20 {
+            assert_eq!(world.advance_island_tick(), restored.advance_island_tick());
+            assert_eq!(world, restored);
+        }
+    }
+
+    #[test]
+    fn skirmish_blocks_shots_through_nonwalkable_terrain() {
+        let navigation = IslandNavigation {
+            walkable: [IslandPoint { x: 0, y: 0 }, IslandPoint { x: 2, y: 0 }]
+                .into_iter()
+                .collect(),
+            destinations: Default::default(),
+        };
+        assert!(!navigation.clear_line(IslandPoint { x: 0, y: 0 }, IslandPoint { x: 2, y: 0 }));
     }
 
     #[test]

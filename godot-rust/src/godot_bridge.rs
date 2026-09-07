@@ -113,6 +113,8 @@ impl Project42SimulationBridge {
                     "id" => id.as_str(), "x" => position.x, "y" => position.y,
                     "faction" => world.actors[id].faction_id.as_str(),
                     "definition" => world.actors[id].definition_id.as_str(),
+                    "health" => world.unit_combat.get(id).map(|v| v.health).unwrap_or(0),
+                    "max_health" => world.combat_profiles.get(&world.actors[id].definition_id).map(|v| v.health).unwrap_or(0),
                     "moving" => world.travel_orders.contains_key(id)
                 }
                 .to_variant(),
@@ -122,7 +124,7 @@ impl Project42SimulationBridge {
         for point in &world.navigation.walkable {
             land.push(&Vector2i::new(point.x, point.y).to_variant());
         }
-        vdict! { "tick" => world.tick as i64, "paused" => world.paused, "actors" => &actors, "land" => &land }
+        vdict! { "tick" => world.tick as i64, "paused" => world.paused, "actors" => &actors, "land" => &land, "casualties" => world.casualties.len() as i64 }
     }
 
     #[func]

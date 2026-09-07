@@ -157,7 +157,18 @@ func refresh_snapshot() -> void:
 			troop.scale = Vector2.ONE * 0.105
 			troop.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			map_root.add_child(troop)
+			var health := ProgressBar.new()
+			health.name = "Health"
+			health.position = Vector2(-155,-400)
+			health.size = Vector2(310,26)
+			health.show_percentage = false
+			health.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			troop.add_child(health)
 			troop_sprites[entry.id] = troop
+		var health: ProgressBar = troop_sprites[entry.id].get_node("Health")
+		health.max_value = maxi(int(entry.max_health),1)
+		health.value = int(entry.health)
+		health.visible = int(entry.health) < int(entry.max_health)
 		troop_sprites[entry.id].position = (Vector2(entry.x,entry.y) + Vector2.ONE * 0.5) * cell_size
 		troop_sprites[entry.id].z_index = int(entry.y)
 	for id in troop_sprites.keys():
