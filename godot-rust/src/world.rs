@@ -187,6 +187,8 @@ pub struct ProductionOrder {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FactionBuilding {
+    #[serde(default = "default_building_health")]
+    pub health: u32,
     pub id: String,
     pub faction_id: String,
     pub archetype_id: String,
@@ -195,6 +197,10 @@ pub struct FactionBuilding {
     pub operational: bool,
     pub queue_capacity: usize,
     pub production_queue: Vec<ProductionOrder>,
+}
+
+fn default_building_health() -> u32 {
+    80
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -691,6 +697,7 @@ impl FactionWorld {
 
     fn resolve_island_skirmish(&mut self) -> Vec<FactionWorldEvent> {
         let mut strikes = Vec::new();
+        let mut building_strikes = Vec::new();
         for (id, actor) in &self.actors {
             let (Some(state), Some(profile)) = (
                 self.unit_combat.get(id),
@@ -708,6 +715,42 @@ impl FactionWorld {
                     profile.damage,
                     profile.cooldown_ticks,
                 ));
+            } else if self.policies.contains_key(&actor.faction_id) {
+                let Some(origin) = self.positions.get(id).copied() else {
+                    continue;
+                };
+                let target = self
+                    .factions
+                    .values()
+                    .filter(|f| {
+                        self.hostilities
+                            .contains(&(actor.faction_id.clone(), f.id.clone()))
+                    })
+                    .flat_map(|f| f.buildings.values())
+                    .filter_map(|b| {
+                        let position = *self.navigation.destinations.get(&b.node_id)?;
+                        let distance = origin
+                            .x
+                            .abs_diff(position.x)
+                            .saturating_add(origin.y.abs_diff(position.y));
+                        (b.health > 0
+                            && distance <= profile.range
+                            && self.navigation.clear_line(origin, position))
+                        .then_some((distance, b.id.clone(), b.faction_id.clone(), position))
+                    })
+                    .min();
+                if let Some((_, building, faction, destination)) = target {
+                    building_strikes.push((
+                        id.clone(),
+                        building,
+                        faction,
+                        origin,
+                        destination,
+                        actor.definition_id.clone(),
+                        profile.damage,
+                        profile.cooldown_ticks,
+                    ));
+                }
             }
         }
         let mut damage = BTreeMap::<String, u32>::new();
@@ -734,6 +777,27 @@ impl FactionWorld {
                 attacker_id,
                 target_id,
                 damage: amount,
+            });
+        }
+        let mut building_damage = BTreeMap::<(String, String), u32>::new();
+        for (attacker, building, faction, origin, destination, definition, amount, cooldown) in
+            building_strikes
+        {
+            self.unit_combat
+                .get_mut(&attacker)
+                .unwrap()
+                .next_attack_tick = self.tick.saturating_add(u64::from(cooldown.max(1)));
+            let total = building_damage
+                .entry((faction, building.clone()))
+                .or_default();
+            *total = total.saturating_add(amount);
+            events.push(FactionWorldEvent::UnitStruck {
+                attacker_id: attacker,
+                target_id: building,
+                damage: amount,
+                origin,
+                target_position: destination,
+                attacker_definition: definition,
             });
         }
         for (id, amount) in damage {
@@ -766,6 +830,31 @@ impl FactionWorld {
                 },
             );
             events.push(FactionWorldEvent::UnitFallen { actor_id: id });
+        }
+        for ((faction_id, building_id), amount) in building_damage {
+            let faction = self.factions.get_mut(&faction_id).unwrap();
+            let building = faction.buildings.get_mut(&building_id).unwrap();
+            building.health = building.health.saturating_sub(amount);
+            if building.health > 0 {
+                continue;
+            }
+            // Reserved queue costs are lost with the destroyed producer.
+            let reserved: u32 = building
+                .production_queue
+                .iter()
+                .map(|o| o.rule.population_use)
+                .fold(0u32, u32::saturating_add);
+            faction.population_used = faction.population_used.saturating_sub(reserved);
+            faction.buildings.remove(&building_id);
+            self.navigation.building_obstacles.remove(&building_id);
+            if let Some(policy) = self.policies.get_mut(&faction_id) {
+                policy.production.remove(&building_id);
+            }
+            if faction.buildings.is_empty() {
+                if let Ok(event) = self.eliminate_faction(&faction_id) {
+                    events.push(event);
+                }
+            }
         }
         events
     }
@@ -823,6 +912,7 @@ impl FactionWorld {
                 .destinations
                 .insert(spawn_id.clone(), spawn);
             let building = FactionBuilding {
+                health: default_building_health(),
                 id: building_id.clone(),
                 faction_id: id.into(),
                 archetype_id: rule.producer_archetype_id.clone(),
@@ -1189,6 +1279,7 @@ impl FactionWorld {
                     || &building.faction_id != id
                     || building.production_queue.len() > building.queue_capacity
                     || building.queue_capacity > 4096
+                    || building.health == 0
                 {
                     return Err("invalid_saved_building".into());
                 }
@@ -1660,6 +1751,7 @@ mod tests {
 
     fn production_world() -> FactionWorld {
         let building = FactionBuilding {
+            health: default_building_health(),
             id: "site.colonial.watch_fort.instance_1".into(),
             faction_id: "faction.colonial_powers.prototype".into(),
             archetype_id: "site_archetype.colonial.watch_fort".into(),
@@ -2447,6 +2539,63 @@ mod tests {
         assert!(world.aim_carbine(&target));
         let events = world.advance_island_tick();
         assert!(!events.iter().any(|event| matches!(event, FactionWorldEvent::UnitStruck {attacker_id, ..} if attacker_id == captain)));
+    }
+
+    #[test]
+    fn siege_destroys_last_producer_and_elimination_survives_load() {
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        for _ in 0..4 {
+            world.advance_island_tick();
+        }
+        let pirate = world
+            .actors
+            .values()
+            .find(|a| a.definition_id == "actor_def.pirates.deckhand")
+            .unwrap()
+            .instance_id
+            .clone();
+        world.actors.retain(|id, _| id == &pirate);
+        world.positions.retain(|id, _| id == &pirate);
+        world.unit_combat.retain(|id, _| id == &pirate);
+        world.travel_orders.clear();
+        world.hostilities = [(
+            "faction.pirates.prototype".into(),
+            "faction.colonial_powers.prototype".into(),
+        )]
+        .into_iter()
+        .collect();
+        let fort = world.factions["faction.colonial_powers.prototype"]
+            .buildings
+            .values()
+            .next()
+            .unwrap();
+        let fort_id = fort.id.clone();
+        let entrance = world.navigation.destinations[&fort.node_id];
+        world.positions.insert(pirate, entrance);
+        for faction in world.factions.values_mut() {
+            for building in faction.buildings.values_mut() {
+                building.operational = false;
+            }
+        }
+        let mut saw_elimination = false;
+        for _ in 0..100 {
+            saw_elimination |= world.advance_island_tick().iter().any(|e|
+                matches!(e, FactionWorldEvent::FactionEliminated {faction_id} if faction_id == "faction.colonial_powers.prototype"));
+        }
+        assert!(saw_elimination);
+        assert!(
+            world.factions["faction.colonial_powers.prototype"]
+                .buildings
+                .is_empty()
+        );
+        assert!(!world.navigation.building_obstacles.contains_key(&fort_id));
+        let restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        assert!(
+            restored
+                .eliminated_factions
+                .contains("faction.colonial_powers.prototype")
+        );
     }
 
     #[test]

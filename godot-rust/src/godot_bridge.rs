@@ -139,7 +139,8 @@ impl Project42SimulationBridge {
                             "faction" => building.faction_id.as_str(),
                             "archetype" => building.archetype_id.as_str(),
                             "x" => position.x, "y" => position.y,
-                            "operational" => building.operational,
+                        "operational" => building.operational,
+                        "health" => building.health,
                             "queued" => building.production_queue.len() as i64
                         }
                         .to_variant(),

@@ -32,7 +32,14 @@ Chest-height offsets are provisional; authored weapon sockets and animated
 attack/recoil poses are still missing. Native render review remains outstanding.
 Dead units leave saved casualty records and release their
 population slots. Midnight conversion/resurrection, diplomacy changes, combat
-animation, building damage and final faction balance remain unfinished.
+animation and final faction balance remain unfinished.
+Producers now have provisional 80-point health persisted in saves. Autonomous
+units without an in-range troop target can strike a hostile producer's entrance
+when in range and line of sight. A destroyed building loses its queued resources,
+releases queued population and removes its obstacle/policy entry. Losing the last
+producer invokes persistent faction elimination. Long-range siege targeting,
+building attack orders for Michael, final durability and destruction art remain
+unfinished; current strategic orders still rally to the clearing.
 The colonial watch fort now has a provisional transparent sprite projected from
 its native building position. Operating state dims inactive forts, and removed
 buildings disappear on the next snapshot. Other producer archetypes remain
@@ -100,4 +107,4 @@ and final island scale remain unfinished.
 Checks:
 Godot headless tests/island_scene_test.gd passes actual scene load, native position
 projection, terrain rejection, travel and pause. The separate native bridge test
-and all 56 Rust tests pass. Headless success does not prove rendered visual quality.
+and all 57 Rust tests pass. Headless success does not prove rendered visual quality.
