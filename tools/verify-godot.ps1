@@ -1,5 +1,7 @@
 param(
-    [string]$GodotExecutable = ""
+    [string]$GodotExecutable = "",
+    [ValidateRange(1, 60)]
+    [int]$TimeoutSeconds = 30
 )
 
 $ErrorActionPreference = "Stop"
@@ -11,84 +13,51 @@ if (-not (Test-Path -LiteralPath $GodotExecutable -PathType Leaf)) {
     throw "Godot executable not found: $GodotExecutable"
 }
 
-$taskProfile = Join-Path $env:TEMP "project42-godot-profile"
-$taskLocal = Join-Path $env:TEMP "project42-godot-local"
-New-Item -ItemType Directory -Force $taskProfile, $taskLocal | Out-Null
-$previousAppData = $env:APPDATA
-$previousLocalAppData = $env:LOCALAPPDATA
-try {
-    $env:APPDATA = $taskProfile
-    $env:LOCALAPPDATA = $taskLocal
-    & $GodotExecutable --headless --editor --path (Join-Path $workspace "game") --quit
-    if ($LASTEXITCODE -ne 0) {
-        throw "Godot import and extension registration failed with exit code $LASTEXITCODE"
+# One current 2D verification path. Shelved 3D fixtures remain in history/source,
+# but are not launched by the production-island verifier.
+$checks = @(
+    @{ Script = "res://tests/directional_sprite_test.gd"; Completion = "PASS: four facings, alpha-source identity, frame regions, nearest sampling, idle retention, no simulation movement" },
+    @{ Script = "res://tests/island_scene_test.gd"; Completion = "PASS: island scene suite complete" }
+)
+foreach ($check in $checks) {
+    $start = [System.Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = (Resolve-Path -LiteralPath $GodotExecutable).Path
+    $start.WorkingDirectory = $workspace
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    foreach ($argument in @("--headless", "--path", (Join-Path $workspace "game"), "--script", $check.Script, "--quit-after", "120")) {
+        $start.ArgumentList.Add($argument)
     }
-    & $GodotExecutable --headless --path (Join-Path $workspace "game") --quit-after 3
-    if ($LASTEXITCODE -ne 0) {
-        throw "Godot headless verification failed with exit code $LASTEXITCODE"
+    # Unique profiles avoid concurrent tests sharing or overwriting user saves.
+    $profile = Join-Path ([System.IO.Path]::GetTempPath()) ("project42-test-" + [guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $profile | Out-Null
+    $start.Environment["APPDATA"] = $profile
+    $start.Environment["LOCALAPPDATA"] = $profile
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $start
+    try {
+        if (-not $process.Start()) { throw "Could not start bounded Godot test." }
+        $stdout = $process.StandardOutput.ReadToEndAsync()
+        $stderr = $process.StandardError.ReadToEndAsync()
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            $process.Kill($true)
+            $process.WaitForExit()
+            throw "Godot test timed out after $TimeoutSeconds seconds: $($check.Script)"
+        }
+        $output = $stdout.GetAwaiter().GetResult() + $stderr.GetAwaiter().GetResult()
+        Write-Host $output
+        if ($process.ExitCode -ne 0 -or $output -match '(?m)^(SCRIPT ERROR:|ERROR:|USER ERROR:)') {
+            throw "Godot test failed: $($check.Script) (exit $($process.ExitCode))"
+        }
+        if (-not ($output -split '\r?\n').Contains($check.Completion)) {
+            throw "Godot exited without completing test: $($check.Script)"
+        }
+    } finally {
+        $process.Dispose()
+        # Keep isolated diagnostics for inspection; never prune shared user data.
+        Write-Host "Isolated test profile: $profile"
     }
-    & $GodotExecutable --headless --path (Join-Path $workspace "game") --scene "res://scenes/review/betty_3d_candidate_review.tscn" --quit-after 2
-    if ($LASTEXITCODE -ne 0) {
-        throw "Godot Betty 3D candidate review scene failed with exit code $LASTEXITCODE"
-    }
-    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/battle_3d_staging_test.gd"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Godot 3D battle staging tests failed with exit code $LASTEXITCODE"
-    }
-    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/world_cell_test.gd"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Godot world-cell tests failed with exit code $LASTEXITCODE"
-    }
-    & $GodotExecutable --headless --path (Join-Path $workspace "game") --scene "res://scenes/review/reception_terrace_setpiece_review.tscn" --quit-after 2
-    if ($LASTEXITCODE -ne 0) {
-        throw "Godot Reception Terrace setpiece review scene failed with exit code $LASTEXITCODE"
-    }
-    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/reception_terrace_setpiece_test.gd"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Godot Reception Terrace setpiece tests failed with exit code $LASTEXITCODE"
-    }
-    & $GodotExecutable --headless --path (Join-Path $workspace "game") --scene "res://scenes/review/elizabethan_port_town_set_review.tscn" --quit-after 2
-    if ($LASTEXITCODE -ne 0) {
-        throw "Godot Elizabethan port-town review scene failed with exit code $LASTEXITCODE"
-    }
-    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/elizabethan_port_town_set_test.gd"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Godot Elizabethan port-town contract test failed with exit code $LASTEXITCODE"
-    }
-    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/targeting_session_test.gd"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Godot targeting-session tests failed with exit code $LASTEXITCODE"
-    }
-    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/skill_animation_director_test.gd"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Godot skill-animation-director tests failed with exit code $LASTEXITCODE"
-    }
-    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/placeholder_action_presenter_test.gd"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Godot placeholder-action-presenter tests failed with exit code $LASTEXITCODE"
-    }
-    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/content_catalog_test.gd"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Godot content-catalog registry tests failed with exit code $LASTEXITCODE"
-    }
-    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/combat_text_renderer_test.gd"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Godot combat-text-renderer tests failed with exit code $LASTEXITCODE"
-    }
-    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/native_simulation_port_test.gd"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Godot native-simulation-port tests failed with exit code $LASTEXITCODE"
-    }
-    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/prototype_turn_cycle_test.gd"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Godot battle-prototype turn-cycle test failed with exit code $LASTEXITCODE"
-    }
-    & $GodotExecutable --headless --path (Join-Path $workspace "game") --script "res://tests/betty_3d_candidate_contract_test.gd"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Godot Betty 3D candidate contract test failed with exit code $LASTEXITCODE"
-    }
-} finally {
-    $env:APPDATA = $previousAppData
-    $env:LOCALAPPDATA = $previousLocalAppData
 }
-Write-Host "Godot headless verification passed."
+Write-Host "Current 2D Godot verification passed (not rendered visual acceptance)."

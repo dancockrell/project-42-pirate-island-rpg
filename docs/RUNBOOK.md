@@ -30,15 +30,17 @@ and midnight resurrection are not implemented. See
 For a bounded low-resource check without opening an editor or visible window:
 
 ```powershell
-& ./.local-tools/godot-4.7.2/Godot_v4.7.2-stable_win64_console.exe --headless --path game --quit-after 120
-& ./.local-tools/godot-4.7.2/Godot_v4.7.2-stable_win64_console.exe --headless --path game --script res://tests/island_scene_test.gd --quit-after 120
+./tools/verify-godot.ps1
 ```
 
 The scene test resolves the configured main scene, then verifies native travel,
 pause, collision, production/combat and persistence. This does not render an art
 approval screenshot. Build the native extension after Rust or embedded building
-contract changes. Avoid running the broad historical verifier merely to test
-this island: it also loads shelved 3D fixtures.
+contract changes. The verifier now runs only the current directional-sprite and
+island suites, with a 30-second wall-clock limit per process and isolated test
+profiles. It rejects script errors even when Godot returns exit code zero, and
+requires a final completion message. It no longer opens an editor or loads
+shelved 3D fixtures. PowerShell 7 is required for the bounded process runner.
 
 ## Actual island render capture (explicit approval required)
 

@@ -324,10 +324,13 @@ func run() -> void:
 		if FileAccess.file_exists(defeat_path + suffix):
 			DirAccess.remove_absolute(defeat_path + suffix)
 	print("PASS: actual lethal retaliation, paused defeat, save/reload defeat, no dead movement or attacks")
-	check_recruitment(scene, fresh_campaign)
+	if not check_recruitment(scene, fresh_campaign):
+		quit(1)
+		return
+	print("PASS: island scene suite complete")
 	quit()
 
-func check_recruitment(scene: Node, fresh_campaign: String) -> void:
+func check_recruitment(scene: Node, fresh_campaign: String) -> bool:
 	assert(scene.port.load_island(fresh_campaign))
 	scene.paused = false
 	scene.refresh_snapshot()
@@ -432,3 +435,4 @@ func check_recruitment(scene: Node, fresh_campaign: String) -> void:
 	scene.refresh_snapshot()
 	assert(scene.party_buttons[0].text.contains(woman.name))
 	print("PASS: actual produced female dialogue, explicit same-identity recruitment, population transfer, four-slot party, group order and save restore")
+	return true
