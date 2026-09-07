@@ -3,10 +3,10 @@
   "task_id": "island-simulation-travel",
   "agent": "codex-root",
   "summary": "Replace dispatch teleportation with authoritative grid travel and pause",
-  "status": "completed",
+  "status": "active",
   "claimed_at": "2026-09-07T16:20:00Z",
   "updated_at": "2026-09-07T16:20:00Z",
-  "paths": ["godot-rust/src/world.rs"],
+  "paths": ["godot-rust/src/world.rs", "godot-rust/src/godot_bridge.rs", "game/scripts/simulation/native_simulation_port.gd", "game/tests/island_bridge_test.gd", "game/bin/windows/project42_sim.windows.template_debug.x86_64.dll"],
   "coordination": {"notes": "No overlap with sprite presentation or shelved 3D roof claims. Grid cells are physical navigation cells, not one node per room."},
   "completion": {
     "commit": "a336389",

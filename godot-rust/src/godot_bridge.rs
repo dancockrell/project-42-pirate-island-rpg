@@ -5,6 +5,7 @@ use crate::battle::{
     RecoveryOpening, StatusInstance, StatusKind,
 };
 use crate::protocol::{CommandEnvelope, CommandKind, PROTOCOL_VERSION};
+use crate::world::{FactionWorld, IslandPoint};
 
 const BATTLE_ID: &str = "battle.prototype.returning_names";
 
@@ -15,10 +16,70 @@ struct Project42SimulationBridge {
     battle: Option<Battle>,
     #[init(val = 0)]
     sequence: u64,
+    #[init(val = None)]
+    island: Option<FactionWorld>,
 }
 
 #[godot_api]
 impl Project42SimulationBridge {
+    #[func]
+    fn create_island(&mut self) -> VarDictionary {
+        self.island = Some(FactionWorld::prototype_island());
+        self.island_snapshot()
+    }
+
+    #[func]
+    fn island_snapshot(&self) -> VarDictionary {
+        let Some(world) = self.island.as_ref() else {
+            return vdict! { "error" => "island_not_created" };
+        };
+        let mut actors = VarArray::new();
+        for (id, position) in &world.positions {
+            actors.push(
+                &vdict! {
+                    "id" => id.as_str(), "x" => position.x, "y" => position.y,
+                    "moving" => world.travel_orders.contains_key(id)
+                }
+                .to_variant(),
+            );
+        }
+        let mut land = VarArray::new();
+        for point in &world.navigation.walkable {
+            land.push(&Vector2i::new(point.x, point.y).to_variant());
+        }
+        vdict! { "tick" => world.tick as i64, "paused" => world.paused, "actors" => &actors, "land" => &land }
+    }
+
+    #[func]
+    fn move_island_actor(&mut self, id: GString, target: Vector2i) -> bool {
+        self.island.as_mut().is_some_and(|world| {
+            world
+                .order_move(
+                    &id.to_string(),
+                    IslandPoint {
+                        x: target.x,
+                        y: target.y,
+                    },
+                )
+                .is_ok()
+        })
+    }
+
+    #[func]
+    fn tick_island(&mut self) -> VarDictionary {
+        if let Some(world) = self.island.as_mut() {
+            world.advance_island_tick();
+        }
+        self.island_snapshot()
+    }
+
+    #[func]
+    fn pause_island(&mut self, paused: bool) {
+        if let Some(world) = self.island.as_mut() {
+            world.paused = paused;
+        }
+    }
+
     #[func]
     fn create_debug_battle(&mut self) -> VarDictionary {
         self.sequence = 0;

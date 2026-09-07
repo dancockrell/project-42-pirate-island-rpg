@@ -520,6 +520,82 @@ impl MapPlacement {
 }
 
 impl FactionWorld {
+    /// Small physical island fixture for runtime integration, not the final map.
+    /// Michael is scenario-seeded alone; no automatic companion recruitment.
+    pub fn prototype_island() -> Self {
+        let mut world = Self::default();
+        for x in 0..48 {
+            for y in 0..32 {
+                if (x - 24_i32).pow(2) * 196 + (y - 16_i32).pow(2) * 484 < 484 * 196 {
+                    world.navigation.walkable.insert(IslandPoint { x, y });
+                }
+            }
+        }
+        let faction_id = "faction.michael".to_owned();
+        world.factions.insert(
+            faction_id.clone(),
+            FactionState {
+                id: faction_id.clone(),
+                resources: BTreeMap::new(),
+                population_used: 1,
+                population_capacity: 1,
+                wobble_limit: 0,
+                buildings: BTreeMap::new(),
+            },
+        );
+        let actor_id = "character.protagonist.captain".to_owned();
+        world.actors.insert(
+            actor_id.clone(),
+            ProducedActor {
+                instance_id: actor_id.clone(),
+                definition_id: actor_id.clone(),
+                actor_kind: "hero".into(),
+                faction_id: faction_id.clone(),
+                node_id: "scenario.shipwreck".into(),
+                current_assignment_id: None,
+                provenance: ActorProductionProvenance {
+                    faction_id,
+                    producer_building_id: String::new(),
+                    production_rule_id: "scenario_start.shipwreck".into(),
+                    reserved_costs: BTreeMap::new(),
+                    completed_tick: 0,
+                    rally_point_id: "scenario.shipwreck".into(),
+                },
+            },
+        );
+        world
+            .positions
+            .insert(actor_id, IslandPoint { x: 8, y: 16 });
+        world
+    }
+
+    /// Player and AI use the same travel queue. Destination coordinates are
+    /// validated before changing the previous order.
+    pub fn order_move(
+        &mut self,
+        actor_id: &str,
+        destination: IslandPoint,
+    ) -> Result<(), FactionWorldError> {
+        if !self.actors.contains_key(actor_id) {
+            return Err(FactionWorldError::UnknownActor(actor_id.to_owned()));
+        }
+        let start = self
+            .positions
+            .get(actor_id)
+            .copied()
+            .ok_or_else(|| FactionWorldError::MissingIslandPosition(actor_id.to_owned()))?;
+        let destination_id = format!("move.{actor_id}");
+        if self.navigation.path(start, destination).is_none() {
+            return Err(FactionWorldError::UnreachableDestination(destination_id));
+        }
+        self.navigation
+            .destinations
+            .insert(destination_id.clone(), destination);
+        self.travel_orders
+            .insert(actor_id.to_owned(), destination_id);
+        Ok(())
+    }
+
     pub fn enqueue_production(
         &mut self,
         faction_id: &str,

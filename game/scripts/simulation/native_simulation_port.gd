@@ -16,6 +16,22 @@ func _init() -> void:
 func is_available() -> bool:
 	return bridge != null
 
+func create_island() -> Dictionary:
+	return bridge.create_island() if is_available() else error_snapshot("native_bridge_unavailable")
+
+func island_snapshot() -> Dictionary:
+	return bridge.island_snapshot() if is_available() else error_snapshot("native_bridge_unavailable")
+
+func move_island_actor(actor_id: String, target: Vector2i) -> bool:
+	return is_available() and bridge.move_island_actor(actor_id, target)
+
+func tick_island() -> Dictionary:
+	return bridge.tick_island() if is_available() else error_snapshot("native_bridge_unavailable")
+
+func pause_island(paused: bool) -> void:
+	if is_available():
+		bridge.pause_island(paused)
+
 func create_debug_battle() -> Dictionary:
 	if not is_available():
 		return error_snapshot("native_bridge_unavailable")
