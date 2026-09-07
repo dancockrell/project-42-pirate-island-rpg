@@ -1202,7 +1202,7 @@ impl FactionWorld {
                 let Some(start) = self.positions.get(&actor_id).copied() else {
                     continue;
                 };
-                let reachable: Vec<DispatchCandidate> = policy
+                let mut reachable: Vec<DispatchCandidate> = policy
                     .objectives
                     .iter()
                     .filter(|objective| {
@@ -1213,6 +1213,69 @@ impl FactionWorld {
                     })
                     .cloned()
                     .collect();
+                // Reach the authored rally before advancing on holdings. Once
+                // campaigning, retain that intent across destroyed objectives.
+                let campaigning = policy.objectives.iter().any(|objective| {
+                    self.navigation.destinations.get(&objective.target_node_id) == Some(&start)
+                }) || self.actors[&actor_id]
+                    .current_assignment_id
+                    .as_deref()
+                    .is_some_and(|assignment| assignment.starts_with("siege."));
+                if campaigning {
+                    let mut sieges = Vec::new();
+                    for enemy in self
+                        .factions
+                        .values()
+                        .filter(|enemy| self.hostilities.contains(&(id.clone(), enemy.id.clone())))
+                    {
+                        for building in enemy
+                            .buildings
+                            .values()
+                            .filter(|building| building.health > 0)
+                        {
+                            let Some(goal) = self.navigation.destinations.get(&building.node_id)
+                            else {
+                                continue;
+                            };
+                            let Some(path) = self.navigation.path(start, *goal) else {
+                                continue;
+                            };
+                            let defenders = self
+                                .actors
+                                .values()
+                                .filter(|actor| {
+                                    actor.faction_id == enemy.id
+                                        && self.positions.get(&actor.instance_id).is_some_and(
+                                            |position| {
+                                                position.x.abs_diff(goal.x)
+                                                    + position.y.abs_diff(goal.y)
+                                                    <= 4
+                                            },
+                                        )
+                                })
+                                .count();
+                            sieges.push(DispatchCandidate {
+                                action_id: format!("siege.{}", building.id),
+                                assignment: "attack_holding".into(),
+                                target_node_id: building.node_id.clone(),
+                                score: DispatchScore {
+                                    goal_progress: 100,
+                                    supply_cost: -(path.len().min(10_000) as i32),
+                                    travel_risk: -(defenders.min(1_000) as i32 * 4),
+                                    expected_loot: (80_u32.saturating_sub(building.health) / 4)
+                                        as i32,
+                                    ..Default::default()
+                                },
+                                wobble: 0,
+                            });
+                        }
+                    }
+                    // A reachable enemy holding replaces a completed rally;
+                    // absence of one leaves authored fallback objectives intact.
+                    if !sieges.is_empty() {
+                        reachable = sieges;
+                    }
+                }
                 if let Some(best) = reachable.iter().max_by(|a, b| {
                     a.total()
                         .cmp(&b.total())
@@ -2316,6 +2379,62 @@ mod tests {
                 restored.advance_island_tick()
             );
             assert_eq!(original, restored);
+        }
+    }
+
+    #[test]
+    fn autonomous_campaign_reaches_and_destroys_hostile_holdings() {
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        let mut siege_assigned = false;
+        let mut building_struck = false;
+        for step in 0..600 {
+            // Finite-supply scenario: existing troops and queued cycles stay,
+            // but endless replacement income must not mask siege reachability.
+            if step == 60 {
+                for policy in world.policies.values_mut() {
+                    policy.income_per_tick.clear();
+                }
+                for faction in world.factions.values_mut() {
+                    faction.resources.clear();
+                }
+            }
+            for event in world.advance_island_tick() {
+                match event {
+                    FactionWorldEvent::ActorAssigned { assignment, .. }
+                        if assignment == "attack_holding" =>
+                    {
+                        siege_assigned = true
+                    }
+                    FactionWorldEvent::UnitStruck { target_id, .. }
+                        if target_id.ends_with(".producer") =>
+                    {
+                        building_struck = true
+                    }
+                    _ => {}
+                }
+            }
+            if !world.eliminated_factions.is_empty() {
+                break;
+            }
+        }
+        assert!(
+            siege_assigned,
+            "rallied troops must choose hostile holdings"
+        );
+        assert!(
+            building_struck,
+            "troops must reach siege range without fixture teleportation"
+        );
+        assert!(
+            !world.eliminated_factions.is_empty(),
+            "sustained AI war must destroy a producer"
+        );
+        assert!(world.actors.contains_key("character.protagonist.captain"));
+        let mut restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        for _ in 0..10 {
+            assert_eq!(world.advance_island_tick(), restored.advance_island_tick());
+            assert_eq!(world, restored);
         }
     }
 

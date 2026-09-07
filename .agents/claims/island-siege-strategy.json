@@ -1,0 +1,1 @@
+{"schema_version":1,"task_id":"island-siege-strategy","agent":"codex-root","status":"active","summary":"Dispatch rallied faction troops toward reachable hostile producers","paths":["godot-rust/src/world.rs","game/bin/windows/project42_sim.windows.template_debug.x86_64.dll"],"completion":{"commit":null,"checks":[]}}
