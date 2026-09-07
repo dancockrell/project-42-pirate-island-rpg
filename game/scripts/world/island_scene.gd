@@ -15,6 +15,8 @@ var ready_ok := false
 var save_notice := ""
 var troop_sprites := {}
 var troop_textures: Array[Texture2D] = []
+var building_sprites := {}
+var fort_texture: Texture2D
 
 func save_campaign(path: String = "user://pirate-island-save.json") -> bool:
 	var payload: String = port.save_island()
@@ -89,6 +91,9 @@ func _ready() -> void:
 	port.create_island()
 	assert(port.configure_island_land(cells, Vector2i(data.start[0],data.start[1])))
 	assert(port.install_preview_factions())
+	var fort_image := Image.load_from_file("res://assets/island/watch_fort.png")
+	assert(fort_image != null and fort_image.detect_alpha() == Image.ALPHA_BIT)
+	fort_texture = ImageTexture.create_from_image(fort_image)
 	for appearance in ["colonial", "pirate", "cultist"]:
 		var cutout := Image.load_from_file("res://assets/island/troops/%s.png" % appearance)
 		assert(cutout != null and cutout.detect_alpha() == Image.ALPHA_BIT)
@@ -134,6 +139,30 @@ func advance_tick() -> void:
 
 func refresh_snapshot() -> void:
 	snapshot = port.island_snapshot()
+	var visible_buildings := {}
+	for building in snapshot.buildings:
+		# Other archetypes await their own art, never substitute a colonial fort.
+		if building.archetype != "site_archetype.colonial.watch_fort":
+			continue
+		visible_buildings[building.id] = true
+		if not building_sprites.has(building.id):
+			var fort := Sprite2D.new()
+			fort.texture = fort_texture
+			fort.centered = false
+			# Door apron is the native producer/rally anchor.
+			fort.offset = -Vector2(775, 825)
+			fort.scale = Vector2.ONE * (150.0 / 1125.0)
+			fort.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			map_root.add_child(fort)
+			building_sprites[building.id] = fort
+		var fort: Sprite2D = building_sprites[building.id]
+		fort.position = (Vector2(building.x, building.y) + Vector2.ONE * 0.5) * cell_size
+		fort.z_index = int(building.y) - 1
+		fort.modulate = Color.WHITE if building.operational else Color(0.55, 0.55, 0.55)
+	for id in building_sprites.keys():
+		if not visible_buildings.has(id):
+			building_sprites[id].queue_free()
+			building_sprites.erase(id)
 	var present := {}
 	for entry in snapshot.actors:
 		if entry.id == MICHAEL:

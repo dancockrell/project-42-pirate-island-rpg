@@ -1,5 +1,18 @@
 extends SceneTree
 
+# Godot parses every JSON number as float; the Rust save schema uses integers.
+func save_integers(value: Variant) -> Variant:
+	if value is float:
+		assert(value == floor(value))
+		return int(value)
+	if value is Dictionary:
+		for key in value:
+			value[key] = save_integers(value[key])
+	elif value is Array:
+		for index in value.size():
+			value[index] = save_integers(value[index])
+	return value
+
 func _initialize() -> void:
 	call_deferred("run")
 
@@ -9,6 +22,14 @@ func run() -> void:
 	await process_frame
 	scene.set_process(false)
 	assert(scene.ready_ok)
+	assert(scene.snapshot.buildings.size() == 3)
+	assert(scene.building_sprites.size() == 1)
+	for building in scene.snapshot.buildings:
+		assert(building.operational)
+		assert(building.queued == 0)
+		if building.archetype == "site_archetype.colonial.watch_fort":
+			assert(scene.building_sprites[building.id].position == (Vector2(building.x,building.y) + Vector2.ONE * 0.5) * 32)
+			assert(scene.building_sprites[building.id].texture.get_image().detect_alpha() == Image.ALPHA_BIT)
 	assert(scene.troop_textures.size() == 3)
 	for texture in scene.troop_textures:
 		assert(texture.get_image().detect_alpha() == Image.ALPHA_BIT)
@@ -64,6 +85,23 @@ func run() -> void:
 	assert(scene.port.load_island(payload))
 	scene.refresh_snapshot()
 	assert(scene.troop_sprites.size() == survivors)
+	# Building projection is restored from state, including removal and operation.
+	var saved: Dictionary = save_integers(JSON.parse_string(payload))
+	var colonial: Dictionary = saved.world.factions["faction.colonial_powers.prototype"]
+	var fort_id: String = colonial.buildings.keys()[0]
+	colonial.buildings[fort_id].operational = false
+	assert(scene.port.load_island(JSON.stringify(saved)))
+	scene.refresh_snapshot()
+	assert(scene.building_sprites[fort_id].modulate != Color.WHITE)
+	saved.world.policies.erase("faction.colonial_powers.prototype")
+	colonial.buildings.clear()
+	assert(scene.port.load_island(JSON.stringify(saved)))
+	scene.refresh_snapshot()
+	assert(scene.building_sprites.is_empty())
+	assert(scene.port.load_island(payload))
+	scene.refresh_snapshot()
+	assert(scene.building_sprites.size() == 1)
+	print("PASS: native building positions, transparent fort, operating state and removal/load projection")
 	print("PASS: autonomous skirmish casualties, capped survivors, removed dead sprites, roster preserved through load")
 	print("PASS: real island scene, authored land, sprite/native position agreement, travel and pause")
 	quit()

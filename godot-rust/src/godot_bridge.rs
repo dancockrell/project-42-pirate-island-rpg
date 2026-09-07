@@ -120,11 +120,26 @@ impl Project42SimulationBridge {
                 .to_variant(),
             );
         }
+        let mut buildings = VarArray::new();
+        for faction in world.factions.values() {
+            for building in faction.buildings.values() {
+                if let Some(position) = world.navigation.destinations.get(&building.node_id) {
+                    buildings.push(&vdict! {
+                        "id" => building.id.as_str(),
+                        "faction" => building.faction_id.as_str(),
+                        "archetype" => building.archetype_id.as_str(),
+                        "x" => position.x, "y" => position.y,
+                        "operational" => building.operational,
+                        "queued" => building.production_queue.len() as i64
+                    }.to_variant());
+                }
+            }
+        }
         let mut land = VarArray::new();
         for point in &world.navigation.walkable {
             land.push(&Vector2i::new(point.x, point.y).to_variant());
         }
-        vdict! { "tick" => world.tick as i64, "paused" => world.paused, "actors" => &actors, "land" => &land, "casualties" => world.casualties.len() as i64 }
+        vdict! { "tick" => world.tick as i64, "paused" => world.paused, "actors" => &actors, "buildings" => &buildings, "land" => &land, "casualties" => world.casualties.len() as i64 }
     }
 
     #[func]

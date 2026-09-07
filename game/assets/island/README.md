@@ -10,7 +10,18 @@ cooldown profiles. Attacks resolve simultaneously and cannot shoot through
 nonwalkable cells. Dead units leave saved casualty records and release their
 population slots. Midnight conversion/resurrection, diplomacy changes, combat
 animation, building damage and final faction balance remain unfinished.
-Buildings exist in simulation but do not yet have visible building art.
+The colonial watch fort now has a provisional transparent sprite projected from
+its native building position. Operating state dims inactive forts, and removed
+buildings disappear on the next snapshot. Other producer archetypes remain
+without art: they must not masquerade as colonial forts. Building footprints
+still need to participate in navigation; current doorway placement is not a
+complete collision solution. No construction/damage animation yet.
+
+watch_fort.png is the exact shared watch-fort-01/extracted/cell_00_00.png.
+SHA256: 34c8f250350f73f4cb6ae78c82a7bf9aca4266040a221d60e40e9f2527494c56.
+Source-size silhouette and alpha were inspected; full game-scale visual review
+remains pending. Ground pivot (775,825) in the trimmed 1125x928 image marks
+the entrance apron; displayed width is provisionally 150 map pixels.
 
 troops/ contains exact copies of the shared troops-01/extracted male idle PNGs.
 The existing Cattle Trail sprite_grid.py extractor produced six transparent
@@ -49,7 +60,7 @@ The original battle scene remains default; this island scene is a working
 integration preview, not the full game. Michael begins alone. Four companions
 must be recruited rather than silently granted. Current pose frames are standing
 art; movement is tick-stepped, not an approved walk animation. Foliage occlusion,
-pixel-density matching, terrain-mask visual review, autonomous faction integration
+pixel-density matching, terrain-mask visual review, complete autonomous factions
 and final island scale remain unfinished.
 
 Checks:
