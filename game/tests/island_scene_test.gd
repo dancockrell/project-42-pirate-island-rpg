@@ -9,6 +9,9 @@ func run() -> void:
 	await process_frame
 	scene.set_process(false)
 	assert(scene.ready_ok)
+	assert(scene.troop_textures.size() == 3)
+	for texture in scene.troop_textures:
+		assert(texture.get_image().detect_alpha() == Image.ALPHA_BIT)
 	assert(not scene.request_move(Vector2i(0,0)))
 	var start: Vector2 = scene.actor.position
 	assert(scene.request_move(Vector2i(20,16)))
@@ -53,6 +56,7 @@ func run() -> void:
 	for unit in scene.snapshot.actors:
 		if unit.id != scene.MICHAEL:
 			factions[unit.faction] = true
+			assert(scene.troop_sprites[unit.id].material == null)
 			assert(scene.troop_sprites[unit.id].position == (Vector2(unit.x,unit.y) + Vector2.ONE * 0.5) * 32)
 	assert(factions.size() >= 1)
 	var survivors: int = scene.troop_sprites.size()

@@ -14,8 +14,7 @@ var paused := false
 var ready_ok := false
 var save_notice := ""
 var troop_sprites := {}
-var troop_texture: Texture2D
-var troop_material: ShaderMaterial
+var troop_textures: Array[Texture2D] = []
 
 func save_campaign(path: String = "user://pirate-island-save.json") -> bool:
 	var payload: String = port.save_island()
@@ -90,9 +89,10 @@ func _ready() -> void:
 	port.create_island()
 	assert(port.configure_island_land(cells, Vector2i(data.start[0],data.start[1])))
 	assert(port.install_preview_factions())
-	troop_texture = ImageTexture.create_from_image(Image.load_from_file("res://assets/island/troops.png"))
-	troop_material = ShaderMaterial.new()
-	troop_material.shader = load("res://assets/island/troop_chroma.gdshader")
+	for appearance in ["colonial", "pirate", "cultist"]:
+		var cutout := Image.load_from_file("res://assets/island/troops/%s.png" % appearance)
+		assert(cutout != null and cutout.detect_alpha() == Image.ALPHA_BIT)
+		troop_textures.append(ImageTexture.create_from_image(cutout))
 	var terrain := Sprite2D.new()
 	terrain.texture = ImageTexture.create_from_image(Image.load_from_file("res://assets/island/terrain.png"))
 	terrain.centered = false
@@ -146,14 +146,10 @@ func refresh_snapshot() -> void:
 				column = 1
 			elif entry.faction == "faction.cthulhu.prototype":
 				column = 2
-			var atlas := AtlasTexture.new()
-			atlas.atlas = troop_texture
-			atlas.region = Rect2(column * 418, 0, 418, 627)
-			atlas.filter_clip = true
-			troop.texture = atlas
-			troop.material = troop_material
+			troop.texture = troop_textures[column]
 			troop.centered = false
-			troop.offset = -Vector2([255,160,187][column],540)
+			# Original authored ground pivots minus source trim origins.
+			troop.offset = -[Vector2(116,366), Vector2(143,363), Vector2(127,374)][column]
 			troop.scale = Vector2.ONE * 0.105
 			troop.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			map_root.add_child(troop)

@@ -12,11 +12,14 @@ population slots. Midnight conversion/resurrection, diplomacy changes, combat
 animation, building damage and final faction balance remain unfinished.
 Buildings exist in simulation but do not yet have visible building art.
 
-troops.png preserves the shared troops-01/keyed-source.png bytes; SHA256
-adddcb1310be7d960d0e689c272491b9fda2c47e30e7475abcf97dd5242c1696.
-Source prompts and provenance remain in the shared library. troop_chroma.gdshader
-applies the existing Cattle Trail binary magenta criterion at display time.
-This is not a pre-extracted alpha atlas; rendered edge review is still required.
+troops/ contains exact copies of the shared troops-01/extracted male idle PNGs.
+The existing Cattle Trail sprite_grid.py extractor produced six transparent
+cutouts without rescaling, filtering components, or gutter warnings. All six
+remain shared; only the three consumed images ship here. Source prompts,
+original images, extraction parameters, bounds and hashes remain in the shared
+library. Runtime uses binary-alpha PNGs directly, without a chroma shader.
+The three male cutouts were inspected at source size: weapons and silhouettes
+are intact. Rendered game-scale edge review is still required.
 Only the three male idle appearances are used in this initial projection.
 Female identities, directional poses and animations await proper NPC data.
 Do not infer unit sex or recruitment eligibility from this temporary renderer.
@@ -52,4 +55,4 @@ and final island scale remain unfinished.
 Checks:
 Godot headless tests/island_scene_test.gd passes actual scene load, native position
 projection, terrain rejection, travel and pause. The separate native bridge test
-and all 45 Rust tests pass. Headless success does not prove rendered visual quality.
+and all 52 Rust tests pass. Headless success does not prove rendered visual quality.
