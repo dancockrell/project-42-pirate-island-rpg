@@ -30,6 +30,8 @@ def inspect_source(path, manifest=None):
     if not sum(histogram[1:]):
         errors.append("Image is fully transparent")
     frames_checked = 0
+    unique_drawings = set()
+    inspected_pixels = 0
     if manifest is None:
         errors.append("Missing authored frame/action/direction/pivot metadata")
     elif not isinstance(manifest, dict):
@@ -64,6 +66,10 @@ def inspect_source(path, manifest=None):
             if x < 0 or y < 0 or w <= 0 or h <= 0 or x+w > width or y+h > height:
                 errors.append(f"{label}: rectangle outside source")
                 continue
+            inspected_pixels += w * h
+            if inspected_pixels > 16_000_000:
+                errors.append("Frame inspection exceeds 16 million pixel budget")
+                break
             pivot = frame.get("footPivot")
             if not isinstance(pivot, list) or len(pivot) != 2 or any(type(n) is not int for n in pivot) or not (0 <= pivot[0] <= w and 0 <= pivot[1] <= h):
                 errors.append(f"{label}: footPivot must be within the local frame canvas")
@@ -73,12 +79,28 @@ def inspect_source(path, manifest=None):
             if type(frame.get("loop")) is not bool:
                 errors.append(f"{label}: loop must be an explicit boolean")
             # Read only: cropping here calculates frame coverage, never writes pixels.
-            if not rgba.getchannel("A").crop((x, y, x+w, y+h)).getbbox():
+            frame_image = rgba.crop((x, y, x+w, y+h))
+            bounds = frame_image.getchannel("A").getbbox()
+            if not bounds:
                 errors.append(f"{label}: frame contains no visible pixels")
+            else:
+                trimmed = frame_image.crop(bounds)
+                # Compare visible drawings independently of canvas padding and
+                # horizontal mirrors. Reused holds are legal, but not new art.
+                keys = []
+                for candidate in (trimmed, trimmed.transpose(Image.Transpose.FLIP_LEFT_RIGHT)):
+                    pixels = bytearray(candidate.tobytes())
+                    for i in range(0, len(pixels), 4):
+                        if pixels[i+3] == 0:
+                            pixels[i:i+3] = b"\x00\x00\x00"
+                    keys.append(hashlib.sha256(str(candidate.size).encode() + pixels).hexdigest())
+                unique_drawings.add(min(keys))
             frames_checked += 1
     return {"source": path.name, "sha256": digest, "width": width, "height": height,
         "transparentPixels": histogram[0], "partialAlphaPixels": sum(histogram[1:255]),
-        "framesChecked": frames_checked, "errors": errors, "warnings": warnings,
+        "framesChecked": frames_checked, "distinctDrawingsIgnoringHorizontalMirrors": len(unique_drawings),
+        "coverageAdmission": "not-assessed: unique pixels do not prove distinct useful actions, facing, state or recolor-free coverage",
+        "errors": errors, "warnings": warnings,
         "structuralAdmission": not errors, "artAdmission": "not-assessed",
         "scope": "Read-only source/metadata checks; no automatic grid inference, frame extraction, animation continuity or visual approval"}
 

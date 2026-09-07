@@ -1,7 +1,7 @@
 {
   "schema_version": 1, "task_id": "pixel-art-direction", "agent": "codex-root",
   "summary": "Record explicit 2D sprite approval and shelve conflicting 3D production",
-  "status": "completed", "claimed_at": "2026-09-07T00:00:00Z", "updated_at": "2026-09-07T00:10:00Z",
+  "status": "active", "claimed_at": "2026-09-07T00:00:00Z", "updated_at": "2026-09-07T00:10:00Z",
   "paths": ["docs/VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md", "docs/THREE_D_PRODUCTION_PLAN.md", "docs/VIDEO_ART_PIPELINE.md", "docs/GAME_BUILD_PLAN.md", "docs/VERTICAL_SLICE_BUILD_CONTRACT.md", "docs/images/pixel-style/", "README.md", "tools/inspect_sprite_source.py", "tools/test_sprite_source.py"],
   "coordination": {"depends_on": [], "conflicts_with": [], "notes": "Integrate remote documentation audit 07d255a with local sprite decision aee3fcc. Retain detailed local simulation authority and latest 2D decision, plus remote shared-library ownership and historical scope notes. Merge includes docs/ARCHITECTURE.md, BETTY_3D_ASSET_CONTRACT.md, CHARACTER_AND_HAREMLIT_AUTHORING.md, RUNBOOK.md, SHARED_ASSET_PLATFORM.md and completed documentation-consolidation claim. No runtime changes; preserve untracked roof work and DLL."},
   "completion": {"commit": "3cb47ff", "checks": ["Merged remote audit 07d255a with local 2D authority in 94f043c and pushed main", "Eight sprite-source regression tests passed", "Actual approved sheet correctly rejected as runtime atlas: zero alpha pixels and no frame metadata; style approval unchanged", "Content validation passed for 181 stable IDs", "Git diff check and staged-secret scan passed", "No new sprite art, engine launch or playable 2D scene; runtime implementation remains unfinished"]}

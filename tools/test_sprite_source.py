@@ -61,6 +61,29 @@ class SpriteSourceTests(unittest.TestCase):
         inspect_source(self.path, self.manifest)
         self.assertEqual(self.path.read_bytes(), before)
 
+    def test_repeated_holds_do_not_inflate_drawing_count(self):
+        repeated = copy.deepcopy(self.manifest["frames"][0])
+        repeated["id"] = "idle.south.1"
+        self.manifest["frames"].append(repeated)
+        result = inspect_source(self.path, self.manifest)
+        self.assertTrue(result["structuralAdmission"])
+        self.assertEqual(result["framesChecked"], 2)
+        self.assertEqual(result["distinctDrawingsIgnoringHorizontalMirrors"], 1)
+
+    def test_mirrored_drawing_is_not_new_coverage(self):
+        image = Image.new("RGBA", (32,16))
+        image.putpixel((2,3), (255,0,0,255))
+        image.putpixel((4,4), (0,255,0,255))
+        image.putpixel((29,3), (255,0,0,255))
+        image.putpixel((27,4), (0,255,0,255))
+        image.save(self.path)
+        self.manifest["sourceSha256"] = hashlib.sha256(self.path.read_bytes()).hexdigest()
+        second = copy.deepcopy(self.manifest["frames"][0])
+        second.update(id="idle.west.0", direction="west", rect=[16,0,16,16])
+        self.manifest["frames"].append(second)
+        result = inspect_source(self.path, self.manifest)
+        self.assertEqual(result["distinctDrawingsIgnoringHorizontalMirrors"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
