@@ -29,6 +29,39 @@ impl Project42SimulationBridge {
     }
 
     #[func]
+    fn configure_island_land(&mut self, cells: Array<Vector2i>, start: Vector2i) -> bool {
+        if cells.is_empty() || cells.len() > 16384 {
+            return false;
+        }
+        let land: std::collections::BTreeSet<IslandPoint> = cells
+            .iter_shared()
+            .map(|cell| IslandPoint {
+                x: cell.x,
+                y: cell.y,
+            })
+            .collect();
+        let start = IslandPoint {
+            x: start.x,
+            y: start.y,
+        };
+        if !land.contains(&start) {
+            return false;
+        }
+        let Some(world) = self.island.as_mut() else {
+            return false;
+        };
+        // Initial map setup only. Never teleport a running campaign on reload.
+        if world.tick != 0 || !world.travel_orders.is_empty() {
+            return false;
+        }
+        world.navigation.walkable = land;
+        world
+            .positions
+            .insert("character.protagonist.captain".into(), start);
+        true
+    }
+
+    #[func]
     fn island_snapshot(&self) -> VarDictionary {
         let Some(world) = self.island.as_ref() else {
             return vdict! { "error" => "island_not_created" };
