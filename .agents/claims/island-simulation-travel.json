@@ -3,10 +3,22 @@
   "task_id": "island-simulation-travel",
   "agent": "codex-root",
   "summary": "Replace dispatch teleportation with authoritative grid travel and pause",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-07T16:20:00Z",
   "updated_at": "2026-09-07T16:20:00Z",
   "paths": ["godot-rust/src/world.rs"],
   "coordination": {"notes": "No overlap with sprite presentation or shelved 3D roof claims. Grid cells are physical navigation cells, not one node per room."},
-  "completion": {"commit": null, "checks": []}
+  "completion": {
+    "commit": "a336389",
+    "checks": [
+      "45 Rust tests passed, including four added navigation/pause regression tests",
+      "Paused island and production ticks preserve identical world state",
+      "Dispatch leaves location unchanged until physical arrival",
+      "Blocked route waits and resumes via alternate open cells",
+      "Unreachable replacement order preserves previous state",
+      "Coordinate-limit arithmetic tested; rustfmt and git diff --check passed",
+      "No Godot bridge wiring, visual movement test, crowd avoidance, terrain costs, large-island performance or persistence claim",
+      "Local checkpoint only, not pushed"
+    ]
+  }
 }
