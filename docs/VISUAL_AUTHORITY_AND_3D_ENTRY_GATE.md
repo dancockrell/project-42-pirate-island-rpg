@@ -34,6 +34,8 @@ Buildings need coherent perspective, footprints, placement anchors and construct
 
 ## Shelved work
 
+The user's old artwork and 3D-builder resumption guide are preserved in the [shared pre-sprite archive](https://github.com/dancockrell/shared-game-environment-library/tree/art/catalog-foundation/archives/pirate-island-pre-sprite), archived 7 September 2026. The archive contains 113 located legacy files with hashes; the existing builder code stays in its shared implementation owner rather than being copied into a second codebase. Old sources remain in place where historical references need them. A possible revisit in roughly six months is not a restart schedule or present production task. Use earlier portraits for identity/costume continuity only; current sprites must meet the approved pixel-art target.
+
 No more 3D character generation, garment simulation, retargeter compilation, mesh scenery production or 3D-to-sprite baking for Pirate Island. Preserve source, research and version history without presenting them as current deliverables. Shared tooling for other products is not automatically cancelled or given this art direction.
 
 The hidden RTS, faction economies, large dynamic island, five-character party, narrative and simulation ownership are unchanged. This is a presentation and asset-production decision, not a new game stack.
