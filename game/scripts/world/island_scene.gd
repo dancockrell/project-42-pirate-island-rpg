@@ -51,6 +51,7 @@ var last_strikes: Array = []
 var salvage_button := Button.new()
 var workshop_button := Button.new()
 var restore_button := Button.new()
+var repair_button := Button.new()
 var salvage_marker := Sprite2D.new()
 
 func salvage_action() -> void:
@@ -71,6 +72,11 @@ func restore_action() -> void:
 	conversation_notice = "Companion restored." if error.is_empty() else error
 	refresh_snapshot()
 
+func repair_action() -> void:
+	var error: String = port.repair_island_foothold()
+	save_notice = "Workshop repairs started." if error.is_empty() else error
+	refresh_snapshot()
+
 func refresh_foothold_controls() -> void:
 	var treasury := int(snapshot.get("salvage", 0))
 	var michael_alive: bool = snapshot.actors.any(func(entry): return entry.id == MICHAEL)
@@ -89,6 +95,16 @@ func refresh_foothold_controls() -> void:
 			selected_owned_undead = entry.get("faction", "") == "faction.michael" and entry.get("undead", false)
 	restore_button.visible = selected_owned_undead
 	restore_button.disabled = not michael_alive or not snapshot.has("restoration_cost") or treasury < int(snapshot.get("restoration_cost", 0))
+
+	repair_button.visible = false
+	for building in snapshot.buildings:
+		if building.faction != "faction.michael":
+			continue
+		repair_button.visible = true
+		var repairing := int(building.get("repair_remaining", 0)) > 0
+		repair_button.text = "Repairing workshop" if repairing else "Repair workshop · %d salvage" % int(snapshot.get("workshop_repair_cost", 0))
+		repair_button.disabled = repairing or not michael_alive or not building.operational or int(building.get("development_remaining", 0)) > 0 or int(building.health) >= int(building.max_health) or not snapshot.has("workshop_repair_cost") or treasury < int(snapshot.get("workshop_repair_cost", 0))
+		repair_button.tooltip_text = "Keep Michael beside the workshop while he repairs it."
 
 func clear_hit_effects() -> void:
 	for effect in hit_effects:
@@ -264,7 +280,7 @@ func _ready() -> void:
 	overview_button.pressed.connect(show_island)
 	var foothold_actions := HFlowContainer.new()
 	stack.add_child(foothold_actions)
-	for button in [salvage_button, workshop_button, restore_button]:
+	for button in [salvage_button, workshop_button, repair_button, restore_button]:
 		button.custom_minimum_size = Vector2(110, 32)
 		button.mouse_filter = Control.MOUSE_FILTER_STOP
 		foothold_actions.add_child(button)
@@ -274,6 +290,7 @@ func _ready() -> void:
 	salvage_button.pressed.connect(salvage_action)
 	workshop_button.pressed.connect(workshop_action)
 	restore_button.pressed.connect(restore_action)
+	repair_button.pressed.connect(repair_action)
 	salvage_marker.texture = ImageTexture.create_from_image(Image.load_from_file("res://assets/island/salvage_bale.png"))
 	salvage_marker.centered = false
 	salvage_marker.offset = -Vector2(252, 304)
@@ -496,8 +513,12 @@ func refresh_snapshot() -> void:
 		activity.scale = Vector2.ONE / structure.scale.x
 		activity.position = Vector2(-20, -float(art.pivot[1]) * structure.scale.x - 6) / structure.scale.x
 		var construction := int(building.get("construction_remaining", 0))
+		var repair := int(building.get("repair_remaining", 0))
 		var work_remaining := construction if construction > 0 else int(building.development_remaining)
 		var total_work := int(building.get("construction_ticks", construction)) if construction > 0 else int(building.development_ticks)
+		if repair > 0:
+			work_remaining = repair
+			total_work = int(building.get("repair_ticks", repair))
 		activity.max_value = maxi(total_work, 1)
 		activity.value = total_work - work_remaining
 		# Nearby work is observable, not an enemy economy dashboard.
@@ -506,6 +527,8 @@ func refresh_snapshot() -> void:
 		activity_label.scale = Vector2.ONE / structure.scale.x
 		activity_label.position = activity.position + Vector2(-14, -17) / structure.scale.x
 		activity_label.text = "Construction" if construction > 0 else "Development"
+		if repair > 0:
+			activity_label.text = "Repairs"
 		activity_label.visible = activity.visible
 	for id in building_sprites.keys():
 		if not visible_buildings.has(id):

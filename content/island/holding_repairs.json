@@ -1,0 +1,8 @@
+{
+  "site_archetype.colonial.watch_fort":{"costs":{"resource.provisions":1,"resource.iron":2},"ticks":16,"health_gain":16,"emergency_health_percent":50},
+  "site_archetype.pirates.tide_quay":{"costs":{"resource.provisions":1,"resource.coin":2},"ticks":12,"health_gain":12,"emergency_health_percent":50},
+  "site_archetype.eastern_fox_people.river_market":{"costs":{"resource.rice":1,"resource.silk":2},"ticks":12,"health_gain":10,"emergency_health_percent":50},
+  "site_archetype.elven.heart_grove":{"costs":{"resource.living_wood":2,"resource.memory":1},"ticks":16,"health_gain":8,"emergency_health_percent":50},
+  "site_archetype.cthulhu.drowned_shrine":{"costs":{"resource.ritual_control":2,"resource.dreams":1},"ticks":12,"health_gain":12,"emergency_health_percent":50},
+  "site_archetype.michael.field_workshop":{"costs":{"resource.salvage":2},"ticks":12,"health_gain":16,"emergency_health_percent":50}
+}

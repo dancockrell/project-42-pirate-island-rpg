@@ -198,6 +198,8 @@ impl Project42SimulationBridge {
                         "development_ticks" => building.development.as_ref().map_or(0, |order| order.rule.ticks),
                         "construction_remaining" => building.construction.as_ref().map_or(0, |order| order.remaining_ticks),
                         "construction_ticks" => world.building_construction_ticks(building),
+                        "repair_remaining" => building.repair.as_ref().map_or(0, |order| order.remaining_ticks),
+                        "repair_ticks" => world.building_repair_ticks(building),
                             "queued" => building.production_queue.len() as i64
                         }
                         .to_variant(),
@@ -228,6 +230,7 @@ impl Project42SimulationBridge {
             vdict! { "x" => c.position.x, "y" => c.position.y, "remaining" => c.remaining }
         }).unwrap_or_default();
         let mut snapshot = vdict! { "tick" => world.tick as i64, "day" => world.day() as i64, "minute_of_day" => world.minute_of_day(), "paused" => world.paused, "actors" => &actors, "buildings" => &buildings, "land" => &land, "casualties" => world.casualties.len() as i64, "party" => &party, "party_names" => &party_names, "approach_target" => world.approach_target.as_deref().unwrap_or(""), "salvage" => salvage, "foothold_cache" => &cache };
+        snapshot.set("workshop_repair_cost", world.foothold_repair_cost());
         match world.foothold_costs() {
             Ok((build, restore, ticks)) => {
                 snapshot.set("workshop_cost", build);
@@ -250,6 +253,13 @@ impl Project42SimulationBridge {
     fn build_island_foothold(&mut self, target: Vector2i) -> GString {
         self.island.as_mut().ok_or_else(|| "Island is unavailable.".to_owned())
             .and_then(|world| world.build_foothold(IslandPoint { x: target.x, y: target.y }))
+            .err().unwrap_or_default().as_str().into()
+    }
+
+    #[func]
+    fn repair_island_foothold(&mut self) -> GString {
+        self.island.as_mut().ok_or_else(|| "Island is unavailable.".to_owned())
+            .and_then(|world| world.repair_foothold())
             .err().unwrap_or_default().as_str().into()
     }
 

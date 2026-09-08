@@ -55,6 +55,9 @@ func build_island_foothold(target: Vector2i) -> String:
 func restore_island_foothold_person(actor_id: String) -> String:
 	return bridge.restore_island_foothold_person(actor_id) if is_available() else "The island is unavailable."
 
+func repair_island_foothold() -> String:
+	return bridge.repair_island_foothold() if is_available() else "The island is unavailable."
+
 func talk_island_person(actor_id: String) -> String:
 	return bridge.talk_island_person(actor_id) if is_available() else ""
 

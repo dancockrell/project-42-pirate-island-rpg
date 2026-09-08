@@ -371,7 +371,9 @@ pub struct ProductionOrder {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FactionBuilding {
     #[serde(default)]
-    pub construction: Option<BuildingConstruction>,
+    pub construction: Option<BuildingWork>,
+    #[serde(default)]
+    pub repair: Option<BuildingWork>,
     #[serde(default = "starting_building_level")]
     pub level: u32,
     #[serde(default = "default_building_health")]
@@ -391,10 +393,28 @@ pub struct FactionBuilding {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BuildingConstruction {
+pub struct BuildingWork {
     pub builder_id: String,
     pub remaining_ticks: u32,
     pub reserved_costs: BTreeMap<String, u32>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct HoldingRepairRule {
+    costs: BTreeMap<String, u32>,
+    ticks: u32,
+    health_gain: u32,
+    emergency_health_percent: u32,
+}
+
+fn holding_repair_rules() -> &'static BTreeMap<String, HoldingRepairRule> {
+    static RULES: std::sync::OnceLock<BTreeMap<String, HoldingRepairRule>> =
+        std::sync::OnceLock::new();
+    RULES.get_or_init(|| {
+        serde_json::from_str(include_str!("../../content/island/holding_repairs.json"))
+            .expect("authored holding repair rules")
+    })
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1253,6 +1273,245 @@ impl FactionWorld {
         }
     }
 
+    pub fn building_repair_ticks(&self, building: &FactionBuilding) -> u32 {
+        holding_repair_rules()
+            .get(&building.archetype_id)
+            .map(|r| r.ticks)
+            .unwrap_or(0)
+    }
+
+    fn building_work_ready(&self, building: &FactionBuilding, job: &BuildingWork) -> bool {
+        self.actors
+            .get(&job.builder_id)
+            .is_some_and(|a| a.faction_id == building.faction_id)
+            && self
+                .navigation
+                .destinations
+                .get(&building.node_id)
+                .is_some_and(|p| self.within_work_range(&job.builder_id, *p))
+    }
+
+    fn assigned_to_other_work(&self, actor_id: &str, action: &str) -> bool {
+        self.actors
+            .get(actor_id)
+            .and_then(|a| a.current_assignment_id.as_deref())
+            .is_some_and(|a| {
+                a != action && (a.starts_with("repair.") || a.starts_with("construct."))
+            })
+            || self
+                .factions
+                .values()
+                .flat_map(|f| f.buildings.values())
+                .any(|b| {
+                    [
+                        ("repair", b.repair.as_ref()),
+                        ("construct", b.construction.as_ref()),
+                    ]
+                    .into_iter()
+                    .any(|(kind, job)| {
+                        job.is_some_and(|j| {
+                            j.builder_id == actor_id && format!("{kind}.{}", b.id) != action
+                        })
+                    })
+                })
+    }
+
+    fn actively_repairing(&self, id: &str) -> bool {
+        self.factions
+            .values()
+            .flat_map(|f| f.buildings.values())
+            .any(|b| {
+                b.repair
+                    .as_ref()
+                    .is_some_and(|j| j.builder_id == id && self.building_work_ready(b, j))
+            })
+    }
+
+    fn begin_holding_repair(
+        &mut self,
+        faction_id: &str,
+        building_id: &str,
+        builder: &str,
+    ) -> Result<(), String> {
+        let building = self
+            .factions
+            .get(faction_id)
+            .and_then(|f| f.buildings.get(building_id))
+            .ok_or("No holding to repair.")?;
+        let rule = holding_repair_rules()
+            .get(&building.archetype_id)
+            .ok_or("This holding cannot be repaired.")?;
+        if building.repair.is_some() {
+            return Err("Repairs are already underway.".into());
+        }
+        if !building.operational
+            || building.construction.is_some()
+            || building.development.is_some()
+        {
+            return Err("Finish the building work first.".into());
+        }
+        if building.health >= building.max_health {
+            return Err("The holding is undamaged.".into());
+        }
+        let action = format!("repair.{building_id}");
+        let job = BuildingWork {
+            builder_id: builder.into(),
+            remaining_ticks: rule.ticks,
+            reserved_costs: rule.costs.clone(),
+        };
+        if !self.building_work_ready(building, &job)
+            || self.assigned_to_other_work(builder, &action)
+        {
+            return Err("A free builder must be beside the holding.".into());
+        }
+        let faction = self.factions.get_mut(faction_id).unwrap();
+        if rule
+            .costs
+            .iter()
+            .any(|(r, c)| faction.resources.get(r).copied().unwrap_or(0) < *c)
+        {
+            return Err("Not enough repair materials.".into());
+        }
+        for (resource, cost) in &rule.costs {
+            *faction.resources.get_mut(resource).unwrap() -= cost;
+        }
+        faction.buildings.get_mut(building_id).unwrap().repair = Some(job);
+        self.cancel_actor_travel(builder);
+        self.actors.get_mut(builder).unwrap().current_assignment_id = Some(action);
+        Ok(())
+    }
+
+    pub fn repair_foothold(&mut self) -> Result<(), String> {
+        self.begin_holding_repair(
+            "faction.michael",
+            "site.michael.field_workshop",
+            "character.protagonist.captain",
+        )
+    }
+
+    pub fn foothold_repair_cost(&self) -> u32 {
+        holding_repair_rules()
+            .get("site_archetype.michael.field_workshop")
+            .and_then(|r| r.costs.get("resource.salvage"))
+            .copied()
+            .unwrap_or(0)
+    }
+
+    fn advance_holding_repairs(&mut self) {
+        let sites: Vec<_> = self
+            .factions
+            .values()
+            .filter(|f| self.policies.contains_key(&f.id))
+            .flat_map(|f| f.buildings.values())
+            .map(|b| (b.faction_id.clone(), b.id.clone()))
+            .collect();
+        for (faction_id, building_id) in sites {
+            let building = &self.factions[&faction_id].buildings[&building_id];
+            let action = format!("repair.{building_id}");
+            let Some(rule) = holding_repair_rules().get(&building.archetype_id) else {
+                continue;
+            };
+            if building.development.is_some()
+                && u64::from(building.health) * 100
+                    < u64::from(building.max_health) * u64::from(rule.emergency_health_percent)
+            {
+                // Abandon the upgrade, not concurrent work: reserved materials
+                // are lost and its unfinished level/capacity gain is never paid.
+                self.factions
+                    .get_mut(&faction_id)
+                    .unwrap()
+                    .buildings
+                    .get_mut(&building_id)
+                    .unwrap()
+                    .development = None;
+            }
+            let building = &self.factions[&faction_id].buildings[&building_id];
+            if !building.operational
+                || building.construction.is_some()
+                || building.development.is_some()
+                || building.health == building.max_health
+                || (building.repair.is_none()
+                    && rule.costs.iter().any(|(r, c)| {
+                        self.factions[&faction_id]
+                            .resources
+                            .get(r)
+                            .copied()
+                            .unwrap_or(0)
+                            < *c
+                    }))
+            {
+                self.release_construction_assignment(&faction_id, &action);
+                continue;
+            }
+            let Some(entrance) = self.navigation.destinations.get(&building.node_id).copied()
+            else {
+                continue;
+            };
+            let node = building.node_id.clone();
+            let incumbent = building.repair.as_ref().map(|j| j.builder_id.as_str());
+            let mut candidates: Vec<_> = self
+                .actors
+                .iter()
+                .filter_map(|(id, a)| {
+                    if a.faction_id != faction_id
+                        || !matches!(a.actor_kind.as_str(), "worker" | "soldier")
+                        || !self.living_actor(id)
+                        || self.assigned_to_other_work(id, &action)
+                    {
+                        return None;
+                    }
+                    let path = self.navigation.path(self.positions[id], entrance)?;
+                    Some((
+                        !(incumbent == Some(id.as_str())
+                            || a.current_assignment_id.as_deref() == Some(&action)),
+                        path.len(),
+                        id.clone(),
+                    ))
+                })
+                .collect();
+            candidates.sort();
+            let Some((_, _, builder)) = candidates.into_iter().next() else {
+                self.release_construction_assignment(&faction_id, &action);
+                continue;
+            };
+            // Cancel a displaced builder's order before assigning its replacement.
+            self.release_construction_assignment(&faction_id, &action);
+            if let Some(job) = self
+                .factions
+                .get_mut(&faction_id)
+                .unwrap()
+                .buildings
+                .get_mut(&building_id)
+                .unwrap()
+                .repair
+                .as_mut()
+            {
+                job.builder_id = builder.clone();
+            }
+            if self.within_work_range(&builder, entrance) {
+                self.actors.get_mut(&builder).unwrap().current_assignment_id = Some(action.clone());
+                if self.factions[&faction_id].buildings[&building_id]
+                    .repair
+                    .is_none()
+                    && self
+                        .begin_holding_repair(&faction_id, &building_id, &builder)
+                        .is_err()
+                {
+                    self.release_construction_assignment(&faction_id, &action);
+                }
+            } else {
+                let order = DispatchCandidate {
+                    action_id: action,
+                    assignment: "repair".into(),
+                    target_node_id: node,
+                    score: DispatchScore::default(),
+                    wobble: 0,
+                };
+                let _ = self.dispatch_actor(&builder, &[order]);
+            }
+        }
+    }
+
     fn release_construction_assignment(&mut self, faction: &str, action: &str) {
         for actor in self.actors.values_mut().filter(|a| {
             a.faction_id == faction && a.current_assignment_id.as_deref() == Some(action)
@@ -1321,6 +1580,7 @@ impl FactionWorld {
             .filter_map(|(id, a)| {
                 if a.faction_id != rule.faction_id
                     || a.actor_kind != "soldier"
+                    || self.assigned_to_other_work(id, &action)
                     || !self.living_actor(id)
                 {
                     return None;
@@ -1393,7 +1653,8 @@ impl FactionWorld {
                 queue_capacity: 1,
                 production_queue: Vec::new(),
                 development: None,
-                construction: Some(BuildingConstruction {
+                repair: None,
+                construction: Some(BuildingWork {
                     builder_id: builder,
                     remaining_ticks: rule.construction_ticks,
                     reserved_costs: rule.costs.clone(),
@@ -1501,7 +1762,8 @@ impl FactionWorld {
         }
         self.begin_building_construction(
             FactionBuilding {
-                construction: Some(BuildingConstruction {
+                repair: None,
+                construction: Some(BuildingWork {
                     builder_id: CAPTAIN.into(),
                     remaining_ticks: config.construction_ticks,
                     reserved_costs: [("resource.salvage".into(), config.build_salvage)]
@@ -1807,6 +2069,9 @@ impl FactionWorld {
     }
 
     fn island_firing_target(&self, id: &str) -> Option<&String> {
+        if self.actively_repairing(id) {
+            return None;
+        }
         let actor = self.actors.get(id)?;
         let state = self.unit_combat.get(id)?;
         if state.health == 0 {
@@ -1848,6 +2113,9 @@ impl FactionWorld {
     }
 
     fn island_siege_target(&self, id: &str) -> Option<(String, String, IslandPoint)> {
+        if self.actively_repairing(id) {
+            return None;
+        }
         let actor = self.actors.get(id)?;
         let origin = *self.positions.get(id)?;
         let profile = self.combat_profiles.get(&actor.definition_id)?;
@@ -2029,12 +2297,15 @@ impl FactionWorld {
                 .fold(0u32, u32::saturating_add);
             faction.population_used = faction.population_used.saturating_sub(reserved);
             faction.buildings.remove(&building_id);
+            let no_holdings = faction.buildings.is_empty();
+            self.release_construction_assignment(&faction_id, &format!("repair.{building_id}"));
+            self.release_construction_assignment(&faction_id, &format!("construct.{building_id}"));
             self.navigation.building_obstacles.remove(&building_id);
             if let Some(policy) = self.policies.get_mut(&faction_id) {
                 policy.production.remove(&building_id);
                 policy.development.remove(&building_id);
             }
-            if faction.buildings.is_empty()
+            if no_holdings
                 && !(faction_id == "faction.michael"
                     && self.living_actor("character.protagonist.captain"))
             {
@@ -2138,6 +2409,7 @@ impl FactionWorld {
                 .insert(spawn_id.clone(), spawn);
             let building = FactionBuilding {
                 construction: None,
+                repair: None,
                 level: tuning.holding_level,
                 max_health: tuning.holding_health,
                 development: None,
@@ -2439,6 +2711,7 @@ impl FactionWorld {
     fn advance_faction_decisions(&mut self) -> Vec<FactionWorldEvent> {
         let mut events = Vec::new();
         self.advance_diplomacy();
+        self.advance_holding_repairs();
         self.advance_holding_expansion();
         for (id, policy) in self.policies.clone() {
             if self.eliminated_factions.contains(&id) {
@@ -2488,6 +2761,7 @@ impl FactionWorld {
                     if !building.operational
                         || building.health != building.max_health
                         || building.level >= rule.max_level
+                        || building.repair.is_some()
                         || building.development.is_some()
                         || !building.production_queue.is_empty()
                     {
@@ -2555,10 +2829,9 @@ impl FactionWorld {
                     .iter()
                     .filter_map(|(actor_id, actor)| {
                         if actor.faction_id != id
-                            || actor
-                                .current_assignment_id
-                                .as_deref()
-                                .is_some_and(|a| a.starts_with("construct."))
+                            || actor.current_assignment_id.as_deref().is_some_and(|a| {
+                                a.starts_with("construct.") || a.starts_with("repair.")
+                            })
                             || !self.living_actor(actor_id)
                             || !self
                                 .combat_profiles
@@ -2605,10 +2878,9 @@ impl FactionWorld {
                     .values()
                     .filter(|actor| {
                         actor.faction_id == id
-                            && !actor
-                                .current_assignment_id
-                                .as_deref()
-                                .is_some_and(|a| a.starts_with("construct."))
+                            && !actor.current_assignment_id.as_deref().is_some_and(|a| {
+                                a.starts_with("construct.") || a.starts_with("repair.")
+                            })
                             && self
                                 .unit_combat
                                 .get(&actor.instance_id)
@@ -2809,6 +3081,7 @@ impl FactionWorld {
         if needs_obstacles {
             world.navigation.building_obstacles = world.authored_building_obstacles()?;
         }
+        let mut working_builders = BTreeSet::new();
         for (id, faction) in &world.factions {
             if id != &faction.id
                 || faction.population_used > faction.population_capacity
@@ -2821,6 +3094,33 @@ impl FactionWorld {
                 return Err("invalid_saved_faction".into());
             }
             for (building_id, building) in &faction.buildings {
+                for job in building.construction.iter().chain(building.repair.iter()) {
+                    if !working_builders.insert(job.builder_id.clone()) {
+                        return Err("builder_has_multiple_jobs".into());
+                    }
+                }
+                if let Some(job) = &building.repair {
+                    let valid = holding_repair_rules()
+                        .get(&building.archetype_id)
+                        .is_some_and(|r| {
+                            (1..=100000).contains(&r.ticks)
+                                && (1..=100000).contains(&r.health_gain)
+                                && !r.costs.is_empty()
+                                && r.costs.values().all(|v| (1..=100000).contains(v))
+                                && job.remaining_ticks > 0
+                                && job.remaining_ticks <= r.ticks
+                                && job.reserved_costs == r.costs
+                        });
+                    if !valid
+                        || !building.operational
+                        || building.construction.is_some()
+                        || building.development.is_some()
+                        || (!world.actors.contains_key(&job.builder_id)
+                            && !world.casualties.contains_key(&job.builder_id))
+                    {
+                        return Err("invalid_saved_repair".into());
+                    }
+                }
                 if let Some(job) = &building.construction {
                     let workshop = faction.id == "faction.michael"
                         && building.archetype_id == "site_archetype.michael.field_workshop"
@@ -3717,22 +4017,43 @@ impl FactionWorld {
             .values()
             .flat_map(|f| f.buildings.values())
             .filter(|b| {
-                b.construction.as_ref().is_some_and(|job| {
-                    self.actors
-                        .get(&job.builder_id)
-                        .is_some_and(|a| a.faction_id == b.faction_id)
-                        && self
-                            .navigation
-                            .destinations
-                            .get(&b.node_id)
-                            .is_some_and(|p| self.within_work_range(&job.builder_id, *p))
-                })
+                b.construction
+                    .as_ref()
+                    .is_some_and(|job| self.building_work_ready(b, job))
             })
             .map(|b| b.id.clone())
             .collect();
+        let repair_ready: BTreeSet<String> = self
+            .factions
+            .values()
+            .flat_map(|f| f.buildings.values())
+            .filter(|b| {
+                b.repair
+                    .as_ref()
+                    .is_some_and(|job| self.building_work_ready(b, job))
+            })
+            .map(|b| b.id.clone())
+            .collect();
+        let mut work_finished = Vec::new();
         let mut completed = Vec::new();
         for faction in self.factions.values_mut() {
             for building in faction.buildings.values_mut() {
+                if let Some(job) = &mut building.repair {
+                    if repair_ready.contains(&building.id) {
+                        job.remaining_ticks = job.remaining_ticks.saturating_sub(1);
+                        if job.remaining_ticks == 0 {
+                            if let Some(rule) = holding_repair_rules().get(&building.archetype_id) {
+                                building.health = building
+                                    .health
+                                    .saturating_add(rule.health_gain)
+                                    .min(building.max_health);
+                            }
+                            building.repair = None;
+                            work_finished
+                                .push((faction.id.clone(), format!("repair.{}", building.id)));
+                        }
+                    }
+                }
                 if let Some(job) = &mut building.construction {
                     if construction_ready.contains(&building.id) {
                         job.remaining_ticks = job.remaining_ticks.saturating_sub(1);
@@ -3781,6 +4102,9 @@ impl FactionWorld {
             }
         }
 
+        for (faction, action) in work_finished {
+            self.release_construction_assignment(&faction, &action);
+        }
         completed.sort_by(|left, right| left.4.id.cmp(&right.4.id));
         let mut events = Vec::with_capacity(completed.len());
         for (faction_id, building_id, node_id, rally_point_id, order) in completed {
@@ -3918,9 +4242,14 @@ impl FactionWorld {
             .iter()
             .filter(|(id, actor)| {
                 self.policies.contains_key(&actor.faction_id)
+                    // A recalled repairer must leave the firing line and reach
+                    // its holding. Combat hold must not cancel that work order.
+                    && !actor.current_assignment_id.as_deref().is_some_and(|a| a.starts_with("repair."))
                     && (self.island_firing_target(id).is_some()
                         || (!actor.current_assignment_id.as_deref().is_some_and(|a| {
-                            a.starts_with("defend.") || a.starts_with("construct.")
+                            a.starts_with("defend.")
+                                || a.starts_with("construct.")
+                                || a.starts_with("repair.")
                         }) && self.island_siege_target(id).is_some()))
             })
             .map(|(id, _)| id.clone())
@@ -4101,6 +4430,7 @@ mod tests {
     fn production_world() -> FactionWorld {
         let building = FactionBuilding {
             construction: None,
+            repair: None,
             level: 1,
             max_health: default_building_health(),
             development: None,
@@ -5841,6 +6171,134 @@ mod tests {
             }
         }
         (world, ids)
+    }
+
+    #[test]
+    fn holding_repairs_use_paid_local_units_and_reassign_without_repaying() {
+        let (mut world, _) = recruitment_fixture();
+        let pirates = "faction.pirates.prototype";
+        let faction = world.factions.get_mut(pirates).unwrap();
+        faction.resources.insert("resource.provisions".into(), 10);
+        faction.resources.insert("resource.coin".into(), 10);
+        let building = faction.buildings.values_mut().next().unwrap();
+        building.operational = true;
+        building.health = 20;
+        // These resources are the treasury AFTER the upgrade reservation.
+        let development: BTreeMap<String, BuildingDevelopmentRule> = serde_json::from_str(
+            include_str!("../../content/island/holding_development.json"),
+        )
+        .unwrap();
+        let upgrade = development[&building.archetype_id].clone();
+        building.development = Some(BuildingDevelopment {
+            remaining_ticks: upgrade.ticks,
+            reserved_costs: upgrade.costs.clone(),
+            rule: upgrade,
+        });
+        let site = building.id.clone();
+        world
+            .policies
+            .insert(pirates.into(), FactionPolicy::default());
+        for _ in 0..100 {
+            world.advance_island_tick();
+            if world.factions[pirates].buildings[&site].repair.is_some() {
+                break;
+            }
+        }
+        let building = &world.factions[pirates].buildings[&site];
+        let job = building
+            .repair
+            .clone()
+            .expect("actual unit reached the quay and started work");
+        assert!(building.operational);
+        assert!(building.development.is_none());
+        assert_eq!(building.level, 1);
+        assert_eq!(building.max_health, 80);
+        assert_eq!(world.factions[pirates].population_capacity, 20);
+        assert_eq!(world.factions[pirates].resources["resource.coin"], 8);
+        assert!(world.actively_repairing(&job.builder_id));
+        assert!(world.island_firing_target(&job.builder_id).is_none());
+        let mut resumed = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        resumed.paused = true;
+        let paused = resumed.clone();
+        resumed.advance_island_tick();
+        assert_eq!(resumed, paused);
+        // Losing the actual worker stops its paid job; a replacement inherits it.
+        assert!(world.transfer_living_actor(&job.builder_id, "faction.michael"));
+        world.advance_production_tick();
+        assert_eq!(
+            world.factions[pirates].buildings[&site]
+                .repair
+                .as_ref()
+                .unwrap()
+                .remaining_ticks,
+            job.remaining_ticks
+        );
+        for _ in 0..100 {
+            world.advance_island_tick();
+            if world.factions[pirates].buildings[&site].health > 20 {
+                break;
+            }
+        }
+        assert_eq!(world.factions[pirates].buildings[&site].health, 32);
+        assert!(world.factions[pirates].buildings[&site].repair.is_none());
+        assert_eq!(world.factions[pirates].resources["resource.coin"], 8);
+        FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn holding_repairs_michael_workshop_stops_when_away_and_caps_healing() {
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        world.policies.clear();
+        let captain = "character.protagonist.captain";
+        let faction = "faction.michael";
+        let site = "site.michael.field_workshop";
+        let entrance = IslandPoint { x: 19, y: 17 };
+        world.positions.insert(
+            captain.into(),
+            world.foothold_cache.as_ref().unwrap().position,
+        );
+        world.salvage_foothold().unwrap();
+        world.positions.insert(captain.into(), entrance);
+        world.build_foothold(entrance).unwrap();
+        for _ in 0..40 {
+            world.advance_island_tick();
+        }
+        world
+            .factions
+            .get_mut(faction)
+            .unwrap()
+            .buildings
+            .get_mut(site)
+            .unwrap()
+            .health = 75;
+        world.repair_foothold().unwrap();
+        assert_eq!(world.foothold_repair_cost(), 2);
+        assert_eq!(world.factions[faction].resources["resource.salvage"], 6);
+        assert!(world.repair_foothold().is_err());
+        world
+            .positions
+            .insert(captain.into(), IslandPoint { x: 20, y: 20 });
+        for _ in 0..20 {
+            world.advance_island_tick();
+        }
+        assert_eq!(
+            world.factions[faction].buildings[site]
+                .repair
+                .as_ref()
+                .unwrap()
+                .remaining_ticks,
+            12
+        );
+        world = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        world.positions.insert(captain.into(), entrance);
+        for _ in 0..12 {
+            world.advance_island_tick();
+        }
+        assert_eq!(world.factions[faction].buildings[site].health, 80);
+        assert!(world.factions[faction].buildings[site].repair.is_none());
+        assert!(world.repair_foothold().is_err());
+        FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
     }
 
     #[test]

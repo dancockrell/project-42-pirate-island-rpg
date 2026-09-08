@@ -509,6 +509,38 @@ remain shared; the original thin-bow candidate is not the runtime selection.
 
 ## Michael's first foothold
 
+### Holding maintenance
+
+Damaged completed holdings can now receive paid repairs by one existing nearby
+unit. Faction AI recalls a worker or soldier; this is not a new repair-unit type
+or free regeneration. Travel to the job takes place on the same island paths.
+At the site the faction reserves materials once, then work advances only with
+its living, same-owner builder nearby. The repairer cannot fire or siege while
+working, but can be attacked. A lost or converted builder stops work; a real
+replacement can finish the paid job. Normal pause and save preserve progress.
+
+Construction, upgrades and repairs do not run together. AI abandons an unfinished
+upgrade below half building health to prioritize repairs, forfeiting its spent
+materials without receiving the upgrade. Repairs leave ordinary production
+operational. Destruction loses the job; there is no resurrection of a holding.
+Costs, durations, healing and emergency thresholds are provisional authored
+rules in `content/island/holding_repairs.json`.
+
+Michael has an explicit **Repair workshop** command, costing two salvage for
+twelve nearby work ticks and up to sixteen health. Leaving pauses the job;
+returning resumes it. The AI never commandeers him or his party. A nearby
+building's existing activity display reads **Repairs** during the job, rather
+than exposing the enemy economy in another panel.
+
+Actual no-input island observation (600 ticks, headless): the shrine began
+repairs at tick 47 with 32 health and reached 80 at tick 107; the colonial
+original fort began at tick 115 with 8 health and recovered to 80 at tick 194.
+At tick 600 every AI faction retained a holding and the colonials retained two.
+Elves and pirates had zero living population at that snapshot. This demonstrates
+paid recovery in the actual map, not final campaign balance or rendered UI
+approval. The first run without emergency upgrade abandonment produced no
+repair jobs; that failure led to the strategic correction above.
+
 Michael still starts alone with no base or treasury. A saved, finite wreck cache
 at cell [20,19] contains 20 salvage. Recovering it requires nearby Michael and
 clear access; repeating the action cannot refill it. The tied bale is shared 2D

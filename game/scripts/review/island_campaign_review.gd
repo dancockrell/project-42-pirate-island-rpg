@@ -19,6 +19,7 @@ func run() -> void:
 	var previous := ""
 	var previous_wars := ""
 	var seen_conversions := {}
+	var seen_repairs := {}
 	var steps := 600
 	var demonstrate_talk := false
 	var reclaim_converted := false
@@ -69,6 +70,13 @@ func run() -> void:
 				scene.set_paused(false)
 		var holdings: Array = []
 		for building in state.buildings:
+			var remaining := int(building.get("repair_remaining", 0))
+			if remaining > 0 and not seen_repairs.has(building.id):
+				seen_repairs[building.id] = true
+				print("ISLAND repair started step=", step, " holding=", building.id, " health=", building.health, " remaining=", remaining)
+			elif remaining == 0 and seen_repairs.has(building.id):
+				seen_repairs.erase(building.id)
+				print("ISLAND repair finished step=", step, " holding=", building.id, " health=", building.health)
 			if building.faction == "faction.colonial_powers.prototype":
 				holdings.append({"id":building.id, "x":building.x, "y":building.y,
 					"operational":building.operational, "level":building.level,
@@ -79,6 +87,8 @@ func run() -> void:
 			var pressure := 0
 			for person in early.world.actors.values():
 				pressure = maxi(pressure, int(person.get("madness",0)))
+				if str(person.get("current_assignment_id", "")).begins_with("repair."):
+					print("ISLAND repair duty step=", step, " actor=", person.instance_id, " position=", early.world.positions.get(person.instance_id), " order=", early.world.travel_orders.get(person.instance_id))
 			var shrine_health := 0
 			for building in early.world.factions.get("faction.cthulhu.prototype",{}).get("buildings",{}).values():
 				shrine_health += int(building.health)
