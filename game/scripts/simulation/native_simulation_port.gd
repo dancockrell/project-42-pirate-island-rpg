@@ -49,6 +49,12 @@ func party_move_failure(target: Vector2i) -> String:
 func talk_island_person(actor_id: String) -> String:
 	return bridge.talk_island_person(actor_id) if is_available() else ""
 
+func approach_island_person(actor_id: String) -> bool:
+	return is_available() and bridge.approach_island_person(actor_id)
+
+func can_talk_island_person(actor_id: String) -> bool:
+	return is_available() and bridge.can_talk_island_person(actor_id)
+
 func recruit_island_person(actor_id: String) -> bool:
 	return is_available() and bridge.recruit_island_person(actor_id)
 

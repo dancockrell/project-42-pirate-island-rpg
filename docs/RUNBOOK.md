@@ -17,7 +17,13 @@ The **Michael** button (Home) centers on him at the current zoom; **Island**
 These controls remain available while paused and never issue movement orders.
 Camera framing is local presentation state, not part of the campaign save.
 
-Shift-click a pirate woman to inspect her. Bring Michael close, Talk, then use
+Shift-click a pirate woman to inspect her. **Approach** walks Michael and his
+active party into talking range, following her movement along reachable land.
+This order can be queued while paused and survives saving/loading. Click land
+to choose another destination, or aim the carbine, to cancel the approach.
+She keeps participating in her faction's war during the approach. On arrival,
+the game pauses normally so she does not walk away before you can respond.
+It does not automatically talk or recruit for you. Once Michael is close, Talk, then use
 Join faction for the current authored offer. Choose an explicit companion slot;
 joining the faction does not automatically fill one. Land clicks then move
 Michael and living active companions through the same navigation system.

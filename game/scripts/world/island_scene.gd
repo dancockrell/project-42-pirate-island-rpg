@@ -22,6 +22,7 @@ var camera_dragging := false
 var inspection := Label.new()
 var conversation_actions := HBoxContainer.new()
 var talk_button := Button.new()
+var approach_button := Button.new()
 var recruit_button := Button.new()
 var conversation_notice := ""
 var conversation_status := Label.new()
@@ -214,11 +215,14 @@ func _ready() -> void:
 	inspection.visible = false
 	stack.add_child(inspection)
 	stack.add_child(conversation_actions)
-	for button in [talk_button, recruit_button]:
+	for button in [approach_button, talk_button, recruit_button]:
 		button.custom_minimum_size = Vector2(120,36)
 		button.mouse_filter = Control.MOUSE_FILTER_STOP
 		conversation_actions.add_child(button)
 	talk_button.text = "Talk"
+	approach_button.text = "Approach"
+	approach_button.tooltip_text = "Walk into talking range. Click land to cancel and travel elsewhere."
+	approach_button.pressed.connect(approach_action)
 	recruit_button.text = "Join faction"
 	talk_button.pressed.connect(talk_action)
 	recruit_button.pressed.connect(recruit_action)
@@ -340,9 +344,18 @@ func set_paused(value: bool) -> void:
 func advance_tick() -> void:
 	if paused:
 		return
+	var approaching_before: String = snapshot.get("approach_target", "")
 	clear_hit_effects()
 	var result: Dictionary = port.tick_island()
 	refresh_snapshot()
+	if not approaching_before.is_empty() and snapshot.get("approach_target", "").is_empty():
+		if port.can_talk_island_person(approaching_before):
+			inspect_actor(approaching_before)
+			conversation_notice = "Within talking range · Paused"
+			set_paused(true)
+		else:
+			conversation_notice = "Approach ended; she is no longer reachable."
+			refresh_inspection()
 	last_strikes = result.get("strikes", [])
 	for strike in last_strikes:
 		var effect := Line2D.new()
@@ -493,6 +506,13 @@ func talk_action() -> void:
 	conversation_notice = "" if not offer.is_empty() else "Move Michael closer, with a clear path between you, to talk."
 	refresh_snapshot()
 
+func approach_action() -> void:
+	conversation_notice = "" if port.approach_island_person(inspected_id) else "No route into talking range."
+	refresh_snapshot()
+	if conversation_notice.is_empty() and port.can_talk_island_person(inspected_id):
+		conversation_notice = "Within talking range · Paused"
+		set_paused(true)
+
 func recruit_action() -> void:
 	conversation_notice = "Joined your faction. Choose a companion slot below." if port.recruit_island_person(inspected_id) else "Could not join. Talk first and keep Michael close enough to speak."
 	refresh_snapshot()
@@ -546,10 +566,18 @@ func refresh_inspection() -> void:
 	var michael_alive: bool = snapshot.actors.any(func(entry): return entry.id == MICHAEL)
 	var potential: bool = michael_alive and live and inspected_person.get("sex", "") == "female" and inspected_person.get("faction", "") != "faction.michael" and not offer.is_empty()
 	talk_button.visible = potential
+	approach_button.visible = potential
+	approach_button.disabled = snapshot.get("approach_target", "") == inspected_id
 	recruit_button.visible = potential and inspected_person.get("discussed", false)
 	conversation_actions.visible = potential
 	conversation_status.text = conversation_notice
-	conversation_status.visible = not conversation_notice.is_empty()
+	var approaching: String = snapshot.get("approach_target", "")
+	if not approaching.is_empty():
+		for entry in snapshot.actors:
+			if entry.id == approaching:
+				conversation_status.text = "Approaching %s%s" % [entry.name, " · Paused" if paused else ""]
+				break
+	conversation_status.visible = not conversation_status.text.is_empty()
 	if not inspection.visible:
 		return
 	var name_text: String = inspected_person.get("name", "Unknown person")

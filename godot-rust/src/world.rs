@@ -444,6 +444,8 @@ pub struct FactionWorld {
     #[serde(default)]
     pub party: [String; 4],
     #[serde(default)]
+    pub approach_target: Option<String>,
+    #[serde(default)]
     pub player_attack_target: Option<String>,
     pub tick: u64,
     pub paused: bool,
@@ -745,6 +747,7 @@ impl FactionWorld {
         {
             return false;
         }
+        self.cancel_approach();
         self.player_attack_target = Some(target.into());
         true
     }
@@ -952,6 +955,9 @@ impl FactionWorld {
                     population_use: state.population_use,
                 },
             );
+            if self.approach_target.as_ref() == Some(&id) || id == "character.protagonist.captain" {
+                self.cancel_approach();
+            }
             events.push(FactionWorldEvent::UnitFallen { actor_id: id });
         }
         for ((faction_id, building_id), amount) in building_damage {
@@ -1260,6 +1266,13 @@ impl FactionWorld {
             self.navigation.destinations.remove(&format!("move.{id}"));
         }
         self.eliminated_factions.insert(faction_id.into());
+        if self
+            .approach_target
+            .as_ref()
+            .is_some_and(|id| !self.can_approach_person(id))
+        {
+            self.cancel_approach();
+        }
         Ok(FactionWorldEvent::FactionEliminated {
             faction_id: faction_id.into(),
         })
@@ -1573,6 +1586,14 @@ impl FactionWorld {
                 return Err("invalid_saved_casualty".into());
             }
         }
+        if world
+            .approach_target
+            .as_ref()
+            .is_some_and(|id| !world.can_approach_person(id))
+            || (world.approach_target.is_some() && world.player_attack_target.is_some())
+        {
+            return Err("invalid_saved_approach".into());
+        }
         let mut seen = BTreeSet::new();
         for id in world.party.iter().filter(|id| !id.is_empty()) {
             if !seen.insert(id) {
@@ -1727,7 +1748,7 @@ impl FactionWorld {
             .filter(|person| person.alive_today)
     }
 
-    fn accessible_recruit(&self, id: &str) -> bool {
+    fn can_approach_person(&self, id: &str) -> bool {
         let captain = "character.protagonist.captain";
         if !self.living_actor(captain) || id == captain {
             return false;
@@ -1741,7 +1762,14 @@ impl FactionWorld {
         {
             return false;
         }
-        let a = self.positions[captain];
+        true
+    }
+
+    fn accessible_recruit(&self, id: &str) -> bool {
+        if !self.can_approach_person(id) {
+            return false;
+        }
+        let a = self.positions["character.protagonist.captain"];
         let b = self.positions[id];
         u64::from(a.x.abs_diff(b.x)) + u64::from(a.y.abs_diff(b.y)) <= 2
             && self.navigation.clear_line(a, b)
@@ -1751,9 +1779,16 @@ impl FactionWorld {
         if !self.accessible_recruit(id) {
             return String::new();
         }
+        if self.approach_target.as_deref() == Some(id) {
+            self.cancel_approach();
+        }
         let person = self.actors.get_mut(id).unwrap().person.as_mut().unwrap();
         person.discussed = true;
         person.recruitment_offer.clone()
+    }
+
+    pub fn can_talk_island_person(&self, id: &str) -> bool {
+        self.accessible_recruit(id)
     }
 
     pub fn recruit_island_person(&mut self, id: &str) -> bool {
@@ -1786,6 +1821,9 @@ impl FactionWorld {
         else {
             return false;
         };
+        if self.approach_target.as_deref() == Some(id) {
+            self.cancel_approach();
+        }
         self.factions.get_mut(&source).unwrap().population_used = source_used;
         let destination = self.factions.get_mut("faction.michael").unwrap();
         destination.population_used = destination_used;
@@ -1821,6 +1859,7 @@ impl FactionWorld {
         {
             return false;
         }
+        self.cancel_approach();
         let previous = std::mem::replace(&mut self.party[slot], id.into());
         if previous != id {
             self.cancel_actor_travel(&previous);
@@ -1836,6 +1875,7 @@ impl FactionWorld {
         {
             return false;
         }
+        self.cancel_approach();
         let id = std::mem::take(&mut self.party[slot]);
         // Remain safely where she is, without an obsolete party travel order.
         self.cancel_actor_travel(&id);
@@ -1905,6 +1945,76 @@ impl FactionWorld {
         self.plan_party_move(target).err().unwrap_or_default()
     }
 
+    fn cancel_approach(&mut self) {
+        if self.approach_target.take().is_none() {
+            return;
+        }
+        self.cancel_actor_travel("character.protagonist.captain");
+        for id in self.party.clone().iter().filter(|id| !id.is_empty()) {
+            self.cancel_actor_travel(id);
+        }
+    }
+
+    /// Only choose a destination; all motion remains in the existing party planner.
+    fn approach_destination(&self, id: &str) -> Option<IslandPoint> {
+        if !self.can_approach_person(id) {
+            return None;
+        }
+        let target = self.positions[id];
+        let start = self.positions["character.protagonist.captain"];
+        let mut candidates: Vec<_> = self
+            .navigation
+            .walkable
+            .iter()
+            .copied()
+            .filter_map(|point| {
+                let distance =
+                    u64::from(point.x.abs_diff(target.x)) + u64::from(point.y.abs_diff(target.y));
+                if distance > 2 || !self.navigation.clear_line(point, target) {
+                    return None;
+                }
+                self.navigation
+                    .path(start, point)
+                    .map(|path| (path.len(), distance, point))
+            })
+            .collect();
+        candidates.sort();
+        candidates
+            .into_iter()
+            .map(|(_, _, point)| point)
+            .find(|point| self.plan_party_move(*point).is_ok())
+    }
+
+    pub fn approach_island_person(&mut self, id: &str) -> bool {
+        let Some(destination) = self.approach_destination(id) else {
+            return false;
+        };
+        if !self.move_island_party(destination) {
+            return false;
+        }
+        // move_island_party cancels any previous explicit control; retain tracking
+        // only after that shared order path has completed its atomic preflight.
+        self.approach_target = Some(id.into());
+        if self.accessible_recruit(id) {
+            self.cancel_approach();
+        }
+        true
+    }
+
+    fn advance_approach(&mut self) {
+        let Some(id) = self.approach_target.clone() else {
+            return;
+        };
+        if self.accessible_recruit(&id) {
+            // Hold the party, but do not finalize arrival before the NPC gets
+            // her own movement step. She may leave range in this same tick.
+            self.cancel_approach();
+            self.approach_target = Some(id);
+        } else if !self.approach_island_person(&id) {
+            self.cancel_approach();
+        }
+    }
+
     pub fn move_island_party(&mut self, target: IslandPoint) -> bool {
         let Ok(orders) = self.plan_party_move(target) else {
             return false;
@@ -1937,7 +2047,10 @@ impl FactionWorld {
             return Err(FactionWorldError::UnreachableDestination(destination_id));
         }
         if actor_id == "character.protagonist.captain" {
+            self.cancel_approach();
             self.player_attack_target = None;
+        } else if self.party.iter().any(|id| id == actor_id) {
+            self.cancel_approach();
         }
         self.navigation
             .destinations
@@ -2106,6 +2219,7 @@ impl FactionWorld {
         }
         let mut events = self.advance_faction_decisions();
         events.extend(self.advance_production_tick());
+        self.advance_approach();
         // Decide from one pre-movement snapshot, not partially moved ID order.
         // Keep the strategic travel order so movement resumes when the shot is lost.
         // Only autonomous factions hold; player-directed actors retain movement.
@@ -2151,6 +2265,13 @@ impl FactionWorld {
             }
         }
         events.extend(self.resolve_island_skirmish());
+        if self
+            .approach_target
+            .as_ref()
+            .is_some_and(|id| self.accessible_recruit(id))
+        {
+            self.cancel_approach();
+        }
         events
     }
 
@@ -3411,6 +3532,181 @@ mod tests {
             }
         }
         (world, ids)
+    }
+
+    #[test]
+    fn approach_follows_moving_person_with_party_and_preserves_save() {
+        let (mut world, ids) = recruitment_fixture();
+        let captain = "character.protagonist.captain";
+        assert!(!world.talk_island_person(&ids[1]).is_empty());
+        assert!(world.recruit_island_person(&ids[1]));
+        assert!(world.assign_island_companion(&ids[1], 0));
+        world
+            .positions
+            .insert(ids[0].clone(), IslandPoint { x: 20, y: 16 });
+        world
+            .order_move(&ids[0], IslandPoint { x: 25, y: 16 })
+            .unwrap();
+        let positions = world.positions.clone();
+        assert!(world.approach_island_person(&ids[0]));
+        assert_eq!(world.positions, positions); // command never teleports
+        assert!(world.travel_orders.contains_key(&ids[1]));
+        world.advance_island_tick();
+        assert_ne!(world.positions[&ids[0]], positions[&ids[0]]); // NPC was not frozen
+        let moved = world.positions[captain];
+        assert_eq!(
+            moved.x.abs_diff(positions[captain].x) + moved.y.abs_diff(positions[captain].y),
+            1
+        );
+        let mut restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        for _ in 0..40 {
+            assert_eq!(world.advance_island_tick(), restored.advance_island_tick());
+            assert_eq!(world, restored);
+            if world.approach_target.is_none() {
+                break;
+            }
+        }
+        assert!(world.approach_target.is_none());
+        assert!(world.can_talk_island_person(&ids[0]));
+        assert!(!world.actors[&ids[0]].person.as_ref().unwrap().discussed);
+        assert!(!world.travel_orders.contains_key(captain));
+        assert!(!world.travel_orders.contains_key(&ids[1]));
+    }
+
+    #[test]
+    fn approach_arrival_uses_post_movement_target_and_rejects_without_mutation() {
+        let (mut world, ids) = recruitment_fixture();
+        let captain = "character.protagonist.captain";
+        world
+            .positions
+            .insert(ids[0].clone(), IslandPoint { x: 12, y: 16 });
+        assert!(world.approach_island_person(&ids[0]));
+        let before = world.clone();
+        assert!(!world.approach_island_person("missing"));
+        assert!(!world.approach_island_person(captain));
+        assert!(!world.move_island_party(IslandPoint { x: -99, y: -99 }));
+        assert!(!world.aim_carbine("missing"));
+        assert_eq!(world, before);
+        // Simulate a previous tick bringing her into range just before she walks
+        // away. Tracking must survive until the final position is checked.
+        world
+            .positions
+            .insert(ids[0].clone(), IslandPoint { x: 10, y: 16 });
+        world
+            .order_move(&ids[0], IslandPoint { x: 15, y: 16 })
+            .unwrap();
+        world.advance_island_tick();
+        assert_eq!(world.positions[captain], IslandPoint { x: 8, y: 16 });
+        assert_eq!(world.positions[&ids[0]], IslandPoint { x: 11, y: 16 });
+        assert_eq!(world.approach_target.as_deref(), Some(ids[0].as_str()));
+        assert!(!world.can_talk_island_person(&ids[0]));
+        world
+            .order_move(captain, IslandPoint { x: 9, y: 16 })
+            .unwrap();
+        assert!(world.approach_target.is_none());
+        assert!(world.approach_island_person(&ids[0]));
+        assert!(world.aim_carbine(&ids[2]));
+        assert!(world.approach_target.is_none());
+        assert!(!world.travel_orders.contains_key(captain));
+        assert!(world.approach_island_person(&ids[0]));
+        world
+            .positions
+            .insert(ids[0].clone(), IslandPoint { x: 10, y: 16 });
+        world
+            .actors
+            .get_mut(&ids[0])
+            .unwrap()
+            .person
+            .as_mut()
+            .unwrap()
+            .discussed = true;
+        assert!(world.recruit_island_person(&ids[0]));
+        assert!(world.approach_target.is_none());
+        assert!(!world.travel_orders.contains_key(captain));
+    }
+
+    #[test]
+    fn approach_clears_lost_targets_and_load_rejects_dangling_reference() {
+        let (mut world, ids) = recruitment_fixture();
+        world
+            .positions
+            .insert(ids[0].clone(), IslandPoint { x: 20, y: 16 });
+        assert!(world.approach_island_person(&ids[0]));
+        let mut bad = world.clone();
+        bad.approach_target = Some("missing".into());
+        assert!(FactionWorld::load_json(&bad.save_json().unwrap()).is_err());
+        let mut unreachable = world.clone();
+        unreachable
+            .navigation
+            .walkable
+            .insert(IslandPoint { x: 1000, y: 1000 });
+        unreachable
+            .positions
+            .insert(ids[0].clone(), IslandPoint { x: 1000, y: 1000 });
+        unreachable.advance_island_tick();
+        assert!(unreachable.approach_target.is_none());
+        assert!(
+            !unreachable
+                .travel_orders
+                .contains_key("character.protagonist.captain")
+        );
+        world
+            .eliminate_faction("faction.pirates.prototype")
+            .unwrap();
+        assert!(world.approach_target.is_none());
+        assert!(FactionWorld::load_json(&world.save_json().unwrap()).is_ok());
+        let mut legacy: serde_json::Value =
+            serde_json::from_str(&world.save_json().unwrap()).unwrap();
+        legacy["world"]
+            .as_object_mut()
+            .unwrap()
+            .remove("approach_target");
+        assert!(
+            FactionWorld::load_json(&legacy.to_string())
+                .unwrap()
+                .approach_target
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn approach_target_death_cancels_tracking_before_save() {
+        let (mut world, ids) = recruitment_fixture();
+        let victim = &ids[0];
+        let killer = &ids[2];
+        world
+            .positions
+            .insert(victim.clone(), IslandPoint { x: 12, y: 16 });
+        world
+            .positions
+            .insert(killer.clone(), IslandPoint { x: 12, y: 16 });
+        world.actors.get_mut(killer).unwrap().faction_id =
+            "faction.colonial_powers.prototype".into();
+        world
+            .factions
+            .get_mut("faction.pirates.prototype")
+            .unwrap()
+            .population_used -= 1;
+        world
+            .factions
+            .get_mut("faction.colonial_powers.prototype")
+            .unwrap()
+            .population_used += 1;
+        world.unit_combat.get_mut(victim).unwrap().health = 1;
+        world.hostilities.insert((
+            "faction.colonial_powers.prototype".into(),
+            "faction.pirates.prototype".into(),
+        ));
+        assert!(world.approach_island_person(victim));
+        world.resolve_island_skirmish();
+        assert!(world.casualties.contains_key(victim));
+        assert!(world.approach_target.is_none());
+        assert!(
+            !world
+                .travel_orders
+                .contains_key("character.protagonist.captain")
+        );
+        assert!(FactionWorld::load_json(&world.save_json().unwrap()).is_ok());
     }
 
     #[test]

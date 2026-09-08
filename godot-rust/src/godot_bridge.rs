@@ -181,7 +181,21 @@ impl Project42SimulationBridge {
                 .unwrap_or("");
             party_names.push(&name.to_variant());
         }
-        vdict! { "tick" => world.tick as i64, "paused" => world.paused, "actors" => &actors, "buildings" => &buildings, "land" => &land, "casualties" => world.casualties.len() as i64, "party" => &party, "party_names" => &party_names }
+        vdict! { "tick" => world.tick as i64, "paused" => world.paused, "actors" => &actors, "buildings" => &buildings, "land" => &land, "casualties" => world.casualties.len() as i64, "party" => &party, "party_names" => &party_names, "approach_target" => world.approach_target.as_deref().unwrap_or("") }
+    }
+
+    #[func]
+    fn approach_island_person(&mut self, id: GString) -> bool {
+        self.island
+            .as_mut()
+            .is_some_and(|w| w.approach_island_person(&id.to_string()))
+    }
+
+    #[func]
+    fn can_talk_island_person(&self, id: GString) -> bool {
+        self.island
+            .as_ref()
+            .is_some_and(|w| w.can_talk_island_person(&id.to_string()))
     }
 
     #[func]

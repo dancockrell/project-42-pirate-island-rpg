@@ -327,6 +327,9 @@ func run() -> void:
 	if not check_recruitment(scene, fresh_campaign):
 		quit(1)
 		return
+	if not check_fresh_recruitment(scene, fresh_campaign):
+		quit(1)
+		return
 	print("PASS: island scene suite complete")
 	quit()
 
@@ -435,4 +438,70 @@ func check_recruitment(scene: Node, fresh_campaign: String) -> bool:
 	scene.refresh_snapshot()
 	assert(scene.party_buttons[0].text.contains(woman.name))
 	print("PASS: actual produced female dialogue, explicit same-identity recruitment, population transfer, four-slot party, group order and save restore")
+	return true
+
+func check_fresh_recruitment(scene: Node, fresh_campaign: String) -> bool:
+	# Begin with the untouched initial campaign. No coordinate edits, invented
+	# people, disabled wars, hostility changes or resources added in this path.
+	assert(scene.port.load_island(fresh_campaign))
+	scene.paused = false
+	scene.refresh_snapshot()
+	var woman: Dictionary = {}
+	for step in range(12):
+		scene.advance_tick()
+		for entry in scene.snapshot.actors:
+			if entry.sex == "female":
+				woman = entry.duplicate(true)
+				break
+		if not woman.is_empty():
+			break
+	assert(not woman.is_empty())
+	scene.inspect_actor(woman.id)
+	assert(scene.approach_button.visible)
+	scene.set_paused(true)
+	var start: Vector2 = scene.actor.position
+	scene.approach_button.pressed.emit()
+	assert(scene.snapshot.approach_target == woman.id)
+	assert(scene.approach_button.disabled)
+	assert(scene.conversation_status.text.contains(woman.name))
+	scene.advance_tick()
+	assert(scene.actor.position == start)
+	var approaching_save: String = scene.port.save_island()
+	assert(scene.port.load_island(approaching_save))
+	scene.refresh_snapshot()
+	assert(scene.snapshot.approach_target == woman.id)
+	scene.set_paused(false)
+	var travelled := 0
+	for step in range(40):
+		var before: Vector2 = scene.actor.position
+		scene.advance_tick()
+		assert(scene.actor.visible)
+		var delta: Vector2 = (scene.actor.position - before) / scene.cell_size
+		assert(absf(delta.x) + absf(delta.y) <= 1.001)
+		if not delta.is_zero_approx():
+			travelled += 1
+		if scene.snapshot.approach_target.is_empty():
+			break
+	assert(travelled > 0)
+	assert(scene.snapshot.approach_target.is_empty())
+	assert(scene.paused and scene.conversation_status.text.contains("Within talking range"))
+	assert(not scene.inspected_person.discussed)
+	scene.set_paused(true)
+	scene.talk_button.pressed.emit()
+	assert(scene.inspected_person.discussed and scene.recruit_button.visible)
+	scene.recruit_button.pressed.emit()
+	assert(scene.inspected_person.faction == "faction.michael")
+	assert(scene.inspected_person.id == woman.id and scene.inspected_person.name == woman.name)
+	scene.party_buttons[0].pressed.emit()
+	assert(scene.snapshot.party[0] == woman.id)
+	assert(scene.request_move(Vector2i(20,18)))
+	scene.set_paused(false)
+	for step in range(40):
+		scene.advance_tick()
+		if scene.actor.position == Vector2(20.5,18.5) * scene.cell_size:
+			break
+	assert(scene.actor.position == Vector2(20.5,18.5) * scene.cell_size)
+	assert(scene.inspected_person.faction == "faction.michael")
+	assert(scene.party_heading.text.contains("1/4 living"))
+	print("PASS: untouched campaign produces a woman; Approach walks to her through the live war; talk/recruit/assign and return to start without fixture edits")
 	return true
