@@ -150,7 +150,8 @@ func run() -> void:
 			if building.archetype == "site_archetype.cthulhu.drowned_shrine":
 				assert(Vector2i(building.x,building.y) == Vector2i(27,16))
 				assert(scene.building_sprites[building.id].texture == scene.building_textures["res://assets/island/drowned_shrine.png"])
-	assert(scene.troop_textures.size() == 6)
+	assert(scene.troop_textures.size() == 7)
+	assert(scene.troop_textures.has("res://assets/island/troops/cultist-female.png"))
 	assert(scene.troop_textures.has("res://assets/island/troops/colonial-female.png"))
 	for texture in scene.troop_textures.values():
 		assert(texture.get_image().detect_alpha() == Image.ALPHA_BIT)
@@ -246,7 +247,9 @@ func run() -> void:
 	unadmitted.definition = "actor_def.colonial.line_marine"
 	assert(scene.appearance_for(unadmitted).texture == "res://assets/island/troops/colonial-female.png")
 	unadmitted.definition = "actor_def.cthulhu.drowned_cultist"
-	assert(scene.appearance_for(unadmitted).is_empty()) # no male masquerading as a female
+	assert(scene.appearance_for(unadmitted).texture == "res://assets/island/troops/cultist-female.png")
+	unadmitted.sex = "other"
+	assert(scene.appearance_for(unadmitted).is_empty()) # no unadmitted identity fallback
 	unadmitted.definition = inspected_unit.definition
 	unadmitted.sex = "unknown"
 	assert(scene.appearance_for(unadmitted) == appearance_before) # legacy presentation only

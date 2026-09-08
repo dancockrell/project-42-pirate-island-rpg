@@ -151,6 +151,24 @@
         "He used to mend lamps along the waterfront. Since the dreams began, he cannot sleep beside an unlit wick.",
         "He followed a missing brother's trail to the shrine. He remembers the search more clearly than what he found."
       ]
+    },
+    {
+      "sex": "female",
+      "age_min": 18,
+      "age_max": 20,
+      "given_names": ["Mira", "Celia", "Vera", "Iris", "Lydia", "Nell"],
+      "family_names": ["Marsh", "Voss", "Grey", "Finch", "Locke", "Holt"],
+      "histories": [
+        "She copied tide records before the shrine offered access to its older charts. She keeps a second notebook for the entries that change while nobody is looking.",
+        "She heard a childhood melody coming from the drowned shrine. She still wants to know who was singing, but no answer is worth surrendering every other part of her life.",
+        "She joined the shrine to study the strange minerals washed up after storms. Her pockets still hold labeled samples, ordinary shells and one pebble she refuses to throw away."
+      ],
+      "recruitment_offer": "I came here looking for answers. I've heard enough. If there's a place beside you, Michael, I'm choosing to leave.",
+      "companion_responses": [
+        "You can read the second notebook. If an entry changes, tell me. I would rather have someone beside me who notices.",
+        "I still know the rites. Knowing them doesn't mean I owe the shrine my life. Come on. I'd like to hear a different song tonight.",
+        "That one's just a pebble, Captain. Not everything in my pockets is a portent. Hold this jar while I find the interesting one."
+      ]
     }
   ]
 }

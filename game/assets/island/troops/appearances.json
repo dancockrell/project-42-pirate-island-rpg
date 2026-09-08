@@ -36,7 +36,13 @@
   "actor_def.cthulhu.drowned_cultist": {
     "legacy_unknown_variant": "male",
     "variants": {
-      "male": { "texture": "res://assets/island/troops/cultist.png", "pivot": [127,374], "scale": 0.105 }
+      "male": { "texture": "res://assets/island/troops/cultist.png", "pivot": [127,374], "scale": 0.105 },
+      "female": {
+        "texture": "res://assets/island/troops/cultist-female.png", "pivot": [84,340], "scale": 0.09166666667,
+        "status": "development-standing",
+        "source": "procedural/sprites/candidates/pirate-island/troops-01/extracted/cell_01_02.png",
+        "sha256": "2929cb62163b3450b7f4b586f954a909a7f4ffcf86de9fca016c45cb400783a8"
+      }
     }
   }
 }

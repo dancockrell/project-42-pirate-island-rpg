@@ -19,9 +19,33 @@ moves with that actor into its casualty record; names and history are not
 rerolled on save/load. Older actors without identity data remain unknown.
 No female actor is inferred from a male sprite. The pirate woman uses the
 reviewed revision-01 standing source; colonial women use their revision-02
-standing sprite. Female cultist production remains disabled while its artwork
-needs correction. Biography text is not
+standing sprite and cultist women use the reviewed original shared cutout.
+All four current AI factions now produce recruitable adult women. Biography text is not
 yet a procedural quest system.
+
+## Living cultist women
+
+The drowned shrine now produces living men and women through its existing cultist
+definition. The name "drowned cultist" does not set undead state: ordinary births
+start alive. Female cultists have seeded adult identities, three short histories
+and matching companion responses. The authored offer is a lucid voluntary choice
+to leave; Talk does not cure madness or complete a ritual quest. Production cost,
+population use and ranged combat remain shared with the male unit.
+
+Joining Michael preserves identity, health, production history and current
+undead state. Party membership is separately selected. If she later dies, the
+existing eligible-midnight-return rule can return her to Cthulhu; remembered
+loyalty permits explicit reacquisition, while the workshop separately restores
+bodily life. Adding this pool does not reroll existing saved characters.
+
+Shared art reused without generation: `troops-01/extracted/cell_01_02.png`,
+SHA256 `2929cb62163b3450b7f4b586f954a909a7f4ffcf86de9fca016c45cb400783a8`.
+Source 224 by 360, pivot [84,340], scale 0.09166666667, full height 33px.
+Root reviewed the actual source and 33px comparison: sea-green hood, face and
+ritual focus match the existing male. Front-biased torso, tiny staff detail and
+missing directional animation remain limitations. This is development standing
+admission, not final native-render approval. Original source/provider metadata
+and the new comparison remain in the shared library; rejected revision stays out.
 
 ## Colonial marine women
 
