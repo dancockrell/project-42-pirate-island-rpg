@@ -1,3 +1,13 @@
+## Current art production decision — 8 September 2026
+
+All game artwork is 2D only: authored sprites, sprite animation, painted backgrounds, tiles, portraits and flat effects. Use the existing shared art folder at `C:/Users/Admin/Documents/Codex/shared-game-environment-library` for reusable 2D kits, with compatible perspective, pixel density, palette, anchors and animation metadata across Cattle Trail/Cattle Drive, DR Companion and Pirate Island. Preserve each game's characters, setting and gameplay identity.
+
+Do not create, purchase, import, restore, archive for later reuse, or bake sprites from 3D models. Earlier model, rig, mesh, material, body-builder and six-month-resumption plans are retired. New generated artwork uses the user-authorized built-in image generator; no external paid generation APIs. Shared reuse does not make unreviewed art automatically approved.
+
+Inspect true transparency, sequential poses, stable ground pivots, equipment handedness, native-size readability and actual motion before admission. Keep game state, navigation, combat rules, accessibility and persistence authoritative; changing artwork never changes legal actions. Existing engine API names and historical validation records may mention 3D without authorizing 3D artwork.
+
+This is production authority, not a claim that every existing runtime or binary has been converted. Legacy-asset deletion is a separate operation: automatic review rejected deletion commands, so deletion remains unverified here. Do not restore those assets or present them as production options.
+
 # Development runbook
 
 > **Prototype tooling scope:** commands and contracts below describe existing implementation. Follow [GAME_BUILD_PLAN.md](GAME_BUILD_PLAN.md) for current product direction. A passing battle/animation fixture does not establish completion of the autonomous RTS, faction relations, dual clocks, or companion campaign.
@@ -46,7 +56,7 @@ contract changes. The verifier now runs only the current directional-sprite and
 island suites, with a 30-second wall-clock limit per process and isolated test
 profiles. It rejects script errors even when Godot returns exit code zero, and
 requires a final completion message. It no longer opens an editor or loads
-shelved 3D fixtures. PowerShell 7 is required for the bounded process runner.
+retired 3D fixtures. PowerShell 7 is required for the bounded process runner.
 
 ## Actual island render capture (explicit approval required)
 

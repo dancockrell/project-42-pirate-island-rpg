@@ -1,6 +1,16 @@
+## Current art production decision — 8 September 2026
+
+All game artwork is 2D only: authored sprites, sprite animation, painted backgrounds, tiles, portraits and flat effects. Use the existing shared art folder at `C:/Users/Admin/Documents/Codex/shared-game-environment-library` for reusable 2D kits, with compatible perspective, pixel density, palette, anchors and animation metadata across Cattle Trail/Cattle Drive, DR Companion and Pirate Island. Preserve each game's characters, setting and gameplay identity.
+
+Do not create, purchase, import, restore, archive for later reuse, or bake sprites from 3D models. Earlier model, rig, mesh, material, body-builder and six-month-resumption plans are retired. New generated artwork uses the user-authorized built-in image generator; no external paid generation APIs. Shared reuse does not make unreviewed art automatically approved.
+
+Inspect true transparency, sequential poses, stable ground pivots, equipment handedness, native-size readability and actual motion before admission. Keep game state, navigation, combat rules, accessibility and persistence authoritative; changing artwork never changes legal actions. Existing engine API names and historical validation records may mention 3D without authorizing 3D artwork.
+
+This is production authority, not a claim that every existing runtime or binary has been converted. Legacy-asset deletion is a separate operation: automatic review rejected deletion commands, so deletion remains unverified here. Do not restore those assets or present them as production options.
+
 # Project 42: Pirate Island RPG
 
-**Current art direction: detailed 2D pixel-art sprites at the approved elevated three-quarter perspective. No 3D art; earlier 3D production is shelved.** See [visual authority](docs/VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md).
+**Current art direction: detailed 2D pixel-art sprites at the approved elevated three-quarter perspective. No 3D art; earlier 3D production is retired.** See [visual authority](docs/VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md).
 
 This repository implements a HaremLit adventure on top of a living, multi-faction RTS simulation of Pirate Island. Michael and four adult female companions are five controllable heroes on one large fixed-view isometric board. The women actively investigate the island, bring competing theories and personal quest lines, and ask the player to direct, equip, protect, and support their work.
 
