@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 struct IslandBuildingFootprint {
     blocked_offsets: Vec<[i32; 2]>,
     #[serde(default)]
-    coastal_entrance: Option<[i32; 2]>,
+    placement_entrance: Option<[i32; 2]>,
 }
 
 fn island_building_footprints() -> Result<BTreeMap<String, IslandBuildingFootprint>, String> {
@@ -1076,11 +1076,11 @@ impl FactionWorld {
         for (id, preferred, source) in entries {
             let rule: ProductionRule =
                 serde_json::from_str(source).map_err(|_| "invalid_authored_production")?;
-            let coastal = footprints
+            let placement = footprints
                 .get(&rule.producer_archetype_id)
-                .and_then(|footprint| footprint.coastal_entrance)
+                .and_then(|footprint| footprint.placement_entrance)
                 .map(|[x, y]| IslandPoint { x, y });
-            let preferred = coastal.unwrap_or(preferred);
+            let preferred = placement.unwrap_or(preferred);
             let spawn = staged
                 .navigation
                 .walkable
@@ -1092,10 +1092,10 @@ impl FactionWorld {
                 })
                 .copied()
                 .ok_or("no_connected_spawn")?;
-            // A shoreline asset may not slide inland to satisfy a nearest-cell
-            // search. Its reviewed entrance must be reachable exactly.
-            if coastal.is_some() && spawn != preferred {
-                return Err("coastal_entrance_unreachable".into());
+            // Reviewed architecture must not slide into trees or inland from
+            // a shoreline to satisfy a nearest-cell search.
+            if placement.is_some() && spawn != preferred {
+                return Err("building_entrance_unreachable".into());
             }
             let building_id = format!("preview.{id}.producer");
             let spawn_id = format!("preview.{id}.holding");
@@ -1236,9 +1236,9 @@ impl FactionWorld {
                         .get(&building.node_id)
                         .ok_or("missing_building_entrance")?;
                     // Historical saves keep their real inland holding. Do not
-                    // add a coastal building's collision volume at that site.
+                    // add new artwork's collision volume at that old site.
                     if footprint
-                        .coastal_entrance
+                        .placement_entrance
                         .is_some_and(|[x, y]| *entrance != (IslandPoint { x, y }))
                     {
                         continue;

@@ -11,10 +11,21 @@
     "pivot": [360,805],
     "source_width": 1166,
     "display_width": 150,
-    "coastal_entrance": [34,22],
+    "placement_entrance": [34,22],
     "blocked_offsets": [[-1,-2],[-1,-1],[1,-1],[1,0],[2,0]],
     "status": "development-coastal-placement",
     "source": "procedural/sprites/candidates/pirate-island/tide-quay-01/extracted/cell_00_00.png",
     "sha256": "f9bc0ea135cc5a03959c7478a51103b3e6901830cec482e830088536b14be2d7"
+  },
+  "site_archetype.cthulhu.drowned_shrine": {
+    "texture": "res://assets/island/drowned_shrine.png",
+    "pivot": [690,800],
+    "source_width": 897,
+    "display_width": 110,
+    "placement_entrance": [27,16],
+    "blocked_offsets": [[-1,-1],[-1,0],[-2,-1]],
+    "status": "development-inland-placement",
+    "source": "procedural/sprites/candidates/pirate-island/drowned-shrine-01/extracted/cell_00_00.png",
+    "sha256": "804377de550667198f2b995d9c729d9991d4460738bc0596760fe31f2001675b"
   }
 }

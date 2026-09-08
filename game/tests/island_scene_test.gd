@@ -134,7 +134,7 @@ func run() -> void:
 	assert(scene.hud_panel.size.x <= scene.get_viewport_rect().size.x)
 	print("PASS: visible pause/save/load actions share native campaign state and preserve test-only files")
 	assert(scene.snapshot.buildings.size() == 3)
-	assert(scene.building_sprites.size() == 2)
+	assert(scene.building_sprites.size() == 3)
 	for building in scene.snapshot.buildings:
 		assert(building.operational)
 		assert(building.queued == 0)
@@ -147,6 +147,9 @@ func run() -> void:
 			if building.archetype == "site_archetype.pirates.tide_quay":
 				assert(Vector2i(building.x,building.y) == Vector2i(34,22))
 				assert(scene.building_sprites[building.id].texture == scene.building_textures["res://assets/island/tide_quay.png"])
+			if building.archetype == "site_archetype.cthulhu.drowned_shrine":
+				assert(Vector2i(building.x,building.y) == Vector2i(27,16))
+				assert(scene.building_sprites[building.id].texture == scene.building_textures["res://assets/island/drowned_shrine.png"])
 	assert(scene.troop_textures.size() == 4)
 	for texture in scene.troop_textures.values():
 		assert(texture.get_image().detect_alpha() == Image.ALPHA_BIT)
@@ -552,11 +555,17 @@ func check_coastal_save_upgrade(scene: Node, fresh_campaign: String) -> bool:
 	var quay := "preview.faction.pirates.prototype.producer"
 	legacy.world.navigation.destinations[holding] = {"x":35,"y":14}
 	legacy.world.navigation.building_obstacles.erase(quay)
+	var shrine := "preview.faction.cthulhu.prototype.producer"
+	var shrine_holding := "preview.faction.cthulhu.prototype.holding"
+	legacy.world.navigation.destinations[shrine_holding] = {"x":28,"y":23}
+	legacy.world.navigation.building_obstacles.erase(shrine)
 	assert(scene.port.load_island(JSON.stringify(legacy)))
 	scene.refresh_snapshot()
 	assert(not scene.building_sprites.has(quay)) # no inland waterfront sprite
+	assert(not scene.building_sprites.has(shrine)) # no new shrine over old palms
 	var migrated: Dictionary = save_integers(JSON.parse_string(scene.port.save_island()))
 	assert(migrated.world.navigation.destinations[holding] == {"x":35,"y":14})
+	assert(migrated.world.navigation.destinations[shrine_holding] == {"x":28,"y":23})
 	assert(migrated.world.navigation.walkable.size() == legacy.world.navigation.walkable.size() + corrections.size())
 	assert(migrated.world.positions == legacy.world.positions)
 	var preserved: String = scene.port.save_island()
@@ -566,5 +575,6 @@ func check_coastal_save_upgrade(scene: Node, fresh_campaign: String) -> bool:
 	assert(scene.port.load_island(fresh_campaign))
 	scene.refresh_snapshot()
 	assert(scene.building_sprites.has(quay))
+	assert(scene.building_sprites.has(shrine))
 	print("PASS: coastal quay uses its own art/footprint; exact beach-mask upgrade preserves legacy inland holdings and rejects unrelated maps")
 	return true

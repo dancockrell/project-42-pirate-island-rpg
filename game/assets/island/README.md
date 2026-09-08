@@ -191,6 +191,17 @@ art; movement is tick-stepped, not an approved walk animation. Foliage occlusion
 pixel-density matching, terrain-mask visual review, complete autonomous factions
 and final island scale remain unfinished.
 
+The drowned shrine now uses its own dark sea-stone/tentacled-entrance sprite,
+shared candidate drowned-shrine-01 (SHA256 804377de550667198f2b995d9c729d9991d4460738bc0596760fe31f2001675b).
+It is displayed at 110px width with source pivot [690,800], the lower stair
+approach. The entrance is cell [27,16], on clear inland ground above the track, not the old
+simulation position inside the southern palm grove. No new walkable land was
+added. The three blocked foundation cells are separate from the image bounds.
+This is developmental placement; western palm-crown overlap and final foreground
+sorting still need a rendered review. Older saves retain their former holding
+positions and do not receive a falsely placed shrine sprite. The shared
+placement_entrance contract now handles both shrine and quay.
+
 Live holding development uses content/island/holding_development.json. Fully
 staffed, undamaged holdings reserve costs atomically and stop unit production
 while improving the same building. Costs multiply by the current level; levels

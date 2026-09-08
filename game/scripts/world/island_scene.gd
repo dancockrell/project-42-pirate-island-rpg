@@ -393,10 +393,10 @@ func refresh_snapshot() -> void:
 		var art: Dictionary = building_art.get(building.archetype, {})
 		if art.is_empty():
 			continue
-		# Coastal art is currently anchored to a reviewed authored site. Preserve
-		# older inland saves without falsely drawing a waterfront over their land.
-		var coastal_entrance: Array = art.get("coastal_entrance", [])
-		if not coastal_entrance.is_empty() and Vector2i(building.x, building.y) != Vector2i(coastal_entrance[0], coastal_entrance[1]):
+		# Preserve older holdings without drawing newly placed architecture over
+		# their old terrain, which may contain trees or lack a shoreline.
+		var placement_entrance: Array = art.get("placement_entrance", [])
+		if not placement_entrance.is_empty() and Vector2i(building.x, building.y) != Vector2i(placement_entrance[0], placement_entrance[1]):
 			continue
 		visible_buildings[building.id] = true
 		if not building_sprites.has(building.id):
