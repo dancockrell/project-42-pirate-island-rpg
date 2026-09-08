@@ -224,6 +224,15 @@ Older saves without this field use a neutral acknowledgement, not an invented
 past. Dismissing a party slot does not remove conversation or faction loyalty.
 This is post-join dialogue, not a completed romance quest or relationship system.
 
+Active companions defend a stationary Michael: idle members take ordinary path
+steps toward visible hostile units within four Manhattan cells of him, then use
+their existing weapon profile. Every step of that route must stay inside this
+provisional radius. Already-in-range attacks use the unchanged combat resolver.
+Explicit travel, Michael's movement, and Approach conversations take priority.
+No neutral provocation, building assault, distant pursuit or off-party auto-chase
+is granted by this behavior. Multiple defenders reserve distinct next cells.
+This supplies basic companion assistance, not final tactical stances or hero powers.
+
 Checks:
 Godot headless tests/island_scene_test.gd passes actual scene load, native position
 projection, terrain rejection, travel and pause. The separate native bridge test

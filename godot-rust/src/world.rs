@@ -2412,6 +2412,78 @@ impl FactionWorld {
         events
     }
 
+    fn advance_companion_defense(&mut self) {
+        const CAPTAIN: &str = "character.protagonist.captain";
+        if !self.living_actor(CAPTAIN)
+            || self.travel_orders.contains_key(CAPTAIN)
+            || self.approach_target.is_some()
+        {
+            return;
+        }
+        let center = self.positions[CAPTAIN];
+        let nearby = |point: IslandPoint| {
+            center
+                .x
+                .abs_diff(point.x)
+                .saturating_add(center.y.abs_diff(point.y))
+                <= 4
+        };
+        let mut occupied: BTreeSet<IslandPoint> = self.positions.values().copied().collect();
+        for id in self.party.clone().into_iter().filter(|id| !id.is_empty()) {
+            if !self.living_actor(&id)
+                || self.travel_orders.contains_key(&id)
+                || self.island_firing_target(&id).is_some()
+            {
+                continue;
+            }
+            let origin = self.positions[&id];
+            if !nearby(origin) {
+                continue;
+            }
+            let actor = &self.actors[&id];
+            let next = self
+                .actors
+                .iter()
+                .filter(|(target_id, target)| {
+                    self.living_actor(target_id)
+                        && self
+                            .hostilities
+                            .contains(&(actor.faction_id.clone(), target.faction_id.clone()))
+                })
+                .filter_map(|(target_id, _)| {
+                    let target = self.positions[target_id];
+                    if !nearby(target)
+                        || !(self.navigation.clear_line(origin, target)
+                            || self.navigation.clear_line(center, target))
+                    {
+                        return None;
+                    }
+                    // Feed occupied cells and the leash into the same pathfinder,
+                    // rather than rejecting one blocked shortest path afterward.
+                    let mut local_navigation = self.navigation.clone();
+                    local_navigation.walkable.retain(|point| {
+                        nearby(*point)
+                            && (!occupied.contains(point) || *point == origin || *point == target)
+                    });
+                    let path = local_navigation.path(origin, target)?;
+                    let next = *path.get(1)?;
+                    if occupied.contains(&next) || !path.iter().all(|point| nearby(*point)) {
+                        return None;
+                    }
+                    Some((path.len(), target_id.clone(), next))
+                })
+                .min()
+                .map(|(_, _, point)| point);
+            if let Some(next) = next {
+                // One ordinary movement step, consumed below in the existing
+                // travel phase. No hidden chase queue survives a new command.
+                if self.order_move(&id, next).is_ok() {
+                    occupied.insert(next);
+                }
+            }
+        }
+    }
+
     /// Single simulation step used by the island runtime. Production and travel
     /// share the same pause boundary and clock. Rendering never advances these.
     pub fn advance_island_tick(&mut self) -> Vec<FactionWorldEvent> {
@@ -2421,6 +2493,7 @@ impl FactionWorld {
         let mut events = self.advance_faction_decisions();
         events.extend(self.advance_production_tick());
         self.advance_approach();
+        self.advance_companion_defense();
         // Decide from one pre-movement snapshot, not partially moved ID order.
         // Keep the strategic travel order so movement resumes when the shot is lost.
         // Only autonomous factions hold; player-directed actors retain movement.
@@ -3880,6 +3953,82 @@ mod tests {
             }
         }
         (world, ids)
+    }
+
+    #[test]
+    fn active_companion_closes_and_strikes_without_overriding_travel() {
+        const CAPTAIN: &str = "character.protagonist.captain";
+        let (mut world, ids) = recruitment_fixture();
+        let companion = &ids[0];
+        let enemy = &ids[1];
+        assert!(!world.talk_island_person(companion).is_empty());
+        assert!(world.recruit_island_person(companion));
+        assert!(world.assign_island_companion(companion, 0));
+        for (id, point) in &mut world.positions {
+            *point = if id == CAPTAIN {
+                IslandPoint { x: 8, y: 16 }
+            } else if id == companion {
+                IslandPoint { x: 9, y: 16 }
+            } else if id == enemy {
+                IslandPoint { x: 11, y: 16 }
+            } else {
+                IslandPoint { x: 30, y: 10 }
+            };
+        }
+        world
+            .hostilities
+            .insert(("faction.michael".into(), "faction.pirates.prototype".into()));
+        let start = world.positions[companion];
+        let mut behind = world.clone();
+        behind
+            .positions
+            .insert(companion.clone(), IslandPoint { x: 7, y: 16 });
+        behind
+            .positions
+            .insert(enemy.clone(), IslandPoint { x: 10, y: 16 });
+        let mut flanked = false;
+        for _ in 0..6 {
+            let events = behind.advance_island_tick();
+            assert_ne!(behind.positions[companion], behind.positions[CAPTAIN]);
+            flanked |= events.iter().any(|event| matches!(event, FactionWorldEvent::UnitStruck {attacker_id,target_id,..} if attacker_id == companion && target_id == enemy));
+        }
+        assert!(
+            flanked,
+            "companion must route around Michael instead of remaining stuck behind him"
+        );
+        let mut neutral = world.clone();
+        neutral.hostilities.clear();
+        neutral.advance_companion_defense();
+        assert!(neutral.travel_orders.is_empty());
+        let mut distant = world.clone();
+        distant
+            .positions
+            .insert(enemy.clone(), IslandPoint { x: 14, y: 16 });
+        distant.advance_companion_defense();
+        assert!(distant.travel_orders.is_empty());
+        let mut off_party = world.clone();
+        assert!(off_party.dismiss_island_companion(0));
+        off_party.advance_companion_defense();
+        assert!(off_party.travel_orders.is_empty());
+        let mut ordered = world.clone();
+        assert!(ordered.move_island_party(IslandPoint { x: 8, y: 20 }));
+        let explicit_orders = ordered.clone();
+        ordered.advance_companion_defense();
+        assert_eq!(ordered, explicit_orders);
+        world.paused = true;
+        let paused = world.clone();
+        world.advance_island_tick();
+        assert_eq!(world, paused);
+        world.paused = false;
+        let events = world.advance_island_tick();
+        assert_ne!(world.positions[companion], start);
+        assert_eq!(world.positions[companion], IslandPoint { x: 10, y: 16 });
+        assert!(events.iter().any(|event| matches!(event, FactionWorldEvent::UnitStruck {attacker_id,target_id,..} if attacker_id == companion && target_id == enemy)));
+        assert!(!world.travel_orders.contains_key(companion));
+        assert_eq!(
+            FactionWorld::load_json(&world.save_json().unwrap()).unwrap(),
+            world
+        );
     }
 
     #[test]

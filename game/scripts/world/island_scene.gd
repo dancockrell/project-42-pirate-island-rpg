@@ -242,6 +242,7 @@ func _ready() -> void:
 	stack.add_child(conversation_status)
 	stack.add_child(party_controls)
 	party_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	party_heading.tooltip_text = "When Michael stops, active companions close on nearby hostiles. Travel orders take priority; they do not chase across the island."
 	party_controls.add_child(party_heading)
 	var slots := GridContainer.new()
 	slots.columns = 2
