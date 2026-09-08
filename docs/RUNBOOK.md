@@ -17,7 +17,8 @@ This is production authority, not a claim that every existing runtime or binary 
 Open `game/project.godot` in Godot 4.7.2 or a later compatible Godot 4 maintenance release. F5 launches the current 2D island. F6 launches whichever scene is open, so it is not interchangeable with F5.
 
 Expected current entry: tropical island, Michael alone, the colonial watch fort,
-and four provisional autonomous factions producing units and fighting.
+and five provisional autonomous factions producing units and fighting, including
+the elven heart grove on the southwest forest edge.
 Click land to travel; Space pauses/resumes; F5 saves and F9 loads while the game
 has keyboard focus. These in-game shortcuts are separate from editor shortcuts.
 Use the mouse wheel to zoom toward the cursor, and middle-drag to pan. The

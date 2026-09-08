@@ -1,17 +1,17 @@
 # Island development scene
 
 Run res://scenes/world/island.tscn in the existing game project.
-The scene installs four preview factions at startup: colonials, pirates,
-Cthulhu and the fox people. They spend real resources on authored production.
+The scene installs five preview factions at startup: colonials, pirates,
+Cthulhu, the fox people and elves. They spend real resources on authored production.
 The original three have six-unit preview caps; the fox people have eight lighter
 spear skirmishers. Units rally toward a contested clearing, then select hostile
 holdings; threatened homes can draw a limited defensive contingent back.
-The four factions are mutually hostile; Michael begins neutral.
+The five factions are mutually hostile in this provisional scenario; Michael begins neutral.
 These are provisional scenario budgets, not final asymmetric faction balance.
 Shift-click a person to inspect their name, faction and short biography;
 Shift-click empty ground closes the panel without issuing movement. Selection
 tracks the actor ID rather than the displayed name, which need not be unique.
-personas.json supplies provisional fictional name/history pools for four
+personas.json supplies provisional fictional name/history pools for five
 troop definitions, including male/female pirates and adult female fox skirmishers.
 Rust embeds it: rebuild the extension
 after changing it. NamedPerson is stored on the existing produced actor and
@@ -20,7 +20,7 @@ rerolled on save/load. Older actors without identity data remain unknown.
 No female actor is inferred from a male sprite. The pirate woman uses the
 reviewed revision-01 standing source; colonial women use their revision-02
 standing sprite and cultist women use the reviewed original shared cutout.
-All four current AI factions now produce recruitable adult women. Biography text is not
+All five current AI factions produce recruitable adult women. Biography text is not
 yet a procedural quest system.
 
 ## Living cultist women
@@ -344,7 +344,7 @@ Static terrain composition was inspected, not a final native-render approval.
 
 The new spear skirmisher is explicitly a soldier, not a relabeled river porter.
 She costs2rice/1silk and takes2ticks; starting capacity8, health8, damage2,
-range2 and cooldown2. All four initial faction profiles now live in
+range2 and cooldown2. All five initial faction profiles now live in
 `content/island/faction_roster.json`. Market development uses the existing
 building system: rice4/silk4 times current level,100ticks, health+20,
 population+2, maximum level5. Values remain provisional.
@@ -355,8 +355,46 @@ with a visible jade wrap, fox tail and spear; lower-body facing and spear/shin
 separation remain art limitations. Fox male-wooing, special retreat tactics,
 full worker/trade economy and hero powers are not implemented by this increment.
 Older campaigns preserve their original faction population; start a new game
-to include the fox settlement. The elven grove is a shared source candidate,
-not a deployed fifth AI faction: its guardian art remains unavailable.
+to include settlements not present when those campaigns began. The elves now
+deploy bow wardens from the heart grove; bark guardians remain unimplemented.
+
+## Elven heart grove
+
+New campaigns include the fifth AI faction, elves, at southwest forest-edge
+entrance [15,24]. The existing shared heart-grove source is copied unchanged;
+972 by 1211 pixels, pivot [350,1100], display width 140px, SHA256
+`7283ea1a91b11e65be6dc2a50c22ebe0367fd1bed7cede8ecc259295719b9936`.
+The five-cell foundation uses existing land and preserves the open approach.
+Static actual-terrain review is preserved in shared `heart-grove-01`; it is not
+a native-render approval or a claim that character occlusion is finished.
+
+The explicit bow-warden soldier rule costs four living wood and two memory,
+takes eight ticks and uses one population. Starting capacity is three, versus
+six for the colonial/pirate/cult forces and eight for fox skirmishers. A warden
+has 20 health, four damage, range five and four-tick attack cooldown. The level-one
+grove starts at 100 health. Development takes 180 ticks, costs four wood/four
+memory times its current level, and adds 20 health plus one population capacity,
+up to level five. These are provisional scarce/strong-unit tuning, not a balance
+claim. Actual costs, queues, travel, home defense, combat and elimination use the
+same authoritative simulation as other factions.
+
+The first admitted warden appearance is an adult woman with generated name and
+history. Recruitment retains her longbow profile and identity. Male elven art,
+named heroes, grove-tender work, bark guardians, wayroots, terrain restoration
+and the complete asymmetric elven kit remain unfinished. The new archer is not
+a relabeled worker or substitute monster. Older saved campaigns retain their
+original factions; new-game installation does not insert an army into a save.
+
+Warden artwork: shared `troops-01/elven-bow-warden-01/extracted-bow-correction/cell_00_00.png`,
+709 by 1333, SHA256 `9bbbf5c51fcdb9f5021bedf2cf60edf5375c35225e02d0378f91202cf617a39f`.
+Pivot [269,1253], scale 0.02625656414 gives 35px including the bow above her head,
+roughly 33px body height. One source, one background correction and one targeted
+bow-thickness correction used the built-in generator; no external paid API.
+Root reviewed the actual-scale comparisons and admitted development standing:
+the lower bow curve and grip read better, but upper-tip sampling still produces
+small gaps and the body is front-biased. This does not pass final bow continuity,
+directional animation or native-render approval. All raw variants and prompts
+remain shared; the original thin-bow candidate is not the runtime selection.
 
 ## Michael's first foothold
 

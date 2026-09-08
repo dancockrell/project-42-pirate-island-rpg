@@ -1,4 +1,14 @@
 {
+  "actor_def.elven.bow_warden": {
+    "variants": {
+      "female": {
+        "texture": "res://assets/island/troops/elven-bow-warden.png", "pivot": [269,1253], "scale": 0.02625656414,
+        "status": "development-standing",
+        "source": "procedural/sprites/candidates/pirate-island/troops-01/elven-bow-warden-01/extracted-bow-correction/cell_00_00.png",
+        "sha256": "9bbbf5c51fcdb9f5021bedf2cf60edf5375c35225e02d0378f91202cf617a39f"
+      }
+    }
+  },
   "actor_def.colonial.line_marine": {
     "legacy_unknown_variant": "male",
     "variants": {

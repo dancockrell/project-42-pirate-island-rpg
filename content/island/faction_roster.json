@@ -11,6 +11,10 @@
     "population_capacity": 6, "holding_level": 1, "holding_health": 80,
     "combat": {"health": 9, "damage": 2, "range": 3, "cooldown_ticks": 4}
   },
+  "faction.elves.prototype": {
+    "population_capacity": 3, "holding_level": 1, "holding_health": 100,
+    "combat": {"health": 20, "damage": 4, "range": 5, "cooldown_ticks": 4}
+  },
   "faction.eastern_fox_people.prototype": {
     "population_capacity": 8, "holding_level": 1, "holding_health": 80,
     "combat": {"health": 8, "damage": 2, "range": 2, "cooldown_ticks": 2}

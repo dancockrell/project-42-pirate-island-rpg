@@ -1,4 +1,24 @@
 {
+  "actor_def.elven.bow_warden": [
+    {
+      "sex": "female",
+      "age_min": 18,
+      "age_max": 20,
+      "given_names": ["Lia", "Neris", "Sylva", "Iria", "Talia", "Eira"],
+      "family_names": ["Reed", "Ash", "Willow", "Fern", "Vale", "Birch"],
+      "histories": [
+        "She wraps seeds in scraps of linen and labels each packet. Some are from trees the island no longer has. She intends that to be a temporary problem.",
+        "She learned to track deer along the old canopy paths. Since the wreck, she has become distracted by the tracks of machines that do not quite walk like animals.",
+        "She carries water to young roots after her watch. She can tell which channel feeds which tree, and remembers when every one of them ran clear."
+      ],
+      "recruitment_offer": "I can walk beside you without forgetting what I protect. Make room for me, Michael. I choose to see where this road leads.",
+      "companion_responses": [
+        "Mind the little packets. You may put your coat on them, but not your boots. Someday we can argue in their shade.",
+        "Your machines leave the strangest tracks. I was following one before I met you. Now I appear to be following its inventor.",
+        "We have time to fill the flask. Listen—the water is clean here. Stay a moment, Michael. Not every stop needs to be a battle."
+      ]
+    }
+  ],
   "actor_def.colonial.line_marine": [
     {
       "sex": "male",

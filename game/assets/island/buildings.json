@@ -1,4 +1,15 @@
 {
+  "site_archetype.elven.heart_grove": {
+    "texture": "res://assets/island/heart_grove.png",
+    "pivot": [350,1100],
+    "source_width": 972,
+    "display_width": 140,
+    "placement_entrance": [15,24],
+    "blocked_offsets": [[0,-1],[1,-1],[2,-1],[1,0],[2,0]],
+    "status": "development-forest-edge-placement",
+    "source": "procedural/sprites/candidates/pirate-island/heart-grove-01/extracted/cell_00_00.png",
+    "sha256": "7283ea1a91b11e65be6dc2a50c22ebe0367fd1bed7cede8ecc259295719b9936"
+  },
   "site_archetype.michael.field_workshop": {
     "texture": "res://assets/island/field_workshop.png",
     "pivot": [405,910],

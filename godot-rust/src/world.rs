@@ -1501,6 +1501,11 @@ impl FactionWorld {
                     "../../content/production/eastern_fox_people_river_market_skirmishers.json"
                 ),
             ),
+            (
+                "faction.elves.prototype",
+                IslandPoint { x: 13, y: 17 },
+                include_str!("../../content/production/elven_heart_grove_bow_wardens.json"),
+            ),
         ];
         if roster.len() != entries.len() {
             return Err("invalid_faction_roster".into());
@@ -3266,8 +3271,8 @@ mod tests {
         let definition = "actor_def.eastern_fox_people.spear_skirmisher";
         let mut world = FactionWorld::prototype_island();
         world.install_preview_factions().unwrap();
-        assert_eq!(world.factions.len(), 5); // Four AI factions plus Michael, not invisible elves.
-        assert!(!world.factions.contains_key("faction.elves.prototype"));
+        assert_eq!(world.factions.len(), 6); // Five AI factions plus Michael.
+        assert!(world.factions.contains_key("faction.elves.prototype"));
         assert_eq!(world.factions[fox].population_capacity, 8);
         assert_eq!(world.combat_profiles[definition].health, 8);
         assert_eq!(world.combat_profiles[definition].cooldown_ticks, 2);
@@ -4609,8 +4614,26 @@ mod tests {
             // Peace isolates the authored production and voluntary recruitment loop;
             // no actors, identities, population, or positions are fabricated.
             world.hostilities.clear();
-            for _ in 0..32 {
+            // New factions change shared production serials. Observe actual
+            // bounded development/replacement output, not an assumed sex split
+            // in the first six seeded births.
+            for _ in 0..300 {
                 world.advance_island_tick();
+                let produced = || {
+                    world
+                        .actors
+                        .values()
+                        .filter(|a| a.definition_id == definition)
+                };
+                if produced().any(|a| a.person.as_ref().is_some_and(|p| p.sex == PersonSex::Male))
+                    && produced().any(|a| {
+                        a.person
+                            .as_ref()
+                            .is_some_and(|p| p.sex == PersonSex::Female)
+                    })
+                {
+                    break;
+                }
             }
             let produced: Vec<_> = world
                 .actors
@@ -4713,6 +4736,96 @@ mod tests {
                 world
             );
         }
+    }
+
+    #[test]
+    fn elven_wardens_replace_slowly_deploy_and_retain_longbow_when_recruited() {
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        world.hostilities.clear();
+        let elves = "faction.elves.prototype";
+        let definition = "actor_def.elven.bow_warden";
+        let building = world.factions[elves].buildings.values().next().unwrap();
+        let home = world.navigation.destinations[&building.node_id];
+        assert_eq!((building.level, building.health), (1, 100));
+        assert_eq!(world.factions[elves].population_capacity, 3);
+        for _ in 0..7 {
+            world.advance_island_tick();
+        }
+        assert!(!world.actors.values().any(|a| a.faction_id == elves));
+        world.advance_island_tick();
+        assert_eq!(
+            world
+                .actors
+                .values()
+                .filter(|a| a.faction_id == elves)
+                .count(),
+            1
+        );
+        for _ in 0..24 {
+            world.advance_island_tick();
+        }
+        let wardens: Vec<_> = world
+            .actors
+            .values()
+            .filter(|a| a.faction_id == elves)
+            .collect();
+        assert_eq!(wardens.len(), 3);
+        assert!(
+            wardens
+                .iter()
+                .all(|a| a.definition_id == definition && a.actor_kind == "soldier")
+        );
+        assert!(
+            wardens
+                .iter()
+                .any(|a| world.positions[&a.instance_id] != home)
+        );
+        let woman = wardens
+            .iter()
+            .find(|a| {
+                a.person
+                    .as_ref()
+                    .is_some_and(|p| p.sex == PersonSex::Female)
+            })
+            .unwrap();
+        let id = woman.instance_id.clone();
+        let original = (*woman).clone();
+        assert!(!original.undead);
+        let profile = world.combat_profiles[definition].clone();
+        assert_eq!(
+            (
+                profile.health,
+                profile.damage,
+                profile.range,
+                profile.cooldown_ticks
+            ),
+            (20, 4, 5, 4)
+        );
+        world.policies.clear();
+        for faction in world.factions.values_mut() {
+            for building in faction.buildings.values_mut() {
+                building.operational = false;
+            }
+        }
+        assert!(world.approach_island_person(&id));
+        for _ in 0..128 {
+            if world.can_talk_island_person(&id) {
+                break;
+            }
+            world.advance_island_tick();
+        }
+        assert!(!world.talk_island_person(&id).is_empty());
+        assert!(world.recruit_island_person(&id));
+        assert!(world.assign_island_companion(&id, 0));
+        assert_eq!(world.factions[elves].population_used, 2);
+        assert_eq!(world.actors[&id].provenance, original.provenance);
+        assert_eq!(world.actors[&id].definition_id, definition);
+        assert_eq!(world.combat_profiles[definition], profile);
+        assert_eq!(
+            FactionWorld::load_json(&world.save_json().unwrap()).unwrap(),
+            world
+        );
     }
 
     fn recruitment_fixture() -> (FactionWorld, Vec<String>) {

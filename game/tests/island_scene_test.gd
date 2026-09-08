@@ -133,8 +133,8 @@ func run() -> void:
 	assert(scene.pause_button.mouse_filter == Control.MOUSE_FILTER_STOP)
 	assert(scene.hud_panel.size.x <= scene.get_viewport_rect().size.x)
 	print("PASS: visible pause/save/load actions share native campaign state and preserve test-only files")
-	assert(scene.snapshot.buildings.size() == 4)
-	assert(scene.building_sprites.size() == 4)
+	assert(scene.snapshot.buildings.size() == 5)
+	assert(scene.building_sprites.size() == 5)
 	for building in scene.snapshot.buildings:
 		assert(building.operational)
 		assert(building.queued == 0)
@@ -150,7 +150,11 @@ func run() -> void:
 			if building.archetype == "site_archetype.cthulhu.drowned_shrine":
 				assert(Vector2i(building.x,building.y) == Vector2i(27,16))
 				assert(scene.building_sprites[building.id].texture == scene.building_textures["res://assets/island/drowned_shrine.png"])
-	assert(scene.troop_textures.size() == 7)
+			if building.archetype == "site_archetype.elven.heart_grove":
+				assert(Vector2i(building.x,building.y) == Vector2i(15,24))
+				assert(scene.building_sprites[building.id].texture == scene.building_textures["res://assets/island/heart_grove.png"])
+	assert(scene.troop_textures.size() == 8)
+	assert(scene.troop_textures.has("res://assets/island/troops/elven-bow-warden.png"))
 	assert(scene.troop_textures.has("res://assets/island/troops/cultist-female.png"))
 	assert(scene.troop_textures.has("res://assets/island/troops/colonial-female.png"))
 	for texture in scene.troop_textures.values():
@@ -250,9 +254,9 @@ func run() -> void:
 	assert(scene.appearance_for(unadmitted).texture == "res://assets/island/troops/cultist-female.png")
 	unadmitted.sex = "other"
 	assert(scene.appearance_for(unadmitted).is_empty()) # no unadmitted identity fallback
-	unadmitted.definition = inspected_unit.definition
+	unadmitted.definition = "actor_def.colonial.line_marine"
 	unadmitted.sex = "unknown"
-	assert(scene.appearance_for(unadmitted) == appearance_before) # legacy presentation only
+	assert(scene.appearance_for(unadmitted).texture == "res://assets/island/troops/colonial.png") # explicit legacy presentation only
 	unadmitted.definition = "actor_def.not_admitted"
 	assert(scene.appearance_for(unadmitted).is_empty())
 	print("PASS: character art survives allegiance change and sprite recreation; unadmitted identities have no false fallback")
