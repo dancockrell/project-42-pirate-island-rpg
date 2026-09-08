@@ -48,6 +48,47 @@ var building_textures := {}
 var building_art: Dictionary
 var hit_effects: Array[Line2D] = []
 var last_strikes: Array = []
+var salvage_button := Button.new()
+var workshop_button := Button.new()
+var restore_button := Button.new()
+var salvage_marker := Sprite2D.new()
+
+func salvage_action() -> void:
+	var error: String = port.salvage_island_foothold()
+	save_notice = "Salvage recovered." if error.is_empty() else error
+	refresh_snapshot()
+
+func workshop_action() -> void:
+	for entry in snapshot.actors:
+		if entry.id == MICHAEL:
+			var error: String = port.build_island_foothold(Vector2i(entry.x, entry.y))
+			save_notice = "Workshop construction started." if error.is_empty() else error
+			refresh_snapshot()
+			return
+
+func restore_action() -> void:
+	var error: String = port.restore_island_foothold_person(inspected_id)
+	conversation_notice = "Companion restored." if error.is_empty() else error
+	refresh_snapshot()
+
+func refresh_foothold_controls() -> void:
+	var treasury := int(snapshot.get("salvage", 0))
+	var michael_alive: bool = snapshot.actors.any(func(entry): return entry.id == MICHAEL)
+	var cache: Dictionary = snapshot.get("foothold_cache", {})
+	salvage_marker.visible = not cache.is_empty() and int(cache.get("remaining", 0)) > 0
+	if salvage_marker.visible:
+		salvage_marker.position = (Vector2(cache.x, cache.y) + Vector2.ONE * 0.5) * cell_size
+		salvage_marker.z_index = int(cache.y) - 1
+	salvage_button.disabled = not michael_alive or not salvage_marker.visible
+	workshop_button.text = "Build workshop here · %d salvage" % int(snapshot.get("workshop_cost", 0))
+	workshop_button.disabled = not michael_alive or not snapshot.has("workshop_cost") or treasury < int(snapshot.get("workshop_cost", 0))
+	restore_button.text = "Restore companion · %d salvage" % int(snapshot.get("restoration_cost", 0))
+	var selected_owned_undead := false
+	for entry in snapshot.actors:
+		if entry.id == inspected_id:
+			selected_owned_undead = entry.get("faction", "") == "faction.michael" and entry.get("undead", false)
+	restore_button.visible = selected_owned_undead
+	restore_button.disabled = not michael_alive or not snapshot.has("restoration_cost") or treasury < int(snapshot.get("restoration_cost", 0))
 
 func clear_hit_effects() -> void:
 	for effect in hit_effects:
@@ -221,6 +262,24 @@ func _ready() -> void:
 	zoom_out_button.pressed.connect(func(): zoom_camera(0.8, get_viewport_rect().size * 0.5))
 	center_button.pressed.connect(center_on_michael)
 	overview_button.pressed.connect(show_island)
+	var foothold_actions := HFlowContainer.new()
+	stack.add_child(foothold_actions)
+	for button in [salvage_button, workshop_button, restore_button]:
+		button.custom_minimum_size = Vector2(110, 32)
+		button.mouse_filter = Control.MOUSE_FILTER_STOP
+		foothold_actions.add_child(button)
+	salvage_button.text = "Recover salvage"
+	salvage_button.tooltip_text = "Recover supplies from the nearby salvage cache."
+	workshop_button.tooltip_text = "Build at Michael’s current location on suitable clear land."
+	salvage_button.pressed.connect(salvage_action)
+	workshop_button.pressed.connect(workshop_action)
+	restore_button.pressed.connect(restore_action)
+	salvage_marker.texture = ImageTexture.create_from_image(Image.load_from_file("res://assets/island/salvage_bale.png"))
+	salvage_marker.centered = false
+	salvage_marker.offset = -Vector2(252, 304)
+	salvage_marker.scale = Vector2.ONE * (30.0 / 505.0)
+	salvage_marker.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	map_root.add_child(salvage_marker)
 	inspection.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	inspection.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inspection.visible = false
@@ -418,20 +477,36 @@ func refresh_snapshot() -> void:
 			activity.add_theme_stylebox_override("background", background)
 			activity.add_theme_stylebox_override("fill", fill)
 			structure.add_child(activity)
+			var activity_label := Label.new()
+			activity_label.name = "ActivityLabel"
+			activity_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			activity_label.add_theme_font_size_override("font_size", 11)
+			activity_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+			activity_label.add_theme_constant_override("shadow_offset_x", 1)
+			activity_label.add_theme_constant_override("shadow_offset_y", 1)
+			structure.add_child(activity_label)
 		var structure: Sprite2D = building_sprites[building.id]
 		structure.texture = building_textures[art.texture]
 		structure.offset = -Vector2(art.pivot[0], art.pivot[1])
 		structure.scale = Vector2.ONE * (float(art.display_width) / float(art.source_width))
 		structure.position = (Vector2(building.x, building.y) + Vector2.ONE * 0.5) * cell_size
 		structure.z_index = int(building.y) - 1
-		structure.modulate = Color.WHITE if building.operational else Color(0.55, 0.55, 0.55)
+		structure.self_modulate = Color.WHITE if building.operational else Color(0.55, 0.55, 0.55)
 		var activity: ProgressBar = structure.get_node("Development")
 		activity.scale = Vector2.ONE / structure.scale.x
 		activity.position = Vector2(-20, -float(art.pivot[1]) * structure.scale.x - 6) / structure.scale.x
-		activity.max_value = maxi(int(building.development_ticks), 1)
-		activity.value = int(building.development_ticks) - int(building.development_remaining)
+		var construction := int(building.get("construction_remaining", 0))
+		var work_remaining := construction if construction > 0 else int(building.development_remaining)
+		var total_work := int(building.get("construction_ticks", snapshot.get("workshop_construction_ticks", construction))) if construction > 0 else int(building.development_ticks)
+		activity.max_value = maxi(total_work, 1)
+		activity.value = total_work - work_remaining
 		# Nearby work is observable, not an enemy economy dashboard.
-		activity.visible = int(building.development_remaining) > 0 and actor.position.distance_to(structure.position) <= cell_size * 6
+		activity.visible = work_remaining > 0 and actor.position.distance_to(structure.position) <= cell_size * 6
+		var activity_label: Label = structure.get_node("ActivityLabel")
+		activity_label.scale = Vector2.ONE / structure.scale.x
+		activity_label.position = activity.position + Vector2(-14, -17) / structure.scale.x
+		activity_label.text = "Construction" if construction > 0 else "Development"
+		activity_label.visible = activity.visible
 	for id in building_sprites.keys():
 		if not visible_buildings.has(id):
 			building_sprites[id].queue_free()
@@ -508,6 +583,7 @@ func refresh_snapshot() -> void:
 	status.text = "PIRATE ISLAND · %s · Michael HP %s/%s · %s\nClick land to travel. Right-click to fire. Shift-click to inspect.\nDevelopment slice · standing sprites. %s" % [world_clock_text(), person.health, person.max_health, "PAUSED" if paused else "Exploring", save_notice]
 	if missing_appearance_count > 0:
 		status.text += "\nMissing character art: %d" % missing_appearance_count
+	status.text += "\nSalvage · %d" % int(snapshot.get("salvage", 0))
 
 func world_clock_text() -> String:
 	# Native snapshot is authoritative; no wall-clock advance while paused.
@@ -606,6 +682,7 @@ func refresh_inspection() -> void:
 			live = true
 			break
 	refresh_party_controls(live)
+	refresh_foothold_controls()
 	var offer: String = inspected_person.get("recruitment_offer", "")
 	var michael_alive: bool = snapshot.actors.any(func(entry): return entry.id == MICHAEL)
 	var potential: bool = michael_alive and live and inspected_person.get("sex", "") == "female" and inspected_person.get("faction", "") != "faction.michael" and not offer.is_empty()

@@ -46,6 +46,15 @@ func move_island_party(target: Vector2i) -> bool:
 func party_move_failure(target: Vector2i) -> String:
 	return bridge.party_move_failure(target) if is_available() else "The island is unavailable."
 
+func salvage_island_foothold() -> String:
+	return bridge.salvage_island_foothold() if is_available() else "The island is unavailable."
+
+func build_island_foothold(target: Vector2i) -> String:
+	return bridge.build_island_foothold(target) if is_available() else "The island is unavailable."
+
+func restore_island_foothold_person(actor_id: String) -> String:
+	return bridge.restore_island_foothold_person(actor_id) if is_available() else "The island is unavailable."
+
 func talk_island_person(actor_id: String) -> String:
 	return bridge.talk_island_person(actor_id) if is_available() else ""
 

@@ -193,6 +193,7 @@ impl Project42SimulationBridge {
                         "level" => building.level,
                         "development_remaining" => building.development.as_ref().map_or(0, |order| order.remaining_ticks),
                         "development_ticks" => building.development.as_ref().map_or(0, |order| order.rule.ticks),
+                        "construction_remaining" => building.construction.as_ref().map_or(0, |order| order.remaining_ticks),
                             "queued" => building.production_queue.len() as i64
                         }
                         .to_variant(),
@@ -217,7 +218,42 @@ impl Project42SimulationBridge {
                 .unwrap_or("");
             party_names.push(&name.to_variant());
         }
-        vdict! { "tick" => world.tick as i64, "day" => world.day() as i64, "minute_of_day" => world.minute_of_day(), "paused" => world.paused, "actors" => &actors, "buildings" => &buildings, "land" => &land, "casualties" => world.casualties.len() as i64, "party" => &party, "party_names" => &party_names, "approach_target" => world.approach_target.as_deref().unwrap_or("") }
+        let salvage = world.factions.get("faction.michael")
+            .and_then(|f| f.resources.get("resource.salvage")).copied().unwrap_or(0);
+        let cache = world.foothold_cache.as_ref().map(|c| {
+            vdict! { "x" => c.position.x, "y" => c.position.y, "remaining" => c.remaining }
+        }).unwrap_or_default();
+        let mut snapshot = vdict! { "tick" => world.tick as i64, "day" => world.day() as i64, "minute_of_day" => world.minute_of_day(), "paused" => world.paused, "actors" => &actors, "buildings" => &buildings, "land" => &land, "casualties" => world.casualties.len() as i64, "party" => &party, "party_names" => &party_names, "approach_target" => world.approach_target.as_deref().unwrap_or(""), "salvage" => salvage, "foothold_cache" => &cache };
+        match world.foothold_costs() {
+            Ok((build, restore, ticks)) => {
+                snapshot.set("workshop_cost", build);
+                snapshot.set("restoration_cost", restore);
+                snapshot.set("workshop_construction_ticks", ticks);
+            }
+            Err(error) => { snapshot.set("foothold_error", error.as_str()); }
+        }
+        snapshot
+    }
+
+    #[func]
+    fn salvage_island_foothold(&mut self) -> GString {
+        self.island.as_mut().ok_or_else(|| "Island is unavailable.".to_owned())
+            .and_then(|world| world.salvage_foothold())
+            .err().unwrap_or_default().as_str().into()
+    }
+
+    #[func]
+    fn build_island_foothold(&mut self, target: Vector2i) -> GString {
+        self.island.as_mut().ok_or_else(|| "Island is unavailable.".to_owned())
+            .and_then(|world| world.build_foothold(IslandPoint { x: target.x, y: target.y }))
+            .err().unwrap_or_default().as_str().into()
+    }
+
+    #[func]
+    fn restore_island_foothold_person(&mut self, id: GString) -> GString {
+        self.island.as_mut().ok_or_else(|| "Island is unavailable.".to_owned())
+            .and_then(|world| world.restore_foothold_person(&id.to_string()))
+            .err().unwrap_or_default().as_str().into()
     }
 
     #[func]

@@ -17,7 +17,7 @@ This is production authority, not a claim that every existing runtime or binary 
 Open `game/project.godot` in Godot 4.7.2 or a later compatible Godot 4 maintenance release. F5 launches the current 2D island. F6 launches whichever scene is open, so it is not interchangeable with F5.
 
 Expected current entry: tropical island, Michael alone, the colonial watch fort,
-and three provisional autonomous factions producing units and fighting.
+and four provisional autonomous factions producing units and fighting.
 Click land to travel; Space pauses/resumes; F5 saves and F9 loads while the game
 has keyboard focus. These in-game shortcuts are separate from editor shortcuts.
 Use the mouse wheel to zoom toward the cursor, and middle-drag to pan. The
@@ -41,9 +41,19 @@ The current scene remains a development slice: standing sprites, incomplete
 building art, provisional faction rules and one simple recruitment encounter.
 Four-slot membership and dead identities save/load. Midnight returns eligible
 casualties as undead under surviving Cthulhu; remembered companions require
-explicit reacquisition. Full romance, diplomacy and bodily restoration machinery
-remain unfinished. See
+explicit reacquisition. Michael can recover the nearby wreck salvage, build a
+field workshop on clear ground, then restore a reclaimed undead companion there.
+Full romance, diplomacy and the other factions' restoration systems remain
+unfinished. See
 [island implementation notes](../game/assets/island/README.md).
+
+**Michael's foothold:** near the tied salvage bale, use **Recover salvage**.
+Move Michael onto clear ground northwest of his starting point, then choose
+**Build workshop here**. He must remain nearby while construction advances;
+Space pauses the work along with the island. The finished workshop enables
+**Restore companion** when an inspected undead woman belongs to Michael and
+both she and Michael are close to it. The salvage supply is finite. These
+development prices and construction time are provisional, not final balance.
 
 For a bounded low-resource check without opening an editor or visible window:
 

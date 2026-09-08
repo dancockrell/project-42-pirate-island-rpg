@@ -263,7 +263,7 @@ func run() -> void:
 	colonial.buildings[fort_id].operational = false
 	assert(scene.port.load_island(JSON.stringify(saved)))
 	scene.refresh_snapshot()
-	assert(scene.building_sprites[fort_id].modulate != Color.WHITE)
+	assert(scene.building_sprites[fort_id].self_modulate != Color.WHITE)
 	saved.world.policies.erase("faction.colonial_powers.prototype")
 	colonial.buildings.clear()
 	saved.world.navigation.building_obstacles.erase(fort_id)
@@ -503,6 +503,61 @@ func check_recruitment(scene: Node, fresh_campaign: String) -> bool:
 	assert(scene.party_heading.text.contains("1/4 active"))
 	assert(scene.inspected_person.undead) # allegiance recovery is not bodily resurrection
 	print("PASS: actual produced female dialogue, explicit same-identity recruitment, population transfer, four-slot party, group order and save restore")
+	assert(check_foothold(scene, woman.id))
+	return true
+
+func check_foothold(scene: Node, woman_id: String) -> bool:
+	# Continue the real death/midnight/reclaim scenario above. No salvage or
+	# building is injected: walk to the finite cache and build through UI commands.
+	assert(scene.snapshot.salvage == 0 and scene.inspected_person.undead)
+	var cache: Dictionary = scene.snapshot.foothold_cache
+	assert(cache.remaining == 20 and scene.salvage_marker.visible)
+	assert(scene.request_move(Vector2i(cache.x, cache.y)))
+	scene.set_paused(false)
+	for step in range(70):
+		scene.advance_tick()
+	assert(scene.actor.position == (Vector2(cache.x, cache.y) + Vector2.ONE * 0.5) * scene.cell_size)
+	scene.set_paused(true)
+	scene.salvage_button.pressed.emit()
+	assert(scene.snapshot.salvage == 20 and not scene.salvage_marker.visible)
+	var gathered: String = scene.port.save_island()
+	scene.salvage_action()
+	assert(scene.port.save_island() == gathered)
+	assert(scene.request_move(Vector2i(19,17)))
+	scene.set_paused(false)
+	for step in range(12):
+		scene.advance_tick()
+	assert(scene.actor.position == Vector2(19.5,17.5) * scene.cell_size)
+	scene.set_paused(true)
+	scene.workshop_button.pressed.emit()
+	assert(scene.snapshot.salvage == 8)
+	var sites: Array = scene.snapshot.buildings.filter(func(b): return b.id == "site.michael.field_workshop")
+	assert(sites.size() == 1 and sites[0].construction_remaining == 40 and not sites[0].operational)
+	assert(scene.building_sprites.has(sites[0].id))
+	var paused_work: String = scene.port.save_island()
+	scene.advance_tick()
+	assert(scene.port.save_island() == paused_work)
+	assert(scene.port.load_island(paused_work))
+	scene.refresh_snapshot()
+	scene.set_paused(false)
+	for step in range(40):
+		scene.advance_tick()
+	sites = scene.snapshot.buildings.filter(func(b): return b.id == "site.michael.field_workshop")
+	assert(sites[0].operational and sites[0].construction_remaining == 0 and sites[0].level == 1)
+	scene.inspect_actor(woman_id)
+	assert(scene.inspected_person.undead and scene.restore_button.visible)
+	scene.set_paused(true)
+	var before_restore: Dictionary = scene.inspected_person.duplicate(true)
+	scene.restore_button.pressed.emit()
+	assert(not scene.inspected_person.undead and scene.snapshot.salvage == 4)
+	assert(scene.inspected_person.id == before_restore.id and scene.inspected_person.name == before_restore.name)
+	assert(scene.inspected_person.faction == "faction.michael" and scene.snapshot.party[0] == woman_id)
+	assert(scene.troop_sprites[woman_id].self_modulate == Color.WHITE)
+	assert(not scene.restore_button.visible)
+	var completed: String = scene.port.save_island()
+	assert(scene.port.load_island(completed))
+	assert(scene.port.save_island() == completed)
+	print("PASS: walk to finite salvage, paid workshop construction with pause/save, then explicit paid restoration of the same reclaimed undead companion")
 	return true
 
 func check_fresh_recruitment(scene: Node, fresh_campaign: String) -> bool:

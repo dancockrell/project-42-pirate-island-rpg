@@ -1,4 +1,15 @@
 {
+  "site_archetype.michael.field_workshop": {
+    "texture": "res://assets/island/field_workshop.png",
+    "pivot": [405,910],
+    "source_width": 1287,
+    "display_width": 120,
+    "blocked_offsets": [[0,-1],[1,-1],[2,-1],[1,0]],
+    "status": "development-player-built-placement",
+    "reviewed_entrance": [19,17],
+    "source": "procedural/sprites/candidates/pirate-island/field-workshop-01/extracted/cell_00_00.png",
+    "sha256": "d1380c98922aaaa953242b921dfcdae05f1527cb268b721c0ae5574fba1f5718"
+  },
   "site_archetype.colonial.watch_fort": {
     "texture": "res://assets/island/watch_fort.png",
     "pivot": [775, 825],

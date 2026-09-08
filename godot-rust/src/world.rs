@@ -304,6 +304,8 @@ pub struct ProductionOrder {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FactionBuilding {
+    #[serde(default)]
+    pub construction: Option<BuildingConstruction>,
     #[serde(default = "starting_building_level")]
     pub level: u32,
     #[serde(default = "default_building_health")]
@@ -320,6 +322,54 @@ pub struct FactionBuilding {
     pub operational: bool,
     pub queue_capacity: usize,
     pub production_queue: Vec<ProductionOrder>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BuildingConstruction {
+    pub builder_id: String,
+    pub remaining_ticks: u32,
+    pub reserved_costs: BTreeMap<String, u32>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FootholdCache {
+    pub position: IslandPoint,
+    pub remaining: u32,
+}
+
+#[derive(Deserialize)]
+struct FootholdConfig {
+    cache_position: IslandPoint,
+    cache_salvage: u32,
+    build_salvage: u32,
+    construction_ticks: u32,
+    restore_salvage: u32,
+    building_health: u32,
+}
+
+fn foothold_config() -> Result<&'static FootholdConfig, String> {
+    static CONFIG: std::sync::OnceLock<Result<FootholdConfig, String>> = std::sync::OnceLock::new();
+    CONFIG
+        .get_or_init(|| {
+            let config: FootholdConfig =
+                serde_json::from_str(include_str!("../../content/island/michael_foothold.json"))
+                    .map_err(|_| "Invalid foothold configuration.")?;
+            if [
+                config.cache_salvage,
+                config.build_salvage,
+                config.construction_ticks,
+                config.restore_salvage,
+                config.building_health,
+            ]
+            .iter()
+            .any(|v| !(1..=100000).contains(v))
+            {
+                return Err("Invalid foothold configuration.".into());
+            }
+            Ok(config)
+        })
+        .as_ref()
+        .map_err(Clone::clone)
 }
 
 fn default_building_health() -> u32 {
@@ -515,6 +565,8 @@ pub enum FactionWorldError {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FactionWorld {
+    #[serde(default)]
+    pub foothold_cache: Option<FootholdCache>,
     #[serde(default)]
     pub clock: IslandClock,
     /// Fixed slots preserve deliberate replacement and dead companion identity.
@@ -820,6 +872,220 @@ impl MapPlacement {
 }
 
 impl FactionWorld {
+    pub fn foothold_costs(&self) -> Result<(u32, u32, u32), String> {
+        let config = foothold_config()?;
+        Ok((
+            config.build_salvage,
+            config.restore_salvage,
+            config.construction_ticks,
+        ))
+    }
+    fn within_work_range(&self, actor_id: &str, point: IslandPoint) -> bool {
+        self.living_actor(actor_id)
+            && self.positions.get(actor_id).is_some_and(|p| {
+                p.x.abs_diff(point.x).saturating_add(p.y.abs_diff(point.y)) <= 2
+                    && self.navigation.clear_line(*p, point)
+            })
+    }
+
+    pub fn salvage_foothold(&mut self) -> Result<(), String> {
+        let cache = self
+            .foothold_cache
+            .as_ref()
+            .ok_or("No wreck salvage in this campaign.")?;
+        if cache.remaining == 0 {
+            return Err("The wreck salvage is exhausted.".into());
+        }
+        if !self.within_work_range("character.protagonist.captain", cache.position) {
+            return Err("Bring Michael within reach of the wreck salvage.".into());
+        }
+        let faction = self
+            .factions
+            .get_mut("faction.michael")
+            .ok_or("Michael's faction is unavailable.")?;
+        let stored = faction
+            .resources
+            .get("resource.salvage")
+            .copied()
+            .unwrap_or(0)
+            .checked_add(cache.remaining)
+            .ok_or("Salvage storage is full.")?;
+        faction.resources.insert("resource.salvage".into(), stored);
+        self.foothold_cache.as_mut().unwrap().remaining = 0;
+        Ok(())
+    }
+
+    pub fn build_foothold(&mut self, entrance: IslandPoint) -> Result<(), String> {
+        const CAPTAIN: &str = "character.protagonist.captain";
+        const BUILDING: &str = "site.michael.field_workshop";
+        const ARCHETYPE: &str = "site_archetype.michael.field_workshop";
+        let config = foothold_config()?;
+        if !self.within_work_range(CAPTAIN, entrance) {
+            return Err("Bring Michael within reach of the workshop site.".into());
+        }
+        let faction = self
+            .factions
+            .get("faction.michael")
+            .ok_or("Michael's faction is unavailable.")?;
+        if faction.buildings.contains_key(BUILDING) {
+            return Err("Michael already has a workshop site.".into());
+        }
+        let stored = faction
+            .resources
+            .get("resource.salvage")
+            .copied()
+            .unwrap_or(0);
+        if stored < config.build_salvage {
+            return Err(format!(
+                "Need {} salvage to build the workshop.",
+                config.build_salvage
+            ));
+        }
+        let footprints = island_building_footprints()?;
+        let footprint = footprints
+            .get(ARCHETYPE)
+            .ok_or("The workshop building art is not available yet.")?;
+        if footprint.blocked_offsets.is_empty()
+            || footprint
+                .placement_entrance
+                .is_some_and(|[x, y]| entrance != (IslandPoint { x, y }))
+        {
+            return Err("Choose the reviewed workshop site.".into());
+        }
+        let mut staged = self.clone();
+        staged
+            .navigation
+            .destinations
+            .insert(BUILDING.into(), entrance);
+        staged
+            .factions
+            .get_mut("faction.michael")
+            .unwrap()
+            .buildings
+            .insert(
+                BUILDING.into(),
+                FactionBuilding {
+                    construction: Some(BuildingConstruction {
+                        builder_id: CAPTAIN.into(),
+                        remaining_ticks: config.construction_ticks,
+                        reserved_costs: [("resource.salvage".into(), config.build_salvage)]
+                            .into_iter()
+                            .collect(),
+                    }),
+                    level: 1,
+                    max_health: config.building_health,
+                    health: config.building_health,
+                    development: None,
+                    id: BUILDING.into(),
+                    faction_id: "faction.michael".into(),
+                    archetype_id: ARCHETYPE.into(),
+                    node_id: BUILDING.into(),
+                    rally_point_id: BUILDING.into(),
+                    operational: false,
+                    queue_capacity: 1,
+                    production_queue: Vec::new(),
+                },
+            );
+        let obstacles = staged.authored_building_obstacles()?;
+        let cells = obstacles
+            .get(BUILDING)
+            .ok_or("Workshop footprint is missing.")?;
+        if cells
+            .iter()
+            .any(|p| !self.navigation.traversable(*p) || self.positions.values().any(|v| v == p))
+        {
+            return Err(
+                "The workshop needs clear ground, away from people and other buildings.".into(),
+            );
+        }
+        staged.navigation.building_obstacles = obstacles;
+        let captain = staged.positions[CAPTAIN];
+        let reachable = |point| staged.navigation.path(captain, point).is_some();
+        if !reachable(entrance)
+            || staged.positions.values().any(|p| !reachable(*p))
+            || staged.travel_orders.iter().any(|(id, destination)| {
+                match (
+                    staged.positions.get(id),
+                    staged.navigation.destinations.get(destination),
+                ) {
+                    (Some(start), Some(goal)) => staged.navigation.path(*start, *goal).is_none(),
+                    _ => true,
+                }
+            })
+            || staged
+                .factions
+                .values()
+                .flat_map(|f| f.buildings.values())
+                .any(|b| !reachable(staged.navigation.destinations[&b.node_id]))
+            || staged
+                .foothold_cache
+                .as_ref()
+                .is_some_and(|c| c.remaining > 0 && !reachable(c.position))
+        {
+            return Err("The workshop would block an island route.".into());
+        }
+        staged
+            .factions
+            .get_mut("faction.michael")
+            .unwrap()
+            .resources
+            .insert("resource.salvage".into(), stored - config.build_salvage);
+        *self = Self::load_json(&staged.save_json()?)?;
+        Ok(())
+    }
+
+    pub fn restore_foothold_person(&mut self, id: &str) -> Result<(), String> {
+        let config = foothold_config()?;
+        let actor = self
+            .actors
+            .get(id)
+            .ok_or("Select a living undead member of Michael's faction.")?;
+        if actor.faction_id != "faction.michael"
+            || !actor.undead
+            || !self.living_actor(id)
+            || !actor
+                .person
+                .as_ref()
+                .is_some_and(|p| p.sex == PersonSex::Female && p.age.is_some_and(|age| age >= 18))
+        {
+            return Err("Restore an owned undead woman; reclaim her first if necessary.".into());
+        }
+        let workshop = self
+            .factions
+            .get("faction.michael")
+            .and_then(|f| f.buildings.get("site.michael.field_workshop"))
+            .filter(|b| b.operational && b.construction.is_none() && b.health > 0)
+            .ok_or("Complete the field workshop first.")?;
+        let entrance = self.navigation.destinations[&workshop.node_id];
+        if !self.within_work_range("character.protagonist.captain", entrance)
+            || !self.within_work_range(id, entrance)
+        {
+            return Err("Bring Michael and her within reach of the workshop.".into());
+        }
+        let health = self
+            .combat_profiles
+            .get(&actor.definition_id)
+            .ok_or("Her health profile is unavailable.")?
+            .health;
+        let faction = self.factions.get_mut("faction.michael").unwrap();
+        let stored = faction
+            .resources
+            .get("resource.salvage")
+            .copied()
+            .unwrap_or(0);
+        if stored < config.restore_salvage {
+            return Err(format!(
+                "Need {} salvage for restoration.",
+                config.restore_salvage
+            ));
+        }
+        faction
+            .resources
+            .insert("resource.salvage".into(), stored - config.restore_salvage);
+        self.actors.get_mut(id).unwrap().undead = false;
+        self.unit_combat.get_mut(id).unwrap().health = health;
+        Ok(())
+    }
     pub fn day(&self) -> u64 {
         1 + self.tick / self.clock.ticks_per_day.max(1)
     }
@@ -1180,7 +1446,10 @@ impl FactionWorld {
             if let Some(policy) = self.policies.get_mut(&faction_id) {
                 policy.production.remove(&building_id);
             }
-            if faction.buildings.is_empty() {
+            if faction.buildings.is_empty()
+                && !(faction_id == "faction.michael"
+                    && self.living_actor("character.protagonist.captain"))
+            {
                 if let Ok(event) = self.eliminate_faction(&faction_id) {
                     events.push(event);
                 }
@@ -1275,6 +1544,7 @@ impl FactionWorld {
                 .destinations
                 .insert(spawn_id.clone(), spawn);
             let building = FactionBuilding {
+                construction: None,
                 level: tuning.holding_level,
                 max_health: tuning.holding_health,
                 development: None,
@@ -1380,6 +1650,18 @@ impl FactionWorld {
         }
         // Authored scenarios and resumed campaigns obey the same authoritative
         // profile, building, navigation and population validity boundary.
+        let config = foothold_config()?;
+        if staged
+            .navigation
+            .path(objective, config.cache_position)
+            .is_none()
+        {
+            return Err("Wreck salvage is unreachable.".into());
+        }
+        staged.foothold_cache = Some(FootholdCache {
+            position: config.cache_position,
+            remaining: config.cache_salvage,
+        });
         *self = Self::load_json(&staged.save_json()?)?;
         Ok(())
     }
@@ -1763,6 +2045,11 @@ impl FactionWorld {
             return Err("unsupported_save_version".into());
         }
         let mut world = save.world;
+        if world.foothold_cache.as_ref().is_some_and(|c| {
+            c.remaining > 100000 || !world.navigation.walkable.contains(&c.position)
+        }) {
+            return Err("invalid_saved_foothold_cache".into());
+        }
         if !(1..=1000000).contains(&world.clock.ticks_per_day) {
             return Err("invalid_saved_clock".into());
         }
@@ -1790,6 +2077,25 @@ impl FactionWorld {
                 return Err("invalid_saved_faction".into());
             }
             for (building_id, building) in &faction.buildings {
+                if let Some(job) = &building.construction {
+                    if building.operational
+                        || faction.id != "faction.michael"
+                        || building.archetype_id != "site_archetype.michael.field_workshop"
+                        || job.builder_id != "character.protagonist.captain"
+                        || building.development.is_some()
+                        || !building.production_queue.is_empty()
+                        || !(1..=100000).contains(&job.remaining_ticks)
+                        || job.reserved_costs.is_empty()
+                        || job
+                            .reserved_costs
+                            .values()
+                            .any(|c| !(1..=100000).contains(c))
+                        || !world.actors.contains_key(&job.builder_id)
+                            && !world.casualties.contains_key(&job.builder_id)
+                    {
+                        return Err("invalid_saved_construction".into());
+                    }
+                }
                 if building_id != &building.id
                     || &building.faction_id != id
                     || building.production_queue.len() > building.queue_capacity
@@ -2530,9 +2836,33 @@ impl FactionWorld {
             return Vec::new();
         }
         self.tick += 1;
+        let construction_ready: BTreeSet<String> = self
+            .factions
+            .values()
+            .flat_map(|f| f.buildings.values())
+            .filter(|b| {
+                b.construction.as_ref().is_some_and(|job| {
+                    self.navigation
+                        .destinations
+                        .get(&b.node_id)
+                        .is_some_and(|p| self.within_work_range(&job.builder_id, *p))
+                })
+            })
+            .map(|b| b.id.clone())
+            .collect();
         let mut completed = Vec::new();
         for faction in self.factions.values_mut() {
             for building in faction.buildings.values_mut() {
+                if let Some(job) = &mut building.construction {
+                    if construction_ready.contains(&building.id) {
+                        job.remaining_ticks = job.remaining_ticks.saturating_sub(1);
+                        if job.remaining_ticks == 0 {
+                            building.construction = None;
+                            building.operational = true;
+                        }
+                    }
+                    continue;
+                }
                 if !building.operational {
                     continue;
                 }
@@ -2886,6 +3216,7 @@ mod tests {
 
     fn production_world() -> FactionWorld {
         let building = FactionBuilding {
+            construction: None,
             level: 1,
             max_health: default_building_health(),
             development: None,
@@ -4256,6 +4587,158 @@ mod tests {
             .unwrap()
             .operational = true;
         (world, victim)
+    }
+
+    #[test]
+    fn foothold_salvage_construction_and_owned_restoration_are_paid_local_and_persistent() {
+        let (mut world, ids) = recruitment_fixture();
+        let captain = "character.protagonist.captain";
+        let workshop = "site.michael.field_workshop";
+        let woman = &ids[0];
+        world.talk_island_person(woman);
+        assert!(world.recruit_island_person(woman));
+        assert!(world.assign_island_companion(woman, 0));
+        assert!(world.factions["faction.michael"].resources.is_empty());
+        let unchanged = world.clone();
+        assert!(world.salvage_foothold().is_err());
+        assert_eq!(world, unchanged);
+        let cache = world.foothold_cache.as_ref().unwrap().position;
+        assert!(world.move_island_party(cache));
+        for _ in 0..40 {
+            world.advance_island_tick();
+        }
+        assert_eq!(world.positions[captain], cache);
+        world.salvage_foothold().unwrap();
+        assert_eq!(
+            world.factions["faction.michael"].resources["resource.salvage"],
+            20
+        );
+        let unchanged = world.clone();
+        assert!(world.salvage_foothold().is_err());
+        assert_eq!(world, unchanged);
+        let entrance = IslandPoint { x: 19, y: 17 };
+        assert!(world.move_island_party(entrance));
+        for _ in 0..8 {
+            world.advance_island_tick();
+        }
+        // The party member must not stand in the actual new wall footprint.
+        let side = IslandPoint { x: 18, y: 17 };
+        world.order_move(woman, side).unwrap();
+        for _ in 0..4 {
+            world.advance_island_tick();
+        }
+        world.build_foothold(entrance).unwrap();
+        assert!(!world.policies.contains_key("faction.michael"));
+        assert_eq!(
+            world.factions["faction.michael"].resources["resource.salvage"],
+            8
+        );
+        assert!(!world.factions["faction.michael"].buildings[workshop].operational);
+        let unchanged = world.clone();
+        assert!(world.build_foothold(entrance).is_err());
+        assert_eq!(world, unchanged);
+        world.actors.get_mut(woman).unwrap().undead = true;
+        assert!(world.restore_foothold_person(woman).is_err());
+        world.paused = true;
+        let frozen = world.clone();
+        world.advance_island_tick();
+        assert_eq!(world, frozen);
+        world.paused = false;
+        // Stop building when Michael leaves; pending work survives save/load.
+        assert!(world.move_island_party(IslandPoint { x: 24, y: 18 }));
+        for _ in 0..12 {
+            world.advance_island_tick();
+        }
+        let remaining = world.factions["faction.michael"].buildings[workshop]
+            .construction
+            .as_ref()
+            .unwrap()
+            .remaining_ticks;
+        for _ in 0..4 {
+            world.advance_island_tick();
+        }
+        assert_eq!(
+            world.factions["faction.michael"].buildings[workshop]
+                .construction
+                .as_ref()
+                .unwrap()
+                .remaining_ticks,
+            remaining
+        );
+        let mut restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        assert!(world.move_island_party(entrance));
+        assert!(restored.move_island_party(entrance));
+        for _ in 0..50 {
+            assert_eq!(world.advance_island_tick(), restored.advance_island_tick());
+            assert_eq!(world, restored);
+        }
+        assert!(world.factions["faction.michael"].buildings[workshop].operational);
+        assert!(
+            world.factions["faction.michael"].buildings[workshop]
+                .construction
+                .is_none()
+        );
+        assert_eq!(
+            world.factions["faction.michael"].buildings[workshop].level,
+            1
+        );
+        let identity = world.actors[woman].clone();
+        world.unit_combat.get_mut(woman).unwrap().health = 1;
+        world.restore_foothold_person(woman).unwrap();
+        assert!(!world.actors[woman].undead);
+        assert_eq!(world.actors[woman].person, identity.person);
+        assert_eq!(world.actors[woman].provenance, identity.provenance);
+        assert_eq!(
+            world.factions["faction.michael"].resources["resource.salvage"],
+            4
+        );
+        let unchanged = world.clone();
+        assert!(world.restore_foothold_person(woman).is_err());
+        assert!(world.restore_foothold_person(&ids[1]).is_err());
+        assert_eq!(world, unchanged);
+        assert!(FactionWorld::load_json(&world.save_json().unwrap()).is_ok());
+        let mut legacy: serde_json::Value =
+            serde_json::from_str(&world.save_json().unwrap()).unwrap();
+        legacy["world"]
+            .as_object_mut()
+            .unwrap()
+            .remove("foothold_cache");
+        assert!(
+            FactionWorld::load_json(&legacy.to_string())
+                .unwrap()
+                .foothold_cache
+                .is_none()
+        );
+        assert!(world.move_island_party(IslandPoint { x: 24, y: 18 }));
+        for _ in 0..12 {
+            world.advance_island_tick();
+        }
+        world.positions.insert(ids[4].clone(), entrance);
+        world.unit_combat.get_mut(&ids[4]).unwrap().next_attack_tick = 0;
+        world
+            .policies
+            .insert("faction.pirates.prototype".into(), FactionPolicy::default());
+        world
+            .hostilities
+            .insert(("faction.pirates.prototype".into(), "faction.michael".into()));
+        world
+            .factions
+            .get_mut("faction.michael")
+            .unwrap()
+            .buildings
+            .get_mut(workshop)
+            .unwrap()
+            .health = 1;
+        world.resolve_island_skirmish();
+        assert!(
+            !world.factions["faction.michael"]
+                .buildings
+                .contains_key(workshop)
+        );
+        assert!(world.living_actor(captain) && world.living_actor(woman));
+        assert!(!world.eliminated_factions.contains("faction.michael"));
+        assert!(!world.navigation.building_obstacles.contains_key(workshop));
+        assert!(FactionWorld::load_json(&world.save_json().unwrap()).is_ok());
     }
 
     #[test]

@@ -259,7 +259,8 @@ A returned companion keeps her remembered slot but is inactive while with
 Cthulhu. Party travel and defense cannot command her. Michael must approach and
 regain her explicitly through Talk/Join. She then accompanies him again if her
 slot was retained, but remains undead: recruitment does not invent bodily
-restoration. Faction/allied restoration machinery, rituals, madness recruitment,
+restoration. Michael's field workshop now supplies one explicit bodily restoration
+action after allegiance recovery. Allied restoration machinery, rituals, madness recruitment,
 undead-specific powers and final resurrection presentation remain unfinished.
 
 ## Fox settlement
@@ -287,6 +288,38 @@ full worker/trade economy and hero powers are not implemented by this increment.
 Older campaigns preserve their original faction population; start a new game
 to include the fox settlement. The elven grove is a shared source candidate,
 not a deployed fifth AI faction: its guardian art remains unavailable.
+
+## Michael's first foothold
+
+Michael still starts alone with no base or treasury. A saved, finite wreck cache
+at cell [20,19] contains 20 salvage. Recovering it requires nearby Michael and
+clear access; repeating the action cannot refill it. The tied bale is shared 2D
+art from `mercantile-cart-props-01/extracted-01/cell_00_02.png`, SHA256
+`8911b0430334effaa432f3460353414a8d4d3ac4c589b9bed457a6e2a1b6125c`;
+505 by 336 pixels, ground pivot [252,304], displayed 30 pixels wide.
+
+The field workshop costs 12 salvage and requires 40 nearby-Michael work ticks.
+Its foundation must fit legal unoccupied land without trapping actors or
+holding entrances. Payment and placement are atomic. It is not operational
+during construction; leaving stops work, normal pause stops work, and saving
+preserves progress. This is a first building, not the full mechanical army.
+Destroying his workshop does not eliminate a still-living Michael or his party.
+
+A completed workshop restores an already Michael-owned undead woman for four
+salvage when she and living Michael are nearby. It clears undead state and
+restores health without changing identity, memory or companion membership.
+It cannot recruit enemies, restore a casualty before midnight, or supply the
+other factions' rituals. All numbers live in `content/island/michael_foothold.json`
+and are provisional. Finite salvage is not yet a renewable worker economy.
+
+Workshop artwork is shared `pirate-island/field-workshop-01/extracted/cell_00_00.png`,
+SHA256 `d1380c98922aaaa953242b921dfcdae05f1527cb268b721c0ae5574fba1f5718`.
+Its 1287 by 1004 source uses stair-ground pivot [405,910], 120 pixel world width,
+and asymmetric foundation offsets [[0,-1],[1,-1],[2,-1],[1,0]]. The source and
+one background correction used built-in image generation. Raw outputs and exact
+prompts are preserved in the shared folder. Actual-scale terrain composition was
+reviewed; this is development standing artwork, not final construction animation
+or an engine-render approval.
 
 Checks:
 Godot headless tests/island_scene_test.gd passes actual scene load, native position
