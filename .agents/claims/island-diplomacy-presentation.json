@@ -1,12 +1,1 @@
-{
-  "schema_version": 1,
-  "task_id": "island-diplomacy-presentation",
-  "agent": "codex-root",
-  "summary": "Bring island relationship news into nearby NPC conversations and review the live faction campaign",
-  "status": "active",
-  "claimed_at": "2026-09-08T00:00:00Z",
-  "updated_at": "2026-09-08T00:00:00Z",
-  "paths": ["godot-rust/src/godot_bridge.rs", "game/scripts/world/island_scene.gd", "game/scripts/review/island_campaign_review.gd", "game/assets/island/README.md", ".agents/claims/island-diplomacy-presentation.json"],
-  "coordination": {"depends_on": [], "conflicts_with": [], "notes": "npc_inspection owns native simulation and diplomacy content. Root owns dialogue UI and integration; no paid generation or visible engine."},
-  "completion": {"commit": null, "checks": []}
-}
+{"schema_version":1,"task_id":"island-diplomacy-presentation","agent":"codex-root","summary":"Bring island relationship news into nearby NPC conversations and review the live faction campaign","status":"completed","claimed_at":"2026-09-08T00:00:00Z","updated_at":"2026-09-08T00:00:00Z","paths":["godot-rust/src/godot_bridge.rs","game/scripts/world/island_scene.gd","game/scripts/review/island_campaign_review.gd","game/assets/island/README.md",".agents/claims/island-diplomacy-presentation.json"],"coordination":{"depends_on":[],"conflicts_with":[],"notes":"npc_inspection owns native simulation and diplomacy content. Root owns dialogue UI and integration; no paid generation or visible engine."},"completion":{"commit":"69f61a5","checks":["Latest native extension built and installed; actual island1440tick observation completed with authored wars; final128tick actual Approach/Talk to Tobias Costa displayed pirate war news and no Join button; content183IDs passed. No native rendered art approval."]}}
