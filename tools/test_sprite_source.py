@@ -4,10 +4,33 @@ from pathlib import Path
 import tempfile
 import unittest
 from PIL import Image
-from inspect_sprite_source import inspect_source
+from inspect_sprite_source import inspect_source, inspect_island, write_catalog
 
 
 class SpriteSourceTests(unittest.TestCase):
+    def test_current_island_assets_resolve_without_changing_pngs(self):
+        root = Path(__file__).resolve().parent.parent
+        images = list((root / "game/assets/island").rglob("*.png")) + list((root / "game/assets/sprites").rglob("*.png"))
+        before = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in images}
+        report = inspect_island(root)
+        self.assertEqual(report["errors"], [])
+        self.assertEqual(report["unreferencedPngs"], [])
+        self.assertEqual(len(report["entries"]), 18)
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / "index.html"
+            write_catalog(report, output)
+            page = output.read_text(encoding="utf-8")
+            self.assertEqual(page.count("<article "), 18)
+            self.assertIn('href="sprites/michael/frames.json"', page)
+        self.assertEqual(before, {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in images})
+
+    def test_catalog_refuses_invalid_assets(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / "index.html"
+            with self.assertRaises(ValueError):
+                write_catalog({"errors": ["missing image"], "entries": []}, output)
+            self.assertFalse(output.exists())
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

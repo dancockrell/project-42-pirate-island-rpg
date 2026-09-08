@@ -2,7 +2,12 @@
   "actor_def.michael.mechanical_dog": {
     "variants": {
       "machine": {
-        "texture": "res://assets/island/troops/mechanical-dog.png", "pivot": [520,925], "scale": 0.02641878669,
+        "texture": "res://assets/island/troops/mechanical-dog.png",
+        "pivot": [
+          520,
+          925
+        ],
+        "scale": 0.02641878669,
         "status": "development-standing",
         "source": "procedural/sprites/candidates/pirate-island/mechanical-dog-01/quality-revision-extracted/cell_00_00.png",
         "sha256": "02824c80f25292ed1d77f461938e92b8ac901a553e9e94571fad751511a85e23"
@@ -12,7 +17,12 @@
   "actor_def.elven.bow_warden": {
     "variants": {
       "female": {
-        "texture": "res://assets/island/troops/elven-bow-warden.png", "pivot": [269,1253], "scale": 0.02625656414,
+        "texture": "res://assets/island/troops/elven-bow-warden.png",
+        "pivot": [
+          269,
+          1253
+        ],
+        "scale": 0.02625656414,
         "status": "development-standing",
         "source": "procedural/sprites/candidates/pirate-island/troops-01/elven-bow-warden-01/extracted-bow-correction/cell_00_00.png",
         "sha256": "9bbbf5c51fcdb9f5021bedf2cf60edf5375c35225e02d0378f91202cf617a39f"
@@ -22,9 +32,23 @@
   "actor_def.colonial.line_marine": {
     "legacy_unknown_variant": "male",
     "variants": {
-      "male": { "texture": "res://assets/island/troops/colonial.png", "pivot": [116,366], "scale": 0.105 },
+      "male": {
+        "texture": "res://assets/island/troops/colonial.png",
+        "pivot": [
+          116,
+          361
+        ],
+        "scale": 0.105,
+        "sha256": "f3387eebf2347ada624bad61cf09e4219bf042e1133cc4cc98ac29b393ed6633",
+        "status": "development-standing"
+      },
       "female": {
-        "texture": "res://assets/island/troops/colonial-female.png", "pivot": [310,1280], "scale": 0.02363896848,
+        "texture": "res://assets/island/troops/colonial-female.png",
+        "pivot": [
+          310,
+          1280
+        ],
+        "scale": 0.02363896848,
         "status": "development-standing",
         "source": "procedural/sprites/candidates/pirate-island/troops-01/colonial-female-revision-02/extracted/cell_00_00.png",
         "sha256": "3db289136406d38b5bf2e35e9c07e90ac67c5f9ced1010c8b781b096e4d16295"
@@ -34,9 +58,23 @@
   "actor_def.pirates.deckhand": {
     "legacy_unknown_variant": "male",
     "variants": {
-      "male": { "texture": "res://assets/island/troops/pirate.png", "pivot": [143,363], "scale": 0.105 },
+      "male": {
+        "texture": "res://assets/island/troops/pirate.png",
+        "pivot": [
+          143,
+          362
+        ],
+        "scale": 0.105,
+        "sha256": "7ca007f7f47663e0aa124bb9be2a6b936e2151e8c78bbda5b758370a9dca176a",
+        "status": "development-standing"
+      },
       "female": {
-        "texture": "res://assets/island/troops/pirate-female.png", "pivot": [302,1080], "scale": 0.03025,
+        "texture": "res://assets/island/troops/pirate-female.png",
+        "pivot": [
+          302,
+          1080
+        ],
+        "scale": 0.03025,
         "status": "development-standing",
         "source": "procedural/sprites/candidates/pirate-island/troops-01/pirate-female-revision-01/extracted/cell_00_00.png",
         "sha256": "52326f77901ee1d4643359d32fea47e25915bfd9146fd3e667b8e66b0c5afc19"
@@ -46,7 +84,12 @@
   "actor_def.eastern_fox_people.spear_skirmisher": {
     "variants": {
       "female": {
-        "texture": "res://assets/island/troops/fox-skirmisher.png", "pivot": [500,1300], "scale": 0.0261,
+        "texture": "res://assets/island/troops/fox-skirmisher.png",
+        "pivot": [
+          500,
+          1300
+        ],
+        "scale": 0.0261,
         "status": "development-standing",
         "source": "procedural/sprites/candidates/pirate-island/fox-female-skirmisher-01/extracted/cell_00_00.png",
         "sha256": "72614967d92697725b14731ff0cd49c6caffa81d98a8447fe3a3568ac1aeb672"
@@ -56,9 +99,23 @@
   "actor_def.cthulhu.drowned_cultist": {
     "legacy_unknown_variant": "male",
     "variants": {
-      "male": { "texture": "res://assets/island/troops/cultist.png", "pivot": [127,374], "scale": 0.105 },
+      "male": {
+        "texture": "res://assets/island/troops/cultist.png",
+        "pivot": [
+          127,
+          373
+        ],
+        "scale": 0.105,
+        "sha256": "7cc35e7768aebc99046cb68aa87c80bbd4c7c732f9a0a306843340d0329e62d0",
+        "status": "development-standing"
+      },
       "female": {
-        "texture": "res://assets/island/troops/cultist-female.png", "pivot": [84,340], "scale": 0.09166666667,
+        "texture": "res://assets/island/troops/cultist-female.png",
+        "pivot": [
+          84,
+          340
+        ],
+        "scale": 0.09166666667,
         "status": "development-standing",
         "source": "procedural/sprites/candidates/pirate-island/troops-01/extracted/cell_01_02.png",
         "sha256": "2929cb62163b3450b7f4b586f954a909a7f4ffcf86de9fca016c45cb400783a8"
