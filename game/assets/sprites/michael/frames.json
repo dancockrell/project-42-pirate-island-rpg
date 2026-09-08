@@ -1,12 +1,84 @@
 {
   "schemaVersion": 1,
-  "sourceSha256": "9439551d5c9bd11eb5865748da07b79e8fdd4c83f5b83ec122b9e53222cc4ad7",
-  "status": "review-only",
-  "provenance": "shared-game-environment-library/procedural/sprites/candidates/pirate-island/michael-turnaround-01/GENERATION.md",
+  "status": "development-standing-root-reviewed-native-lossless",
+  "sourceSha256": "c5c327bd652773cd0114ecc1920bf63fcfaef0c0301239eb61926b3fe236cdd9",
+  "provenance": "shared-game-environment-library/procedural/sprites/candidates/pirate-island/michael-quality-review-01/NATIVE_ADMISSION.md",
   "frames": [
-    {"id":"michael.idle.se","action":"idle","direction":"se","rect":[0,0,607,640],"footPivot":[356,619],"durationSeconds":1,"loop":true},
-    {"id":"michael.idle.sw","action":"idle","direction":"sw","rect":[607,0,607,640],"footPivot":[288,627],"durationSeconds":1,"loop":true},
-    {"id":"michael.idle.ne","action":"idle","direction":"ne","rect":[0,640,607,655],"footPivot":[347,597],"durationSeconds":1,"loop":true},
-    {"id":"michael.idle.nw","action":"idle","direction":"nw","rect":[607,640,607,655],"footPivot":[298,608],"durationSeconds":1,"loop":true}
+    {
+      "id": "michael.idle.se",
+      "action": "idle",
+      "direction": "se",
+      "rect": [
+        4,
+        4,
+        297,
+        605
+      ],
+      "footPivot": [
+        148,
+        604
+      ],
+      "worldScale": 0.06360330578512398,
+      "sourceBodyHeight": 605,
+      "durationSeconds": 1,
+      "loop": true
+    },
+    {
+      "id": "michael.idle.sw",
+      "action": "idle",
+      "direction": "sw",
+      "rect": [
+        309,
+        4,
+        288,
+        608
+      ],
+      "footPivot": [
+        144,
+        607
+      ],
+      "worldScale": 0.06414473684210527,
+      "sourceBodyHeight": 608,
+      "durationSeconds": 1,
+      "loop": true
+    },
+    {
+      "id": "michael.idle.ne",
+      "action": "idle",
+      "direction": "ne",
+      "rect": [
+        4,
+        620,
+        283,
+        592
+      ],
+      "footPivot": [
+        142,
+        591
+      ],
+      "worldScale": 0.06434121621621622,
+      "sourceBodyHeight": 592,
+      "durationSeconds": 1,
+      "loop": true
+    },
+    {
+      "id": "michael.idle.nw",
+      "action": "idle",
+      "direction": "nw",
+      "rect": [
+        309,
+        620,
+        289,
+        595
+      ],
+      "footPivot": [
+        144,
+        594
+      ],
+      "worldScale": 0.06521848739495799,
+      "sourceBodyHeight": 595,
+      "durationSeconds": 1,
+      "loop": true
+    }
   ]
 }

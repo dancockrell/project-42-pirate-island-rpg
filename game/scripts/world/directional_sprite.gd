@@ -1,7 +1,7 @@
 extends Sprite2D
 
 ## Presentation only: consumes authoritative heading; never moves a simulation actor.
-## Current source is review-only standing art, not a walking animation.
+## Full-resolution standing art; world scale never changes stored source pixels.
 var definitions: Array = []
 var facing := "se"
 var source_texture: Texture2D
@@ -35,6 +35,9 @@ func configure(image_path: String, manifest_path: String) -> bool:
 			return false
 		if pivot[0] < 0 or pivot[1] < 0 or pivot[0] > rect[2] or pivot[1] > rect[3]:
 			return false
+		var world_scale := float(entry.get("worldScale", 0.065))
+		if not is_finite(world_scale) or world_scale <= 0 or world_scale > 1:
+			return false
 		directions[direction] = true
 	if directions.size() != 4:
 		return false
@@ -56,6 +59,7 @@ func set_facing(direction: String) -> bool:
 		atlas.filter_clip = true
 		texture = atlas
 		offset = -Vector2(entry.footPivot[0], entry.footPivot[1])
+		scale = Vector2.ONE * float(entry.get("worldScale", 0.065))
 		facing = direction
 		return true
 	return false

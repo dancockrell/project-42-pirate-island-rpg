@@ -1,6 +1,45 @@
 # Island development scene
 
 Run res://scenes/world/island.tscn in the existing game project.
+
+The island now opens at 2× camera zoom centered on Michael, not the whole-map
+overview. Overview remains available with End/the overview button, and wheel
+zoom still covers 1–4×. Unit world sizes and collision footprints are unchanged:
+this gives all character sprites more screen pixels in the opening party view.
+At the configured 1280×720 window, Michael is approximately 54 screen pixels
+tall and the mechanical dog 38 pixels wide, rather than roughly 27 and 19 in
+the former overview-first opening. Exact presentation varies with window size.
+
+Source artwork must retain its full delivered resolution and colors. Do not
+add a low-resolution conversion, palette reduction, or artificial pixel-budget
+step to production preparation. Low-scale comparisons are diagnostic only,
+not the delivery standard. The user explicitly rejected that approach. The
+96-pixel/limited-palette experiments and normalized atlas are preserved as
+rejected experiments in the shared library; neither is a production source.
+Crop/alpha extraction and lossless atlas packing may organize sprites without
+resizing the artwork. Rendering scale and camera zoom remain separate from
+the stored image pixels.
+
+Michael's four standing facings now use the shared `michael-quality-review-01`
+art revision: brighter readable face/collar separation, less fragmented navy
+waistcoat and broad brass shapes. The original hat, slim young-adult identity,
+coat, sash and anatomically left-arm mechanism are retained across front/back
+facings. Root reviewed all four facings and matched-scale 39/56/80-pixel
+comparisons; the gain is clear at 56/80, while the 39-pixel view remains noisy.
+The runtime atlas retains the extracted drawings at native resolution, with
+authored frame rectangles, ground pivots and independent world-scale metadata.
+It does not resize drawings to fit the older atlas dimensions.
+Native atlas SHA256:
+`c5c327bd652773cd0114ecc1920bf63fcfaef0c0301239eb61926b3fe236cdd9`.
+The 610×1232 atlas removes unused sheet space only; its four source rectangles
+remain 297×605, 288×608, 283×592 and 289×595 pixels, byte-for-byte equal to the
+extracted artwork. Frame `worldScale` controls the size drawn in the world,
+not an export resize. The mechanical dog likewise retains its full 1022×1132
+extracted source. Original and experimental sources remain backed up in shared art.
+One built-in art revision and one background correction were used. Raw sources,
+exact prompts and normalization are preserved in the shared folder. Standing
+art admission does not approve walking animation or imply rendered-engine QA.
+
 The scene installs five preview factions at startup: colonials, pirates,
 Cthulhu, the fox people and elves. They spend real resources on authored production.
 The original three have six-unit preview caps; the fox people have eight lighter
@@ -563,15 +602,17 @@ unfinished. The opening cache can fund the workshop and two dogs, or fewer dogs
 with salvage reserved for repairs/restoration. Destroyed completed holdings now
 supply additional salvage as described above; resource extraction remains needed.
 
-Standing art is shared `pirate-island/mechanical-dog-01/extracted/cell_00_00.png`,
-SHA256 `48b1867de2f0a09ef7c5e6cf11bb2fddb80f7a062cc34d61a1bd0ed4242e7253`.
-Source 999 by 1143, pivot [500,930], runtime width 27 pixels. Root reviewed the
-full cutout and 25/27/30-pixel comparison beside a 33-pixel human and admitted
-27-pixel development standing. Ears, muzzle, four legs and integrated brass body
-read at size; fine vents merge and the tail is tall. This is not walking or
-attack animation approval. One built-in generation and one background correction
-are preserved with prompts and provenance in the shared candidate folder;
-no paid external generation was used. Shared art commit: `2999333`.
+Standing art is shared
+`pirate-island/mechanical-dog-01/quality-revision-extracted/cell_00_00.png`,
+SHA256 `02824c80f25292ed1d77f461938e92b8ac901a553e9e94571fad751511a85e23`.
+Source 1022 by 1132, pivot [520,925], runtime world width still 27 pixels. Root
+reviewed old and revised drawings at identical 38/54-screen-pixel widths on
+island terrain and admitted the revision: less fragmented muzzle/brass flank,
+clearer leg and vent separation. The gain is incremental; thin highlights still
+alias. This is not walking or attack animation approval. Original art from
+shared commit `2999333` is preserved, not overwritten in the library. The quality
+revision used one built-in generation and no background correction or paid
+external call; exact prompts and comparisons are in `QUALITY-REVIEW.md`.
 
 Actual island command observation (`island_campaign_review.gd`, 120 ticks,
 `workshop`): recovered 20 salvage at start, walked to [19,17], began construction

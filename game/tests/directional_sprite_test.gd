@@ -10,7 +10,7 @@ func _initialize() -> void:
 		actor.project_heading(pair[0])
 		assert(actor.facing == pair[1])
 		assert(actor.texture is AtlasTexture)
-		assert(actor.texture.region.size.x == 607)
+		assert(actor.texture.region.size.x > 0 and actor.texture.region.size.y > 0)
 	actor.project_heading(Vector2.ZERO)
 	assert(actor.facing == "nw")
 	assert(not actor.set_facing("invalid"))

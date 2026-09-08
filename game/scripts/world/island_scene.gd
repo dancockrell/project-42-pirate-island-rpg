@@ -17,7 +17,7 @@ var center_button := Button.new()
 var overview_button := Button.new()
 var map_size := Vector2(1536,1024)
 var camera_center := map_size * 0.5
-var camera_zoom := 1.0
+var camera_zoom := 2.0
 var camera_dragging := false
 var inspection := Label.new()
 var conversation_actions := HBoxContainer.new()
@@ -281,7 +281,6 @@ func _ready() -> void:
 	map_root.add_child(terrain)
 	map_root.add_child(actor)
 	assert(actor.configure("res://assets/sprites/michael/source.png", "res://assets/sprites/michael/frames.json"))
-	actor.scale = Vector2.ONE * 0.065
 	var hud := CanvasLayer.new()
 	add_child(hud)
 	hud_panel.position = Vector2(12,12)
@@ -396,6 +395,7 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_fit)
 	_fit()
 	refresh_snapshot()
+	center_on_michael()
 	ready_ok = true
 
 func _fit() -> void:
