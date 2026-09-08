@@ -256,7 +256,7 @@ if (canonicalFactionIds.some(id => !siteFactionIds.has(id))) fail(resolve(repo, 
 for (const { file, value } of await readJsonDirectory("production")) {
   if (value.kind !== "production_rule") fail(file, "kind must be production_rule");
   for (const field of ["producerArchetypeId", "outputDefinitionId"]) requireString(value, field, file);
-  if (!new Set(["worker", "resident", "vendor", "specialist", "soldier", "monster", "named_hero", "supernatural"]).has(value.actorKind)) fail(file, "actorKind is unsupported");
+  if (!new Set(["worker", "resident", "vendor", "specialist", "soldier", "monster", "named_hero", "supernatural", "machine"]).has(value.actorKind)) fail(file, "actorKind is unsupported");
   if (!value.costs || Object.keys(value.costs).length === 0 || Object.values(value.costs).some(cost => !Number.isInteger(cost) || cost < 0)) fail(file, "production costs must contain non-negative integer resource amounts");
   if (!Number.isInteger(value.productionTicks) || value.productionTicks < 1) fail(file, "productionTicks must be positive");
   if (!Number.isInteger(value.populationUse) || value.populationUse < 0) fail(file, "populationUse must be non-negative");

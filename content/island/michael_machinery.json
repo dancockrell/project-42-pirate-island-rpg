@@ -1,0 +1,6 @@
+{
+  "definition_id":"actor_def.michael.mechanical_dog",
+  "display_name":"Mechanical dog",
+  "capacity":3,
+  "combat":{"health":10,"damage":2,"range":1,"cooldown_ticks":3}
+}

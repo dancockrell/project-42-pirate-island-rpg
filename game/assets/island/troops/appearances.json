@@ -1,4 +1,14 @@
 {
+  "actor_def.michael.mechanical_dog": {
+    "variants": {
+      "machine": {
+        "texture": "res://assets/island/troops/mechanical-dog.png", "pivot": [500,930], "scale": 0.027027027027,
+        "status": "development-standing",
+        "source": "procedural/sprites/candidates/pirate-island/mechanical-dog-01/extracted/cell_00_00.png",
+        "sha256": "48b1867de2f0a09ef7c5e6cf11bb2fddb80f7a062cc34d61a1bd0ed4242e7253"
+      }
+    }
+  },
   "actor_def.elven.bow_warden": {
     "variants": {
       "female": {

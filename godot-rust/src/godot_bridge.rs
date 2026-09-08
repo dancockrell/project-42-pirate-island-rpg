@@ -163,10 +163,10 @@ impl Project42SimulationBridge {
                     "undead" => world.actors[id].undead,
                     "madness_stage" => world.island_madness_stage(id),
                     "definition" => world.actors[id].definition_id.as_str(),
-                    "name" => person.map(|p| p.display_name.as_str()).unwrap_or("Unknown unit"),
+                    "actor_kind" => world.actors[id].actor_kind.as_str(),
+                    "name" => person.map(|p| p.display_name.as_str()).unwrap_or_else(|| if world.actors[id].definition_id == "actor_def.michael.mechanical_dog" { world.machine_display_name() } else { "Unknown unit" }),
                     "biography" => person.map(|p| p.backstory.as_str()).unwrap_or(""),
                     "sex" => sex,
-                    "age" => person.and_then(|p| p.age).unwrap_or(0),
                     "discussed" => person.is_some_and(|p| p.discussed),
                     "loyal_to_michael" => person.is_some_and(|p| p.loyal_to_michael),
                     "recruitment_offer" => person.map(|p| p.recruitment_offer.as_str()).unwrap_or(""),
@@ -231,6 +231,11 @@ impl Project42SimulationBridge {
         }).unwrap_or_default();
         let mut snapshot = vdict! { "tick" => world.tick as i64, "day" => world.day() as i64, "minute_of_day" => world.minute_of_day(), "paused" => world.paused, "actors" => &actors, "buildings" => &buildings, "land" => &land, "casualties" => world.casualties.len() as i64, "party" => &party, "party_names" => &party_names, "approach_target" => world.approach_target.as_deref().unwrap_or(""), "salvage" => salvage, "foothold_cache" => &cache };
         snapshot.set("workshop_repair_cost", world.foothold_repair_cost());
+        let (machine_cost, machine_ticks, machine_capacity) = world.machine_foothold_costs();
+        snapshot.set("machine_cost", machine_cost);
+        snapshot.set("machine_ticks", machine_ticks);
+        snapshot.set("machine_capacity", machine_capacity);
+        snapshot.set("mechanical_dogs", world.actors.values().filter(|a| a.faction_id == "faction.michael" && a.definition_id == "actor_def.michael.mechanical_dog").count() as i64);
         match world.foothold_costs() {
             Ok((build, restore, ticks)) => {
                 snapshot.set("workshop_cost", build);
@@ -260,6 +265,13 @@ impl Project42SimulationBridge {
     fn repair_island_foothold(&mut self) -> GString {
         self.island.as_mut().ok_or_else(|| "Island is unavailable.".to_owned())
             .and_then(|world| world.repair_foothold())
+            .err().unwrap_or_default().as_str().into()
+    }
+
+    #[func]
+    fn queue_island_foothold_machine(&mut self) -> GString {
+        self.island.as_mut().ok_or_else(|| "Island is unavailable.".to_owned())
+            .and_then(|world| world.queue_foothold_machine())
             .err().unwrap_or_default().as_str().into()
     }
 

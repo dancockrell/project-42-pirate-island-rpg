@@ -509,6 +509,46 @@ remain shared; the original thin-bow candidate is not the runtime selection.
 
 ## Michael's first foothold
 
+### First mechanical unit
+
+The completed field workshop can assemble a mechanical dog through its existing
+production queue: four salvage, twenty-four production ticks, one queued order
+at a time, up to three live-or-queued dogs. These are provisional opening-slice
+values in `content/production/michael_field_workshop_mechanical_dogs.json` and
+`content/island/michael_machinery.json`, not a finished industrial economy.
+Michael must be nearby to place the order. The existing saved production job
+pays once and creates an actor with workshop provenance; it does not summon a
+unit from a UI-only counter.
+
+Dogs escort Michael using the same formation and navigation planning as party
+movement and defend him in close combat. They do not occupy any of the four
+companion slots or consume human population. They are machines, with no generated
+human identity, romance, madness conversion or midnight undead resurrection.
+An unreachable dog must not prevent the human party from moving. Machine theft,
+fuel/water logistics, repair of damaged machines and other machine types remain
+unfinished. The opening cache can fund the workshop and two dogs, or fewer dogs
+with salvage reserved for repairs/restoration; renewable salvage remains needed.
+
+Standing art is shared `pirate-island/mechanical-dog-01/extracted/cell_00_00.png`,
+SHA256 `48b1867de2f0a09ef7c5e6cf11bb2fddb80f7a062cc34d61a1bd0ed4242e7253`.
+Source 999 by 1143, pivot [500,930], runtime width 27 pixels. Root reviewed the
+full cutout and 25/27/30-pixel comparison beside a 33-pixel human and admitted
+27-pixel development standing. Ears, muzzle, four legs and integrated brass body
+read at size; fine vents merge and the tail is tall. This is not walking or
+attack animation approval. One built-in generation and one background correction
+are preserved with prompts and provenance in the shared candidate folder;
+no paid external generation was used. Shared art commit: `2999333`.
+
+Actual island command observation (`island_campaign_review.gd`, 120 ticks,
+`workshop`): recovered 20 salvage at start, walked to [19,17], began construction
+at tick 2, ordered a dog at tick 42 leaving four salvage, and produced
+`actor_instance.faction.michael.32` at tick 66. The scene resolved its admitted
+appearance, save/load succeeded, and a real move to [20,18] left the dog at
+[19,18], alive with all four companion slots still empty. An initial requested
+[21,19] move did not execute; the observation now prints movement acceptance
+and failure reason rather than assuming a command succeeded. Headless checks
+prove functional wiring, not rendered animation or final UI appearance.
+
 ### Holding maintenance
 
 Damaged completed holdings can now receive paid repairs by one existing nearby

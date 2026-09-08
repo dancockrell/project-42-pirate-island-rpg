@@ -1,0 +1,13 @@
+{
+  "id":"spawn_rule.michael.field_workshop.mechanical_dogs",
+  "kind":"production_rule",
+  "producerArchetypeId":"site_archetype.michael.field_workshop",
+  "actorKind":"machine",
+  "outputDefinitionId":"actor_def.michael.mechanical_dog",
+  "costs":{"resource.salvage":4},
+  "productionTicks":24,
+  "populationUse":0,
+  "provenanceRequired":true,
+  "initialAssignment":"await_faction_ai_dispatch",
+  "requirements":["producer_operational"]
+}

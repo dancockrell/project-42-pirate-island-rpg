@@ -417,6 +417,33 @@ fn holding_repair_rules() -> &'static BTreeMap<String, HoldingRepairRule> {
     })
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MichaelMachinery {
+    definition_id: String,
+    display_name: String,
+    capacity: usize,
+    combat: IslandCombatProfile,
+}
+
+fn michael_machinery() -> &'static MichaelMachinery {
+    static RULE: std::sync::OnceLock<MichaelMachinery> = std::sync::OnceLock::new();
+    RULE.get_or_init(|| {
+        serde_json::from_str(include_str!("../../content/island/michael_machinery.json"))
+            .expect("authored Michael machinery")
+    })
+}
+
+fn mechanical_dog_production() -> &'static ProductionRule {
+    static RULE: std::sync::OnceLock<ProductionRule> = std::sync::OnceLock::new();
+    RULE.get_or_init(|| {
+        serde_json::from_str(include_str!(
+            "../../content/production/michael_field_workshop_mechanical_dogs.json"
+        ))
+        .expect("authored mechanical dog production")
+    })
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FootholdCache {
     pub position: IslandPoint,
@@ -1397,6 +1424,72 @@ impl FactionWorld {
             .unwrap_or(0)
     }
 
+    pub fn machine_foothold_costs(&self) -> (u32, u32, u32) {
+        let rule = mechanical_dog_production();
+        (
+            rule.costs.get("resource.salvage").copied().unwrap_or(0),
+            rule.production_ticks,
+            michael_machinery().capacity as u32,
+        )
+    }
+
+    pub fn machine_display_name(&self) -> &str {
+        &michael_machinery().display_name
+    }
+
+    fn mechanical_dog_count(&self) -> usize {
+        let definition = &michael_machinery().definition_id;
+        self.actors
+            .values()
+            .filter(|a| a.faction_id == "faction.michael" && &a.definition_id == definition)
+            .count()
+            + self
+                .factions
+                .get("faction.michael")
+                .into_iter()
+                .flat_map(|f| f.buildings.values())
+                .flat_map(|b| &b.production_queue)
+                .filter(|o| &o.rule.actor_definition_id == definition)
+                .count()
+    }
+
+    pub fn queue_foothold_machine(&mut self) -> Result<(), String> {
+        let faction = "faction.michael";
+        let site = "site.michael.field_workshop";
+        let building = self
+            .factions
+            .get(faction)
+            .and_then(|f| f.buildings.get(site))
+            .ok_or("Build the workshop first.")?;
+        let entrance = self
+            .navigation
+            .destinations
+            .get(&building.node_id)
+            .ok_or("The workshop is unavailable.")?;
+        if !self.within_work_range("character.protagonist.captain", *entrance) {
+            return Err("Bring Michael beside the workshop.".into());
+        }
+        if !building.operational
+            || building.construction.is_some()
+            || building.development.is_some()
+        {
+            return Err("Finish the workshop first.".into());
+        }
+        if !building.production_queue.is_empty() {
+            return Err("The workshop is already building a machine.".into());
+        }
+        if self.mechanical_dog_count() >= michael_machinery().capacity {
+            return Err("All mechanical dog berths are occupied.".into());
+        }
+        self.enqueue_production(faction, site, mechanical_dog_production().clone())
+            .map_err(|_| "Not enough salvage to build a mechanical dog.".to_string())?;
+        self.combat_profiles.insert(
+            michael_machinery().definition_id.clone(),
+            michael_machinery().combat.clone(),
+        );
+        Ok(())
+    }
+
     fn advance_holding_repairs(&mut self) {
         let sites: Vec<_> = self
             .factions
@@ -1963,6 +2056,7 @@ impl FactionWorld {
         for id in self.casualties.keys().cloned().collect::<Vec<_>>() {
             let casualty = &self.casualties[&id];
             if id == "character.protagonist.captain"
+                || casualty.actor.actor_kind == "machine"
                 || casualty.death_tick >= self.tick
                 || casualty.actor.provenance.producer_building_id.is_empty()
                 || self.actors.len() >= 4096
@@ -3220,7 +3314,13 @@ impl FactionWorld {
                 }
             }
         }
+        if world.mechanical_dog_count() > michael_machinery().capacity {
+            return Err("invalid_saved_machine_capacity".into());
+        }
         for (id, actor) in &world.actors {
+            if actor.actor_kind == "machine" && (actor.person.is_some() || actor.undead) {
+                return Err("invalid_saved_machine_identity".into());
+            }
             if actor
                 .person
                 .as_ref()
@@ -3737,6 +3837,47 @@ impl FactionWorld {
         true
     }
 
+    fn mechanical_followers(&self) -> Vec<String> {
+        self.actors
+            .iter()
+            .filter(|(id, a)| {
+                a.faction_id == "faction.michael"
+                    && a.definition_id == michael_machinery().definition_id
+                    && self.living_actor(id)
+            })
+            .map(|(id, _)| id.clone())
+            .collect()
+    }
+
+    fn follower_destination(
+        &self,
+        id: &str,
+        target: IslandPoint,
+        occupied: &BTreeSet<IslandPoint>,
+    ) -> Option<IslandPoint> {
+        let start = *self.positions.get(id)?;
+        let mut candidates: Vec<_> = self
+            .navigation
+            .walkable
+            .iter()
+            .copied()
+            .filter(|point| {
+                !occupied.contains(point)
+                    && u64::from(point.x.abs_diff(target.x)) + u64::from(point.y.abs_diff(target.y))
+                        <= 3
+            })
+            .collect();
+        candidates.sort_by_key(|point| {
+            (
+                u64::from(point.x.abs_diff(target.x)) + u64::from(point.y.abs_diff(target.y)),
+                *point,
+            )
+        });
+        candidates
+            .into_iter()
+            .find(|point| self.navigation.path(start, *point).is_some())
+    }
+
     fn plan_party_move(&self, target: IslandPoint) -> Result<Vec<(String, IslandPoint)>, String> {
         let captain = "character.protagonist.captain";
         if !self.living_actor(captain)
@@ -3749,7 +3890,8 @@ impl FactionWorld {
         }
         let mut orders = vec![(captain.to_string(), target)];
         let mut occupied = BTreeSet::from([target]);
-        for id in &self.party {
+        let machines = self.mechanical_followers();
+        for id in self.party.iter().chain(&machines) {
             if id.is_empty() || self.casualties.contains_key(id) {
                 continue;
             }
@@ -3760,42 +3902,27 @@ impl FactionWorld {
             {
                 continue;
             }
-            let Some(person) = self.living_person(id) else {
-                return Err("A companion is unavailable.".into());
+            let name = if machines.contains(id) {
+                self.machine_display_name()
+            } else {
+                let Some(person) = self.living_person(id) else {
+                    return Err("A companion is unavailable.".into());
+                };
+                if !person.loyal_to_michael || self.actors[id].faction_id != "faction.michael" {
+                    return Err(format!(
+                        "{} is not an available companion.",
+                        person.display_name
+                    ));
+                }
+                &person.display_name
             };
-            if !person.loyal_to_michael || self.actors[id].faction_id != "faction.michael" {
-                return Err(format!(
-                    "{} is not an available companion.",
-                    person.display_name
-                ));
-            }
-            let start = self.positions[id];
-            let mut candidates: Vec<_> = self
-                .navigation
-                .walkable
-                .iter()
-                .copied()
-                .filter(|point| {
-                    !occupied.contains(point)
-                        && u64::from(point.x.abs_diff(target.x))
-                            + u64::from(point.y.abs_diff(target.y))
-                            <= 3
-                })
-                .collect();
-            candidates.sort_by_key(|point| {
-                (
-                    u64::from(point.x.abs_diff(target.x)) + u64::from(point.y.abs_diff(target.y)),
-                    *point,
-                )
-            });
-            let Some(destination) = candidates
-                .into_iter()
-                .find(|point| self.navigation.path(start, *point).is_some())
-            else {
-                return Err(format!(
-                    "{} cannot reach the party destination.",
-                    person.display_name
-                ));
+            let Some(destination) = self.follower_destination(id, target, &occupied) else {
+                // Equipment never immobilizes the human party. A separated dog
+                // keeps its real position and can catch up on a later open route.
+                if machines.contains(id) {
+                    continue;
+                }
+                return Err(format!("{} cannot reach the party destination.", name));
             };
             occupied.insert(destination);
             orders.push((id.clone(), destination));
@@ -3812,7 +3939,13 @@ impl FactionWorld {
             return;
         }
         self.cancel_actor_travel("character.protagonist.captain");
-        for id in self.party.clone().iter().filter(|id| !id.is_empty()) {
+        for id in self
+            .party
+            .clone()
+            .iter()
+            .chain(self.mechanical_followers().iter())
+            .filter(|id| !id.is_empty())
+        {
             if self
                 .actors
                 .get(id)
@@ -3941,6 +4074,13 @@ impl FactionWorld {
         }
         if rule.production_ticks == 0 {
             return Err(FactionWorldError::InvalidProductionTicks);
+        }
+        if rule.actor_definition_id == michael_machinery().definition_id
+            && (faction_id != "faction.michael"
+                || rule != *mechanical_dog_production()
+                || self.mechanical_dog_count() >= michael_machinery().capacity)
+        {
+            return Err(FactionWorldError::QueueFull(building_id.into()));
         }
         let faction = self
             .factions
@@ -4112,11 +4252,15 @@ impl FactionWorld {
             let actor = ProducedActor {
                 madness: 0,
                 undead: false,
-                person: produced_person(
-                    &order.rule.actor_definition_id,
-                    &format!("actor_instance.{faction_id}.{}", self.next_actor_serial),
-                    self.next_actor_serial,
-                ),
+                person: if order.rule.actor_kind == "machine" {
+                    None
+                } else {
+                    produced_person(
+                        &order.rule.actor_definition_id,
+                        &format!("actor_instance.{faction_id}.{}", self.next_actor_serial),
+                        self.next_actor_serial,
+                    )
+                },
                 instance_id: format!("actor_instance.{faction_id}.{}", self.next_actor_serial),
                 definition_id: order.rule.actor_definition_id,
                 actor_kind: order.rule.actor_kind,
@@ -4153,6 +4297,34 @@ impl FactionWorld {
 
     fn advance_companion_defense(&mut self) {
         const CAPTAIN: &str = "character.protagonist.captain";
+        if !self.living_actor(CAPTAIN) {
+            return;
+        }
+        let machines = self.mechanical_followers();
+        let target = self
+            .travel_orders
+            .get(CAPTAIN)
+            .and_then(|node| self.navigation.destinations.get(node))
+            .copied()
+            .unwrap_or(self.positions[CAPTAIN]);
+        let mut occupied: BTreeSet<_> = self.positions.values().copied().collect();
+        for id in &machines {
+            let point = self.positions[id];
+            if self.travel_orders.contains_key(id)
+                || point
+                    .x
+                    .abs_diff(target.x)
+                    .saturating_add(point.y.abs_diff(target.y))
+                    <= 3
+            {
+                continue;
+            }
+            if let Some(destination) = self.follower_destination(id, target, &occupied) {
+                if self.order_move(id, destination).is_ok() {
+                    occupied.insert(destination);
+                }
+            }
+        }
         if !self.living_actor(CAPTAIN)
             || self.travel_orders.contains_key(CAPTAIN)
             || self.approach_target.is_some()
@@ -4168,7 +4340,13 @@ impl FactionWorld {
                 <= 4
         };
         let mut occupied: BTreeSet<IslandPoint> = self.positions.values().copied().collect();
-        for id in self.party.clone().into_iter().filter(|id| !id.is_empty()) {
+        for id in self
+            .party
+            .clone()
+            .into_iter()
+            .chain(machines)
+            .filter(|id| !id.is_empty())
+        {
             if !self.living_actor(&id)
                 || self.actors[&id].faction_id != "faction.michael"
                 || self.travel_orders.contains_key(&id)
@@ -6171,6 +6349,165 @@ mod tests {
             }
         }
         (world, ids)
+    }
+
+    fn mechanical_workshop_fixture() -> FactionWorld {
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        world.policies.clear();
+        world.hostilities.clear();
+        let captain = "character.protagonist.captain";
+        world.positions.insert(
+            captain.into(),
+            world.foothold_cache.as_ref().unwrap().position,
+        );
+        world.salvage_foothold().unwrap();
+        let entrance = IslandPoint { x: 19, y: 17 };
+        world.positions.insert(captain.into(), entrance);
+        world.build_foothold(entrance).unwrap();
+        for _ in 0..40 {
+            world.advance_island_tick();
+        }
+        world
+    }
+
+    #[test]
+    fn mechanical_dog_production_is_paid_persistent_and_equipment_bounded() {
+        let mut world = mechanical_workshop_fixture();
+        assert_eq!(world.machine_foothold_costs(), (4, 24, 3));
+        world.queue_foothold_machine().unwrap();
+        let paid = world.clone();
+        assert!(world.queue_foothold_machine().is_err());
+        assert_eq!(world, paid);
+        let mut resumed = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        world.paused = true;
+        let paused = world.clone();
+        world.advance_island_tick();
+        assert_eq!(world, paused);
+        world.paused = false;
+        for _ in 0..24 {
+            assert_eq!(world.advance_island_tick(), resumed.advance_island_tick());
+        }
+        assert_eq!(world, resumed);
+        let dog = world.mechanical_followers().pop().unwrap();
+        assert_eq!(world.actors[&dog].actor_kind, "machine");
+        assert!(world.actors[&dog].person.is_none());
+        assert_eq!(world.unit_combat[&dog].population_use, 0);
+        assert_eq!(world.factions["faction.michael"].population_used, 1);
+        assert!(!world.assign_island_companion(&dog, 0));
+        world.queue_foothold_machine().unwrap();
+        for _ in 0..24 {
+            world.advance_island_tick();
+        }
+        assert_eq!(world.mechanical_followers().len(), 2);
+        assert_eq!(
+            world.factions["faction.michael"].resources["resource.salvage"],
+            0
+        );
+        let empty = world.clone();
+        assert!(world.queue_foothold_machine().is_err());
+        assert_eq!(world, empty);
+        // Additional hypothetical earned scrap isolates the equipment berth cap.
+        world
+            .factions
+            .get_mut("faction.michael")
+            .unwrap()
+            .resources
+            .insert("resource.salvage".into(), 20);
+        world.queue_foothold_machine().unwrap();
+        for _ in 0..24 {
+            world.advance_island_tick();
+        }
+        let full = world.clone();
+        assert!(world.queue_foothold_machine().is_err());
+        assert_eq!(world, full);
+        FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn mechanical_dog_follows_without_a_party_slot_and_catches_up_after_birth() {
+        let mut world = mechanical_workshop_fixture();
+        world.queue_foothold_machine().unwrap();
+        let captain = "character.protagonist.captain";
+        let target = IslandPoint { x: 20, y: 20 };
+        assert!(world.move_island_party(target));
+        for _ in 0..45 {
+            world.advance_island_tick();
+        }
+        let dog = world.mechanical_followers().pop().unwrap();
+        let point = world.positions[&dog];
+        assert!(point.x.abs_diff(target.x) + point.y.abs_diff(target.y) <= 3);
+        assert!(world.party.iter().all(String::is_empty));
+        assert_eq!(world.positions[captain], target);
+        let next = IslandPoint { x: 20, y: 18 };
+        assert!(world.move_island_party(next));
+        assert!(world.travel_orders.contains_key(&dog));
+        for _ in 0..12 {
+            world.advance_island_tick();
+        }
+        assert_eq!(world.positions[captain], next);
+        let point = world.positions[&dog];
+        assert!(point.x.abs_diff(next.x) + point.y.abs_diff(next.y) <= 3);
+    }
+
+    #[test]
+    fn mechanical_dog_is_neither_madness_recruit_nor_midnight_corpse() {
+        let mut world = mechanical_workshop_fixture();
+        world.queue_foothold_machine().unwrap();
+        for _ in 0..24 {
+            world.advance_island_tick();
+        }
+        let dog = world.mechanical_followers().pop().unwrap();
+        let cult = "faction.cthulhu.prototype";
+        let shrine = world.factions[cult].buildings.values().next().unwrap();
+        world
+            .positions
+            .insert(dog.clone(), world.navigation.destinations[&shrine.node_id]);
+        for _ in 0..80 {
+            world.tick += 1;
+            world.advance_madness();
+        }
+        assert_eq!(world.actors[&dog].madness, 0);
+        let pirates = "faction.pirates.prototype";
+        let site = world.factions[pirates]
+            .buildings
+            .keys()
+            .next()
+            .unwrap()
+            .clone();
+        let rule: ProductionRule = serde_json::from_str(include_str!(
+            "../../content/production/tide_quay_deckhands.json"
+        ))
+        .unwrap();
+        world.enqueue_production(pirates, &site, rule).unwrap();
+        for _ in 0..2 {
+            world.advance_production_tick();
+        }
+        let enemy = world
+            .actors
+            .iter()
+            .find(|(_, a)| a.faction_id == pirates)
+            .unwrap()
+            .0
+            .clone();
+        world.positions.insert(enemy.clone(), world.positions[&dog]);
+        world.unit_combat.get_mut(&dog).unwrap().health = 1;
+        world
+            .hostilities
+            .insert((pirates.into(), "faction.michael".into()));
+        world
+            .hostilities
+            .insert(("faction.michael".into(), pirates.into()));
+        let enemy_health = world.unit_combat[&enemy].health;
+        world.resolve_island_skirmish();
+        assert_eq!(world.unit_combat[&enemy].health, enemy_health - 2);
+        assert!(world.casualties.contains_key(&dog));
+        world.tick = world.clock.ticks_per_day;
+        assert!(!world.return_midnight_casualties().iter().any(
+            |e| matches!(e,FactionWorldEvent::MidnightReturned{actor_id,..} if actor_id == &dog)
+        ));
+        assert!(!world.actors.contains_key(&dog));
+        FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
     }
 
     #[test]

@@ -52,6 +52,7 @@ var salvage_button := Button.new()
 var workshop_button := Button.new()
 var restore_button := Button.new()
 var repair_button := Button.new()
+var machine_button := Button.new()
 var salvage_marker := Sprite2D.new()
 
 func salvage_action() -> void:
@@ -77,6 +78,11 @@ func repair_action() -> void:
 	save_notice = "Workshop repairs started." if error.is_empty() else error
 	refresh_snapshot()
 
+func machine_action() -> void:
+	var error: String = port.queue_island_foothold_machine()
+	save_notice = "Mechanical dog assembly started." if error.is_empty() else error
+	refresh_snapshot()
+
 func refresh_foothold_controls() -> void:
 	var treasury := int(snapshot.get("salvage", 0))
 	var michael_alive: bool = snapshot.actors.any(func(entry): return entry.id == MICHAEL)
@@ -97,10 +103,18 @@ func refresh_foothold_controls() -> void:
 	restore_button.disabled = not michael_alive or not snapshot.has("restoration_cost") or treasury < int(snapshot.get("restoration_cost", 0))
 
 	repair_button.visible = false
+	machine_button.visible = false
 	for building in snapshot.buildings:
 		if building.faction != "faction.michael":
 			continue
 		repair_button.visible = true
+		machine_button.visible = true
+		var machine_count := int(snapshot.get("mechanical_dogs", 0))
+		var capacity := int(snapshot.get("machine_capacity", 0))
+		var queued := int(building.get("queued", 0)) > 0
+		machine_button.text = "Assembling mechanical dog" if queued else "Build mechanical dog · %d salvage" % int(snapshot.get("machine_cost", 0))
+		machine_button.tooltip_text = "%d / %d mechanical dogs. Escorts Michael without using a companion slot." % [machine_count, capacity]
+		machine_button.disabled = not michael_alive or not building.operational or queued or int(building.get("development_remaining", 0)) > 0 or machine_count >= capacity or not snapshot.has("machine_cost") or treasury < int(snapshot.get("machine_cost", 0))
 		var repairing := int(building.get("repair_remaining", 0)) > 0
 		repair_button.text = "Repairing workshop" if repairing else "Repair workshop · %d salvage" % int(snapshot.get("workshop_repair_cost", 0))
 		repair_button.disabled = repairing or not michael_alive or not building.operational or int(building.get("development_remaining", 0)) > 0 or int(building.health) >= int(building.max_health) or not snapshot.has("workshop_repair_cost") or treasury < int(snapshot.get("workshop_repair_cost", 0))
@@ -280,7 +294,7 @@ func _ready() -> void:
 	overview_button.pressed.connect(show_island)
 	var foothold_actions := HFlowContainer.new()
 	stack.add_child(foothold_actions)
-	for button in [salvage_button, workshop_button, repair_button, restore_button]:
+	for button in [salvage_button, workshop_button, machine_button, repair_button, restore_button]:
 		button.custom_minimum_size = Vector2(110, 32)
 		button.mouse_filter = Control.MOUSE_FILTER_STOP
 		foothold_actions.add_child(button)
@@ -291,6 +305,7 @@ func _ready() -> void:
 	workshop_button.pressed.connect(workshop_action)
 	restore_button.pressed.connect(restore_action)
 	repair_button.pressed.connect(repair_action)
+	machine_button.pressed.connect(machine_action)
 	salvage_marker.texture = ImageTexture.create_from_image(Image.load_from_file("res://assets/island/salvage_bale.png"))
 	salvage_marker.centered = false
 	salvage_marker.offset = -Vector2(252, 304)
@@ -620,6 +635,8 @@ func appearance_for(entry: Dictionary) -> Dictionary:
 	var definition: Dictionary = troop_art.get(entry.definition, {})
 	var variants: Dictionary = definition.get("variants", {})
 	var variant: String = entry.get("sex", "unknown")
+	if entry.get("actor_kind", "") == "machine":
+		return variants.get("machine", {})
 	# Older versions only produced these three male appearances. Preserve their
 	# presentation without inventing missing personal identity in the native save.
 	if variant == "unknown":
@@ -745,7 +762,11 @@ func refresh_inspection() -> void:
 		state_text = "Madness-bound · " + faction_text
 	elif live and inspected_person.get("madness_stage", "") == "whisper_haunted":
 		state_text = "Whisper-haunted · " + faction_text
+	if inspected_person.get("actor_kind", "") == "machine":
+		state_text = "Machine · " + state_text
 	inspection.text = "%s · %s\n%s\nShift-click empty land to close." % [name_text, state_text, inspected_person.get("biography", "")]
+	if live and inspected_person.get("definition", "") == "actor_def.michael.mechanical_dog":
+		inspection.text = "%s · %s\nEscorts Michael and defends him in close combat.\n%d / %d health · No companion slot\nShift-click empty land to close." % [name_text, state_text, int(inspected_person.get("health", 0)), int(inspected_person.get("max_health", 0))]
 	var dialogue: String = inspected_person.get("dialogue", "")
 	if live and not dialogue.is_empty():
 		inspection.text += "\n“%s”" % dialogue

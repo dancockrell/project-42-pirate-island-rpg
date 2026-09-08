@@ -8,7 +8,7 @@
     "id": {"type": "string", "pattern": "^spawn_rule\\."},
     "kind": {"const": "production_rule"},
     "producerArchetypeId": {"type": "string", "pattern": "^site_archetype\\."},
-    "actorKind": {"enum": ["worker", "resident", "vendor", "specialist", "soldier", "monster", "named_hero", "supernatural"]},
+    "actorKind": {"enum": ["worker", "resident", "vendor", "specialist", "soldier", "monster", "named_hero", "supernatural", "machine"]},
     "outputDefinitionId": {"type": "string", "pattern": "^actor_def\\."},
     "costs": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "integer", "minimum": 0}},
     "productionTicks": {"type": "integer", "minimum": 1},
