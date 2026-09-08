@@ -1,16 +1,6 @@
-## Current art production decision — 8 September 2026
-
-All game artwork is 2D only: authored sprites, sprite animation, painted backgrounds, tiles, portraits and flat effects. Use the existing shared art folder at `C:/Users/Admin/Documents/Codex/shared-game-environment-library` for reusable 2D kits, with compatible perspective, pixel density, palette, anchors and animation metadata across Cattle Trail/Cattle Drive, DR Companion and Pirate Island. Preserve each game's characters, setting and gameplay identity.
-
-Do not create, purchase, import, restore, archive for later reuse, or bake sprites from 3D models. Earlier model, rig, mesh, material, body-builder and six-month-resumption plans are retired. New generated artwork uses the user-authorized built-in image generator; no external paid generation APIs. Shared reuse does not make unreviewed art automatically approved.
-
-Inspect true transparency, sequential poses, stable ground pivots, equipment handedness, native-size readability and actual motion before admission. Keep game state, navigation, combat rules, accessibility and persistence authoritative; changing artwork never changes legal actions. Existing engine API names and historical validation records may mention 3D without authorizing 3D artwork.
-
-This is production authority, not a claim that every existing runtime or binary has been converted. Legacy-asset deletion is a separate operation: automatic review rejected deletion commands, so deletion remains unverified here. Do not restore those assets or present them as production options.
-
 # Project 42: Autonomous Island Vertical Slice
 
-**Visual amendment, 7 September 2026:** use the [approved 2D sprite direction](VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md). Historical 3D/rig requirements are retired. The animation-free simulation proof below is not art acceptance; the visual slice must prove coherent sprite animation at the reference perspective.
+**Visual amendment, 7 September 2026:** use the [approved 2D sprite direction](VISUAL_AUTHORITY.md). The animation-free simulation proof below is not art acceptance; the visual slice must prove coherent sprite animation at the reference perspective.
 
 This contract implements the first slice in [GAME_BUILD_PLAN.md](GAME_BUILD_PLAN.md). That design authority wins over the older side-view battle slice this file replaces.
 

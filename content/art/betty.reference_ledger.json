@@ -70,7 +70,7 @@
     "canonicalInput": null,
     "canonicalInputStatus": "none-visual-plate-required",
     "generationGate": "visual-plate-not-approved",
-    "visualAuthorityDocument": "docs/VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md",
+    "visualAuthorityDocument": "docs/VISUAL_AUTHORITY.md",
     "prohibitedVisualSources": [
       "game/scripts/battle/paper_betty_rig.gd",
       "rejected-or-moderated-image-generation-candidates"

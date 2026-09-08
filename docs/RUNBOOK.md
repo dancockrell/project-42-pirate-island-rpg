@@ -1,13 +1,3 @@
-## Current art production decision — 8 September 2026
-
-All game artwork is 2D only: authored sprites, sprite animation, painted backgrounds, tiles, portraits and flat effects. Use the existing shared art folder at `C:/Users/Admin/Documents/Codex/shared-game-environment-library` for reusable 2D kits, with compatible perspective, pixel density, palette, anchors and animation metadata across Cattle Trail/Cattle Drive, DR Companion and Pirate Island. Preserve each game's characters, setting and gameplay identity.
-
-Do not create, purchase, import, restore, archive for later reuse, or bake sprites from 3D models. Earlier model, rig, mesh, material, body-builder and six-month-resumption plans are retired. New generated artwork uses the user-authorized built-in image generator; no external paid generation APIs. Shared reuse does not make unreviewed art automatically approved.
-
-Inspect true transparency, sequential poses, stable ground pivots, equipment handedness, native-size readability and actual motion before admission. Keep game state, navigation, combat rules, accessibility and persistence authoritative; changing artwork never changes legal actions. Existing engine API names and historical validation records may mention 3D without authorizing 3D artwork.
-
-This is production authority, not a claim that every existing runtime or binary has been converted. Legacy-asset deletion is a separate operation: automatic review rejected deletion commands, so deletion remains unverified here. Do not restore those assets or present them as production options.
-
 # Development runbook
 
 > **Prototype tooling scope:** commands and contracts below describe existing implementation. Follow [GAME_BUILD_PLAN.md](GAME_BUILD_PLAN.md) for current product direction. A passing battle/animation fixture does not establish completion of the autonomous RTS, faction relations, dual clocks, or companion campaign.
@@ -73,7 +63,7 @@ contract changes. The verifier now runs only the current directional-sprite and
 island suites, with a 30-second wall-clock limit per process and isolated test
 profiles. It rejects script errors even when Godot returns exit code zero, and
 requires a final completion message. It no longer opens an editor or loads
-retired 3D fixtures. PowerShell 7 is required for the bounded process runner.
+obsolete fixtures. PowerShell 7 is required for the bounded process runner.
 
 ## Actual island render capture (explicit approval required)
 
@@ -100,18 +90,6 @@ Open `game/scenes/battle/battle_prototype.tscn` explicitly to inspect the retain
 battle experiment. It is not the game entry or the current visual authority.
 
 Expected screen: four vertical heroine cards on the left; one large active placeholder actor and one large razorbeak placeholder on the battle plane; descriptive observation text; a visible enemy-intent line; and all seven Betty skills in a two-row command grid. `Fatal Intercept` is visible but disabled because it is an automatic reaction. Manual skills enter the targeting session, prompt for legal targets in authored order, submit stable IDs through `SimulationPort`, play the authored action beats, then project the returned mechanical events.
-
-## Shelved Betty 3D candidate review (historical)
-
-Open `game/scenes/review/betty_3d_candidate_review.tscn` and press F6. This is
-an isolated camera-and-silhouette review, not a second battle scene. It uses
-the downloaded Magnific GLB at the same 1920×1080 active-fighter crop, fits
-the character's geometric bounds to the floor and marks the fifteen-percent
-effect envelope. The metadata panel is intentionally blunt: candidate 01 has
-no skeleton and no animation clips, so it cannot replace the live Betty or
-stand in for a weapon-socket/skill test. Use this scene only to decide whether
-the 3D visual direction blocks better than the 2D proxy before commissioning a
-rigged export.
 
 ## Native simulation boundary
 

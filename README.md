@@ -1,20 +1,10 @@
-## Current art production decision — 8 September 2026
-
-All game artwork is 2D only: authored sprites, sprite animation, painted backgrounds, tiles, portraits and flat effects. Use the existing shared art folder at `C:/Users/Admin/Documents/Codex/shared-game-environment-library` for reusable 2D kits, with compatible perspective, pixel density, palette, anchors and animation metadata across Cattle Trail/Cattle Drive, DR Companion and Pirate Island. Preserve each game's characters, setting and gameplay identity.
-
-Do not create, purchase, import, restore, archive for later reuse, or bake sprites from 3D models. Earlier model, rig, mesh, material, body-builder and six-month-resumption plans are retired. New generated artwork uses the user-authorized built-in image generator; no external paid generation APIs. Shared reuse does not make unreviewed art automatically approved.
-
-Inspect true transparency, sequential poses, stable ground pivots, equipment handedness, native-size readability and actual motion before admission. Keep game state, navigation, combat rules, accessibility and persistence authoritative; changing artwork never changes legal actions. Existing engine API names and historical validation records may mention 3D without authorizing 3D artwork.
-
-This is production authority, not a claim that every existing runtime or binary has been converted. Legacy-asset deletion is a separate operation: automatic review rejected deletion commands, so deletion remains unverified here. Do not restore those assets or present them as production options.
-
 # Project 42: Pirate Island RPG
 
-**Current art direction: detailed 2D pixel-art sprites at the approved elevated three-quarter perspective. No 3D art; earlier 3D production is retired.** See [visual authority](docs/VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md).
+**Current art direction: detailed 2D pixel-art sprites at the approved elevated three-quarter perspective.** See [visual authority](docs/VISUAL_AUTHORITY.md).
 
 This repository implements a HaremLit adventure on top of a living, multi-faction RTS simulation of Pirate Island. Michael and four adult female companions are five controllable heroes on one large fixed-view isometric board. The women actively investigate the island, bring competing theories and personal quest lines, and ask the player to direct, equip, protect, and support their work.
 
-The canonical product contract is [docs/GAME_BUILD_PLAN.md](docs/GAME_BUILD_PLAN.md). It supersedes the earlier side-view route-and-battle direction. Existing battle, character, native-bridge, asset, and rig work remains useful technical evidence where it does not conflict with the new authority; implementation already present does not overrule the product decision.
+The canonical product contract is [docs/GAME_BUILD_PLAN.md](docs/GAME_BUILD_PLAN.md). It supersedes the earlier side-view route-and-battle direction. Existing battle, character, native-bridge, asset work remains useful technical evidence where it does not conflict with the new authority; implementation already present does not overrule the product decision.
 
 ## Language ownership
 
@@ -27,7 +17,7 @@ The canonical product contract is [docs/GAME_BUILD_PLAN.md](docs/GAME_BUILD_PLAN
 
 The Godot shell loads `Project42SimulationBridge`, the native Rust GDExtension, and submits commands through `NativeSimulationPort`. The bridge owns the authoritative prototype battle and projects typed snapshots and ordered events into Godot dictionaries. A clearly marked mock remains available only when a debug build cannot load the extension; release startup refuses that fallback.
 
-The existing side-view presentation fixture exposes Betty's D-through-SSS skills. It is retained as a historical test bed for typed command/event projection and rig experiments, not as the current camera or campaign-loop authority. New production work targets the fixed-view isometric island slice in [docs/VERTICAL_SLICE_BUILD_CONTRACT.md](docs/VERTICAL_SLICE_BUILD_CONTRACT.md).
+The existing side-view presentation fixture exposes Betty's D-through-SSS skills. It is retained as a historical test bed for typed command/event projection , not as the current camera or campaign-loop authority. New production work targets the fixed-view isometric island slice in [docs/VERTICAL_SLICE_BUILD_CONTRACT.md](docs/VERTICAL_SLICE_BUILD_CONTRACT.md).
 
 Betty's current Magnific images are stored as component references under `work/art/magnific/betty/`. Their exact approval boundaries live in `content/art/betty.reference_ledger.json`: one image controls body and rendering direction; two contribute equipment and palette only. None is marked as final production art.
 
@@ -41,8 +31,7 @@ Betty's current Magnific images are stored as component references under `work/a
 
 ## Shared professional asset platform
 
-The public [Shared Game Environment Library](https://github.com/dancockrell/shared-game-environment-library) owns shared CC0 source packs and catalogs. This repository retains Pirate Island consumer admission and project-specific asset work. It is not a dumping
-ground for downloaded models. `content/art/shared_asset_ledger.json` is the
+The public [Shared Game Environment Library](https://github.com/dancockrell/shared-game-environment-library) owns shared CC0 source packs and catalogs. This repository retains Pirate Island consumer admission and project-specific asset work. It contains only the selected artwork needed by the game. `content/art/shared_asset_ledger.json` is the
 machine-validated local record for shared candidates and consumer admission;
 `docs/SHARED_ASSET_PLATFORM.md` defines the legal, visual, technical, and
 project-boundary rules.

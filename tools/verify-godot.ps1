@@ -13,8 +13,7 @@ if (-not (Test-Path -LiteralPath $GodotExecutable -PathType Leaf)) {
     throw "Godot executable not found: $GodotExecutable"
 }
 
-# One current 2D verification path. Shelved 3D fixtures remain in history/source,
-# but are not launched by the production-island verifier.
+# Verify the current sprite-based island.
 $checks = @(
     @{ Script = "res://tests/directional_sprite_test.gd"; Completion = "PASS: four facings, alpha-source identity, frame regions, nearest sampling, idle retention, no simulation movement" },
     @{ Script = "res://tests/island_scene_test.gd"; Completion = "PASS: island scene suite complete" }

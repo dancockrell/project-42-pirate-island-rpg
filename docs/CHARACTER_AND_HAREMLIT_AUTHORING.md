@@ -1,13 +1,3 @@
-## Current art production decision — 8 September 2026
-
-All game artwork is 2D only: authored sprites, sprite animation, painted backgrounds, tiles, portraits and flat effects. Use the existing shared art folder at `C:/Users/Admin/Documents/Codex/shared-game-environment-library` for reusable 2D kits, with compatible perspective, pixel density, palette, anchors and animation metadata across Cattle Trail/Cattle Drive, DR Companion and Pirate Island. Preserve each game's characters, setting and gameplay identity.
-
-Do not create, purchase, import, restore, archive for later reuse, or bake sprites from 3D models. Earlier model, rig, mesh, material, body-builder and six-month-resumption plans are retired. New generated artwork uses the user-authorized built-in image generator; no external paid generation APIs. Shared reuse does not make unreviewed art automatically approved.
-
-Inspect true transparency, sequential poses, stable ground pivots, equipment handedness, native-size readability and actual motion before admission. Keep game state, navigation, combat rules, accessibility and persistence authoritative; changing artwork never changes legal actions. Existing engine API names and historical validation records may mention 3D without authorizing 3D artwork.
-
-This is production authority, not a claim that every existing runtime or binary has been converted. Legacy-asset deletion is a separate operation: automatic review rejected deletion commands, so deletion remains unverified here. Do not restore those assets or present them as production options.
-
 # Character and Haremlit Authoring Contract
 
 > **Current scope:** follow [GAME_BUILD_PLAN.md](GAME_BUILD_PLAN.md). Michael starts alone and may recruit adult women from the island's shared NPC population. Up to four recruited women may occupy his active companion slots. Notables and generated ordinary women use the same population and membership rules; there is no separate protected heroine caste. Use the approved 2D sprite presentation, not the historical card-battle or rig-ready format.
@@ -137,6 +127,6 @@ An authored notable is production-ready only after her identity, gameplay kit,
 quest/relationship content and required sprite actions have been reviewed
 together. A generated ordinary NPC instead needs validated templates, stable
 identity, legal unit behavior and admitted sprite variants. Neither gate
-requires 3D rigs or historical title-card behavior. Do not confuse narrative
+depends on historical title-card behavior. Do not confuse narrative
 depth with recruiting eligibility or use this gate to create a special,
 unrecruitable category of women.

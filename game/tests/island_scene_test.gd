@@ -30,6 +30,8 @@ func run() -> void:
 	scene.set_paused(true)
 	var camera_save: String = scene.port.save_island()
 	var viewport_center: Vector2 = scene.get_viewport_rect().size * 0.5
+	assert(is_equal_approx(scene.camera_zoom, 2.0))
+	scene.show_island()
 	scene.zoom_camera(2.0, viewport_center)
 	assert(is_equal_approx(scene.camera_zoom, 2.0))
 	var anchor := viewport_center + Vector2(40,20)
@@ -153,7 +155,8 @@ func run() -> void:
 			if building.archetype == "site_archetype.elven.heart_grove":
 				assert(Vector2i(building.x,building.y) == Vector2i(15,24))
 				assert(scene.building_sprites[building.id].texture == scene.building_textures["res://assets/island/heart_grove.png"])
-	assert(scene.troop_textures.size() == 8)
+	assert(scene.troop_textures.size() == 9)
+	assert(scene.troop_textures.has("res://assets/island/troops/mechanical-dog.png"))
 	assert(scene.troop_textures.has("res://assets/island/troops/elven-bow-warden.png"))
 	assert(scene.troop_textures.has("res://assets/island/troops/cultist-female.png"))
 	assert(scene.troop_textures.has("res://assets/island/troops/colonial-female.png"))

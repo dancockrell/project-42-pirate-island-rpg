@@ -5,7 +5,7 @@
 GDScript is Project 42's default language. Use it for Godot scenes, world
 cells, interaction, camera, UI, presentation, VFX, animation adapters,
 content loading, editor tooling and ordinary game behaviour. Prefer Godot
-nodes, resources, built-in meshes, materials, lighting, particles, audio and
+nodes, resources, sprites, particles, audio and
 navigation before introducing a custom subsystem.
 
 TypeScript remains appropriate for offline content validators, schema builders
@@ -30,14 +30,4 @@ choice. New performance work uses Rust when it genuinely needs native code.
 
 ## Environment best practice
 
-Each playable location remains a `WorldCell` with separate visual, collision,
-navigation, encounter, interactive, audio and camera layers. An environment
-setpiece is composed from small named scene components. Reception Terrace uses
-`Lighting`, `ProcessionalTerrace`, `ElvenGate`, `JungleMass`,
-`ShipwreckFlotsam`, and `SeaAndSky`.
-
-The initial kit may use Godot built-in primitives, `StandardMaterial3D`,
-lights and fog to establish composition cheaply. A curated external asset
-replaces one named component, never a tangle of individual runtime nodes.
-Visual art never supplies collision, navigation, encounter placement, stable
-world IDs or prose identifiers.
+The island uses a fixed elevated view with sprite layers, terrain artwork and an authoritative navigation mask. Logical collision and navigation stay separate from sprite bounds. Decorative artwork cannot invent routes, encounters or simulation state.

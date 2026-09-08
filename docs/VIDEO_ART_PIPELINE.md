@@ -1,13 +1,3 @@
-## Current art production decision — 8 September 2026
-
-All game artwork is 2D only: authored sprites, sprite animation, painted backgrounds, tiles, portraits and flat effects. Use the existing shared art folder at `C:/Users/Admin/Documents/Codex/shared-game-environment-library` for reusable 2D kits, with compatible perspective, pixel density, palette, anchors and animation metadata across Cattle Trail/Cattle Drive, DR Companion and Pirate Island. Preserve each game's characters, setting and gameplay identity.
-
-Do not create, purchase, import, restore, archive for later reuse, or bake sprites from 3D models. Earlier model, rig, mesh, material, body-builder and six-month-resumption plans are retired. New generated artwork uses the user-authorized built-in image generator; no external paid generation APIs. Shared reuse does not make unreviewed art automatically approved.
-
-Inspect true transparency, sequential poses, stable ground pivots, equipment handedness, native-size readability and actual motion before admission. Keep game state, navigation, combat rules, accessibility and persistence authoritative; changing artwork never changes legal actions. Existing engine API names and historical validation records may mention 3D without authorizing 3D artwork.
-
-This is production authority, not a claim that every existing runtime or binary has been converted. Legacy-asset deletion is a separate operation: automatic review rejected deletion commands, so deletion remains unverified here. Do not restore those assets or present them as production options.
-
 # Video art mining pipeline
 
 ## Current sprite-source inspection
@@ -24,7 +14,7 @@ First character pass: approve one source sprite for each of those existing ident
 
 Each scenery family gets its own rich kit: tropical grass/ground cover; trees and palms; understory/vines; rocks and cliff edges; shoreline/water; roads/bridges; ruins; faction buildings; camp/harbour/workshop props; faction corruption and weather effects. Supply useful silhouette, maturity, density and condition variation. Trees require genuine canopy/trunk occlusion support, not counting two exports of one drawing as two variants. Roads, shores, walls and gates require authored ends, corners, joins, elevation transitions, anchors, collision footprints and open/broken states as applicable. A decorative atlas does not establish seamless or traversable connections. Faction variants must preserve each faction's own aesthetic within the common pixel language.
 
-Stay on one representative tropical scene while kits expand. Prove interaction through existing simulation commands and persistent consequences, not a second gameplay model. No 3D work, paid generation or broad new room/feature production is authorized by this method handoff.
+Stay on one representative tropical scene while kits expand. Prove interaction through existing simulation commands and persistent consequences, not a second gameplay model. This method handoff does not authorize paid generation or unrelated feature production.
 
 The inspector now reports `distinctDrawingsIgnoringHorizontalMirrors`: visible content is compared independently of transparent margins, hidden RGB values and horizontal reflection. Legal repeated animation holds remain allowed but do not increase this count. Distinct pixels still do not prove distinct useful states, correct facing or recolor-free coverage; `coverageAdmission` remains unassessed. Ten regression tests pass, including repeated-hold and mirrored-drawing accounting. No new art was extracted or admitted in this checkpoint.
 
@@ -36,7 +26,7 @@ Structural admission checks exact source identity, PNG bounds, actual transparen
 
 Checkpoint: the approved 1254 × 1254 character reference has **zero transparent pixels** and no authored frame metadata. It correctly fails cutout-atlas admission while remaining the approved style reference. Original bytes are preserved. Eight regression tests passed, including opaque-checkerboard rejection, invalid frame fields, empty frames and read-only source preservation. No new sprites, animation or playable scene are claimed by this tool.
 
-**7 September 2026:** [Current visual authority](VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md) requires 2D pixel sprites and shelves 3D art. The older reel slate and rates below are historical tooling guidance, not approved current prompts or mandatory sprite frame counts. No 3D turns, model jobs or orbit-camera assets for Pirate Island. Generated frames require sprite identity, pivot, direction, pixel-grid and temporal checks before admission.
+Follow [visual authority](VISUAL_AUTHORITY.md). Sprite animation requires consistent identity, ground pivots, directions and sequential poses, followed by in-game motion review.
 
 The canonical reel slate is `content/art/video_reel_plan.json`. Each `prompt` is copied into Magnific unchanged. Metadata stays outside the prompt.
 

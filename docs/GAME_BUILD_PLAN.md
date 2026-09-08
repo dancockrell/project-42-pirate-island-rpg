@@ -1,17 +1,7 @@
-## Current art production decision — 8 September 2026
-
-All game artwork is 2D only: authored sprites, sprite animation, painted backgrounds, tiles, portraits and flat effects. Use the existing shared art folder at `C:/Users/Admin/Documents/Codex/shared-game-environment-library` for reusable 2D kits, with compatible perspective, pixel density, palette, anchors and animation metadata across Cattle Trail/Cattle Drive, DR Companion and Pirate Island. Preserve each game's characters, setting and gameplay identity.
-
-Do not create, purchase, import, restore, archive for later reuse, or bake sprites from 3D models. Earlier model, rig, mesh, material, body-builder and six-month-resumption plans are retired. New generated artwork uses the user-authorized built-in image generator; no external paid generation APIs. Shared reuse does not make unreviewed art automatically approved.
-
-Inspect true transparency, sequential poses, stable ground pivots, equipment handedness, native-size readability and actual motion before admission. Keep game state, navigation, combat rules, accessibility and persistence authoritative; changing artwork never changes legal actions. Existing engine API names and historical validation records may mention 3D without authorizing 3D artwork.
-
-This is production authority, not a claim that every existing runtime or binary has been converted. Legacy-asset deletion is a separate operation: automatic review rejected deletion commands, so deletion remains unverified here. Do not restore those assets or present them as production options.
-
 # Project 42: Pirate Island — Design Authority
 
 **Status:** Accepted direction, 4 September 2026
-**Visual amendment, 7 September 2026:** 2D pixel-art sprites at the approved elevated three-quarter perspective; no 3D art. Follow [visual authority](VISUAL_AUTHORITY_AND_3D_ENTRY_GATE.md). Earlier isometric language denotes the fixed-view board, not permission for 3D assets or a different projection.
+**Visual amendment, 7 September 2026:** 2D pixel-art sprites at the approved elevated three-quarter perspective. Follow [visual authority](VISUAL_AUTHORITY.md). The island uses the approved fixed-view perspective.
 **Authority:** This is the canonical product and production contract. If another document, prototype, scene, or asset conflicts with it, this document wins until an explicit recorded decision changes it.
 
 ## Product promise
@@ -38,7 +28,7 @@ The central mystery is escalating, rule-governed weirdness caused by Cthulhu's p
 8. **No numeric heat UI.** World day may be known. Cthulhu's hidden heat/patience state is communicated through inferable diegetic evidence, never an exact meter.
 9. **Wrongness has rules.** Weather, time, and causality distort according to authored thresholds and causal state. Effects have prerequisites, tells, consequences, and clue links; they are never arbitrary random horror.
 10. **Simulation truth is singular.** Rust owns authoritative world and combat state. Godot projects it and submits commands. Content records define authored possibilities. Presentation never invents outcomes.
-11. **Fixed-view 2D sprites.** Use the approved elevated three-quarter perspective. Actor production uses directional sprite frames, stable foot pivots and authored action timing. The simulation proof may be static; visual acceptance must demonstrate sprite animation. No 3D rigs or model production are required.
+11. **Fixed-view 2D sprites.** Use the approved elevated three-quarter perspective. Actor production uses directional sprite frames, stable foot pivots and authored action timing. The simulation proof may be static; visual acceptance must demonstrate sprite animation. Use coherent animated sprite sheets.
 12. **Toybox clarity over historicism.** Western fantasy, Bronze-Age mythic mashup, and eastern/wushu fantasy mashup are intentional broad families. Specialized faction overlays make them legible at board scale.
 
 ## Campaign clocks and confrontation
@@ -181,7 +171,7 @@ The prior side-view battle prototype is retained as historical technical evidenc
 
 Tile and structure kits include stable IDs, isometric orientation, board scale, exact standard cube modules, construction/damage pieces, contained selection/collision/visual bounds, contained spawn points, contained tether sockets, contained influence/state hooks, faction-overlay material slots, detail-density rules, provenance, and approval metadata.
 
-Actor sprites require a stable ground anchor, selection bounds, facing contract, frame canvas, action timings, equipment/effect attachment points and identity metadata. These are 2D pixel-space contracts, not bones or a 3D rig. Keep animation as presentation of authoritative events, not another simulation owner.
+Actor sprites require a stable ground anchor, selection bounds, facing contract, frame canvas, action timings, equipment/effect attachment points and identity metadata. These are 2D pixel-space contracts. Keep animation as presentation of authoritative events, not another simulation owner.
 
 Base art families are western fantasy, Bronze-Age mythic mashup, and eastern/wushu fantasy mashup. Mini-kits and overlays specialize elves, treefolk, cult forces, pirates, smugglers, imperial forces, and later factions. Art is admitted only after board-scale silhouette review, isometric fit, metadata validation, provenance review, and an in-context screenshot.
 
