@@ -4598,6 +4598,107 @@ mod tests {
         );
     }
 
+    #[test]
+    fn colonial_production_uses_both_sexes_and_same_marine_can_join_party() {
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        // Peace isolates the authored production and voluntary recruitment loop;
+        // no actors, identities, population, or positions are fabricated.
+        world.hostilities.clear();
+        for _ in 0..32 {
+            world.advance_island_tick();
+        }
+        let marines: Vec<_> = world
+            .actors
+            .values()
+            .filter(|a| a.definition_id == "actor_def.colonial.line_marine")
+            .collect();
+        let male = marines
+            .iter()
+            .find(|a| a.person.as_ref().unwrap().sex == PersonSex::Male)
+            .expect("ordinary production includes male marines");
+        let female = marines
+            .iter()
+            .find(|a| a.person.as_ref().unwrap().sex == PersonSex::Female)
+            .expect("ordinary production includes female marines");
+        let id = female.instance_id.clone();
+        let original = (*female).clone();
+        let male_id = male.instance_id.clone();
+        assert!((18..=20).contains(&original.person.as_ref().unwrap().age.unwrap()));
+        assert!(
+            !original
+                .person
+                .as_ref()
+                .unwrap()
+                .recruitment_offer
+                .is_empty()
+        );
+        assert_eq!(male.definition_id, original.definition_id);
+        assert_eq!(
+            world.unit_combat[&male_id].health,
+            world.unit_combat[&id].health
+        );
+        assert_eq!(
+            world.unit_combat[&male_id].population_use,
+            world.unit_combat[&id].population_use
+        );
+        world.policies.clear();
+        for faction in world.factions.values_mut() {
+            for building in faction.buildings.values_mut() {
+                building.operational = false;
+            }
+        }
+        assert!(world.approach_island_person(&id));
+        for _ in 0..128 {
+            if world.can_talk_island_person(&id) {
+                break;
+            }
+            world.advance_island_tick();
+        }
+        assert!(
+            world.can_talk_island_person(&id),
+            "Michael must navigate to the actually produced woman"
+        );
+        let count = world.actors.len();
+        let source_population = world.factions[&original.faction_id].population_used;
+        let michael_population = world.factions["faction.michael"].population_used;
+        let combat = world.unit_combat[&id].clone();
+        assert!(
+            !world.recruit_island_person(&id),
+            "conversation must be explicit first"
+        );
+        assert_eq!(
+            world.talk_island_person(&id),
+            original.person.as_ref().unwrap().recruitment_offer
+        );
+        assert!(world.recruit_island_person(&id));
+        assert!(world.assign_island_companion(&id, 0));
+        assert_eq!(world.party[0], id);
+        assert_eq!(world.actors.len(), count);
+        assert_eq!(world.actors[&id].faction_id, "faction.michael");
+        assert_eq!(world.actors[&id].definition_id, original.definition_id);
+        assert_eq!(world.actors[&id].provenance, original.provenance);
+        assert_eq!(
+            world.actors[&id].person.as_ref().unwrap().display_name,
+            original.person.as_ref().unwrap().display_name
+        );
+        assert_eq!(world.unit_combat[&id], combat);
+        assert_eq!(
+            world.factions[&original.faction_id].population_used,
+            source_population - combat.population_use
+        );
+        assert_eq!(
+            world.factions["faction.michael"].population_used,
+            michael_population + combat.population_use
+        );
+        assert_eq!(world.actors[&male_id].faction_id, original.faction_id);
+        assert!(!world.recruit_island_person(&male_id));
+        assert_eq!(
+            FactionWorld::load_json(&world.save_json().unwrap()).unwrap(),
+            world
+        );
+    }
+
     fn recruitment_fixture() -> (FactionWorld, Vec<String>) {
         let mut world = FactionWorld::prototype_island();
         world.install_preview_factions().unwrap();

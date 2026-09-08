@@ -25,6 +25,24 @@
         "A cooper's son who knows how a sound barrel should ring. He counts supply casks before he counts enemy flags.",
         "He learned to read from discarded shipping notices. He still saves every letter that reaches the garrison."
       ]
+    },
+    {
+      "sex": "female",
+      "age_min": 18,
+      "age_max": 20,
+      "given_names": ["Anne", "Eliza", "Jane", "Alice", "Lucy", "Charlotte"],
+      "family_names": ["Ward", "Hale", "Reed", "Bell", "Price", "Shaw"],
+      "histories": [
+        "She guarded a survey party before joining the garrison. Their unfinished map still tempts her more than another season of watching the same gate.",
+        "A gunsmith taught her to fit a flint and listen for a faulty lock. She volunteered for the island expecting a chance to make something of her own.",
+        "She once brought two lost sentries home through a storm. The officer who claimed the credit never learned their names. She did."
+      ],
+      "recruitment_offer": "I know my duty, Michael. I also know I can choose another life. Give me a place in your crew, and I'll come willingly.",
+      "companion_responses": [
+        "I've brought the map. Most of the interesting parts are blank. You can carry the compass; I'll tell you when you're holding it upside down.",
+        "Let me see that lock before you fire it again. There. Now it might hit what you're looking at. Try looking at the target, Captain.",
+        "I kept my musket. You kept your word. That's a good beginning. And if either of us gets lost, the other comes looking."
+      ]
     }
   ],
   "actor_def.pirates.deckhand": [

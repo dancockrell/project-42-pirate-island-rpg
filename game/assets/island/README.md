@@ -18,9 +18,30 @@ after changing it. NamedPerson is stored on the existing produced actor and
 moves with that actor into its casualty record; names and history are not
 rerolled on save/load. Older actors without identity data remain unknown.
 No female actor is inferred from a male sprite. The pirate woman uses the
-reviewed revision-01 standing source; female colonial and cultist production
-remain disabled while their artwork needs correction. Biography text is not
+reviewed revision-01 standing source; colonial women use their revision-02
+standing sprite. Female cultist production remains disabled while its artwork
+needs correction. Biography text is not
 yet a procedural quest system.
+
+## Colonial marine women
+
+The fort now produces both men and adult women through the same existing marine
+definition, costs and musket combat profile. Women have seeded names and three
+authored history/companion-response pairs, with a voluntary offer available
+through the ordinary Approach/Talk/Join flow. Joining Michael transfers the same
+person, equipment role, health and production history; selecting a party slot
+is still separate. Existing saved people are never rerolled. These short
+encounters are not a completed procedural romance quest system.
+
+The female sprite is shared `troops-01/colonial-female-revision-02/extracted/cell_00_00.png`,
+SHA256 `3db289136406d38b5bf2e35e9c07e90ac67c5f9ced1010c8b781b096e4d16295`.
+Source size 897 by 1396, floor pivot [310,1280], scale 0.02363896848, giving
+33-pixel full height versus the male's roughly 38 pixels. Root reviewed actual
+33px appearance beside the male on sand and dark green: tricorn, navy/cream
+uniform and musket read coherently. Torso and boot heading remain imperfect;
+admission is development standing only, not final directional animation or
+native-render approval. Original source, background correction and prompts stay
+in the shared folder. The earlier rejected revision remains excluded.
 
 ## Faction survival decisions
 

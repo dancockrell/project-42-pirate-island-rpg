@@ -2,7 +2,13 @@
   "actor_def.colonial.line_marine": {
     "legacy_unknown_variant": "male",
     "variants": {
-      "male": { "texture": "res://assets/island/troops/colonial.png", "pivot": [116,366], "scale": 0.105 }
+      "male": { "texture": "res://assets/island/troops/colonial.png", "pivot": [116,366], "scale": 0.105 },
+      "female": {
+        "texture": "res://assets/island/troops/colonial-female.png", "pivot": [310,1280], "scale": 0.02363896848,
+        "status": "development-standing",
+        "source": "procedural/sprites/candidates/pirate-island/troops-01/colonial-female-revision-02/extracted/cell_00_00.png",
+        "sha256": "3db289136406d38b5bf2e35e9c07e90ac67c5f9ced1010c8b781b096e4d16295"
+      }
     }
   },
   "actor_def.pirates.deckhand": {

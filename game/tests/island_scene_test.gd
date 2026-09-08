@@ -150,7 +150,8 @@ func run() -> void:
 			if building.archetype == "site_archetype.cthulhu.drowned_shrine":
 				assert(Vector2i(building.x,building.y) == Vector2i(27,16))
 				assert(scene.building_sprites[building.id].texture == scene.building_textures["res://assets/island/drowned_shrine.png"])
-	assert(scene.troop_textures.size() == 5)
+	assert(scene.troop_textures.size() == 6)
+	assert(scene.troop_textures.has("res://assets/island/troops/colonial-female.png"))
 	for texture in scene.troop_textures.values():
 		assert(texture.get_image().detect_alpha() == Image.ALPHA_BIT)
 	assert(not scene.request_move(Vector2i(0,0)))
@@ -243,6 +244,8 @@ func run() -> void:
 	var unadmitted: Dictionary = inspected_unit.duplicate(true)
 	unadmitted.sex = "female"
 	unadmitted.definition = "actor_def.colonial.line_marine"
+	assert(scene.appearance_for(unadmitted).texture == "res://assets/island/troops/colonial-female.png")
+	unadmitted.definition = "actor_def.cthulhu.drowned_cultist"
 	assert(scene.appearance_for(unadmitted).is_empty()) # no male masquerading as a female
 	unadmitted.definition = inspected_unit.definition
 	unadmitted.sex = "unknown"
