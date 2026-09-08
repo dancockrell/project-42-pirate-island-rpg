@@ -160,6 +160,7 @@ impl Project42SimulationBridge {
                 &vdict! {
                     "id" => id.as_str(), "x" => position.x, "y" => position.y,
                     "faction" => world.actors[id].faction_id.as_str(),
+                    "undead" => world.actors[id].undead,
                     "definition" => world.actors[id].definition_id.as_str(),
                     "name" => person.map(|p| p.display_name.as_str()).unwrap_or("Unknown unit"),
                     "biography" => person.map(|p| p.backstory.as_str()).unwrap_or(""),
@@ -216,7 +217,7 @@ impl Project42SimulationBridge {
                 .unwrap_or("");
             party_names.push(&name.to_variant());
         }
-        vdict! { "tick" => world.tick as i64, "paused" => world.paused, "actors" => &actors, "buildings" => &buildings, "land" => &land, "casualties" => world.casualties.len() as i64, "party" => &party, "party_names" => &party_names, "approach_target" => world.approach_target.as_deref().unwrap_or("") }
+        vdict! { "tick" => world.tick as i64, "day" => world.day() as i64, "minute_of_day" => world.minute_of_day(), "paused" => world.paused, "actors" => &actors, "buildings" => &buildings, "land" => &land, "casualties" => world.casualties.len() as i64, "party" => &party, "party_names" => &party_names, "approach_target" => world.approach_target.as_deref().unwrap_or("") }
     }
 
     #[func]

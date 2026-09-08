@@ -41,7 +41,8 @@ Michael and living active companions through existing pathfinding toward nearby
 distinct destinations, never teleporting. Invalid group requests retain previous
 orders. Dead slots retain the person's identity and do not issue movement.
 Membership, permanent attachment, discussion and slots persist through saves.
-Midnight undead conversion and restoration are still unimplemented.
+Midnight undead conversion now retains that slot as inactive under Cthulhu;
+explicit reacquisition restores allegiance, not bodily life.
 
 ## Pirate waterfront
 
@@ -95,7 +96,8 @@ invalid destination preserves it. No automatic pursuit or Echo skills yet.
 Provisional Michael profile: 30 health, 4 damage, 4-cell range, 5-tick reload.
 His health appears in the HUD. Death pauses with a fallen message, leaves a
 native casualty record, and can be saved/reloaded. Dead Michael cannot move or
-fire. This is not yet the midnight resurrection or companion rescue system.
+fire. Michael's own defeat remains terminal for this run; ordinary casualties
+follow the midnight rule below.
 On-island skirmishes now use distinct provisional health, damage, range and
 cooldown profiles. Attacks resolve simultaneously and cannot shoot through
 nonwalkable cells. Autonomous units hold whenever a living hostile is in range
@@ -114,7 +116,7 @@ lookups of surviving sprites. Successful campaign loading clears old effects.
 Chest-height offsets are provisional; authored weapon sockets and animated
 attack/recoil poses are still missing. Native render review remains outstanding.
 Dead units leave saved casualty records and release their
-population slots. Midnight conversion/resurrection, diplomacy changes, combat
+population slots. Bodily restoration machinery, diplomacy changes, combat
 animation and final faction balance remain unfinished.
 Producers now have provisional 80-point health persisted in saves. Autonomous
 units without an in-range troop target can strike a hostile producer's entrance
@@ -234,6 +236,31 @@ Explicit travel, Michael's movement, and Approach conversations take priority.
 No neutral provocation, building assault, distant pursuit or off-party auto-chase
 is granted by this behavior. Multiple defenders reserve distinct next cells.
 This supplies basic companion assistance, not final tactical stances or hero powers.
+
+## Midnight and remembered companions
+
+The live campaign now has a saved clock. Initial tuning is1440simulation ticks
+per day; this is provisional, not a promised real-time day duration. Normal pause
+freezes it. The interface reads Day/HH:MM from the native world.
+
+At midnight, eligible ordinary casualties from earlier ticks return as the same
+actors under Cthulhu, provided that faction survives with an operational holding.
+They rise at their death location or nearby unoccupied reachable ground; when no
+legal space exists they remain casualties for a later midnight. Michael's death
+still ends the playable run. An eliminated faction is never rebuilt by this rule.
+
+Names, history, production provenance and Michael loyalty survive. Returned units
+receive undead state; the current visual is a restrained cold tint on their
+existing standing sprite, not finished undead artwork. Cthulhu accommodation
+grows by the actual returned population; this is supernatural conversion rather
+than a free ordinary production queue. No new duplicate identity is created.
+
+A returned companion keeps her remembered slot but is inactive while with
+Cthulhu. Party travel and defense cannot command her. Michael must approach and
+regain her explicitly through Talk/Join. She then accompanies him again if her
+slot was retained, but remains undead: recruitment does not invent bodily
+restoration. Faction/allied restoration machinery, rituals, madness recruitment,
+undead-specific powers and final resurrection presentation remain unfinished.
 
 ## Fox settlement
 

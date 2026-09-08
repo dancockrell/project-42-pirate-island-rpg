@@ -468,6 +468,8 @@ func refresh_snapshot() -> void:
 		troop.texture = troop_textures[appearance.texture]
 		troop.offset = -Vector2(appearance.pivot[0], appearance.pivot[1])
 		troop.scale = Vector2.ONE * float(appearance.scale)
+		# Development state cue on existing standing art, not a new undead asset.
+		troop.self_modulate = Color(0.72, 0.84, 0.90) if entry.get("undead", false) else Color.WHITE
 		var health: ProgressBar = troop_sprites[entry.id].get_node("Health")
 		# Source cutouts have different resolutions; health UI uses world pixels,
 		# not source-image pixels. Its size must not change with sex or costume.
@@ -493,7 +495,7 @@ func refresh_snapshot() -> void:
 		port.pause_island(true)
 		pause_button.text = "Fallen"
 		pause_button.disabled = true
-		status.text = "Michael has fallen. Load a saved campaign or save this outcome.\n" + save_notice
+		status.text = world_clock_text() + " · Michael has fallen. Load a saved campaign or save this outcome.\n" + save_notice
 		return
 	actor.visible = true
 	center_button.disabled = false
@@ -503,9 +505,14 @@ func refresh_snapshot() -> void:
 	actor.project_heading(destination - actor.position)
 	actor.position = destination
 	actor.z_index = int(person.y)
-	status.text = "PIRATE ISLAND · Michael HP %s/%s · %s\nClick land to travel. Right-click to fire. Shift-click to inspect.\nDevelopment slice · standing sprites. %s" % [person.health, person.max_health, "PAUSED" if paused else "Exploring", save_notice]
+	status.text = "PIRATE ISLAND · %s · Michael HP %s/%s · %s\nClick land to travel. Right-click to fire. Shift-click to inspect.\nDevelopment slice · standing sprites. %s" % [world_clock_text(), person.health, person.max_health, "PAUSED" if paused else "Exploring", save_notice]
 	if missing_appearance_count > 0:
 		status.text += "\nMissing character art: %d" % missing_appearance_count
+
+func world_clock_text() -> String:
+	# Native snapshot is authoritative; no wall-clock advance while paused.
+	var minute := int(snapshot.get("minute_of_day", 0))
+	return "Day %d · %02d:%02d" % [int(snapshot.get("day", 1)), int(minute / 60), minute % 60]
 
 func appearance_for(entry: Dictionary) -> Dictionary:
 	var definition: Dictionary = troop_art.get(entry.definition, {})
@@ -566,10 +573,10 @@ func refresh_party_controls(live: bool) -> void:
 	var eligible: bool = michael_alive and live and inspected_person.get("sex", "") == "female" and inspected_person.get("faction", "") == "faction.michael" and inspected_person.get("loyal_to_michael", false)
 	var living_count := 0
 	for entry in snapshot.actors:
-		if slots.has(entry.id):
+		if slots.has(entry.id) and entry.get("faction", "") == "faction.michael":
 			living_count += 1
 	party_controls.visible = eligible or slots.any(func(id): return not str(id).is_empty())
-	party_heading.text = "Companions · %d/4 living" % living_count
+	party_heading.text = "Companions · %d/4 active" % living_count
 	if eligible:
 		party_heading.text += " · Choose a slot for %s" % inspected_person.get("name", "")
 	for slot in range(4):
@@ -581,11 +588,13 @@ func refresh_party_controls(live: bool) -> void:
 			for entry in snapshot.actors:
 				if entry.id == id:
 					name_text = entry.name
+					if entry.get("faction", "") == "faction.cthulhu.prototype":
+						name_text += " · With Cthulhu"
 		var button := party_buttons[slot]
 		button.text = "%d · %s" % [slot + 1, name_text]
 		button.disabled = not eligible or slots.has(inspected_id)
 		button.tooltip_text = "Assign %s to slot %d%s" % [inspected_person.get("name", "selected woman"), slot + 1, " (replaces %s in the party only)" % name_text if not id.is_empty() else ""]
-		dismiss_buttons[slot].disabled = id.is_empty()
+		dismiss_buttons[slot].disabled = id.is_empty() or not michael_alive
 		dismiss_buttons[slot].tooltip_text = "Clear slot %d; keep faction membership" % (slot + 1)
 
 func refresh_inspection() -> void:
@@ -627,6 +636,8 @@ func refresh_inspection() -> void:
 		"faction.elves.prototype": faction_text = "Elves"
 	# A missing live actor can mean death or departure; do not invent which.
 	var state_text := faction_text if live else "Dead or departed · Last seen: " + faction_text
+	if live and inspected_person.get("undead", false):
+		state_text = "Undead · " + faction_text
 	inspection.text = "%s · %s\n%s\nShift-click empty land to close." % [name_text, state_text, inspected_person.get("biography", "")]
 	var dialogue: String = inspected_person.get("dialogue", "")
 	if live and not dialogue.is_empty():

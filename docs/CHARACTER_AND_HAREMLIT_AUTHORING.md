@@ -14,7 +14,7 @@ This is production authority, not a claim that every existing runtime or binary 
 
 ## Recruitment, faction membership, and party contract
 
-**Authority:** the following consolidates the user's NPC-pool decisions. These are required game rules, not a claim that every branch is implemented. The current development slice has one authored pirate offer, persistent male/female pirate population, same-person faction transfer, four explicit companion slots, group movement and casualty-backed dead slots. It does not yet implement procedural romance quests, diplomatic recruitment consequences, midnight conversion/restoration, or female appearances for every faction. See [the island implementation notes](../game/assets/island/README.md) for exact provisional limits and test scope.
+**Authority:** the following consolidates the user's NPC-pool decisions. These are required game rules, not a claim that every branch is implemented. The current development slice has pirate and fox offers, persistent generated identities, same-person faction transfer, four companion slots, group movement and casualty-backed dead slots. Midnight now returns eligible casualties to surviving Cthulhu as the same undead actors; Michael can explicitly regain eligible women without erasing their history. Procedural romance quests, diplomatic recruitment consequences, bodily restoration machinery and female appearances for every faction remain unfinished. See [the island implementation notes](../game/assets/island/README.md) for exact provisional limits and test scope.
 
 - Michael begins as the sole shipwreck survivor in his faction. Do not seed four allies merely to satisfy a five-character screenshot.
 - Every adult female person is potentially recruitable under the right conditions, irrespective of current faction, ordinary/hero status, madness, or suitable undead form. Conditions may involve relationships, quests, artifacts or restoration; potential eligibility is not instant success.
@@ -62,7 +62,7 @@ Exact relationship thresholds, negotiation costs, morale rates, resurrection cos
 - Reject male/non-person/ineligible-state recruitment without mutation; distinguish temporarily unmet conditions from permanent category exclusion.
 - Check pursuit orders, queued attacks, population reservations and diplomacy after transfer. Recheck target ownership when a shot resolves, not only when it is queued.
 - Walk the selected party around blocked terrain, pause mid-route, save/load, and reproduce positions, order, equipment and membership.
-- Kill a companion, retain her identity and slot, then prove midnight transfer and faction restoration once those systems exist. Until then, label that branch unimplemented rather than reporting the whole recruitment lifecycle complete.
+- Kill a companion, retain her identity and slot, prove midnight transfer and explicit allegiance recovery without cloning her, then separately prove bodily restoration when machinery exists. Allegiance recovery alone is not the complete resurrection lifecycle.
 - Visually review party selection, actual map-scale male/female sprites and moving formations. Structural tests or source sheets alone are not visual acceptance.
 
 ## Purpose

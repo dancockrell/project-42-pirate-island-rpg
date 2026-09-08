@@ -39,8 +39,10 @@ joining the faction does not automatically fill one. Land clicks then move
 Michael and living active companions through the same navigation system.
 The current scene remains a development slice: standing sprites, incomplete
 building art, provisional faction rules and one simple recruitment encounter.
-Four-slot membership and dead identities save/load; full romance, diplomacy
-and midnight resurrection are not implemented. See
+Four-slot membership and dead identities save/load. Midnight returns eligible
+casualties as undead under surviving Cthulhu; remembered companions require
+explicit reacquisition. Full romance, diplomacy and bodily restoration machinery
+remain unfinished. See
 [island implementation notes](../game/assets/island/README.md).
 
 For a bounded low-resource check without opening an editor or visible window:

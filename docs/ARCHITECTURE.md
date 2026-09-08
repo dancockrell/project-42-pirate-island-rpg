@@ -108,7 +108,9 @@ Damage resolution opens a reaction window only when an unredirected hostile atta
 
 ## Midnight return transaction
 
-Midnight is one atomic simulation transaction. The clock advances to the next day, named people become alive again without losing their death counters, then each region emits its deterministic daily monster instances in visible flashes. The same world seed, new day, region, and slot always produce the same instance. Each spawned monster receives an individual physical variant, condition, purpose, level, and loot seed. Prototype spawn rules enforce a group size of one because ordinary wilderness encounters are meant to read as D&D-like individual power relationships rather than anonymous packs of one-hit enemies.
+The live island uses `FactionWorld`'s persisted clock and casualty ledger. At a midnight boundary it returns eligible earlier casualties as the same undead actors under surviving Cthulhu, on free ground at or near their death positions. `NamedPerson.return_at_midnight` preserves personal memory; faction allegiance, population accounting, combat state and inactive remembered companion slots are updated by the same native owner. No presentation timer can trigger a return. See the [current implementation limits](../game/assets/island/README.md#midnight-and-remembered-companions).
+
+The older disconnected `WorldClock.resolve_midnight` fixture still demonstrates deterministic daily regional monster generation and flashes. Its unconditional named-person return and encounter-size assumptions are historical prototype behavior, not the live island's rules or a second campaign clock.
 
 ## Runtime content bundle
 

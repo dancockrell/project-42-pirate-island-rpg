@@ -382,6 +382,8 @@ pub struct ActorProductionProvenance {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProducedActor {
     #[serde(default)]
+    pub undead: bool,
+    #[serde(default)]
     pub person: Option<NamedPerson>,
     pub instance_id: String,
     pub definition_id: String,
@@ -437,6 +439,11 @@ impl DispatchCandidate {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FactionWorldEvent {
+    MidnightReturned {
+        actor_id: String,
+        previous_faction_id: String,
+        position: IslandPoint,
+    },
     UnitStruck {
         attacker_id: String,
         target_id: String,
@@ -508,6 +515,8 @@ pub enum FactionWorldError {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FactionWorld {
+    #[serde(default)]
+    pub clock: IslandClock,
     /// Fixed slots preserve deliberate replacement and dead companion identity.
     #[serde(default)]
     pub party: [String; 4],
@@ -544,6 +553,20 @@ pub struct IslandCombatProfile {
     pub damage: u32,
     pub range: u32,
     pub cooldown_ticks: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IslandClock {
+    pub ticks_per_day: u64,
+}
+
+impl Default for IslandClock {
+    fn default() -> Self {
+        // Provisional pacing, not a wall-clock promise. Saved with each campaign.
+        Self {
+            ticks_per_day: 1440,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -797,6 +820,114 @@ impl MapPlacement {
 }
 
 impl FactionWorld {
+    pub fn day(&self) -> u64 {
+        1 + self.tick / self.clock.ticks_per_day.max(1)
+    }
+
+    pub fn minute_of_day(&self) -> u16 {
+        ((self.tick % self.clock.ticks_per_day.max(1)) * 1440 / self.clock.ticks_per_day.max(1))
+            as u16
+    }
+
+    fn return_midnight_casualties(&mut self) -> Vec<FactionWorldEvent> {
+        const CTHULHU: &str = "faction.cthulhu.prototype";
+        if self.tick == 0
+            || self.tick % self.clock.ticks_per_day.max(1) != 0
+            || self.eliminated_factions.contains(CTHULHU)
+            || !self.factions.get(CTHULHU).is_some_and(|faction| {
+                faction
+                    .buildings
+                    .values()
+                    .any(|b| b.operational && b.health > 0)
+            })
+        {
+            return Vec::new();
+        }
+        let mut occupied: BTreeSet<_> = self.positions.values().copied().collect();
+        let mut events = Vec::new();
+        // BTreeMap order provides reproducible allocation when corpses overlap.
+        for id in self.casualties.keys().cloned().collect::<Vec<_>>() {
+            let casualty = &self.casualties[&id];
+            if id == "character.protagonist.captain"
+                || casualty.death_tick >= self.tick
+                || casualty.actor.provenance.producer_building_id.is_empty()
+                || self.actors.len() >= 4096
+            {
+                continue;
+            }
+            let Some(profile) = self.combat_profiles.get(&casualty.actor.definition_id) else {
+                continue;
+            };
+            let restored_health = profile.health;
+            let Some(population) = self.factions[CTHULHU]
+                .population_used
+                .checked_add(casualty.population_use)
+            else {
+                continue;
+            };
+            let corpse = casualty.position;
+            let mut candidates = Vec::new();
+            for dx in -4_i32..=4 {
+                for dy in -4_i32..=4 {
+                    let distance = dx.unsigned_abs() + dy.unsigned_abs();
+                    if distance > 4 {
+                        continue;
+                    }
+                    let (Some(x), Some(y)) = (corpse.x.checked_add(dx), corpse.y.checked_add(dy))
+                    else {
+                        continue;
+                    };
+                    let point = IslandPoint { x, y };
+                    if !occupied.contains(&point)
+                        && self
+                            .navigation
+                            .path(corpse, point)
+                            .is_some_and(|path| path.len() <= 5)
+                    {
+                        candidates.push((distance, point));
+                    }
+                }
+            }
+            let Some((_, position)) = candidates.into_iter().min() else {
+                continue;
+            };
+            let mut casualty = self.casualties.remove(&id).unwrap();
+            let previous_faction_id = casualty.actor.faction_id.clone();
+            casualty.actor.faction_id = CTHULHU.into();
+            casualty.actor.undead = true;
+            casualty.actor.current_assignment_id = None;
+            if let Some(person) = casualty.actor.person.as_mut() {
+                person.return_at_midnight();
+            }
+            // This is an explicit supernatural transfer, not another production
+            // order: provenance and serials stay unchanged, capacity admits only
+            // the population that actually returned.
+            let faction = self.factions.get_mut(CTHULHU).unwrap();
+            faction.population_used = population;
+            faction.population_capacity = faction.population_capacity.max(population);
+            self.unit_combat.insert(
+                id.clone(),
+                IslandCombatState {
+                    health: restored_health,
+                    next_attack_tick: self.tick.saturating_add(1),
+                    population_use: casualty.population_use,
+                },
+            );
+            let node = format!("move.{id}");
+            self.navigation.destinations.insert(node.clone(), position);
+            casualty.actor.node_id = node;
+            self.travel_orders.remove(&id);
+            self.positions.insert(id.clone(), position);
+            self.actors.insert(id.clone(), casualty.actor);
+            occupied.insert(position);
+            events.push(FactionWorldEvent::MidnightReturned {
+                actor_id: id,
+                previous_faction_id,
+                position,
+            });
+        }
+        events
+    }
     pub fn aim_carbine(&mut self, target: &str) -> bool {
         const CAPTAIN: &str = "character.protagonist.captain";
         let (Some(player), Some(other)) = (self.actors.get(CAPTAIN), self.actors.get(target))
@@ -1379,9 +1510,25 @@ impl FactionWorld {
             .map(|actor| actor.instance_id.clone())
             .collect();
         for id in removed {
-            self.actors.remove(&id);
-            self.unit_combat.remove(&id);
-            self.positions.remove(&id);
+            let mut actor = self.actors.remove(&id).unwrap();
+            let combat = self.unit_combat.remove(&id);
+            let position = self.positions.remove(&id);
+            // Elimination must not erase an attached woman's persistent identity
+            // or leave her retained party slot dangling after a midnight return.
+            if actor.person.as_ref().is_some_and(|p| p.loyal_to_michael) {
+                if let (Some(combat), Some(position)) = (combat, position) {
+                    actor.person.as_mut().unwrap().alive_today = false;
+                    self.casualties.insert(
+                        id.clone(),
+                        IslandCasualty {
+                            actor,
+                            position,
+                            death_tick: self.tick,
+                            population_use: combat.population_use,
+                        },
+                    );
+                }
+            }
             self.travel_orders.remove(&id);
             self.navigation.destinations.remove(&format!("move.{id}"));
         }
@@ -1616,6 +1763,9 @@ impl FactionWorld {
             return Err("unsupported_save_version".into());
         }
         let mut world = save.world;
+        if !(1..=1000000).contains(&world.clock.ticks_per_day) {
+            return Err("invalid_saved_clock".into());
+        }
         if world.navigation.walkable.len() > 16384
             || world.actors.len() > 4096
             || world.factions.len() > 64
@@ -1768,6 +1918,8 @@ impl FactionWorld {
             if id != &casualty.actor.instance_id
                 || world.actors.contains_key(id)
                 || casualty.death_tick > world.tick
+                || !world.factions.contains_key(&casualty.actor.faction_id)
+                || casualty.population_use > 4096
             {
                 return Err("invalid_saved_casualty".into());
             }
@@ -1791,7 +1943,8 @@ impl FactionWorld {
                 .or_else(|| world.casualties.get(id).map(|c| &c.actor))
                 .ok_or("missing_saved_companion")?;
             let person = actor.person.as_ref().ok_or("invalid_saved_companion")?;
-            if actor.faction_id != "faction.michael"
+            if (actor.faction_id != "faction.michael"
+                && !(actor.undead && actor.faction_id == "faction.cthulhu.prototype"))
                 || person.sex != PersonSex::Female
                 || !person.age.is_some_and(|age| age >= 18)
                 || !person.loyal_to_michael
@@ -1854,6 +2007,7 @@ impl FactionWorld {
         world.actors.insert(
             actor_id.clone(),
             ProducedActor {
+                undead: false,
                 person: Some(NamedPerson {
                     id: actor_id.clone(),
                     display_name: "Michael".into(),
@@ -2069,7 +2223,13 @@ impl FactionWorld {
         self.cancel_approach();
         let previous = std::mem::replace(&mut self.party[slot], id.into());
         if previous != id {
-            self.cancel_actor_travel(&previous);
+            if self
+                .actors
+                .get(&previous)
+                .is_some_and(|a| a.faction_id == "faction.michael")
+            {
+                self.cancel_actor_travel(&previous);
+            }
         }
         self.cancel_actor_travel(id);
         true
@@ -2085,7 +2245,13 @@ impl FactionWorld {
         self.cancel_approach();
         let id = std::mem::take(&mut self.party[slot]);
         // Remain safely where she is, without an obsolete party travel order.
-        self.cancel_actor_travel(&id);
+        if self
+            .actors
+            .get(&id)
+            .is_some_and(|a| a.faction_id == "faction.michael")
+        {
+            self.cancel_actor_travel(&id);
+        }
         true
     }
 
@@ -2103,6 +2269,13 @@ impl FactionWorld {
         let mut occupied = BTreeSet::from([target]);
         for id in &self.party {
             if id.is_empty() || self.casualties.contains_key(id) {
+                continue;
+            }
+            if self
+                .actors
+                .get(id)
+                .is_some_and(|a| a.undead && a.faction_id == "faction.cthulhu.prototype")
+            {
                 continue;
             }
             let Some(person) = self.living_person(id) else {
@@ -2158,7 +2331,13 @@ impl FactionWorld {
         }
         self.cancel_actor_travel("character.protagonist.captain");
         for id in self.party.clone().iter().filter(|id| !id.is_empty()) {
-            self.cancel_actor_travel(id);
+            if self
+                .actors
+                .get(id)
+                .is_some_and(|a| a.faction_id == "faction.michael")
+            {
+                self.cancel_actor_travel(id);
+            }
         }
     }
 
@@ -2256,7 +2435,9 @@ impl FactionWorld {
         if actor_id == "character.protagonist.captain" {
             self.cancel_approach();
             self.player_attack_target = None;
-        } else if self.party.iter().any(|id| id == actor_id) {
+        } else if self.actors[actor_id].faction_id == "faction.michael"
+            && self.party.iter().any(|id| id == actor_id)
+        {
             self.cancel_approach();
         }
         self.navigation
@@ -2395,6 +2576,7 @@ impl FactionWorld {
         for (faction_id, building_id, node_id, rally_point_id, order) in completed {
             self.next_actor_serial += 1;
             let actor = ProducedActor {
+                undead: false,
                 person: produced_person(
                     &order.rule.actor_definition_id,
                     &format!("actor_instance.{faction_id}.{}", self.next_actor_serial),
@@ -2453,6 +2635,7 @@ impl FactionWorld {
         let mut occupied: BTreeSet<IslandPoint> = self.positions.values().copied().collect();
         for id in self.party.clone().into_iter().filter(|id| !id.is_empty()) {
             if !self.living_actor(&id)
+                || self.actors[&id].faction_id != "faction.michael"
                 || self.travel_orders.contains_key(&id)
                 || self.island_firing_target(&id).is_some()
             {
@@ -2561,6 +2744,7 @@ impl FactionWorld {
             }
         }
         events.extend(self.resolve_island_skirmish());
+        events.extend(self.return_midnight_casualties());
         if self
             .approach_target
             .as_ref()
@@ -4031,6 +4215,173 @@ mod tests {
             }
         }
         (world, ids)
+    }
+
+    fn midnight_fixture() -> (FactionWorld, String) {
+        let (mut world, ids) = recruitment_fixture();
+        let victim = ids[0].clone();
+        world.clock.ticks_per_day = 4;
+        world.talk_island_person(&victim);
+        assert!(world.recruit_island_person(&victim));
+        assert!(world.assign_island_companion(&victim, 0));
+        world
+            .actors
+            .get_mut(&victim)
+            .unwrap()
+            .person
+            .as_mut()
+            .unwrap()
+            .death_memory
+            .killed_by_player_count = 7;
+        world
+            .positions
+            .insert(victim.clone(), IslandPoint { x: 12, y: 16 });
+        world
+            .positions
+            .insert(ids[4].clone(), IslandPoint { x: 12, y: 16 });
+        world.unit_combat.get_mut(&victim).unwrap().health = 1;
+        world.unit_combat.get_mut(&ids[4]).unwrap().next_attack_tick = 0;
+        world
+            .hostilities
+            .insert(("faction.pirates.prototype".into(), "faction.michael".into()));
+        world.resolve_island_skirmish();
+        assert!(world.casualties.contains_key(&victim));
+        world
+            .factions
+            .get_mut("faction.cthulhu.prototype")
+            .unwrap()
+            .buildings
+            .values_mut()
+            .next()
+            .unwrap()
+            .operational = true;
+        (world, victim)
+    }
+
+    #[test]
+    fn midnight_preserves_identity_and_inactive_slot_until_explicit_reacquisition() {
+        let (mut world, victim) = midnight_fixture();
+        let dead = world.casualties[&victim].clone();
+        let previous_population = world.factions["faction.cthulhu.prototype"].population_used;
+        world.advance_island_tick();
+        assert_eq!(world.minute_of_day(), 1080);
+        let mut restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        let events = world.advance_island_tick();
+        assert_eq!(events, restored.advance_island_tick());
+        assert_eq!(world, restored);
+        assert!(events.iter().any(|e| matches!(e, FactionWorldEvent::MidnightReturned {actor_id,..} if actor_id == &victim)));
+        assert_eq!(world.day(), 2);
+        assert_eq!(world.minute_of_day(), 0);
+        assert!(world.actors[&victim].undead);
+        assert_eq!(world.actors[&victim].provenance, dead.actor.provenance);
+        let mut expected_person = dead.actor.person.unwrap();
+        expected_person.return_at_midnight();
+        assert_eq!(
+            world.actors[&victim].person.as_ref(),
+            Some(&expected_person)
+        );
+        assert_eq!(world.party[0], victim);
+        assert_eq!(
+            world.factions["faction.cthulhu.prototype"].population_used,
+            previous_population + dead.population_use
+        );
+        assert!(world.return_midnight_casualties().is_empty());
+        let enemy_goal = IslandPoint { x: 15, y: 16 };
+        world.order_move(&victim, enemy_goal).unwrap();
+        let enemy_order = world.travel_orders[&victim].clone();
+        assert!(world.move_island_party(IslandPoint { x: 9, y: 16 }));
+        assert_eq!(world.travel_orders[&victim], enemy_order);
+        let mut dismissed = world.clone();
+        assert!(dismissed.dismiss_island_companion(0));
+        assert_eq!(dismissed.travel_orders[&victim], enemy_order);
+        let mut eliminated = world.clone();
+        eliminated
+            .eliminate_faction("faction.cthulhu.prototype")
+            .unwrap();
+        assert!(eliminated.casualties.contains_key(&victim));
+        assert!(FactionWorld::load_json(&eliminated.save_json().unwrap()).is_ok());
+        assert!(eliminated.return_midnight_casualties().is_empty());
+        // Reacquisition remains a real nearby interaction, even during hostility.
+        world.positions.insert(
+            "character.protagonist.captain".into(),
+            world.positions[&victim],
+        );
+        world.paused = true;
+        let frozen = world.clone();
+        world.advance_island_tick();
+        assert_eq!(world, frozen);
+        assert!(!world.talk_island_person(&victim).is_empty());
+        assert!(world.recruit_island_person(&victim));
+        assert_eq!(world.actors[&victim].faction_id, "faction.michael");
+        assert!(world.actors[&victim].undead); // Allegiance is not biological resurrection.
+        assert!(
+            world
+                .plan_party_move(IslandPoint { x: 9, y: 16 })
+                .unwrap()
+                .iter()
+                .any(|(id, _)| id == &victim)
+        );
+        assert!(FactionWorld::load_json(&world.save_json().unwrap()).is_ok());
+    }
+
+    #[test]
+    fn midnight_defers_blocked_corpses_and_respects_elimination_clock_and_midnight_deaths() {
+        let (mut world, victim) = midnight_fixture();
+        let corpse = world.casualties[&victim].position;
+        let walkable = world.navigation.walkable.clone();
+        world.navigation.walkable.remove(&corpse);
+        world.advance_island_tick();
+        world.advance_island_tick();
+        assert!(world.casualties.contains_key(&victim));
+        world.navigation.walkable = walkable;
+        // A death on the midnight tick belongs to the new day, not this return.
+        world.casualties.get_mut(&victim).unwrap().death_tick = world.tick;
+        assert!(world.return_midnight_casualties().is_empty());
+        for _ in 0..4 {
+            world.advance_island_tick();
+        }
+        assert!(world.actors[&victim].undead);
+        let mut invalid = world.clone();
+        invalid.clock.ticks_per_day = 0;
+        assert_eq!(
+            FactionWorld::load_json(&invalid.save_json().unwrap()),
+            Err("invalid_saved_clock".into())
+        );
+        let mut legacy: serde_json::Value =
+            serde_json::from_str(&world.save_json().unwrap()).unwrap();
+        legacy["world"].as_object_mut().unwrap().remove("clock");
+        // A genuine legacy actor lacked this flag and was not a retained foreign slot.
+        legacy["world"]["party"] = serde_json::json!(["", "", "", ""]);
+        for actor in legacy["world"]["actors"]
+            .as_object_mut()
+            .unwrap()
+            .values_mut()
+        {
+            actor.as_object_mut().unwrap().remove("undead");
+        }
+        let loaded = FactionWorld::load_json(&legacy.to_string()).unwrap();
+        assert_eq!(loaded.clock.ticks_per_day, 1440);
+        assert!(loaded.actors.values().all(|a| !a.undead));
+        let (mut lost, id) = midnight_fixture();
+        lost.eliminate_faction("faction.cthulhu.prototype").unwrap();
+        for _ in 0..8 {
+            lost.advance_island_tick();
+        }
+        assert!(lost.casualties.contains_key(&id));
+        assert!(!lost.actors.contains_key(&id));
+        let (mut defeated, _) = midnight_fixture();
+        let captain = "character.protagonist.captain";
+        defeated.unit_combat.get_mut(captain).unwrap().health = 1;
+        for combat in defeated.unit_combat.values_mut() {
+            combat.next_attack_tick = 0;
+        }
+        defeated.resolve_island_skirmish();
+        assert!(defeated.casualties.contains_key(captain));
+        for _ in 0..8 {
+            defeated.advance_island_tick();
+        }
+        assert!(defeated.casualties.contains_key(captain));
+        assert!(!defeated.actors.contains_key(captain));
     }
 
     #[test]
