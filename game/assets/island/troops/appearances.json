@@ -17,6 +17,16 @@
       }
     }
   },
+  "actor_def.eastern_fox_people.spear_skirmisher": {
+    "variants": {
+      "female": {
+        "texture": "res://assets/island/troops/fox-skirmisher.png", "pivot": [500,1300], "scale": 0.0261,
+        "status": "development-standing",
+        "source": "procedural/sprites/candidates/pirate-island/fox-female-skirmisher-01/extracted/cell_00_00.png",
+        "sha256": "72614967d92697725b14731ff0cd49c6caffa81d98a8447fe3a3568ac1aeb672"
+      }
+    }
+  },
   "actor_def.cthulhu.drowned_cultist": {
     "legacy_unknown_variant": "male",
     "variants": {

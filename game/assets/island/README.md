@@ -1,15 +1,17 @@
 # Island development scene
 
 Run res://scenes/world/island.tscn in the existing game project.
-The scene now installs three preview factions at startup: colonials, pirates and
-Cthulhu. They use existing content/production rules, with six-unit preview caps
-and provisional economy budgets. Units rally toward a contested clearing.
-The three preview factions are mutually hostile; Michael begins neutral.
+The scene installs four preview factions at startup: colonials, pirates,
+Cthulhu and the fox people. They spend real resources on authored production.
+The original three have six-unit preview caps; the fox people have eight lighter
+spear skirmishers. Units rally toward a contested clearing, then select hostile
+holdings. The four factions are mutually hostile; Michael begins neutral.
+These are provisional scenario budgets, not final asymmetric faction balance.
 Shift-click a person to inspect their name, faction and short biography;
 Shift-click empty ground closes the panel without issuing movement. Selection
 tracks the actor ID rather than the displayed name, which need not be unique.
-personas.json supplies provisional fictional name/history pools for three
-troop definitions, including a male/female pirate population variation.
+personas.json supplies provisional fictional name/history pools for four
+troop definitions, including male/female pirates and adult female fox skirmishers.
 Rust embeds it: rebuild the extension
 after changing it. NamedPerson is stored on the existing produced actor and
 moves with that actor into its casualty record; names and history are not
@@ -153,14 +155,14 @@ the entrance apron; displayed width is provisionally 150 map pixels.
 troops/ contains exact copies of the shared troops-01/extracted male idle PNGs.
 The existing Cattle Trail sprite_grid.py extractor produced six transparent
 cutouts without rescaling, filtering components, or gutter warnings. All six
-remain shared; only the three consumed images ship here. Source prompts,
+remain shared; only consumed appearances ship here. Source prompts,
 original images, extraction parameters, bounds and hashes remain in the shared
 library. Runtime uses binary-alpha PNGs directly, without a chroma shader.
 The three male cutouts were inspected at source size: weapons and silhouettes
 are intact. Rendered game-scale edge review is still required.
-Only the three male idle appearances are used in this initial projection.
-Female identities, directional poses and animations await proper NPC data.
-Do not infer unit sex or recruitment eligibility from this temporary renderer.
+Three male standing appearances, the pirate woman and the fox skirmisher are
+selected from explicit NPC identity. Directional poses and animation remain
+unfinished. Do not infer recruitment eligibility from artwork.
 Click land to travel; Space pauses; F5 saves and F9 loads.
 No paid service is required to run it.
 
@@ -232,6 +234,32 @@ Explicit travel, Michael's movement, and Approach conversations take priority.
 No neutral provocation, building assault, distant pursuit or off-party auto-chase
 is granted by this behavior. Multiple defenders reserve distinct next cells.
 This supplies basic companion assistance, not final tactical stances or hero powers.
+
+## Fox settlement
+
+The river market occupies northeast clearing cell[33,9]. Its140px building sprite
+uses source pivot[630,1020]; five foundation cells block travel, while the lower
+gate remains accessible. Its original checkerboard background was corrected and
+the purple silk preserved during chroma extraction. Shared source:
+`pirate-island/river-market-01`; PNG SHA256
+`883e48fa10f6702bfd8258d95f68da20d0d2cc4c398da931386898b750ff1c36`.
+Static terrain composition was inspected, not a final native-render approval.
+
+The new spear skirmisher is explicitly a soldier, not a relabeled river porter.
+She costs2rice/1silk and takes2ticks; starting capacity8, health8, damage2,
+range2 and cooldown2. All four initial faction profiles now live in
+`content/island/faction_roster.json`. Market development uses the existing
+building system: rice4/silk4 times current level,100ticks, health+20,
+population+2, maximum level5. Values remain provisional.
+
+Fox women have seeded adult identities and brief dialogue through the same
+Talk/Join/party system as pirates. The standing sprite is36px body height,
+with a visible jade wrap, fox tail and spear; lower-body facing and spear/shin
+separation remain art limitations. Fox male-wooing, special retreat tactics,
+full worker/trade economy and hero powers are not implemented by this increment.
+Older campaigns preserve their original faction population; start a new game
+to include the fox settlement. The elven grove is a shared source candidate,
+not a deployed fifth AI faction: its guardian art remains unavailable.
 
 Checks:
 Godot headless tests/island_scene_test.gd passes actual scene load, native position

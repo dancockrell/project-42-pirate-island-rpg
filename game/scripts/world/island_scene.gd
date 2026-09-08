@@ -623,6 +623,8 @@ func refresh_inspection() -> void:
 		"faction.colonial_powers.prototype": faction_text = "Colonial powers"
 		"faction.pirates.prototype": faction_text = "Pirates"
 		"faction.cthulhu.prototype": faction_text = "Cthulhu"
+		"faction.eastern_fox_people.prototype": faction_text = "Fox people"
+		"faction.elves.prototype": faction_text = "Elves"
 	# A missing live actor can mean death or departure; do not invent which.
 	var state_text := faction_text if live else "Dead or departed · Last seen: " + faction_text
 	inspection.text = "%s · %s\n%s\nShift-click empty land to close." % [name_text, state_text, inspected_person.get("biography", "")]

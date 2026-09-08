@@ -1,5 +1,6 @@
 {
   "site_archetype.colonial.watch_fort": {"max_level":5,"costs":{"resource.provisions":4,"resource.iron":4},"ticks":100,"health_gain":40,"population_gain":2},
   "site_archetype.pirates.tide_quay": {"max_level":5,"costs":{"resource.provisions":4,"resource.coin":4},"ticks":80,"health_gain":16,"population_gain":3},
-  "site_archetype.cthulhu.drowned_shrine": {"max_level":5,"costs":{"resource.ritual_control":4,"resource.dreams":4},"ticks":120,"health_gain":24,"population_gain":2}
+  "site_archetype.cthulhu.drowned_shrine": {"max_level":5,"costs":{"resource.ritual_control":4,"resource.dreams":4},"ticks":120,"health_gain":24,"population_gain":2},
+  "site_archetype.eastern_fox_people.river_market": {"max_level":5,"costs":{"resource.rice":4,"resource.silk":4},"ticks":100,"health_gain":20,"population_gain":2}
 }

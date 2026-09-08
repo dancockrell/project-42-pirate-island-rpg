@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "task_id": "island-fox-elf-runtime",
+  "agent": "codex-npc-inspection",
+  "summary": "Add a real fox skirmisher faction; elf deployment deferred because suitable guardian art is unavailable",
+  "status": "completed",
+  "claimed_at": "2026-09-08T00:00:00Z",
+  "updated_at": "2026-09-08T00:00:00Z",
+  "paths": ["godot-rust/src/world.rs", "content/production/eastern_fox_people_river_market_skirmishers.json", "content/island/faction_roster.json", "content/island/holding_development.json", ".agents/claims/island-fox-elf-runtime.json"],
+  "coordination": {"depends_on": [], "conflicts_with": [], "notes": "Root assigned exclusive Rust world ownership; root owns visuals, personas, bridge, DLL and final integration. Root narrowed to fox-only when guardian art failed; removed unused elf runtime and prerequisite work. Consolidated all four AI profiles into faction_roster.json and removed expansion file and hardcoded profile loop. Market development uses existing common mechanism with provisional max5/rice4/silk4/100ticks/health20/pop2. No paid calls or visible engine."},
+  "completion": {"commit": null, "checks": ["cargo test --manifest-path godot-rust/Cargo.toml --lib --quiet: passed 73 tests", "node tools/src/validate.mjs: passed 182 stable IDs", "rustfmt --edition 2024 godot-rust/src/world.rs: passed", "git diff --check: passed", "No DLL build, engine run or publication; root owns integration and visual approval"]}
+}

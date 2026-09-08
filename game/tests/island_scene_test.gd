@@ -133,8 +133,8 @@ func run() -> void:
 	assert(scene.pause_button.mouse_filter == Control.MOUSE_FILTER_STOP)
 	assert(scene.hud_panel.size.x <= scene.get_viewport_rect().size.x)
 	print("PASS: visible pause/save/load actions share native campaign state and preserve test-only files")
-	assert(scene.snapshot.buildings.size() == 3)
-	assert(scene.building_sprites.size() == 3)
+	assert(scene.snapshot.buildings.size() == 4)
+	assert(scene.building_sprites.size() == 4)
 	for building in scene.snapshot.buildings:
 		assert(building.operational)
 		assert(building.queued == 0)
@@ -150,7 +150,7 @@ func run() -> void:
 			if building.archetype == "site_archetype.cthulhu.drowned_shrine":
 				assert(Vector2i(building.x,building.y) == Vector2i(27,16))
 				assert(scene.building_sprites[building.id].texture == scene.building_textures["res://assets/island/drowned_shrine.png"])
-	assert(scene.troop_textures.size() == 4)
+	assert(scene.troop_textures.size() == 5)
 	for texture in scene.troop_textures.values():
 		assert(texture.get_image().detect_alpha() == Image.ALPHA_BIT)
 	assert(not scene.request_move(Vector2i(0,0)))

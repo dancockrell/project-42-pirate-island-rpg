@@ -286,6 +286,14 @@ pub struct ProductionRule {
     pub population_use: u32,
 }
 
+#[derive(Deserialize)]
+struct IslandFactionTuning {
+    population_capacity: u32,
+    holding_level: u32,
+    holding_health: u32,
+    combat: IslandCombatProfile,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProductionOrder {
     pub id: String,
@@ -1050,7 +1058,8 @@ impl FactionWorld {
         events
     }
 
-    /// Three-faction integration scenario using the existing authored unit rules.
+    /// Four autonomous factions plus Michael, using real authored production.
+    /// Elven deployment awaits an admitted monster sprite; no invisible army.
     /// Economy sizes are preview budgets, not final faction balancing.
     pub fn install_preview_factions(&mut self) -> Result<(), String> {
         if self.tick != 0 || self.factions.len() != 1 || !self.travel_orders.is_empty() {
@@ -1058,6 +1067,9 @@ impl FactionWorld {
         }
         let mut staged = self.clone();
         let footprints = island_building_footprints()?;
+        let roster: BTreeMap<String, IslandFactionTuning> =
+            serde_json::from_str(include_str!("../../content/island/faction_roster.json"))
+                .map_err(|_| "invalid_faction_roster")?;
         let objective = *staged
             .positions
             .get("character.protagonist.captain")
@@ -1082,8 +1094,26 @@ impl FactionWorld {
                 IslandPoint { x: 28, y: 23 },
                 include_str!("../../content/production/drowned_shrine_cultists.json"),
             ),
+            (
+                "faction.eastern_fox_people.prototype",
+                IslandPoint { x: 33, y: 9 },
+                include_str!(
+                    "../../content/production/eastern_fox_people_river_market_skirmishers.json"
+                ),
+            ),
         ];
+        if roster.len() != entries.len() {
+            return Err("invalid_faction_roster".into());
+        }
         for (id, preferred, source) in entries {
+            let tuning = roster.get(id).ok_or("missing_faction_tuning")?;
+            if !(1..=4096).contains(&tuning.population_capacity)
+                || tuning.combat.health > 100000
+                || tuning.combat.damage > 100000
+                || tuning.combat.cooldown_ticks > 100000
+            {
+                return Err("invalid_faction_tuning".into());
+            }
             let rule: ProductionRule =
                 serde_json::from_str(source).map_err(|_| "invalid_authored_production")?;
             let placement = footprints
@@ -1114,10 +1144,10 @@ impl FactionWorld {
                 .destinations
                 .insert(spawn_id.clone(), spawn);
             let building = FactionBuilding {
-                level: 1,
-                max_health: default_building_health(),
+                level: tuning.holding_level,
+                max_health: tuning.holding_health,
                 development: None,
-                health: default_building_health(),
+                health: tuning.holding_health,
                 id: building_id.clone(),
                 faction_id: id.into(),
                 archetype_id: rule.producer_archetype_id.clone(),
@@ -1137,11 +1167,14 @@ impl FactionWorld {
                         .map(|(id, cost)| (id.clone(), cost.saturating_mul(2)))
                         .collect(),
                     population_used: 0,
-                    population_capacity: 6,
+                    population_capacity: tuning.population_capacity,
                     wobble_limit: 0,
                     buildings: [(building_id.clone(), building)].into_iter().collect(),
                 },
             );
+            staged
+                .combat_profiles
+                .insert(rule.actor_definition_id.clone(), tuning.combat.clone());
             let policy = FactionPolicy {
                 development: {
                     let rules: BTreeMap<String, BuildingDevelopmentRule> = serde_json::from_str(
@@ -1175,30 +1208,17 @@ impl FactionWorld {
                 .set_policy(id, policy)
                 .map_err(|_| "invalid_preview_policy")?;
         }
-        for (definition, health, damage, range, cooldown_ticks) in [
-            ("actor_def.colonial.line_marine", 12, 3, 4, 6),
-            ("actor_def.pirates.deckhand", 10, 2, 1, 2),
-            ("actor_def.cthulhu.drowned_cultist", 9, 2, 3, 4),
-        ] {
-            staged.combat_profiles.insert(
-                definition.into(),
-                IslandCombatProfile {
-                    health,
-                    damage,
-                    range,
-                    cooldown_ticks,
-                },
-            );
-        }
         for first in [
             "faction.colonial_powers.prototype",
             "faction.pirates.prototype",
             "faction.cthulhu.prototype",
+            "faction.eastern_fox_people.prototype",
         ] {
             for second in [
                 "faction.colonial_powers.prototype",
                 "faction.pirates.prototype",
                 "faction.cthulhu.prototype",
+                "faction.eastern_fox_people.prototype",
             ] {
                 if first != second {
                     staged.hostilities.insert((first.into(), second.into()));
@@ -1227,7 +1247,9 @@ impl FactionWorld {
         {
             return Err("building_blocks_holding_access".into());
         }
-        *self = staged;
+        // Authored scenarios and resumed campaigns obey the same authoritative
+        // profile, building, navigation and population validity boundary.
+        *self = Self::load_json(&staged.save_json()?)?;
         Ok(())
     }
 
@@ -2621,6 +2643,62 @@ impl FactionWorld {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fox_expansion_produces_real_skirmishers_with_bounded_population_and_saved_identity() {
+        let fox = "faction.eastern_fox_people.prototype";
+        let definition = "actor_def.eastern_fox_people.spear_skirmisher";
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        assert_eq!(world.factions.len(), 5); // Four AI factions plus Michael, not invisible elves.
+        assert!(!world.factions.contains_key("faction.elves.prototype"));
+        assert_eq!(world.factions[fox].population_capacity, 8);
+        assert_eq!(world.combat_profiles[definition].health, 8);
+        assert_eq!(world.combat_profiles[definition].cooldown_ticks, 2);
+        let building = world.factions[fox].buildings.values().next().unwrap();
+        let holding = world.navigation.destinations[&building.node_id];
+        assert_eq!(
+            building.archetype_id,
+            "site_archetype.eastern_fox_people.river_market"
+        );
+        // Peaceful observation isolates production and deployment from losses.
+        world.hostilities.clear();
+        let mut moved = false;
+        for _ in 0..20 {
+            world.advance_island_tick();
+            moved |= world
+                .actors
+                .values()
+                .filter(|a| a.faction_id == fox)
+                .any(|a| world.positions[&a.instance_id] != holding);
+        }
+        assert!(
+            moved,
+            "New faction must deploy real actors, not only increment population"
+        );
+        let actors: Vec<_> = world
+            .actors
+            .values()
+            .filter(|a| a.faction_id == fox)
+            .collect();
+        assert_eq!(actors.len(), 8);
+        assert_eq!(world.factions[fox].population_used, 8);
+        for actor in actors {
+            assert_eq!(actor.definition_id, definition);
+            assert_eq!(actor.actor_kind, "soldier");
+            assert_eq!(actor.person.as_ref().unwrap().sex, PersonSex::Female);
+            assert!(world.unit_combat.contains_key(&actor.instance_id));
+        }
+        let mut restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        for _ in 0..8 {
+            assert_eq!(world.advance_island_tick(), restored.advance_island_tick());
+            assert_eq!(world, restored);
+        }
+        world.paused = true;
+        let frozen = world.clone();
+        assert!(world.advance_island_tick().is_empty());
+        assert_eq!(world, frozen);
+    }
 
     fn production_world() -> FactionWorld {
         let building = FactionBuilding {

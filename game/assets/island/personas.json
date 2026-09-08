@@ -87,6 +87,26 @@
       ]
     }
   ],
+  "actor_def.eastern_fox_people.spear_skirmisher": [
+    {
+      "sex": "female",
+      "age_min": 18,
+      "age_max": 20,
+      "given_names": ["Mei", "Lin", "Yue", "Hua", "Yan", "Lan"],
+      "family_names": ["Chen", "Lin", "Shen", "Wu", "Luo", "Bai"],
+      "histories": [
+        "She guarded silk caravans before the island routes became battle lines. She can spot a false trail, but still believes a promise ought to mean something.",
+        "Her family traded rice from a narrow riverboat. She learned her spear work keeping thieves off the cargo, and her balance walking the gunwale.",
+        "She carried messages between watch posts until her superiors began calling every retreat a victory. She would rather follow someone who admits when he is lost."
+      ],
+      "recruitment_offer": "I can choose my own road, Michael. Make room beside you and I'll take it.",
+      "companion_responses": [
+        "Keep your promises, Captain. I'll keep an eye on the road. And occasionally on you.",
+        "You walk like a man who trusts the ground to stay put. Come aboard a riverboat sometime. I'll teach you.",
+        "Wrong turning. Don't look so wounded—I'm still coming with you."
+      ]
+    }
+  ],
   "actor_def.cthulhu.drowned_cultist": [
     {
       "sex": "male",
