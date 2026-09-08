@@ -5,7 +5,8 @@ The scene installs four preview factions at startup: colonials, pirates,
 Cthulhu and the fox people. They spend real resources on authored production.
 The original three have six-unit preview caps; the fox people have eight lighter
 spear skirmishers. Units rally toward a contested clearing, then select hostile
-holdings. The four factions are mutually hostile; Michael begins neutral.
+holdings; threatened homes can draw a limited defensive contingent back.
+The four factions are mutually hostile; Michael begins neutral.
 These are provisional scenario budgets, not final asymmetric faction balance.
 Shift-click a person to inspect their name, faction and short biography;
 Shift-click empty ground closes the panel without issuing movement. Selection
@@ -20,6 +21,29 @@ No female actor is inferred from a male sprite. The pirate woman uses the
 reviewed revision-01 standing source; female colonial and cultist production
 remain disabled while their artwork needs correction. Biography text is not
 yet a procedural quest system.
+
+## Faction survival decisions
+
+Home defense belongs to the existing faction dispatch system, not a second
+commander simulation. A living hostile combatant threatening a surviving holding
+creates local defensive demand. Friendly combatants already covering the holding
+count toward that demand; remaining need can recall reinforcements through the
+same land paths. Neutral visitors do not constitute an attack, and workers are
+not automatically treated as soldiers. Michael has no autonomous faction policy:
+this behavior must never commandeer his party.
+
+When the pressure ends, reserved defenders return to ordinary rally and siege
+decisions. Current provisional tuning detects threats within four Manhattan
+cells of a holding and reserves up to three defenders, proportional to the
+number of hostile combatants. Existing defenders retain their jobs; moving
+troops may be recalled or released on an eight-tick decision cadence, while
+idle troops can answer immediately. Distance and stable actor IDs break ties.
+The cap is per holding, not a guaranteed offensive reserve. Defensive travel
+takes precedence over continuing a siege; ordinary nearby unit combat still
+uses the existing resolver. This is not a new disengagement or retreat ability.
+Implementation and integration evidence are recorded in the task claims.
+It is not the complete strategic AI: alliances, threat-driven coalitions,
+expansion, evacuation and each faction's special victory logic remain unfinished.
 
 ## First recruitment encounter
 

@@ -1904,14 +1904,105 @@ impl FactionWorld {
                     });
                 }
             }
-            let idle_actors: Vec<String> = self
-                .actors
+            // Reserve a small real contingent per threatened holding. Existing
+            // defenders retain their jobs; moving attackers can be recalled only
+            // every eight ticks. New idle units can answer immediately.
+            let mut defense: BTreeMap<String, DispatchCandidate> = BTreeMap::new();
+            for building in self.factions[&id]
+                .buildings
                 .values()
-                .filter(|actor| {
-                    actor.faction_id == id && !self.travel_orders.contains_key(&actor.instance_id)
-                })
-                .map(|actor| actor.instance_id.clone())
-                .collect();
+                .filter(|b| b.operational && b.health > 0)
+            {
+                let Some(home) = self.navigation.destinations.get(&building.node_id).copied()
+                else {
+                    continue;
+                };
+                let threats = self
+                    .actors
+                    .iter()
+                    .filter(|(other_id, other)| {
+                        self.living_actor(other_id)
+                            && self
+                                .combat_profiles
+                                .get(&other.definition_id)
+                                .is_some_and(|p| p.damage > 0)
+                            && self
+                                .hostilities
+                                .contains(&(id.clone(), other.faction_id.clone()))
+                            && self.positions.get(*other_id).is_some_and(|p| {
+                                p.x.abs_diff(home.x).saturating_add(p.y.abs_diff(home.y)) <= 4
+                            })
+                    })
+                    .count();
+                if threats == 0 {
+                    continue;
+                }
+                let action = format!("defend.{}", building.id);
+                let quota = threats.min(3);
+                let mut candidates: Vec<_> = self
+                    .actors
+                    .iter()
+                    .filter_map(|(actor_id, actor)| {
+                        if actor.faction_id != id
+                            || !self.living_actor(actor_id)
+                            || !self
+                                .combat_profiles
+                                .get(&actor.definition_id)
+                                .is_some_and(|p| p.damage > 0)
+                            || defense.contains_key(actor_id)
+                        {
+                            return None;
+                        }
+                        let incumbent =
+                            actor.current_assignment_id.as_deref() == Some(action.as_str());
+                        if self.travel_orders.contains_key(actor_id)
+                            && !incumbent
+                            && self.tick % 8 != 0
+                        {
+                            return None;
+                        }
+                        let path = self.navigation.path(self.positions[actor_id], home)?;
+                        Some((!incumbent, path.len(), actor_id.clone()))
+                    })
+                    .collect();
+                candidates.sort();
+                for (_, distance, actor_id) in candidates.into_iter().take(quota) {
+                    defense.insert(
+                        actor_id,
+                        DispatchCandidate {
+                            action_id: action.clone(),
+                            assignment: "defend".into(),
+                            target_node_id: building.node_id.clone(),
+                            score: DispatchScore {
+                                goal_progress: 200,
+                                target_threat: (threats.min(32) as i32) * 20,
+                                home_defense_deficit: 20,
+                                supply_cost: -(distance.min(100) as i32),
+                                ..Default::default()
+                            },
+                            wobble: 0,
+                        },
+                    );
+                }
+            }
+            let idle_actors: Vec<String> =
+                self.actors
+                    .values()
+                    .filter(|actor| {
+                        actor.faction_id == id
+                            && self
+                                .unit_combat
+                                .get(&actor.instance_id)
+                                .is_none_or(|state| state.health > 0)
+                            && (!self.travel_orders.contains_key(&actor.instance_id)
+                                || defense.contains_key(&actor.instance_id)
+                                || self.tick % 8 == 0
+                                    && actor.current_assignment_id.as_deref().is_some_and(
+                                        |assignment| assignment.starts_with("defend."),
+                                    ))
+                    })
+                    .map(|actor| actor.instance_id.clone())
+                    .collect();
             for actor_id in idle_actors {
                 let Some(start) = self.positions.get(&actor_id).copied() else {
                     continue;
@@ -1993,12 +2084,19 @@ impl FactionWorld {
                         reachable = sieges;
                     }
                 }
+                if let Some(defending) = defense.get(&actor_id) {
+                    reachable.push(defending.clone());
+                }
                 if let Some(best) = reachable.iter().max_by(|a, b| {
                     a.total()
                         .cmp(&b.total())
                         .then_with(|| b.action_id.cmp(&a.action_id))
                 }) {
-                    if self.navigation.destinations.get(&best.target_node_id) == Some(&start) {
+                    if self.travel_orders.get(&actor_id) == Some(&best.target_node_id)
+                        || self.navigation.destinations.get(&best.target_node_id) == Some(&start)
+                            && self.actors[&actor_id].current_assignment_id.as_ref()
+                                == Some(&best.action_id)
+                    {
                         continue;
                     }
                 }
@@ -3038,7 +3136,11 @@ impl FactionWorld {
             .filter(|(id, actor)| {
                 self.policies.contains_key(&actor.faction_id)
                     && (self.island_firing_target(id).is_some()
-                        || self.island_siege_target(id).is_some())
+                        || (!actor
+                            .current_assignment_id
+                            .as_deref()
+                            .is_some_and(|a| a.starts_with("defend."))
+                            && self.island_siege_target(id).is_some()))
             })
             .map(|(id, _)| id.clone())
             .collect();
@@ -4546,6 +4648,132 @@ mod tests {
             }
         }
         (world, ids)
+    }
+
+    #[test]
+    fn home_defense_recalls_one_sieger_on_cadence_and_releases_after_threat() {
+        let (mut world, ids) = recruitment_fixture();
+        let pirates = "faction.pirates.prototype";
+        let captain = "character.protagonist.captain";
+        let home = IslandPoint { x: 10, y: 16 };
+        let siege = IslandPoint { x: 20, y: 16 };
+        let building = world
+            .factions
+            .get_mut(pirates)
+            .unwrap()
+            .buildings
+            .values_mut()
+            .next()
+            .unwrap();
+        building.operational = true;
+        let home_node = building.node_id.clone();
+        let defense = format!("defend.{}", building.id);
+        world
+            .navigation
+            .destinations
+            .insert(home_node.clone(), home);
+        let fort_node = world.factions["faction.colonial_powers.prototype"]
+            .buildings
+            .values()
+            .next()
+            .unwrap()
+            .node_id
+            .clone();
+        world.navigation.destinations.insert(fort_node, siege);
+        world
+            .navigation
+            .destinations
+            .insert("test.outward".into(), IslandPoint { x: 24, y: 16 });
+        world.policies.insert(
+            pirates.into(),
+            FactionPolicy {
+                development: BTreeMap::new(),
+                income_per_tick: BTreeMap::new(),
+                storage_caps: BTreeMap::new(),
+                production: BTreeMap::new(),
+                objectives: vec![candidate("test.advance", "test.outward", 20, 0)],
+            },
+        );
+        world
+            .hostilities
+            .insert((pirates.into(), "faction.michael".into()));
+        world
+            .hostilities
+            .insert((pirates.into(), "faction.colonial_powers.prototype".into()));
+        world
+            .positions
+            .insert(captain.into(), IslandPoint { x: 10, y: 19 });
+        for id in &ids {
+            world.positions.insert(id.clone(), siege);
+            world.order_move(id, IslandPoint { x: 24, y: 16 }).unwrap();
+        }
+        world.tick = 7;
+        let mut harmless = world.clone();
+        harmless.tick = 8;
+        let captain_definition = harmless.actors[captain].definition_id.clone();
+        harmless
+            .combat_profiles
+            .get_mut(&captain_definition)
+            .unwrap()
+            .damage = 0;
+        harmless.advance_island_tick();
+        assert!(
+            ids.iter()
+                .all(|id| harmless.actors[id].current_assignment_id.as_deref() != Some(&defense)),
+            "healthy but nonattacking visitors are not home threats"
+        );
+        world.advance_island_tick();
+        assert!(
+            ids.iter().all(|id| world.positions[id] == siege),
+            "siegers hold until recall cadence"
+        );
+        assert!(
+            ids.iter()
+                .all(|id| world.actors[id].current_assignment_id.as_deref() != Some(&defense))
+        );
+        let events = world.advance_island_tick();
+        let defenders: Vec<_> = ids
+            .iter()
+            .filter(|id| world.actors[*id].current_assignment_id.as_deref() == Some(&defense))
+            .cloned()
+            .collect();
+        assert_eq!(
+            defenders.len(),
+            1,
+            "one hostile reserves only one of five soldiers"
+        );
+        let defender = &defenders[0];
+        assert_ne!(
+            world.positions[defender], siege,
+            "recall must leave a building siege, not only change assignment"
+        );
+        assert!(events.iter().any(|event| matches!(event, FactionWorldEvent::ActorMoved {actor_id,..} if actor_id == defender)));
+        let before_pause = world.clone();
+        world.paused = true;
+        assert!(world.advance_island_tick().is_empty());
+        world.paused = false;
+        assert_eq!(world, before_pause);
+        for _ in 0..12 {
+            world.advance_island_tick();
+        }
+        assert_eq!(world.positions[defender], home);
+        assert_eq!(
+            world.actors[defender].current_assignment_id.as_deref(),
+            Some(defense.as_str())
+        );
+        assert!(!world.travel_orders.contains_key(defender));
+        // Diplomacy/removal of pressure releases the same defender through the
+        // ordinary authored outward objective, without a separate controller.
+        world
+            .hostilities
+            .remove(&(pirates.into(), "faction.michael".into()));
+        world.advance_island_tick();
+        assert_ne!(world.positions[defender], home);
+        assert_ne!(
+            world.actors[defender].current_assignment_id.as_deref(),
+            Some(defense.as_str())
+        );
+        assert!(!world.travel_orders.contains_key(captain));
     }
 
     fn midnight_fixture() -> (FactionWorld, String) {
