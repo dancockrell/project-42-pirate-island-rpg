@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "task_id": "colonial-expansion-presentation",
+  "agent": "codex-root",
+  "summary": "Integrate visible colonial expansion construction and reviewed island placement",
+  "status": "active",
+  "claimed_at": "2026-09-08T00:00:00Z",
+  "updated_at": "2026-09-08T00:00:00Z",
+  "paths": ["godot-rust/src/godot_bridge.rs", "game/scripts/world/island_scene.gd", "game/scripts/review/island_campaign_review.gd", "game/assets/island/README.md", ".agents/claims/colonial-expansion-presentation.json"],
+  "coordination": {"depends_on": ["colonial-expansion-native"], "conflicts_with": [], "notes": "Native/content owned by npc_inspection; root owns bridge, presentation and visual review. Existing watchfort reused at reviewed22,10 without new art generation."},
+  "completion": {"commit": null, "checks": []}
+}

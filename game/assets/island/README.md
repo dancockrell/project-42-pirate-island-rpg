@@ -23,6 +23,28 @@ standing sprite and cultist women use the reviewed original shared cutout.
 All five current AI factions produce recruitable adult women. Biography text is not
 yet a procedural quest system.
 
+## Colonial expansion
+
+Colonials can send an existing soldier to establish a second watch fort in the
+open clearing at [22,10]. The authored rule is
+`content/island/colonial_expansion.json`: no earlier than tick 20, with a healthy
+established settlement and 12 provisions plus 12 iron available. These are prototype
+tuning values, not final faction balance. There is no free builder or population
+grant. The existing soldier travels across the island and must remain nearby for
+80 work ticks. The unfinished site is vulnerable and cannot produce troops.
+
+This uses the same paid placement and saved construction system as Michael's
+workshop. The second fort becomes a real producer; it shares the faction-wide
+population limit. Losing the original fort does not eliminate a faction that
+still has this holding. Other factions do not yet have authored expansion sites.
+
+The existing 150-pixel watch-fort sprite is reused, with its original [775,825]
+pivot and five-cell foundation. The shared `watch-fort-expansion-01` folder holds
+the full-island and close-up terrain reviews. This clearing was visually reviewed
+using the actual artwork and navigation mask, not a new engine capture. No new
+generation was used. Construction currently uses dimmed building art and a nearby
+work-progress bar, not a finished scaffolding animation.
+
 ## Living cultist women
 
 The drowned shrine now produces living men and women through its existing cultist
@@ -88,7 +110,8 @@ takes precedence over continuing a siege; ordinary nearby unit combat still
 uses the existing resolver. This is not a new disengagement or retreat ability.
 Implementation and integration evidence are recorded in the task claims.
 It is not the complete strategic AI: alliances, threat-driven coalitions,
-expansion, evacuation and each faction's special victory logic remain unfinished.
+general multi-faction expansion, evacuation and each faction's special victory
+logic remain unfinished. The first colonial expansion is described above.
 
 ## First recruitment encounter
 
@@ -202,8 +225,9 @@ unlimited replacement income can still sustain a stalemate. Building attack
 orders for Michael, final durability and destruction art remain unfinished.
 The colonial watch fort now has a provisional transparent sprite projected from
 its native building position. Operating state dims inactive forts, and removed
-buildings disappear on the next snapshot. Other producer archetypes remain
-without art: they must not masquerade as colonial forts. The fort's five-cell
+buildings disappear on the next snapshot. The five installed factions now have
+their own building artwork; unsupported archetypes must not masquerade as
+colonial forts. The fort's five-cell
 ground obstruction now participates in native movement and shot visibility;
 the entrance remains open. Elimination removes its obstruction, while inactive
 buildings continue blocking. No construction/damage animation yet.

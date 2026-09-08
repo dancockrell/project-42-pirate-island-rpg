@@ -8,6 +8,38 @@ struct IslandBuildingFootprint {
     placement_entrance: Option<[i32; 2]>,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct HoldingExpansion {
+    faction_id: String,
+    building_id: String,
+    archetype_id: String,
+    entrance: [i32; 2],
+    minimum_tick: u64,
+    costs: BTreeMap<String, u32>,
+    construction_ticks: u32,
+    holding_health: u32,
+}
+
+fn holding_expansion() -> Result<&'static HoldingExpansion, String> {
+    static RULE: std::sync::OnceLock<Result<HoldingExpansion, String>> = std::sync::OnceLock::new();
+    RULE.get_or_init(|| {
+        let rule: HoldingExpansion =
+            serde_json::from_str(include_str!("../../content/island/colonial_expansion.json"))
+                .map_err(|_| "invalid_expansion_rule".to_string())?;
+        if !(1..=100000).contains(&rule.construction_ticks)
+            || !(1..=100000).contains(&rule.holding_health)
+            || rule.costs.is_empty()
+            || rule.costs.values().any(|cost| !(1..=100000).contains(cost))
+        {
+            return Err("invalid_expansion_rule".into());
+        }
+        Ok(rule)
+    })
+    .as_ref()
+    .map_err(Clone::clone)
+}
+
 fn island_building_footprints() -> Result<BTreeMap<String, IslandBuildingFootprint>, String> {
     serde_json::from_str(include_str!("../../game/assets/island/buildings.json"))
         .map_err(|_| "invalid_building_contract".into())
@@ -872,6 +904,184 @@ impl MapPlacement {
 }
 
 impl FactionWorld {
+    pub fn building_construction_ticks(&self, building: &FactionBuilding) -> u32 {
+        if building.archetype_id == "site_archetype.michael.field_workshop" {
+            foothold_config().map(|c| c.construction_ticks).unwrap_or(0)
+        } else {
+            holding_expansion()
+                .ok()
+                .filter(|r| r.building_id == building.id)
+                .map(|r| r.construction_ticks)
+                .unwrap_or(0)
+        }
+    }
+
+    fn release_construction_assignment(&mut self, faction: &str, action: &str) {
+        for actor in self.actors.values_mut().filter(|a| {
+            a.faction_id == faction && a.current_assignment_id.as_deref() == Some(action)
+        }) {
+            actor.current_assignment_id = None;
+            self.travel_orders.remove(&actor.instance_id);
+        }
+    }
+
+    fn advance_holding_expansion(&mut self) {
+        let Ok(rule) = holding_expansion() else {
+            return;
+        };
+        if !self.policies.contains_key(&rule.faction_id) || self.tick < rule.minimum_tick {
+            return;
+        }
+        let Some(faction) = self.factions.get(&rule.faction_id) else {
+            return;
+        };
+        let existing = faction.buildings.get(&rule.building_id);
+        let action = format!("construct.{}", rule.building_id);
+        if existing.is_some_and(|b| b.operational) {
+            for actor in self.actors.values_mut().filter(|a| {
+                a.faction_id == rule.faction_id
+                    && a.current_assignment_id.as_deref() == Some(&action)
+            }) {
+                actor.current_assignment_id = None;
+                self.travel_orders.remove(&actor.instance_id);
+            }
+            return;
+        }
+        // Construction survives the loss of the original base, but a new
+        // expedition is funded only from a healthy existing settlement.
+        if existing.is_none()
+            && (!faction
+                .buildings
+                .values()
+                .any(|b| (b.operational || b.development.is_some()) && b.health == b.max_health)
+                || rule
+                    .costs
+                    .iter()
+                    .any(|(r, c)| faction.resources.get(r).copied().unwrap_or(0) < *c))
+        {
+            self.release_construction_assignment(&rule.faction_id, &action);
+            return;
+        }
+        if existing.is_none()
+            && self.tick % 8 != 0
+            && !self.actors.values().any(|a| {
+                a.faction_id == rule.faction_id
+                    && a.current_assignment_id.as_deref() == Some(&action)
+            })
+        {
+            return;
+        }
+        let entrance = IslandPoint {
+            x: rule.entrance[0],
+            y: rule.entrance[1],
+        };
+        let assigned = existing
+            .and_then(|b| b.construction.as_ref())
+            .map(|j| j.builder_id.as_str());
+        let mut candidates: Vec<_> = self
+            .actors
+            .iter()
+            .filter_map(|(id, a)| {
+                if a.faction_id != rule.faction_id
+                    || a.actor_kind != "soldier"
+                    || !self.living_actor(id)
+                {
+                    return None;
+                }
+                let distance = self.navigation.path(self.positions[id], entrance)?.len();
+                Some((
+                    !(assigned == Some(id.as_str())
+                        || a.current_assignment_id.as_deref() == Some(&action)),
+                    distance,
+                    id.clone(),
+                ))
+            })
+            .collect();
+        candidates.sort();
+        let Some((_, _, builder)) = candidates.into_iter().next() else {
+            return;
+        };
+        let template = self.factions[&rule.faction_id]
+            .buildings
+            .values()
+            .find(|b| b.archetype_id == rule.archetype_id)
+            .cloned();
+        let Some(template) = template else {
+            return;
+        };
+        self.navigation
+            .destinations
+            .insert(rule.building_id.clone(), entrance);
+        if let Some(job) = self
+            .factions
+            .get_mut(&rule.faction_id)
+            .unwrap()
+            .buildings
+            .get_mut(&rule.building_id)
+            .and_then(|b| b.construction.as_mut())
+        {
+            job.builder_id = builder.clone();
+        }
+        // Reach the open entrance before placing walls: a builder two cells
+        // away may still occupy the future foundation and invalidate the site.
+        if self.positions.get(&builder) != Some(&entrance) {
+            if self.travel_orders.get(&builder) != Some(&rule.building_id) {
+                let order = DispatchCandidate {
+                    action_id: action.clone(),
+                    assignment: "construct".into(),
+                    target_node_id: rule.building_id.clone(),
+                    score: DispatchScore::default(),
+                    wobble: 0,
+                };
+                let _ = self.dispatch_actor(&builder, &[order]);
+            }
+            return;
+        }
+        self.actors.get_mut(&builder).unwrap().current_assignment_id = Some(action);
+        self.travel_orders.remove(&builder);
+        if !self.factions[&rule.faction_id]
+            .buildings
+            .contains_key(&rule.building_id)
+        {
+            let building = FactionBuilding {
+                id: rule.building_id.clone(),
+                faction_id: rule.faction_id.clone(),
+                archetype_id: rule.archetype_id.clone(),
+                node_id: rule.building_id.clone(),
+                rally_point_id: rule.building_id.clone(),
+                level: 1,
+                health: rule.holding_health,
+                max_health: rule.holding_health,
+                operational: false,
+                queue_capacity: 1,
+                production_queue: Vec::new(),
+                development: None,
+                construction: Some(BuildingConstruction {
+                    builder_id: builder,
+                    remaining_ticks: rule.construction_ticks,
+                    reserved_costs: rule.costs.clone(),
+                }),
+            };
+            if let Err(_reason) = self.begin_building_construction(building, entrance) {
+                self.release_construction_assignment(
+                    &rule.faction_id,
+                    &format!("construct.{}", rule.building_id),
+                );
+                return;
+            }
+            let policy = self.policies.get_mut(&rule.faction_id).unwrap();
+            if let Some(production) = policy.production.get(&template.id).cloned() {
+                policy
+                    .production
+                    .insert(rule.building_id.clone(), production);
+            }
+            if let Some(development) = policy.development.get(&template.id).cloned() {
+                policy
+                    .development
+                    .insert(rule.building_id.clone(), development);
+            }
+        }
+    }
     pub fn foothold_costs(&self) -> Result<(u32, u32, u32), String> {
         let config = foothold_config()?;
         Ok((
@@ -952,55 +1162,91 @@ impl FactionWorld {
         {
             return Err("Choose the reviewed workshop site.".into());
         }
+        self.begin_building_construction(
+            FactionBuilding {
+                construction: Some(BuildingConstruction {
+                    builder_id: CAPTAIN.into(),
+                    remaining_ticks: config.construction_ticks,
+                    reserved_costs: [("resource.salvage".into(), config.build_salvage)]
+                        .into_iter()
+                        .collect(),
+                }),
+                level: 1,
+                max_health: config.building_health,
+                health: config.building_health,
+                development: None,
+                id: BUILDING.into(),
+                faction_id: "faction.michael".into(),
+                archetype_id: ARCHETYPE.into(),
+                node_id: BUILDING.into(),
+                rally_point_id: BUILDING.into(),
+                operational: false,
+                queue_capacity: 1,
+                production_queue: Vec::new(),
+            },
+            entrance,
+        )
+    }
+
+    /// Shared paid placement transaction for the captain and autonomous builders.
+    fn begin_building_construction(
+        &mut self,
+        building: FactionBuilding,
+        entrance: IslandPoint,
+    ) -> Result<(), String> {
+        let job = building
+            .construction
+            .as_ref()
+            .ok_or("Missing construction job.")?;
+        let builder = job.builder_id.clone();
+        let costs = job.reserved_costs.clone();
+        let faction_id = building.faction_id.clone();
+        let building_id = building.id.clone();
+        if !self.within_work_range(&builder, entrance)
+            || self
+                .actors
+                .get(&builder)
+                .is_none_or(|a| a.faction_id != faction_id)
+            || self.factions[&faction_id]
+                .buildings
+                .contains_key(&building_id)
+            || costs.iter().any(|(r, c)| {
+                self.factions[&faction_id]
+                    .resources
+                    .get(r)
+                    .copied()
+                    .unwrap_or(0)
+                    < *c
+            })
+        {
+            return Err("Builder, site, or resources are unavailable.".into());
+        }
         let mut staged = self.clone();
         staged
             .navigation
             .destinations
-            .insert(BUILDING.into(), entrance);
+            .insert(building.node_id.clone(), entrance);
         staged
             .factions
-            .get_mut("faction.michael")
+            .get_mut(&faction_id)
             .unwrap()
             .buildings
-            .insert(
-                BUILDING.into(),
-                FactionBuilding {
-                    construction: Some(BuildingConstruction {
-                        builder_id: CAPTAIN.into(),
-                        remaining_ticks: config.construction_ticks,
-                        reserved_costs: [("resource.salvage".into(), config.build_salvage)]
-                            .into_iter()
-                            .collect(),
-                    }),
-                    level: 1,
-                    max_health: config.building_health,
-                    health: config.building_health,
-                    development: None,
-                    id: BUILDING.into(),
-                    faction_id: "faction.michael".into(),
-                    archetype_id: ARCHETYPE.into(),
-                    node_id: BUILDING.into(),
-                    rally_point_id: BUILDING.into(),
-                    operational: false,
-                    queue_capacity: 1,
-                    production_queue: Vec::new(),
-                },
-            );
+            .insert(building_id.clone(), building);
         let obstacles = staged.authored_building_obstacles()?;
         let cells = obstacles
-            .get(BUILDING)
-            .ok_or("Workshop footprint is missing.")?;
+            .get(&building_id)
+            .ok_or("Building footprint is missing.")?;
         if cells
             .iter()
             .any(|p| !self.navigation.traversable(*p) || self.positions.values().any(|v| v == p))
         {
             return Err(
-                "The workshop needs clear ground, away from people and other buildings.".into(),
+                "The site needs clear ground, away from people and other buildings.".into(),
             );
         }
         staged.navigation.building_obstacles = obstacles;
-        let captain = staged.positions[CAPTAIN];
-        let reachable = |point| staged.navigation.path(captain, point).is_some();
+        let origin = staged.positions[&builder];
+        let reachable = |point| staged.navigation.path(origin, point).is_some();
         if !reachable(entrance)
             || staged.positions.values().any(|p| !reachable(*p))
             || staged.travel_orders.iter().any(|(id, destination)| {
@@ -1022,14 +1268,17 @@ impl FactionWorld {
                 .as_ref()
                 .is_some_and(|c| c.remaining > 0 && !reachable(c.position))
         {
-            return Err("The workshop would block an island route.".into());
+            return Err("The site would block an island route.".into());
         }
-        staged
-            .factions
-            .get_mut("faction.michael")
-            .unwrap()
-            .resources
-            .insert("resource.salvage".into(), stored - config.build_salvage);
+        for (resource, cost) in costs {
+            *staged
+                .factions
+                .get_mut(&faction_id)
+                .unwrap()
+                .resources
+                .get_mut(&resource)
+                .unwrap() -= cost;
+        }
         *self = Self::load_json(&staged.save_json()?)?;
         Ok(())
     }
@@ -1445,6 +1694,7 @@ impl FactionWorld {
             self.navigation.building_obstacles.remove(&building_id);
             if let Some(policy) = self.policies.get_mut(&faction_id) {
                 policy.production.remove(&building_id);
+                policy.development.remove(&building_id);
             }
             if faction.buildings.is_empty()
                 && !(faction_id == "faction.michael"
@@ -1834,6 +2084,7 @@ impl FactionWorld {
 
     fn advance_faction_decisions(&mut self) -> Vec<FactionWorldEvent> {
         let mut events = Vec::new();
+        self.advance_holding_expansion();
         for (id, policy) in self.policies.clone() {
             if self.eliminated_factions.contains(&id) {
                 continue;
@@ -1949,6 +2200,10 @@ impl FactionWorld {
                     .iter()
                     .filter_map(|(actor_id, actor)| {
                         if actor.faction_id != id
+                            || actor
+                                .current_assignment_id
+                                .as_deref()
+                                .is_some_and(|a| a.starts_with("construct."))
                             || !self.living_actor(actor_id)
                             || !self
                                 .combat_profiles
@@ -1995,6 +2250,10 @@ impl FactionWorld {
                     .values()
                     .filter(|actor| {
                         actor.faction_id == id
+                            && !actor
+                                .current_assignment_id
+                                .as_deref()
+                                .is_some_and(|a| a.starts_with("construct."))
                             && self
                                 .unit_combat
                                 .get(&actor.instance_id)
@@ -2181,10 +2440,28 @@ impl FactionWorld {
             }
             for (building_id, building) in &faction.buildings {
                 if let Some(job) = &building.construction {
+                    let workshop = faction.id == "faction.michael"
+                        && building.archetype_id == "site_archetype.michael.field_workshop"
+                        && job.builder_id == "character.protagonist.captain"
+                        && foothold_config().is_ok_and(|c| {
+                            job.remaining_ticks <= c.construction_ticks
+                                && job.reserved_costs
+                                    == [("resource.salvage".into(), c.build_salvage)].into()
+                        });
+                    let expansion = holding_expansion().is_ok_and(|r| {
+                        faction.id == r.faction_id
+                            && building.id == r.building_id
+                            && building.archetype_id == r.archetype_id
+                            && world.navigation.destinations.get(&building.node_id)
+                                == Some(&IslandPoint {
+                                    x: r.entrance[0],
+                                    y: r.entrance[1],
+                                })
+                            && job.remaining_ticks <= r.construction_ticks
+                            && job.reserved_costs == r.costs
+                    });
                     if building.operational
-                        || faction.id != "faction.michael"
-                        || building.archetype_id != "site_archetype.michael.field_workshop"
-                        || job.builder_id != "character.protagonist.captain"
+                        || !(workshop || expansion)
                         || building.development.is_some()
                         || !building.production_queue.is_empty()
                         || !(1..=100000).contains(&job.remaining_ticks)
@@ -2945,10 +3222,14 @@ impl FactionWorld {
             .flat_map(|f| f.buildings.values())
             .filter(|b| {
                 b.construction.as_ref().is_some_and(|job| {
-                    self.navigation
-                        .destinations
-                        .get(&b.node_id)
-                        .is_some_and(|p| self.within_work_range(&job.builder_id, *p))
+                    self.actors
+                        .get(&job.builder_id)
+                        .is_some_and(|a| a.faction_id == b.faction_id)
+                        && self
+                            .navigation
+                            .destinations
+                            .get(&b.node_id)
+                            .is_some_and(|p| self.within_work_range(&job.builder_id, *p))
                 })
             })
             .map(|b| b.id.clone())
@@ -3141,11 +3422,9 @@ impl FactionWorld {
             .filter(|(id, actor)| {
                 self.policies.contains_key(&actor.faction_id)
                     && (self.island_firing_target(id).is_some()
-                        || (!actor
-                            .current_assignment_id
-                            .as_deref()
-                            .is_some_and(|a| a.starts_with("defend."))
-                            && self.island_siege_target(id).is_some()))
+                        || (!actor.current_assignment_id.as_deref().is_some_and(|a| {
+                            a.starts_with("defend.") || a.starts_with("construct.")
+                        }) && self.island_siege_target(id).is_some()))
             })
             .map(|(id, _)| id.clone())
             .collect();
@@ -4825,6 +5104,97 @@ mod tests {
         assert_eq!(
             FactionWorld::load_json(&world.save_json().unwrap()).unwrap(),
             world
+        );
+    }
+
+    #[test]
+    fn colonial_expansion_uses_real_travel_and_paid_saved_work_when_settlement_survives() {
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        world.hostilities.clear(); // Controlled survival, no gifted resources or teleported builder.
+        let rule = holding_expansion().unwrap();
+        let mut started = None;
+        for _ in 0..500 {
+            world.advance_island_tick();
+            if let Some(b) = world.factions[&rule.faction_id]
+                .buildings
+                .get(&rule.building_id)
+            {
+                started = Some((world.tick, b.construction.clone()));
+                break;
+            }
+        }
+        eprintln!(
+            "Expansion observation: tick={}, started={started:?}, eliminated={:?}, resources={:?}",
+            world.tick, world.eliminated_factions, world.factions[&rule.faction_id].resources
+        );
+        assert!(
+            started.is_some(),
+            "a surviving settlement must actually establish the paid site"
+        );
+        let mut foreign_builder = world.clone();
+        let job = foreign_builder.factions[&rule.faction_id].buildings[&rule.building_id]
+            .construction
+            .clone()
+            .unwrap();
+        foreign_builder
+            .actors
+            .get_mut(&job.builder_id)
+            .unwrap()
+            .faction_id = "faction.michael".into();
+        foreign_builder.advance_production_tick();
+        assert_eq!(
+            foreign_builder.factions[&rule.faction_id].buildings[&rule.building_id]
+                .construction
+                .as_ref()
+                .unwrap()
+                .remaining_ticks,
+            job.remaining_ticks
+        );
+        let saved = world.save_json().unwrap();
+        world = FactionWorld::load_json(&saved).unwrap();
+        world.paused = true;
+        let before = world.clone();
+        world.advance_island_tick();
+        assert_eq!(world, before);
+        world.paused = false;
+        for _ in 0..160 {
+            world.advance_island_tick();
+            if world.factions[&rule.faction_id]
+                .buildings
+                .get(&rule.building_id)
+                .is_some_and(|b| b.operational)
+            {
+                break;
+            }
+        }
+        assert!(world.factions[&rule.faction_id].buildings[&rule.building_id].operational);
+        let level_gains: u32 = world.factions[&rule.faction_id]
+            .buildings
+            .values()
+            .map(|b| b.level - 1)
+            .sum();
+        assert_eq!(
+            world.factions[&rule.faction_id].population_capacity,
+            6 + level_gains * 2,
+            "only normal holding upgrades grant capacity"
+        );
+        for _ in 0..220 {
+            world.advance_island_tick();
+            if world
+                .actors
+                .values()
+                .any(|a| a.provenance.producer_building_id == rule.building_id)
+            {
+                break;
+            }
+        }
+        assert!(
+            world
+                .actors
+                .values()
+                .any(|a| a.provenance.producer_building_id == rule.building_id),
+            "finished second holding must produce real units"
         );
     }
 

@@ -497,7 +497,7 @@ func refresh_snapshot() -> void:
 		activity.position = Vector2(-20, -float(art.pivot[1]) * structure.scale.x - 6) / structure.scale.x
 		var construction := int(building.get("construction_remaining", 0))
 		var work_remaining := construction if construction > 0 else int(building.development_remaining)
-		var total_work := int(building.get("construction_ticks", snapshot.get("workshop_construction_ticks", construction))) if construction > 0 else int(building.development_ticks)
+		var total_work := int(building.get("construction_ticks", construction)) if construction > 0 else int(building.development_ticks)
 		activity.max_value = maxi(total_work, 1)
 		activity.value = total_work - work_remaining
 		# Nearby work is observable, not an enemy economy dashboard.

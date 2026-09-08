@@ -194,6 +194,7 @@ impl Project42SimulationBridge {
                         "development_remaining" => building.development.as_ref().map_or(0, |order| order.remaining_ticks),
                         "development_ticks" => building.development.as_ref().map_or(0, |order| order.rule.ticks),
                         "construction_remaining" => building.construction.as_ref().map_or(0, |order| order.remaining_ticks),
+                        "construction_ticks" => world.building_construction_ticks(building),
                             "queued" => building.production_queue.len() as i64
                         }
                         .to_variant(),
