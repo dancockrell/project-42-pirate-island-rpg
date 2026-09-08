@@ -2,6 +2,7 @@ extends SceneTree
 
 # Bounded observation of the real island, without changing its faction state.
 # Optional `talk` drives actual Approach/Talk controls to a produced adult man.
+# Optional `reclaim` instead seeks a living madness-converted woman and joins her.
 # Headless output is simulation evidence, never a rendered art approval.
 func _initialize() -> void:
 	call_deferred("run")
@@ -17,24 +18,35 @@ func run() -> void:
 		return
 	var previous := ""
 	var previous_wars := ""
+	var seen_conversions := {}
 	var steps := 600
 	var demonstrate_talk := false
+	var reclaim_converted := false
 	var talk_target := ""
 	var conversation_complete := false
 	for argument in OS.get_cmdline_user_args():
 		if argument == "talk":
 			demonstrate_talk = true
+		if argument == "reclaim":
+			demonstrate_talk = true
+			reclaim_converted = true
 		if argument.begins_with("ticks="):
 			steps = clampi(argument.trim_prefix("ticks=").to_int(), 1, 2880)
 	for step in range(steps + 1):
 		var state: Dictionary = scene.port.island_snapshot()
+		for person in state.actors:
+			if person.get("madness_stage", "") == "converted" and not seen_conversions.has(person.id):
+				seen_conversions[person.id] = true
+				print("ISLAND madness step=", step, " id=", person.id, " name=", person.name,
+					" faction=", person.faction, " undead=", person.undead)
 		if demonstrate_talk and not conversation_complete:
 			scene.refresh_snapshot()
 			if not talk_target.is_empty() and not state.actors.any(func(person): return person.id == talk_target):
 				talk_target = ""
 			if talk_target.is_empty():
 				for person in state.actors:
-					if person.id != scene.MICHAEL and person.sex == "male" and int(person.get("age",0)) >= 18:
+					var desired_person: bool = person.sex == "female" and person.get("madness_stage", "") == "converted" if reclaim_converted else person.sex == "male"
+					if person.id != scene.MICHAEL and desired_person and int(person.get("age",0)) >= 18:
 						scene.inspect_actor(person.id)
 						scene.approach_action()
 						if scene.conversation_notice.is_empty() or scene.port.can_talk_island_person(person.id):
@@ -45,6 +57,14 @@ func run() -> void:
 				print("ISLAND conversation step=", step, " name=", scene.inspected_person.name,
 					" talk=", scene.talk_button.visible, " join=", scene.recruit_button.visible,
 					" news=", scene.inspected_person.get("news",""))
+				if reclaim_converted:
+					scene.recruit_action()
+					scene.assign_action(0)
+					print("ISLAND reclamation step=", step, " person=", talk_target,
+						" faction=",scene.inspected_person.get("faction",""),
+						" madness_stage=",scene.inspected_person.get("madness_stage",""),
+						" loyal=",scene.inspected_person.get("loyal_to_michael",false),
+						" party=",scene.snapshot.get("party",[]))
 				conversation_complete = true
 				scene.set_paused(false)
 		var holdings: Array = []
@@ -54,6 +74,15 @@ func run() -> void:
 					"operational":building.operational, "level":building.level,
 					"construction":building.get("construction_remaining",0)})
 		var signature := JSON.stringify(holdings)
+		if step <= 96 and step % 8 == 0:
+			var early: Dictionary = JSON.parse_string(scene.port.save_island())
+			var pressure := 0
+			for person in early.world.actors.values():
+				pressure = maxi(pressure, int(person.get("madness",0)))
+			var shrine_health := 0
+			for building in early.world.factions.get("faction.cthulhu.prototype",{}).get("buildings",{}).values():
+				shrine_health += int(building.health)
+			print("ISLAND ritual step=",step," shrine_health=",shrine_health," max_exposure=",pressure)
 		if step % 32 == 0 or step == steps:
 			var saved: Dictionary = JSON.parse_string(scene.port.save_island())
 			var wars := JSON.stringify(saved.world.hostilities)

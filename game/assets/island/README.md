@@ -60,12 +60,55 @@ war changes without altering the campaign state. Add `talk` to drive actual
 Approach/Talk controls toward a produced adult man and report the resulting
 conversation controls and local news. It is not a rendered screenshot.
 
-Current scenario limitation: in the first 1440-tick actual-terrain run with these
+Pre-madness comparison: in the first 1440-tick actual-terrain run with these
 relationships, Cthulhu and the colonials were eliminated before tick 128; the fox
 people, elves and pirates survived through midnight. No survival truce arose in
 that particular run. The truce lifecycle was exercised separately, not claimed
-as naturally observed there. Cthulhu still lacks madness recruitment, and early
-survival, invasion pacing and long-campaign balance remain unfinished.
+as naturally observed there. Early survival, invasion pacing and long-campaign
+balance remain unfinished; living madness recruitment is now described below.
+
+## Cthulhu's living madness recruitment
+
+The existing drowned shrine exerts a six-cell ritual influence. It must survive
+and be completed; an upgrade does not extinguish its ritual, but an unfinished
+foundation cannot exert it. Nearby eligible living organic units accumulate saved
+pressure through deterministic actor/tick sampling. Leaving the radius lets
+pressure decay. Destroying the shrine removes its exposure source. Multiple
+shrines do not multiply exposure on the same tick.
+
+At the authored conversion threshold, the actual living unit changes allegiance
+to Cthulhu. It keeps its identity, biography, equipment definition, current health
+and original production provenance. No replacement unit is spawned, and this is
+not an undead resurrection. Its old faction loses that population; Cthulhu gains
+it and the unit is released from its old orders. The shared living-transfer code
+also serves Michael's recruitment.
+
+Michael and women permanently loyal to him cannot defect through madness.
+Michael can still recruit eligible converted women through ordinary Approach,
+Talk and Join; joining clears their pressure. Death and midnight resurrection
+remain separate, with the established undead and reclamation rules unchanged.
+
+`content/island/cthulhu_madness.json` owns the provisional range, chance, gain,
+decay, thresholds and explicit organic definition list. Unknown future machines
+are not silently assumed susceptible. This first list covers the five current
+produced troop definitions, not every planned monster or character type.
+
+The scene shows a restrained violet state tint and the inspection terms
+**Whisper-haunted** and **Madness-bound** rather than a numeric pressure meter.
+The existing undead cue takes precedence. These are provisional state cues on
+the current standing sprites, not final corruption artwork or animation. Authored
+weather escalation, portable rituals and allied-faction recovery remain future
+work; this is not a claim that the long campaign is balanced.
+
+Actual-island observation with gain12, chance50%, warning40 and conversion100:
+the first living conversion occurred at tick46. By tick96 the pirates had turned
+against Cthulhu and colonial truces with pirates and elves had removed those wars.
+The cult still lost its shrine before tick128; the truces expired at288 and the
+last colonial fort fell at292. This demonstrates interacting faction powers,
+not a solved main-scenario balance. A separate actual-control run using the
+observer's `reclaim` option approached the converted elven warden Neris Birch,
+talked, recruited her and assigned her to Michael's first party slot at tick54.
+Her identity survived; her madness stage cleared and permanent loyalty was set.
 
 ## Colonial expansion
 

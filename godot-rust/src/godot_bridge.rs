@@ -161,6 +161,7 @@ impl Project42SimulationBridge {
                     "id" => id.as_str(), "x" => position.x, "y" => position.y,
                     "faction" => world.actors[id].faction_id.as_str(),
                     "undead" => world.actors[id].undead,
+                    "madness_stage" => world.island_madness_stage(id),
                     "definition" => world.actors[id].definition_id.as_str(),
                     "name" => person.map(|p| p.display_name.as_str()).unwrap_or("Unknown unit"),
                     "biography" => person.map(|p| p.backstory.as_str()).unwrap_or(""),

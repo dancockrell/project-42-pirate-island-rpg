@@ -1,0 +1,17 @@
+{
+  "faction_id": "faction.cthulhu.prototype",
+  "ritual_archetype_id": "site_archetype.cthulhu.drowned_shrine",
+  "radius_cells": 6,
+  "exposure_percent": 50,
+  "exposure_gain": 12,
+  "decay_per_tick": 4,
+  "warning_threshold": 40,
+  "conversion_threshold": 100,
+  "susceptible_definitions": [
+    "actor_def.colonial.line_marine",
+    "actor_def.pirates.deckhand",
+    "actor_def.cthulhu.drowned_cultist",
+    "actor_def.eastern_fox_people.spear_skirmisher",
+    "actor_def.elven.bow_warden"
+  ]
+}

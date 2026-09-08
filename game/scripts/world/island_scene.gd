@@ -545,6 +545,9 @@ func refresh_snapshot() -> void:
 		troop.scale = Vector2.ONE * float(appearance.scale)
 		# Development state cue on existing standing art, not a new undead asset.
 		troop.self_modulate = Color(0.72, 0.84, 0.90) if entry.get("undead", false) else Color.WHITE
+		if not entry.get("undead", false) and not str(entry.get("madness_stage", "")).is_empty():
+			# A provisional observable state cue, not a replacement costume or art.
+			troop.self_modulate = Color(0.88, 0.78, 0.96)
 		var health: ProgressBar = troop_sprites[entry.id].get_node("Health")
 		# Source cutouts have different resolutions; health UI uses world pixels,
 		# not source-image pixels. Its size must not change with sex or costume.
@@ -715,6 +718,10 @@ func refresh_inspection() -> void:
 	var state_text := faction_text if live else "Dead or departed · Last seen: " + faction_text
 	if live and inspected_person.get("undead", false):
 		state_text = "Undead · " + faction_text
+	elif live and inspected_person.get("madness_stage", "") == "converted":
+		state_text = "Madness-bound · " + faction_text
+	elif live and inspected_person.get("madness_stage", "") == "whisper_haunted":
+		state_text = "Whisper-haunted · " + faction_text
 	inspection.text = "%s · %s\n%s\nShift-click empty land to close." % [name_text, state_text, inspected_person.get("biography", "")]
 	var dialogue: String = inspected_person.get("dialogue", "")
 	if live and not dialogue.is_empty():
