@@ -595,8 +595,69 @@ pub enum FactionWorldError {
     },
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SurvivalTruce {
+    pub a: String,
+    pub b: String,
+    pub threat: String,
+    pub expires_tick: u64,
+    pub resume_ab: bool,
+    pub resume_ba: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiplomacyNotice {
+    pub tick: u64,
+    pub factions: Vec<String>,
+    pub text: String,
+}
+
+#[derive(Deserialize)]
+struct InitialDiplomacy {
+    #[serde(rename = "factionIds")]
+    faction_ids: Vec<String>,
+    relationships: Vec<InitialRelationship>,
+}
+#[derive(Deserialize)]
+struct InitialRelationship {
+    a: String,
+    b: String,
+    #[serde(rename = "atWar")]
+    at_war: bool,
+}
+#[derive(Deserialize)]
+struct SurvivalRules {
+    decision_ticks: u64,
+    truce_ticks: u64,
+    dominance_percent: u64,
+    strength_horizon_ticks: u64,
+}
+fn survival_rules() -> &'static SurvivalRules {
+    static RULES: std::sync::OnceLock<SurvivalRules> = std::sync::OnceLock::new();
+    RULES.get_or_init(|| {
+        serde_json::from_str(include_str!("../../content/island/survival_diplomacy.json"))
+            .expect("authored survival rules")
+    })
+}
+
+fn faction_label(id: &str) -> &str {
+    match id {
+        "faction.colonial_powers.prototype" => "the colonial powers",
+        "faction.pirates.prototype" => "the pirates",
+        "faction.elves.prototype" => "the elves",
+        "faction.eastern_fox_people.prototype" => "the fox people",
+        "faction.cthulhu.prototype" => "Cthulhu's faction",
+        "faction.michael" => "Michael's faction",
+        _ => "another faction",
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FactionWorld {
+    #[serde(default)]
+    pub survival_truces: Vec<SurvivalTruce>,
+    #[serde(default)]
+    pub diplomacy_notices: Vec<DiplomacyNotice>,
     #[serde(default)]
     pub foothold_cache: Option<FootholdCache>,
     #[serde(default)]
@@ -904,6 +965,240 @@ impl MapPlacement {
 }
 
 impl FactionWorld {
+    fn diplomacy_viable(&self, id: &str) -> bool {
+        !self.eliminated_factions.contains(id)
+            && self
+                .factions
+                .get(id)
+                .is_some_and(|f| f.buildings.values().any(|b| b.health > 0))
+    }
+
+    fn military_strength(&self, faction: &str) -> u64 {
+        self.actors
+            .iter()
+            .filter(|(id, a)| a.faction_id == faction && self.living_actor(id))
+            .filter_map(|(id, a)| {
+                self.combat_profiles
+                    .get(&a.definition_id)
+                    .filter(|p| p.damage > 0)
+                    .map(|p| {
+                        u64::from(self.unit_combat[id].health) * 100
+                            + u64::from(p.damage) * survival_rules().strength_horizon_ticks * 100
+                                / u64::from(p.cooldown_ticks.max(1))
+                    })
+            })
+            .sum()
+    }
+
+    fn common_dominant_threat(&self, a: &str, b: &str, enemy: &str) -> bool {
+        a != enemy
+            && b != enemy
+            && self.diplomacy_viable(enemy)
+            && self.hostilities.contains(&(a.into(), enemy.into()))
+            && self.hostilities.contains(&(b.into(), enemy.into()))
+            && self.military_strength(enemy).saturating_mul(100)
+                > self
+                    .military_strength(a)
+                    .max(self.military_strength(b))
+                    .max(1)
+                    .saturating_mul(survival_rules().dominance_percent)
+    }
+
+    fn record_diplomacy(&mut self, factions: Vec<String>, text: String) {
+        self.diplomacy_notices.push(DiplomacyNotice {
+            tick: self.tick,
+            factions,
+            text,
+        });
+        if self.diplomacy_notices.len() > 16 {
+            self.diplomacy_notices.remove(0);
+        }
+    }
+
+    fn advance_diplomacy(&mut self) {
+        let rules = survival_rules();
+        if self.tick == 0 || self.tick % rules.decision_ticks.max(1) != 0 {
+            return;
+        }
+        const CTHULHU: &str = "faction.cthulhu.prototype";
+        let ordinary: Vec<String> = [
+            "faction.colonial_powers.prototype",
+            "faction.eastern_fox_people.prototype",
+            "faction.elves.prototype",
+            "faction.pirates.prototype",
+        ]
+        .into_iter()
+        .filter(|id| self.diplomacy_viable(id) && self.policies.contains_key(*id))
+        .map(String::from)
+        .collect();
+        if self.diplomacy_viable(CTHULHU) {
+            for id in &ordinary {
+                if !self.hostilities.contains(&(id.clone(), CTHULHU.into()))
+                    && self.military_strength(CTHULHU).saturating_mul(100)
+                        > self
+                            .military_strength(id)
+                            .max(1)
+                            .saturating_mul(rules.dominance_percent)
+                {
+                    self.hostilities.insert((id.clone(), CTHULHU.into()));
+                    self.hostilities.insert((CTHULHU.into(), id.clone()));
+                    self.record_diplomacy(
+                        vec![id.clone(), CTHULHU.into()],
+                        format!(
+                            "{} have turned against Cthulhu's faction as its army grows.",
+                            faction_label(id)
+                        ),
+                    );
+                }
+            }
+        }
+        let mut retained = Vec::new();
+        for mut truce in std::mem::take(&mut self.survival_truces) {
+            if !self.diplomacy_viable(&truce.a) || !self.diplomacy_viable(&truce.b) {
+                continue;
+            }
+            if self.tick < truce.expires_tick {
+                retained.push(truce);
+                continue;
+            }
+            if self.common_dominant_threat(&truce.a, &truce.b, &truce.threat) {
+                truce.expires_tick = self.tick.saturating_add(rules.truce_ticks);
+                retained.push(truce);
+            } else {
+                if truce.resume_ab {
+                    self.hostilities.insert((truce.a.clone(), truce.b.clone()));
+                }
+                if truce.resume_ba {
+                    self.hostilities.insert((truce.b.clone(), truce.a.clone()));
+                }
+                self.record_diplomacy(
+                    vec![truce.a.clone(), truce.b.clone()],
+                    format!(
+                        "The temporary truce between {} and {} has ended.",
+                        faction_label(&truce.a),
+                        faction_label(&truce.b)
+                    ),
+                );
+            }
+        }
+        self.survival_truces = retained;
+        let enemies: Vec<String> = ordinary
+            .iter()
+            .cloned()
+            .chain(std::iter::once(CTHULHU.into()))
+            .collect();
+        for (i, a) in ordinary.iter().enumerate() {
+            for b in ordinary.iter().skip(i + 1) {
+                if self.survival_truces.iter().any(|t| &t.a == a && &t.b == b) {
+                    continue;
+                }
+                let ab = self.hostilities.contains(&(a.clone(), b.clone()));
+                let ba = self.hostilities.contains(&(b.clone(), a.clone()));
+                if !ab && !ba {
+                    continue;
+                }
+                let threat = enemies
+                    .iter()
+                    .filter(|e| self.common_dominant_threat(a, b, e))
+                    .max_by_key(|e| (self.military_strength(e), *e))
+                    .cloned();
+                let Some(threat) = threat else {
+                    continue;
+                };
+                self.hostilities.remove(&(a.clone(), b.clone()));
+                self.hostilities.remove(&(b.clone(), a.clone()));
+                self.survival_truces.push(SurvivalTruce {
+                    a: a.clone(),
+                    b: b.clone(),
+                    threat: threat.clone(),
+                    expires_tick: self.tick.saturating_add(rules.truce_ticks),
+                    resume_ab: ab,
+                    resume_ba: ba,
+                });
+                self.record_diplomacy(
+                    vec![a.clone(), b.clone()],
+                    format!(
+                        "{} and {} have agreed to a temporary truce against {}.",
+                        faction_label(a),
+                        faction_label(b),
+                        faction_label(&threat)
+                    ),
+                );
+            }
+        }
+        let obsolete: Vec<_> = self
+            .actors
+            .iter()
+            .filter_map(|(id, a)| {
+                let building = a.current_assignment_id.as_deref()?.strip_prefix("siege.")?;
+                let owner = self
+                    .factions
+                    .values()
+                    .find(|f| f.buildings.contains_key(building));
+                if owner.is_none_or(|f| {
+                    !self
+                        .hostilities
+                        .contains(&(a.faction_id.clone(), f.id.clone()))
+                }) {
+                    Some(id.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        for id in obsolete {
+            self.cancel_actor_travel(&id);
+            self.actors.get_mut(&id).unwrap().current_assignment_id = None;
+        }
+    }
+
+    pub fn island_person_news(&self, id: &str) -> String {
+        if !self.can_talk_island_person(id) || !self.living_person(id).is_some_and(|p| p.discussed)
+        {
+            return String::new();
+        }
+        let faction = &self.actors[id].faction_id;
+        if let Some(truce) = self
+            .survival_truces
+            .iter()
+            .find(|t| &t.a == faction || &t.b == faction)
+        {
+            let partner = if &truce.a == faction {
+                &truce.b
+            } else {
+                &truce.a
+            };
+            let mut news = format!("We have a temporary truce with {}.", faction_label(partner));
+            if self.diplomacy_viable(&truce.threat) {
+                news.push_str(&format!(
+                    " For now, {} are the greater danger.",
+                    faction_label(&truce.threat)
+                ));
+            }
+            return news;
+        }
+        let enemies: Vec<_> = self
+            .factions
+            .keys()
+            .filter(|other| {
+                !self.eliminated_factions.contains(*other)
+                    && (self.diplomacy_viable(other)
+                        || self
+                            .actors
+                            .iter()
+                            .any(|(id, a)| &a.faction_id == *other && self.living_actor(id)))
+                    && self
+                        .hostilities
+                        .contains(&(faction.clone(), (*other).clone()))
+            })
+            .map(|id| faction_label(id))
+            .collect();
+        if enemies.is_empty() {
+            "We are not fighting another faction at present.".into()
+        } else {
+            format!("We are at war with {}.", enemies.join(", "))
+        }
+    }
     pub fn building_construction_ticks(&self, building: &FactionBuilding) -> u32 {
         if building.archetype_id == "site_archetype.michael.field_workshop" {
             foothold_config().map(|c| c.construction_ticks).unwrap_or(0)
@@ -1864,21 +2159,37 @@ impl FactionWorld {
                 .set_policy(id, policy)
                 .map_err(|_| "invalid_preview_policy")?;
         }
-        for first in [
-            "faction.colonial_powers.prototype",
-            "faction.pirates.prototype",
-            "faction.cthulhu.prototype",
-            "faction.eastern_fox_people.prototype",
-        ] {
-            for second in [
-                "faction.colonial_powers.prototype",
-                "faction.pirates.prototype",
-                "faction.cthulhu.prototype",
-                "faction.eastern_fox_people.prototype",
-            ] {
-                if first != second {
-                    staged.hostilities.insert((first.into(), second.into()));
-                }
+        let initial: InitialDiplomacy = serde_json::from_str(include_str!(
+            "../../content/diplomacy/initial_relationships.prototype.json"
+        ))
+        .map_err(|_| "invalid_initial_diplomacy")?;
+        let mut pairs = BTreeSet::new();
+        let rules = survival_rules();
+        if !(1..=1024).contains(&rules.decision_ticks)
+            || !(1..=100000).contains(&rules.truce_ticks)
+            || !(101..=1000).contains(&rules.dominance_percent)
+            || !(1..=1024).contains(&rules.strength_horizon_ticks)
+        {
+            return Err("invalid_survival_rules".into());
+        }
+        if initial.faction_ids.len() != 5 || initial.relationships.len() != 10 {
+            return Err("invalid_initial_diplomacy".into());
+        }
+        for row in initial.relationships {
+            let mut pair = [row.a.clone(), row.b.clone()];
+            pair.sort();
+            if row.a == row.b
+                || !initial.faction_ids.contains(&row.a)
+                || !initial.faction_ids.contains(&row.b)
+                || !staged.factions.contains_key(&row.a)
+                || !staged.factions.contains_key(&row.b)
+                || !pairs.insert(pair)
+            {
+                return Err("invalid_initial_diplomacy".into());
+            }
+            if row.at_war {
+                staged.hostilities.insert((row.a.clone(), row.b.clone()));
+                staged.hostilities.insert((row.b, row.a));
             }
         }
         staged.navigation.building_obstacles = staged.authored_building_obstacles()?;
@@ -2084,6 +2395,7 @@ impl FactionWorld {
 
     fn advance_faction_decisions(&mut self) -> Vec<FactionWorldEvent> {
         let mut events = Vec::new();
+        self.advance_diplomacy();
         self.advance_holding_expansion();
         for (id, policy) in self.policies.clone() {
             if self.eliminated_factions.contains(&id) {
@@ -2407,6 +2719,33 @@ impl FactionWorld {
             return Err("unsupported_save_version".into());
         }
         let mut world = save.world;
+        let mut treaty_pairs = BTreeSet::new();
+        if world.survival_truces.len() > 6
+            || world.diplomacy_notices.len() > 16
+            || world.survival_truces.iter().any(|t| {
+                t.a >= t.b
+                    || t.a == "faction.michael"
+                    || t.b == "faction.michael"
+                    || t.threat == "faction.michael"
+                    || t.threat == t.a
+                    || t.threat == t.b
+                    || !world.factions.contains_key(&t.a)
+                    || !world.factions.contains_key(&t.b)
+                    || !world.factions.contains_key(&t.threat)
+                    || !treaty_pairs.insert((t.a.clone(), t.b.clone()))
+                    || world.hostilities.contains(&(t.a.clone(), t.b.clone()))
+                    || world.hostilities.contains(&(t.b.clone(), t.a.clone()))
+                    || t.expires_tick > world.tick.saturating_add(survival_rules().truce_ticks)
+            })
+            || world.diplomacy_notices.iter().any(|n| {
+                n.tick > world.tick
+                    || n.text.len() > 1024
+                    || n.factions.len() > 5
+                    || n.factions.iter().any(|f| !world.factions.contains_key(f))
+            })
+        {
+            return Err("invalid_saved_diplomacy".into());
+        }
         if world.foothold_cache.as_ref().is_some_and(|c| {
             c.remaining > 100000 || !world.navigation.walkable.contains(&c.position)
         }) {
@@ -2782,17 +3121,13 @@ impl FactionWorld {
         let Some(person) = self.living_person(id) else {
             return false;
         };
-        if person.sex != PersonSex::Female
-            || !person.age.is_some_and(|age| age >= 18)
-            || (person.recruitment_offer.trim().is_empty()
-                && !(self.actors[id].faction_id == "faction.michael" && person.loyal_to_michael))
-        {
+        if !person.age.is_some_and(|age| age >= 18) || person.display_name.trim().is_empty() {
             return false;
         }
         true
     }
 
-    fn accessible_recruit(&self, id: &str) -> bool {
+    fn accessible_person(&self, id: &str) -> bool {
         if !self.can_approach_person(id) {
             return false;
         }
@@ -2803,7 +3138,7 @@ impl FactionWorld {
     }
 
     pub fn talk_island_person(&mut self, id: &str) -> String {
-        if !self.accessible_recruit(id) {
+        if !self.accessible_person(id) {
             return String::new();
         }
         if self.approach_target.as_deref() == Some(id) {
@@ -2830,20 +3165,30 @@ impl FactionWorld {
                 person.companion_response.clone()
             }
         } else {
-            person.recruitment_offer.clone()
+            if person.recruitment_offer.is_empty() {
+                "What news do you want, Captain?".into()
+            } else {
+                person.recruitment_offer.clone()
+            }
         }
     }
 
     pub fn can_talk_island_person(&self, id: &str) -> bool {
-        self.accessible_recruit(id)
+        self.accessible_person(id)
     }
 
     pub fn recruit_island_person(&mut self, id: &str) -> bool {
-        if !self.accessible_recruit(id) {
+        if !self.accessible_person(id) {
             return false;
         }
         let actor = &self.actors[id];
-        if actor.faction_id == "faction.michael" || !actor.person.as_ref().unwrap().discussed {
+        let person = actor.person.as_ref().unwrap();
+        if actor.faction_id == "faction.michael"
+            || !person.discussed
+            || person.sex != PersonSex::Female
+            || !person.age.is_some_and(|age| age >= 18)
+            || person.recruitment_offer.trim().is_empty()
+        {
             return false;
         }
         let source = actor.faction_id.clone();
@@ -3067,7 +3412,7 @@ impl FactionWorld {
         // move_island_party cancels any previous explicit control; retain tracking
         // only after that shared order path has completed its atomic preflight.
         self.approach_target = Some(id.into());
-        if self.accessible_recruit(id) {
+        if self.accessible_person(id) {
             self.cancel_approach();
         }
         true
@@ -3077,7 +3422,7 @@ impl FactionWorld {
         let Some(id) = self.approach_target.clone() else {
             return;
         };
-        if self.accessible_recruit(&id) {
+        if self.accessible_person(&id) {
             // Hold the party, but do not finalize arrival before the NPC gets
             // her own movement step. She may leave range in this same tick.
             self.cancel_approach();
@@ -3464,7 +3809,7 @@ impl FactionWorld {
         if self
             .approach_target
             .as_ref()
-            .is_some_and(|id| self.accessible_recruit(id))
+            .is_some_and(|id| self.accessible_person(id))
         {
             self.cancel_approach();
         }
@@ -5195,6 +5540,160 @@ mod tests {
                 .values()
                 .any(|a| a.provenance.producer_building_id == rule.building_id),
             "finished second holding must produce real units"
+        );
+    }
+
+    #[test]
+    fn authored_wars_survival_truces_and_local_male_news_share_combat_truth() {
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        let colonial = "faction.colonial_powers.prototype";
+        let pirates = "faction.pirates.prototype";
+        let cthulhu = "faction.cthulhu.prototype";
+        assert!(
+            world
+                .hostilities
+                .contains(&(colonial.into(), "faction.elves.prototype".into()))
+        );
+        assert!(
+            !world
+                .hostilities
+                .contains(&(pirates.into(), cthulhu.into()))
+        );
+        assert!(!world.hostilities.contains(&(
+            colonial.into(),
+            "faction.eastern_fox_people.prototype".into()
+        )));
+        for _ in 0..8 {
+            world.advance_island_tick();
+        }
+        // Isolate the pressure threshold with a stronger existing cult army,
+        // not free actors or a separate war state. Production identity remains.
+        world
+            .combat_profiles
+            .get_mut("actor_def.cthulhu.drowned_cultist")
+            .unwrap()
+            .damage = 100;
+        world.tick = 32;
+        world.advance_island_tick();
+        assert!(
+            world
+                .hostilities
+                .contains(&(pirates.into(), cthulhu.into()))
+        );
+        assert!(
+            !world
+                .hostilities
+                .contains(&(colonial.into(), pirates.into()))
+        );
+        assert!(
+            !world
+                .hostilities
+                .contains(&(pirates.into(), colonial.into()))
+        );
+        let treaty = world
+            .survival_truces
+            .iter()
+            .find(|t| t.a == colonial && t.b == pirates)
+            .unwrap()
+            .clone();
+        assert_eq!(treaty.expires_tick, 224);
+        assert!(
+            world
+                .hostilities
+                .iter()
+                .all(|(a, b)| a != "faction.michael" && b != "faction.michael")
+        );
+        assert_eq!(
+            FactionWorld::load_json(&world.save_json().unwrap()).unwrap(),
+            world
+        );
+        let mut legacy: serde_json::Value =
+            serde_json::from_str(&world.save_json().unwrap()).unwrap();
+        legacy["world"]
+            .as_object_mut()
+            .unwrap()
+            .remove("survival_truces");
+        legacy["world"]
+            .as_object_mut()
+            .unwrap()
+            .remove("diplomacy_notices");
+        assert_eq!(
+            FactionWorld::load_json(&legacy.to_string())
+                .unwrap()
+                .hostilities,
+            world.hostilities
+        );
+        world.tick = 224;
+        world.advance_island_tick();
+        assert!(
+            world
+                .survival_truces
+                .iter()
+                .any(|t| t.a == colonial && t.b == pirates && t.expires_tick == 416)
+        );
+        world
+            .combat_profiles
+            .get_mut("actor_def.cthulhu.drowned_cultist")
+            .unwrap()
+            .damage = 0;
+        world.tick = 416;
+        world.advance_island_tick();
+        assert!(
+            world
+                .hostilities
+                .contains(&(colonial.into(), pirates.into()))
+        );
+        // Approach an actual generated adult male; talking never makes him a recruit.
+        world.hostilities.clear();
+        world.policies.clear();
+        let male = world
+            .actors
+            .values()
+            .find(|a| {
+                a.instance_id != "character.protagonist.captain"
+                    && a.person.as_ref().is_some_and(|p| {
+                        p.sex == PersonSex::Male && p.age.is_some_and(|age| age >= 18)
+                    })
+            })
+            .unwrap()
+            .instance_id
+            .clone();
+        assert!(world.island_person_news(&male).is_empty());
+        assert!(world.approach_island_person(&male));
+        for _ in 0..128 {
+            if world.can_talk_island_person(&male) {
+                break;
+            }
+            world.advance_island_tick();
+        }
+        assert!(!world.talk_island_person(&male).is_empty());
+        assert!(!world.island_person_news(&male).is_empty());
+        assert!(!world.recruit_island_person(&male));
+        let captain = world.positions["character.protagonist.captain"];
+        let far = world
+            .navigation
+            .walkable
+            .iter()
+            .copied()
+            .find(|p| {
+                p.x.abs_diff(captain.x) + p.y.abs_diff(captain.y) > 6
+                    && world.navigation.path(captain, *p).is_some()
+            })
+            .unwrap();
+        assert!(world.move_island_party(far));
+        for _ in 0..128 {
+            if !world
+                .travel_orders
+                .contains_key("character.protagonist.captain")
+            {
+                break;
+            }
+            world.advance_island_tick();
+        }
+        assert!(
+            world.island_person_news(&male).is_empty(),
+            "news is not a remote live dashboard"
         );
     }
 

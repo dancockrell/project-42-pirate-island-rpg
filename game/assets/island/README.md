@@ -6,7 +6,8 @@ Cthulhu, the fox people and elves. They spend real resources on authored product
 The original three have six-unit preview caps; the fox people have eight lighter
 spear skirmishers. Units rally toward a contested clearing, then select hostile
 holdings; threatened homes can draw a limited defensive contingent back.
-The five factions are mutually hostile in this provisional scenario; Michael begins neutral.
+Starting wars come from `content/diplomacy/initial_relationships.prototype.json`,
+not an all-against-all switch. Michael begins neutral and controls his own fights.
 These are provisional scenario budgets, not final asymmetric faction balance.
 Shift-click a person to inspect their name, faction and short biography;
 Shift-click empty ground closes the panel without issuing movement. Selection
@@ -22,6 +23,49 @@ reviewed revision-01 standing source; colonial women use their revision-02
 standing sprite and cultist women use the reviewed original shared cutout.
 All five current AI factions produce recruitable adult women. Biography text is not
 yet a procedural quest system.
+
+## Island diplomacy and conversations
+
+The authored bilateral matrix now controls starting combat. Colonial powers fight
+pirates, elves and Cthulhu. Fox people and elves fight Cthulhu; the remaining
+relationships begin without open warfare. Rivalry does not automatically mean
+shooting on sight, and peaceful relations do not create shared ownership or free
+resources. These are the existing authored starting relationships, not a new
+faction roster.
+
+The survival rules in `content/island/survival_diplomacy.json` let ordinary rivals
+suspend their war when a stronger common enemy threatens them both. Truces last
+for an authored interval and renew only while the danger remains. Neutral
+ordinary factions can recognize Cthulhu as a military threat as its actual force
+grows. These decisions cannot overwrite Michael's wars, resurrect an eliminated
+faction or generate units. They change the existing combat relationships and
+cancel obsolete attacks. This is a defensive truce, not yet a full trade,
+shared-command or diplomatic-negotiation system.
+
+The current comparison uses living-unit health and an authored short damage
+horizon. It is provisional strategic tuning, not a complete combat predictor or
+a final fog-of-war knowledge model. The simulation owns relationships and saved
+treaties; the interface does not display the AI's strength scores.
+
+Approach and Talk also work with ordinary named adult men. Conversation does not
+make them recruitable: Michael's recruitment remains limited to adult female
+units. Nearby people who have been spoken to can report current faction news.
+Leaving talking range stops fresh news; this is not remote omniscient diplomacy
+through the inspection panel. Full authored political quests remain to be built.
+
+For a bounded observation of the actual island, run Godot headlessly with
+`--path game --script res://scripts/review/island_campaign_review.gd -- ticks=600`.
+The observer accepts at most 2880 ticks and reports real holdings, populations and
+war changes without altering the campaign state. Add `talk` to drive actual
+Approach/Talk controls toward a produced adult man and report the resulting
+conversation controls and local news. It is not a rendered screenshot.
+
+Current scenario limitation: in the first 1440-tick actual-terrain run with these
+relationships, Cthulhu and the colonials were eliminated before tick 128; the fox
+people, elves and pirates survived through midnight. No survival truce arose in
+that particular run. The truce lifecycle was exercised separately, not claimed
+as naturally observed there. Cthulhu still lacks madness recruitment, and early
+survival, invasion pacing and long-campaign balance remain unfinished.
 
 ## Colonial expansion
 

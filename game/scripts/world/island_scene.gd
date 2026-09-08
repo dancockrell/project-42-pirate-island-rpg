@@ -425,7 +425,7 @@ func advance_tick() -> void:
 			conversation_notice = "Within talking range · Paused"
 			set_paused(true)
 		else:
-			conversation_notice = "Approach ended; she is no longer reachable."
+			conversation_notice = "Approach ended; they are no longer reachable."
 			refresh_inspection()
 	last_strikes = result.get("strikes", [])
 	for strike in last_strikes:
@@ -685,13 +685,13 @@ func refresh_inspection() -> void:
 	refresh_foothold_controls()
 	var offer: String = inspected_person.get("recruitment_offer", "")
 	var michael_alive: bool = snapshot.actors.any(func(entry): return entry.id == MICHAEL)
-	var potential: bool = michael_alive and live and inspected_person.get("sex", "") == "female" and inspected_person.get("faction", "") != "faction.michael" and not offer.is_empty()
-	var companion: bool = michael_alive and live and inspected_person.get("faction", "") == "faction.michael" and inspected_person.get("loyal_to_michael", false)
-	talk_button.visible = potential or companion
-	approach_button.visible = potential or companion
+	var conversable: bool = michael_alive and live and inspected_id != MICHAEL and int(inspected_person.get("age", 0)) >= 18
+	var potential: bool = conversable and inspected_person.get("sex", "") == "female" and inspected_person.get("faction", "") != "faction.michael" and not offer.is_empty()
+	talk_button.visible = conversable
+	approach_button.visible = conversable
 	approach_button.disabled = snapshot.get("approach_target", "") == inspected_id
 	recruit_button.visible = potential and inspected_person.get("discussed", false)
-	conversation_actions.visible = potential or companion
+	conversation_actions.visible = conversable
 	conversation_status.text = conversation_notice
 	var approaching: String = snapshot.get("approach_target", "")
 	if not approaching.is_empty():
@@ -719,6 +719,9 @@ func refresh_inspection() -> void:
 	var dialogue: String = inspected_person.get("dialogue", "")
 	if live and not dialogue.is_empty():
 		inspection.text += "\n“%s”" % dialogue
+	var news: String = inspected_person.get("news", "")
+	if live and not news.is_empty():
+		inspection.text += "\n“%s”" % news
 
 func _process(delta: float) -> void:
 	if not ready_ok or paused:
