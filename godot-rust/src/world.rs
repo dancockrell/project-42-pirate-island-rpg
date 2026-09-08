@@ -286,6 +286,12 @@ pub struct ProductionOrder {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FactionBuilding {
+    #[serde(default = "starting_building_level")]
+    pub level: u32,
+    #[serde(default = "default_building_health")]
+    pub max_health: u32,
+    #[serde(default)]
+    pub development: Option<BuildingDevelopment>,
     #[serde(default = "default_building_health")]
     pub health: u32,
     pub id: String,
@@ -300,6 +306,38 @@ pub struct FactionBuilding {
 
 fn default_building_health() -> u32 {
     80
+}
+
+fn starting_building_level() -> u32 {
+    1
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BuildingDevelopmentRule {
+    pub max_level: u32,
+    pub costs: BTreeMap<String, u32>,
+    pub ticks: u32,
+    pub health_gain: u32,
+    pub population_gain: u32,
+}
+
+impl BuildingDevelopmentRule {
+    fn valid(&self) -> bool {
+        (2..=5).contains(&self.max_level)
+            && (1..=100000).contains(&self.ticks)
+            && self.health_gain <= 10000
+            && self.population_gain <= 64
+            && !self.costs.is_empty()
+            && self.costs.len() <= 32
+            && self.costs.values().all(|cost| (1..=100000).contains(cost))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BuildingDevelopment {
+    pub rule: BuildingDevelopmentRule,
+    pub remaining_ticks: u32,
+    pub reserved_costs: BTreeMap<String, u32>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -508,6 +546,8 @@ pub struct IslandCasualty {
 /// Scenario-authored economy and priorities; no universal recruitment power.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FactionPolicy {
+    #[serde(default)]
+    pub development: BTreeMap<String, BuildingDevelopmentRule>,
     pub income_per_tick: BTreeMap<String, u32>,
     pub storage_caps: BTreeMap<String, u32>,
     pub production: BTreeMap<String, ProductionRule>,
@@ -1064,6 +1104,9 @@ impl FactionWorld {
                 .destinations
                 .insert(spawn_id.clone(), spawn);
             let building = FactionBuilding {
+                level: 1,
+                max_health: default_building_health(),
+                development: None,
                 health: default_building_health(),
                 id: building_id.clone(),
                 faction_id: id.into(),
@@ -1090,6 +1133,20 @@ impl FactionWorld {
                 },
             );
             let policy = FactionPolicy {
+                development: {
+                    let rules: BTreeMap<String, BuildingDevelopmentRule> = serde_json::from_str(
+                        include_str!("../../content/island/holding_development.json"),
+                    )
+                    .map_err(|_| "invalid_authored_development")?;
+                    rules
+                        .get(&rule.producer_archetype_id)
+                        .map(|development| {
+                            [(building_id.clone(), development.clone())]
+                                .into_iter()
+                                .collect()
+                        })
+                        .unwrap_or_default()
+                },
                 income_per_tick: rule.costs.keys().map(|id| (id.clone(), 1)).collect(),
                 storage_caps: rule.costs.keys().map(|id| (id.clone(), 20)).collect(),
                 production: [(building_id, rule)].into_iter().collect(),
@@ -1229,9 +1286,15 @@ impl FactionWorld {
             .keys()
             .any(|resource| !policy.storage_caps.contains_key(resource))
             || policy.production.len() > 4096
+            || policy.development.len() > 4096
             || policy.objectives.len() > 256
         {
             return Err(FactionWorldError::InvalidPolicy(faction_id.into()));
+        }
+        for (building_id, rule) in &policy.development {
+            if !faction.buildings.contains_key(building_id) || !rule.valid() {
+                return Err(FactionWorldError::InvalidPolicy(faction_id.into()));
+            }
         }
         for (building_id, rule) in &policy.production {
             let building = faction
@@ -1332,12 +1395,52 @@ impl FactionWorld {
                     .buildings
                     .get(building_id)
                     .is_some_and(|building| {
-                        building.operational && building.production_queue.is_empty()
+                        building.operational
+                            && building.production_queue.is_empty()
+                            && building.development.is_none()
                     });
                 if idle {
                     if let Ok(event) = self.enqueue_production(&id, building_id, rule.clone()) {
                         events.push(event);
                     }
+                }
+            }
+            // Build out a staffed, undamaged holding. Production has priority
+            // while replacing losses; development occupies the same producer.
+            let faction = self.factions.get_mut(&id).unwrap();
+            if faction.population_used >= faction.population_capacity {
+                for (building_id, rule) in &policy.development {
+                    let Some(building) = faction.buildings.get_mut(building_id) else {
+                        continue;
+                    };
+                    if !building.operational
+                        || building.health != building.max_health
+                        || building.level >= rule.max_level
+                        || building.development.is_some()
+                        || !building.production_queue.is_empty()
+                    {
+                        continue;
+                    }
+                    let costs: BTreeMap<String, u32> = rule
+                        .costs
+                        .iter()
+                        .map(|(resource, cost)| {
+                            (resource.clone(), cost.saturating_mul(building.level))
+                        })
+                        .collect();
+                    if costs.iter().any(|(resource, cost)| {
+                        faction.resources.get(resource).copied().unwrap_or(0) < *cost
+                    }) {
+                        continue;
+                    }
+                    for (resource, cost) in &costs {
+                        *faction.resources.get_mut(resource).unwrap() -= cost;
+                    }
+                    building.development = Some(BuildingDevelopment {
+                        rule: rule.clone(),
+                        remaining_ticks: rule.ticks,
+                        reserved_costs: costs,
+                    });
                 }
             }
             let idle_actors: Vec<String> = self
@@ -1412,7 +1515,10 @@ impl FactionWorld {
                                     goal_progress: 100,
                                     supply_cost: -(path.len().min(10_000) as i32),
                                     travel_risk: -(defenders.min(1_000) as i32 * 4),
-                                    expected_loot: (80_u32.saturating_sub(building.health) / 4)
+                                    expected_loot: (building
+                                        .max_health
+                                        .saturating_sub(building.health)
+                                        / 4)
                                         as i32,
                                     ..Default::default()
                                 },
@@ -1507,8 +1613,31 @@ impl FactionWorld {
                     || building.production_queue.len() > building.queue_capacity
                     || building.queue_capacity > 4096
                     || building.health == 0
+                    || building.health > building.max_health
+                    || building.max_health > 100000
+                    || building.level == 0
+                    || building.level > 5
                 {
                     return Err("invalid_saved_building".into());
+                }
+                if let Some(order) = &building.development {
+                    if !building.production_queue.is_empty()
+                        || order.remaining_ticks == 0
+                        || order.remaining_ticks > order.rule.ticks
+                        || building.level >= order.rule.max_level
+                        || !order.rule.valid()
+                        || order.reserved_costs
+                            != order
+                                .rule
+                                .costs
+                                .iter()
+                                .map(|(resource, cost)| {
+                                    (resource.clone(), cost.saturating_mul(building.level))
+                                })
+                                .collect()
+                    {
+                        return Err("invalid_saved_development".into());
+                    }
                 }
                 for order in &building.production_queue {
                     if order.remaining_ticks == 0
@@ -2116,7 +2245,9 @@ impl FactionWorld {
         if building.archetype_id != rule.producer_archetype_id {
             return Err(FactionWorldError::ProducerArchetypeMismatch);
         }
-        if building.production_queue.len() >= building.queue_capacity {
+        if building.development.is_some()
+            || building.production_queue.len() >= building.queue_capacity
+        {
             return Err(FactionWorldError::QueueFull(building_id.to_owned()));
         }
         if faction.population_used.saturating_add(rule.population_use) > faction.population_capacity
@@ -2169,6 +2300,20 @@ impl FactionWorld {
         for faction in self.factions.values_mut() {
             for building in faction.buildings.values_mut() {
                 if !building.operational {
+                    continue;
+                }
+                if let Some(order) = &mut building.development {
+                    order.remaining_ticks = order.remaining_ticks.saturating_sub(1);
+                    if order.remaining_ticks == 0 {
+                        building.level += 1;
+                        building.max_health =
+                            building.max_health.saturating_add(order.rule.health_gain);
+                        building.health = building.health.saturating_add(order.rule.health_gain);
+                        faction.population_capacity = faction
+                            .population_capacity
+                            .saturating_add(order.rule.population_gain);
+                        building.development = None;
+                    }
                     continue;
                 }
                 for order in &mut building.production_queue {
@@ -2375,6 +2520,9 @@ mod tests {
 
     fn production_world() -> FactionWorld {
         let building = FactionBuilding {
+            level: 1,
+            max_health: default_building_health(),
+            development: None,
             health: default_building_health(),
             id: "site.colonial.watch_fort.instance_1".into(),
             faction_id: "faction.colonial_powers.prototype".into(),
@@ -2817,6 +2965,7 @@ mod tests {
             .set_policy(
                 "faction.colonial_powers.prototype",
                 FactionPolicy {
+                    development: BTreeMap::new(),
                     income_per_tick: [
                         ("resource.provisions".into(), 1),
                         ("resource.iron".into(), 1),
@@ -2842,6 +2991,140 @@ mod tests {
             )
             .unwrap();
         world
+    }
+
+    #[test]
+    fn holding_development_reserves_times_pauses_and_persists() {
+        let mut world = autonomous_world();
+        let faction_id = "faction.colonial_powers.prototype";
+        let building_id = "site.colonial.watch_fort.instance_1";
+        let rule = BuildingDevelopmentRule {
+            max_level: 5,
+            costs: [("resource.iron".into(), 4)].into(),
+            ticks: 3,
+            health_gain: 40,
+            population_gain: 2,
+        };
+        let mut policy = world.policies[faction_id].clone();
+        policy.development.insert(building_id.into(), rule);
+        policy.income_per_tick.clear();
+        world.set_policy(faction_id, policy).unwrap();
+        let faction = world.factions.get_mut(faction_id).unwrap();
+        faction.population_used = faction.population_capacity;
+        faction.resources.insert("resource.iron".into(), 3);
+        let old_capacity = faction.population_capacity;
+        let before = world.clone();
+        world.advance_faction_decisions();
+        assert_eq!(
+            before, world,
+            "unaffordable work must not reserve a partial cost"
+        );
+        world
+            .factions
+            .get_mut(faction_id)
+            .unwrap()
+            .resources
+            .insert("resource.iron".into(), 4);
+        world.advance_faction_decisions();
+        assert_eq!(world.factions[faction_id].resources["resource.iron"], 0);
+        assert_eq!(
+            world.factions[faction_id].buildings[building_id]
+                .development
+                .as_ref()
+                .unwrap()
+                .remaining_ticks,
+            3
+        );
+        assert!(matches!(
+            world.enqueue_production(faction_id, building_id, marine_rule()),
+            Err(FactionWorldError::QueueFull(_))
+        ));
+        world.paused = true;
+        let frozen = world.clone();
+        world.advance_island_tick();
+        assert_eq!(world, frozen);
+        world.paused = false;
+        world.advance_production_tick();
+        let mut restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        assert_eq!(restored, world);
+        restored
+            .factions
+            .get_mut(faction_id)
+            .unwrap()
+            .buildings
+            .get_mut(building_id)
+            .unwrap()
+            .health -= 7;
+        restored.advance_production_tick();
+        restored.advance_production_tick();
+        let building = &restored.factions[faction_id].buildings[building_id];
+        assert_eq!(
+            (building.level, building.health, building.max_health),
+            (2, 113, 120)
+        );
+        assert!(building.development.is_none());
+        assert_eq!(
+            restored.factions[faction_id].population_capacity,
+            old_capacity + 2
+        );
+        assert_eq!(
+            FactionWorld::load_json(&restored.save_json().unwrap()).unwrap(),
+            restored
+        );
+        // Damage prevents starting the next project; even a prosperous holding
+        // cannot develop past the authored level cap.
+        let faction = restored.factions.get_mut(faction_id).unwrap();
+        faction.population_used = faction.population_capacity;
+        faction.resources.insert("resource.iron".into(), 20);
+        restored.advance_faction_decisions();
+        assert!(
+            restored.factions[faction_id].buildings[building_id]
+                .development
+                .is_none()
+        );
+        let building = restored
+            .factions
+            .get_mut(faction_id)
+            .unwrap()
+            .buildings
+            .get_mut(building_id)
+            .unwrap();
+        building.health = building.max_health;
+        building.level = 5;
+        restored.advance_faction_decisions();
+        assert!(
+            restored.factions[faction_id].buildings[building_id]
+                .development
+                .is_none()
+        );
+        let mut invalid: serde_json::Value =
+            serde_json::from_str(&world.save_json().unwrap()).unwrap();
+        invalid["world"]["factions"][faction_id]["buildings"][building_id]["development"]["reserved_costs"]
+            ["resource.iron"] = 1.into();
+        assert!(FactionWorld::load_json(&invalid.to_string()).is_err());
+        world.eliminate_faction(faction_id).unwrap();
+        for _ in 0..10 {
+            world.advance_island_tick();
+        }
+        assert!(world.factions[faction_id].buildings.is_empty());
+    }
+
+    #[test]
+    fn authored_development_matches_live_producer_resources() {
+        let rules: BTreeMap<String, BuildingDevelopmentRule> = serde_json::from_str(include_str!(
+            "../../content/island/holding_development.json"
+        ))
+        .unwrap();
+        for source in [
+            include_str!("../../content/production/colonial_fort_soldiers.json"),
+            include_str!("../../content/production/tide_quay_deckhands.json"),
+            include_str!("../../content/production/drowned_shrine_cultists.json"),
+        ] {
+            let producer: ProductionRule = serde_json::from_str(source).unwrap();
+            let development = &rules[&producer.producer_archetype_id];
+            assert_eq!(development.max_level, 5);
+            assert!(development.costs.iter().all(|(resource, cost)| producer.costs.contains_key(resource) && cost * 4 <= 20));
+        }
     }
 
     #[test]

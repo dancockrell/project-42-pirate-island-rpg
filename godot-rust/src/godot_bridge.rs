@@ -187,6 +187,10 @@ impl Project42SimulationBridge {
                             "x" => position.x, "y" => position.y,
                         "operational" => building.operational,
                         "health" => building.health,
+                        "max_health" => building.max_health,
+                        "level" => building.level,
+                        "development_remaining" => building.development.as_ref().map_or(0, |order| order.remaining_ticks),
+                        "development_ticks" => building.development.as_ref().map_or(0, |order| order.rule.ticks),
                             "queued" => building.production_queue.len() as i64
                         }
                         .to_variant(),

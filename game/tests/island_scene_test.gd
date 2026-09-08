@@ -335,6 +335,8 @@ func run() -> void:
 	if not check_fresh_recruitment(scene, fresh_campaign):
 		quit(1)
 		return
+	if not check_holding_development(scene, fresh_campaign):
+		return
 	if not check_coastal_save_upgrade(scene, fresh_campaign):
 		quit(1)
 		return
@@ -512,6 +514,33 @@ func check_fresh_recruitment(scene: Node, fresh_campaign: String) -> bool:
 	assert(scene.inspected_person.faction == "faction.michael")
 	assert(scene.party_heading.text.contains("1/4 living"))
 	print("PASS: untouched campaign produces a woman; Approach walks to her through the live war; talk/recruit/assign and return to start without fixture edits")
+	return true
+
+func check_holding_development(scene: Node, fresh_campaign: String) -> bool:
+	assert(scene.port.load_island(fresh_campaign))
+	scene.paused = false
+	scene.refresh_snapshot()
+	var saw_work := false
+	var saw_completion := false
+	for step in range(240):
+		scene.advance_tick()
+		for building in scene.snapshot.buildings:
+			assert(building.level >= 1 and building.level <= 5)
+			if building.development_remaining > 0:
+				saw_work = true
+				if scene.building_sprites.has(building.id):
+					var structure: Sprite2D = scene.building_sprites[building.id]
+					var bar: ProgressBar = structure.get_node("Development")
+					assert((bar.scale * structure.scale).distance_to(Vector2.ONE) < 0.001)
+					assert(bar.value == building.development_ticks - building.development_remaining)
+			if building.level > 1:
+				saw_completion = true
+				assert(building.max_health > 80)
+	assert(saw_work and saw_completion)
+	var saved: String = scene.port.save_island()
+	assert(scene.port.load_island(saved))
+	assert(scene.port.save_island() == saved)
+	print("PASS: untouched island factions fund and finish holding development during their ongoing war; native level, health and local progress survive save/load")
 	return true
 
 func check_coastal_save_upgrade(scene: Node, fresh_campaign: String) -> bool:

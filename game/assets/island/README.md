@@ -191,6 +191,20 @@ art; movement is tick-stepped, not an approved walk animation. Foliage occlusion
 pixel-density matching, terrain-mask visual review, complete autonomous factions
 and final island scale remain unfinished.
 
+Live holding development uses content/island/holding_development.json. Fully
+staffed, undamaged holdings reserve costs atomically and stop unit production
+while improving the same building. Costs multiply by the current level; levels
+stop at five. Colonial forts gain 40 maximum/current HP and two population slots
+per level in 100 ticks; pirate quays gain 16 HP and three slots in 80 ticks;
+drowned shrines gain 24 HP and two slots in 120 ticks. All numbers are provisional
+scenario tuning, not final faction balance. Damage taken during work is retained
+on completion. Destroyed holdings lose their work; elimination never rebuilds it.
+Pause and saves retain remaining work and reserved costs. Older saves default to
+level one and keep their saved policy (no retroactive paid upgrade).
+Nearby developing buildings show a small progress bar. Level-specific building
+art, repair, unlocked vendor prerequisites, loot scaling and construction of new
+sites remain unfinished; the progress bar is not approved construction art.
+
 Checks:
 Godot headless tests/island_scene_test.gd passes actual scene load, native position
 projection, terrain rejection, travel and pause. The separate native bridge test

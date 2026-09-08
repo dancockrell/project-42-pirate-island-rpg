@@ -405,6 +405,18 @@ func refresh_snapshot() -> void:
 			structure.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			map_root.add_child(structure)
 			building_sprites[building.id] = structure
+			var activity := ProgressBar.new()
+			activity.name = "Development"
+			activity.show_percentage = false
+			activity.size = Vector2(40, 4)
+			activity.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var background := StyleBoxFlat.new()
+			background.bg_color = Color("252b29")
+			var fill := StyleBoxFlat.new()
+			fill.bg_color = Color("b9a576")
+			activity.add_theme_stylebox_override("background", background)
+			activity.add_theme_stylebox_override("fill", fill)
+			structure.add_child(activity)
 		var structure: Sprite2D = building_sprites[building.id]
 		structure.texture = building_textures[art.texture]
 		structure.offset = -Vector2(art.pivot[0], art.pivot[1])
@@ -412,6 +424,13 @@ func refresh_snapshot() -> void:
 		structure.position = (Vector2(building.x, building.y) + Vector2.ONE * 0.5) * cell_size
 		structure.z_index = int(building.y) - 1
 		structure.modulate = Color.WHITE if building.operational else Color(0.55, 0.55, 0.55)
+		var activity: ProgressBar = structure.get_node("Development")
+		activity.scale = Vector2.ONE / structure.scale.x
+		activity.position = Vector2(-20, -float(art.pivot[1]) * structure.scale.x - 6) / structure.scale.x
+		activity.max_value = maxi(int(building.development_ticks), 1)
+		activity.value = int(building.development_ticks) - int(building.development_remaining)
+		# Nearby work is observable, not an enemy economy dashboard.
+		activity.visible = int(building.development_remaining) > 0 and actor.position.distance_to(structure.position) <= cell_size * 6
 	for id in building_sprites.keys():
 		if not visible_buildings.has(id):
 			building_sprites[id].queue_free()
