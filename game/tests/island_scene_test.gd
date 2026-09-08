@@ -520,8 +520,8 @@ func check_foothold(scene: Node, woman_id: String) -> bool:
 	# Continue the real death/midnight/reclaim scenario above. No salvage or
 	# building is injected: walk to the finite cache and build through UI commands.
 	assert(scene.snapshot.salvage == 0 and scene.inspected_person.undead)
-	var cache: Dictionary = scene.snapshot.foothold_cache
-	assert(cache.remaining == 20 and scene.salvage_marker.visible)
+	var cache: Dictionary = scene.snapshot.salvage_caches.filter(func(c): return c.id == "salvage.wreck")[0]
+	assert(cache.remaining == 20 and scene.salvage_markers.has(cache.id))
 	assert(scene.request_move(Vector2i(cache.x, cache.y)))
 	scene.set_paused(false)
 	for step in range(70):
@@ -529,7 +529,7 @@ func check_foothold(scene: Node, woman_id: String) -> bool:
 	assert(scene.actor.position == (Vector2(cache.x, cache.y) + Vector2.ONE * 0.5) * scene.cell_size)
 	scene.set_paused(true)
 	scene.salvage_button.pressed.emit()
-	assert(scene.snapshot.salvage == 20 and not scene.salvage_marker.visible)
+	assert(scene.snapshot.salvage == 20 and not scene.salvage_markers.has(cache.id))
 	var gathered: String = scene.port.save_island()
 	scene.salvage_action()
 	assert(scene.port.save_island() == gathered)

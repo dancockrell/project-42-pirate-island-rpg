@@ -445,9 +445,31 @@ fn mechanical_dog_production() -> &'static ProductionRule {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FootholdCache {
+pub struct SalvageCache {
     pub position: IslandPoint,
     pub remaining: u32,
+    pub initial_amount: u32,
+    pub label: String,
+    pub source_building_id: String,
+    pub source_faction: String,
+    pub level: u32,
+    pub created_tick: u64,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct HoldingSalvageRule {
+    base_yield: u32,
+    per_completed_level: u32,
+    workshop_yield: u32,
+}
+
+fn holding_salvage_rule() -> &'static HoldingSalvageRule {
+    static RULE: std::sync::OnceLock<HoldingSalvageRule> = std::sync::OnceLock::new();
+    RULE.get_or_init(|| {
+        serde_json::from_str(include_str!("../../content/island/holding_salvage.json"))
+            .expect("authored holding salvage rule")
+    })
 }
 
 #[derive(Deserialize)]
@@ -748,7 +770,7 @@ pub struct FactionWorld {
     #[serde(default)]
     pub diplomacy_notices: Vec<DiplomacyNotice>,
     #[serde(default)]
-    pub foothold_cache: Option<FootholdCache>,
+    pub salvage_caches: BTreeMap<String, SalvageCache>,
     #[serde(default)]
     pub clock: IslandClock,
     /// Fixed slots preserve deliberate replacement and dead companion identity.
@@ -1790,16 +1812,11 @@ impl FactionWorld {
     }
 
     pub fn salvage_foothold(&mut self) -> Result<(), String> {
-        let cache = self
-            .foothold_cache
-            .as_ref()
-            .ok_or("No wreck salvage in this campaign.")?;
-        if cache.remaining == 0 {
-            return Err("The wreck salvage is exhausted.".into());
-        }
-        if !self.within_work_range("character.protagonist.captain", cache.position) {
-            return Err("Bring Michael within reach of the wreck salvage.".into());
-        }
+        let id = self
+            .nearby_salvage_id()
+            .ok_or("Bring Michael within reach of uncollected salvage.")?
+            .to_owned();
+        let cache = &self.salvage_caches[&id];
         let faction = self
             .factions
             .get_mut("faction.michael")
@@ -1812,8 +1829,68 @@ impl FactionWorld {
             .checked_add(cache.remaining)
             .ok_or("Salvage storage is full.")?;
         faction.resources.insert("resource.salvage".into(), stored);
-        self.foothold_cache.as_mut().unwrap().remaining = 0;
+        self.salvage_caches.get_mut(&id).unwrap().remaining = 0;
         Ok(())
+    }
+
+    pub fn nearby_salvage_id(&self) -> Option<&str> {
+        let origin = self.positions.get("character.protagonist.captain")?;
+        self.salvage_caches
+            .iter()
+            .filter(|(_, cache)| {
+                cache.remaining > 0
+                    && self.within_work_range("character.protagonist.captain", cache.position)
+            })
+            .map(|(id, c)| {
+                (
+                    origin
+                        .x
+                        .abs_diff(c.position.x)
+                        .saturating_add(origin.y.abs_diff(c.position.y)),
+                    id.as_str(),
+                )
+            })
+            .min()
+            .map(|(_, id)| id)
+    }
+
+    fn record_holding_salvage(&mut self, building: &FactionBuilding) {
+        // An unfinished foundation has not made recoverable machinery. No
+        // production or upgrade reservations are refunded through these ruins.
+        if building.construction.is_some() {
+            return;
+        }
+        let Some(position) = self.navigation.destinations.get(&building.node_id).copied() else {
+            return;
+        };
+        let rule = holding_salvage_rule();
+        let amount = if building.archetype_id == "site_archetype.michael.field_workshop" {
+            rule.workshop_yield
+        } else {
+            rule.base_yield
+                .saturating_add(rule.per_completed_level.saturating_mul(building.level))
+        };
+        let label = match building.archetype_id.as_str() {
+            "site_archetype.colonial.watch_fort" => "Watch fort salvage",
+            "site_archetype.pirates.tide_quay" => "Quay salvage",
+            "site_archetype.eastern_fox_people.river_market" => "River market salvage",
+            "site_archetype.elven.heart_grove" => "Heart grove salvage",
+            "site_archetype.cthulhu.drowned_shrine" => "Shrine salvage",
+            "site_archetype.michael.field_workshop" => "Workshop salvage",
+            _ => "Holding salvage",
+        };
+        let id = format!("salvage.ruins.{}.{}", building.id, self.tick);
+        // One stable record for this destruction; never refill a collected entry.
+        self.salvage_caches.entry(id).or_insert(SalvageCache {
+            position,
+            remaining: amount,
+            initial_amount: amount,
+            label: label.into(),
+            source_building_id: building.id.clone(),
+            source_faction: building.faction_id.clone(),
+            level: building.level,
+            created_tick: self.tick,
+        });
     }
 
     pub fn build_foothold(&mut self, entrance: IslandPoint) -> Result<(), String> {
@@ -1886,6 +1963,16 @@ impl FactionWorld {
         building: FactionBuilding,
         entrance: IslandPoint,
     ) -> Result<(), String> {
+        if self.salvage_caches.len()
+            + self
+                .factions
+                .values()
+                .map(|f| f.buildings.len())
+                .sum::<usize>()
+            >= 4096
+        {
+            return Err("The campaign salvage ledger is full.".into());
+        }
         let job = building
             .construction
             .as_ref()
@@ -1956,9 +2043,9 @@ impl FactionWorld {
                 .flat_map(|f| f.buildings.values())
                 .any(|b| !reachable(staged.navigation.destinations[&b.node_id]))
             || staged
-                .foothold_cache
-                .as_ref()
-                .is_some_and(|c| c.remaining > 0 && !reachable(c.position))
+                .salvage_caches
+                .values()
+                .any(|c| c.remaining > 0 && !reachable(c.position))
         {
             return Err("The site would block an island route.".into());
         }
@@ -2383,6 +2470,7 @@ impl FactionWorld {
             if building.health > 0 {
                 continue;
             }
+            let destroyed = building.clone();
             // Reserved queue costs are lost with the destroyed producer.
             let reserved: u32 = building
                 .production_queue
@@ -2395,6 +2483,7 @@ impl FactionWorld {
             self.release_construction_assignment(&faction_id, &format!("repair.{building_id}"));
             self.release_construction_assignment(&faction_id, &format!("construct.{building_id}"));
             self.navigation.building_obstacles.remove(&building_id);
+            self.record_holding_salvage(&destroyed);
             if let Some(policy) = self.policies.get_mut(&faction_id) {
                 policy.production.remove(&building_id);
                 policy.development.remove(&building_id);
@@ -2633,10 +2722,19 @@ impl FactionWorld {
         {
             return Err("Wreck salvage is unreachable.".into());
         }
-        staged.foothold_cache = Some(FootholdCache {
-            position: config.cache_position,
-            remaining: config.cache_salvage,
-        });
+        staged.salvage_caches.insert(
+            "salvage.wreck".into(),
+            SalvageCache {
+                position: config.cache_position,
+                remaining: config.cache_salvage,
+                initial_amount: config.cache_salvage,
+                label: "Wreck salvage".into(),
+                source_building_id: "scenario.shipwreck".into(),
+                source_faction: String::new(),
+                level: 0,
+                created_tick: 0,
+            },
+        );
         *self = Self::load_json(&staged.save_json()?)?;
         Ok(())
     }
@@ -3118,8 +3216,36 @@ impl FactionWorld {
             version: u32,
             world: FactionWorld,
         }
-        let json: serde_json::Value =
+        let mut json: serde_json::Value =
             serde_json::from_str(text).map_err(|_| "invalid_save_json")?;
+        if let Some(saved_world) = json.get_mut("world").and_then(|v| v.as_object_mut()) {
+            let legacy = saved_world.remove("foothold_cache");
+            if !saved_world.contains_key("salvage_caches") {
+                if let Some(old) = legacy.filter(|v| !v.is_null()) {
+                    #[derive(Deserialize)]
+                    struct LegacyCache {
+                        position: IslandPoint,
+                        remaining: u32,
+                    }
+                    let old: LegacyCache =
+                        serde_json::from_value(old).map_err(|_| "invalid_saved_foothold_cache")?;
+                    let cache = SalvageCache {
+                        position: old.position,
+                        remaining: old.remaining,
+                        initial_amount: old.remaining.max(foothold_config()?.cache_salvage),
+                        label: "Wreck salvage".into(),
+                        source_building_id: "scenario.shipwreck".into(),
+                        source_faction: String::new(),
+                        level: 0,
+                        created_tick: 0,
+                    };
+                    saved_world.insert(
+                        "salvage_caches".into(),
+                        serde_json::json!({"salvage.wreck": cache}),
+                    );
+                }
+            }
+        }
         let needs_obstacles = json
             .pointer("/world/navigation/building_obstacles")
             .is_none();
@@ -3155,10 +3281,30 @@ impl FactionWorld {
         {
             return Err("invalid_saved_diplomacy".into());
         }
-        if world.foothold_cache.as_ref().is_some_and(|c| {
-            c.remaining > 100000 || !world.navigation.walkable.contains(&c.position)
-        }) {
-            return Err("invalid_saved_foothold_cache".into());
+        if world.salvage_caches.len()
+            + world
+                .factions
+                .values()
+                .map(|f| f.buildings.len())
+                .sum::<usize>()
+            > 4096
+            || world.salvage_caches.iter().any(|(id, c)| {
+                id.is_empty()
+                    || id.len() > 2048
+                    || c.initial_amount > 100000
+                    || c.remaining > c.initial_amount
+                    || c.label.is_empty()
+                    || c.label.len() > 256
+                    || c.source_building_id.is_empty()
+                    || c.source_building_id.len() > 1024
+                    || c.level > 5
+                    || c.created_tick > world.tick
+                    || (!c.source_faction.is_empty()
+                        && !world.factions.contains_key(&c.source_faction))
+                    || !world.navigation.walkable.contains(&c.position)
+            })
+        {
+            return Err("invalid_saved_salvage_caches".into());
         }
         if !(1..=1000000).contains(&world.clock.ticks_per_day) {
             return Err("invalid_saved_clock".into());
@@ -6351,6 +6497,109 @@ mod tests {
         (world, ids)
     }
 
+    #[test]
+    fn holding_salvage_actual_siege_creates_collectible_persistent_ruins() {
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        let captain = "character.protagonist.captain";
+        world.positions.insert(
+            captain.into(),
+            world.salvage_caches["salvage.wreck"].position,
+        );
+        world.salvage_foothold().unwrap();
+        for _ in 0..200 {
+            world.advance_island_tick();
+            if world.salvage_caches.len() > 1 {
+                break;
+            }
+        }
+        let (id, cache) = world
+            .salvage_caches
+            .iter()
+            .find(|(id, _)| id.as_str() != "salvage.wreck")
+            .map(|(id, c)| (id.clone(), c.clone()))
+            .expect("real siege produced ruined holding salvage");
+        assert!(!world.factions[&cache.source_faction]
+            .buildings
+            .contains_key(&cache.source_building_id));
+        assert_eq!(cache.initial_amount, 4 + 4 * cache.level);
+        let before = world.factions["faction.michael"].resources["resource.salvage"];
+        assert_eq!(before, 20); // Destruction never credits Michael remotely.
+        let unchanged = world.clone();
+        assert!(world.salvage_foothold().is_err());
+        assert_eq!(world, unchanged);
+        assert!(world.move_island_party(cache.position));
+        for _ in 0..100 {
+            world.advance_island_tick();
+            if world.positions[captain] == cache.position {
+                break;
+            }
+        }
+        assert_eq!(world.nearby_salvage_id(), Some(id.as_str()));
+        world.salvage_foothold().unwrap();
+        assert_eq!(
+            world.factions["faction.michael"].resources["resource.salvage"],
+            before + cache.remaining
+        );
+        assert_eq!(world.salvage_caches[&id].remaining, 0);
+        let restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        assert_eq!(restored, world);
+        assert_eq!(
+            restored.salvage_caches[&id].initial_amount,
+            cache.initial_amount
+        );
+    }
+
+    #[test]
+    fn holding_salvage_legacy_migration_never_refills_collected_materials() {
+        let mut world = FactionWorld::prototype_island();
+        world.install_preview_factions().unwrap();
+        let mut saved: serde_json::Value =
+            serde_json::from_str(&world.save_json().unwrap()).unwrap();
+        saved["world"]
+            .as_object_mut()
+            .unwrap()
+            .remove("salvage_caches");
+        saved["world"]["foothold_cache"] =
+            serde_json::json!({"position":{"x":20,"y":19},"remaining":0});
+        let migrated = FactionWorld::load_json(&saved.to_string()).unwrap();
+        assert_eq!(migrated.salvage_caches.len(), 1);
+        assert_eq!(migrated.salvage_caches["salvage.wreck"].remaining, 0);
+        let mut both: serde_json::Value =
+            serde_json::from_str(&migrated.save_json().unwrap()).unwrap();
+        both["world"]["foothold_cache"] =
+            serde_json::json!({"position":{"x":20,"y":19},"remaining":20});
+        let restored = FactionWorld::load_json(&both.to_string()).unwrap();
+        assert_eq!(restored.salvage_caches, migrated.salvage_caches);
+        assert!(!restored.save_json().unwrap().contains("foothold_cache"));
+    }
+
+    #[test]
+    fn holding_salvage_does_not_refund_construction_or_duplicate_destruction() {
+        let mut world = mechanical_workshop_fixture();
+        let site = "site.michael.field_workshop";
+        let workshop = world.factions["faction.michael"].buildings[site].clone();
+        let mut unfinished = workshop.clone();
+        unfinished.construction = Some(BuildingWork {
+            builder_id: "character.protagonist.captain".into(),
+            remaining_ticks: 10,
+            reserved_costs: BTreeMap::new(),
+        });
+        world.record_holding_salvage(&unfinished);
+        assert_eq!(world.salvage_caches.len(), 1);
+        world.record_holding_salvage(&workshop);
+        world.record_holding_salvage(&workshop);
+        assert_eq!(world.salvage_caches.len(), 2);
+        let id = format!("salvage.ruins.{site}.{}", world.tick);
+        assert_eq!(world.salvage_caches[&id].remaining, 4);
+        world.salvage_caches.get_mut(&id).unwrap().remaining = 0;
+        world.record_holding_salvage(&workshop);
+        assert_eq!(world.salvage_caches[&id].remaining, 0);
+        world.tick += 1;
+        world.record_holding_salvage(&workshop);
+        assert_eq!(world.salvage_caches.len(), 3); // A later rebuilt instance has a distinct event key.
+    }
+
     fn mechanical_workshop_fixture() -> FactionWorld {
         let mut world = FactionWorld::prototype_island();
         world.install_preview_factions().unwrap();
@@ -6359,7 +6608,7 @@ mod tests {
         let captain = "character.protagonist.captain";
         world.positions.insert(
             captain.into(),
-            world.foothold_cache.as_ref().unwrap().position,
+            world.salvage_caches["salvage.wreck"].position,
         );
         world.salvage_foothold().unwrap();
         let entrance = IslandPoint { x: 19, y: 17 };
@@ -6593,7 +6842,7 @@ mod tests {
         let entrance = IslandPoint { x: 19, y: 17 };
         world.positions.insert(
             captain.into(),
-            world.foothold_cache.as_ref().unwrap().position,
+            world.salvage_caches["salvage.wreck"].position,
         );
         world.salvage_foothold().unwrap();
         world.positions.insert(captain.into(), entrance);
@@ -6963,7 +7212,7 @@ mod tests {
         let unchanged = world.clone();
         assert!(world.salvage_foothold().is_err());
         assert_eq!(world, unchanged);
-        let cache = world.foothold_cache.as_ref().unwrap().position;
+        let cache = world.salvage_caches["salvage.wreck"].position;
         assert!(world.move_island_party(cache));
         for _ in 0..40 {
             world.advance_island_tick();
@@ -7061,11 +7310,11 @@ mod tests {
         legacy["world"]
             .as_object_mut()
             .unwrap()
-            .remove("foothold_cache");
+            .remove("salvage_caches");
         assert!(FactionWorld::load_json(&legacy.to_string())
             .unwrap()
-            .foothold_cache
-            .is_none());
+            .salvage_caches
+            .is_empty());
         assert!(world.move_island_party(IslandPoint { x: 24, y: 18 }));
         for _ in 0..12 {
             world.advance_island_tick();

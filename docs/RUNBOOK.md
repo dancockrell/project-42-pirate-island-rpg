@@ -53,7 +53,11 @@ Move Michael onto clear ground northwest of his starting point, then choose
 **Build workshop here**. He must remain nearby while construction advances;
 Space pauses the work along with the island. The finished workshop enables
 **Restore companion** when an inspected undead woman belongs to Michael and
-both she and Michael are close to it. The salvage supply is finite. These
+both she and Michael are close to it. **Build mechanical dog** assembles a paid
+escort without using a companion slot; **Repair workshop** spends salvage on
+nearby repair work. Destroyed completed holdings leave finite salvage piles.
+Walk Michael to a pile and use **Recover salvage**; its nearby button shows
+the amount available. Higher-tier holdings yield more. These
 development prices and construction time are provisional, not final balance.
 
 For a bounded low-resource check without opening an editor or visible window:

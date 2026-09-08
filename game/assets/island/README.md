@@ -509,6 +509,39 @@ remain shared; the original thin-bow candidate is not the runtime selection.
 
 ## Michael's first foothold
 
+### Salvage left by faction losses
+
+The opening wreck and destroyed-building materials share one saved collection
+of finite salvage caches. Completed faction holdings leave materials at their
+cleared entrance when actual combat destroys them. Michael must physically
+approach a pile and use the existing recovery command; nothing is credited
+automatically to him or to the victor. The button shows the nearest collectible
+pile's exact amount, and collected piles disappear from the scene while their
+depleted records remain saved. Reloading cannot refill either kind of cache.
+
+Provisional yields are authored in `content/island/holding_salvage.json`: four
+base salvage plus four per completed building level, so level one yields eight
+and level five yields twenty-four. Unfinished foundations yield nothing.
+Michael's completed workshop returns only four salvage against its twelve-salvage
+construction cost. Losing and rebuilding the same site creates separately
+identified destruction events, not a reusable infinite pickup.
+
+The existing shared tied-bale art represents recoverable materials, not a new
+ruin-building model. Nearby labels show amounts; all cache positions come from
+the simulation. Faction elimination remains permanent. This creates a supply
+from actual changing island state, not unlimited regeneration or a completed
+mining, salvage-worker and industrial logistics economy.
+
+Actual island observation (`island_campaign_review.gd`, `ticks=1024 salvage`):
+the level-three elven heart grove fell at tick 924 and left sixteen salvage at
+[15,24]. Michael walked within reach and recovered it at tick 933; the marker
+disappeared, and save/load retained sixteen in the treasury and zero in the
+cache. Without touching the initial wreck supply, he reached the cleared site,
+started his workshop at tick 935, ordered a dog at tick 975 using his last four
+salvage, and produced it at tick 999. At tick 1020 he was back at [20,18] with
+his dog at [19,18]. Both save/load checks passed. This is actual scene-command
+and simulation evidence; no rendered visual or animation approval is implied.
+
 ### First mechanical unit
 
 The completed field workshop can assemble a mechanical dog through its existing
@@ -527,7 +560,8 @@ human identity, romance, madness conversion or midnight undead resurrection.
 An unreachable dog must not prevent the human party from moving. Machine theft,
 fuel/water logistics, repair of damaged machines and other machine types remain
 unfinished. The opening cache can fund the workshop and two dogs, or fewer dogs
-with salvage reserved for repairs/restoration; renewable salvage remains needed.
+with salvage reserved for repairs/restoration. Destroyed completed holdings now
+supply additional salvage as described above; resource extraction remains needed.
 
 Standing art is shared `pirate-island/mechanical-dog-01/extracted/cell_00_00.png`,
 SHA256 `48b1867de2f0a09ef7c5e6cf11bb2fddb80f7a062cc34d61a1bd0ed4242e7253`.

@@ -226,10 +226,18 @@ impl Project42SimulationBridge {
         }
         let salvage = world.factions.get("faction.michael")
             .and_then(|f| f.resources.get("resource.salvage")).copied().unwrap_or(0);
-        let cache = world.foothold_cache.as_ref().map(|c| {
-            vdict! { "x" => c.position.x, "y" => c.position.y, "remaining" => c.remaining }
-        }).unwrap_or_default();
-        let mut snapshot = vdict! { "tick" => world.tick as i64, "day" => world.day() as i64, "minute_of_day" => world.minute_of_day(), "paused" => world.paused, "actors" => &actors, "buildings" => &buildings, "land" => &land, "casualties" => world.casualties.len() as i64, "party" => &party, "party_names" => &party_names, "approach_target" => world.approach_target.as_deref().unwrap_or(""), "salvage" => salvage, "foothold_cache" => &cache };
+        let mut salvage_caches = VarArray::new();
+        let nearby_salvage = world.nearby_salvage_id();
+        for (id, cache) in &world.salvage_caches {
+            salvage_caches.push(&vdict! {
+                "id" => id.as_str(), "x" => cache.position.x, "y" => cache.position.y,
+                "remaining" => cache.remaining, "label" => cache.label.as_str(),
+                "source_building" => cache.source_building_id.as_str(),
+                "source_faction" => cache.source_faction.as_str(), "level" => cache.level,
+                "collectible" => nearby_salvage == Some(id.as_str())
+            }.to_variant());
+        }
+        let mut snapshot = vdict! { "tick" => world.tick as i64, "day" => world.day() as i64, "minute_of_day" => world.minute_of_day(), "paused" => world.paused, "actors" => &actors, "buildings" => &buildings, "land" => &land, "casualties" => world.casualties.len() as i64, "party" => &party, "party_names" => &party_names, "approach_target" => world.approach_target.as_deref().unwrap_or(""), "salvage" => salvage, "salvage_caches" => &salvage_caches };
         snapshot.set("workshop_repair_cost", world.foothold_repair_cost());
         let (machine_cost, machine_ticks, machine_capacity) = world.machine_foothold_costs();
         snapshot.set("machine_cost", machine_cost);

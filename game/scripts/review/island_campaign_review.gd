@@ -4,6 +4,7 @@ extends SceneTree
 # Optional `talk` drives actual Approach/Talk controls to a produced adult man.
 # Optional `reclaim` instead seeks a living madness-converted woman and joins her.
 # Optional `workshop` drives salvage, travel, workshop construction and a machine order.
+# Optional `salvage` walks to a real AI-destroyed holding and recovers its materials.
 # Headless output is simulation evidence, never a rendered art approval.
 func _initialize() -> void:
 	call_deferred("run")
@@ -28,12 +29,19 @@ func run() -> void:
 	var conversation_complete := false
 	var demonstrate_workshop := false
 	var workshop_stage := 0
+	var workshop_destination := Vector2i(19,17)
 	var machine_seen := false
+	var demonstrate_salvage := false
+	var seen_caches := {}
+	var salvage_target := ""
+	var salvage_complete := false
 	for argument in OS.get_cmdline_user_args():
 		if argument == "talk":
 			demonstrate_talk = true
 		if argument == "workshop":
 			demonstrate_workshop = true
+		if argument == "salvage":
+			demonstrate_salvage = true
 		if argument == "reclaim":
 			demonstrate_talk = true
 			reclaim_converted = true
@@ -41,16 +49,41 @@ func run() -> void:
 			steps = clampi(argument.trim_prefix("ticks=").to_int(), 1, 2880)
 	for step in range(steps + 1):
 		var state: Dictionary = scene.port.island_snapshot()
+		for cache in state.get("salvage_caches", []):
+			if not seen_caches.has(cache.id):
+				seen_caches[cache.id] = true
+				print("ISLAND salvage appeared step=", step, " cache=", cache)
+			if demonstrate_salvage and not salvage_complete and int(cache.level) > 0 and int(cache.remaining) > 0:
+				if salvage_target.is_empty():
+					var destination := Vector2i(cache.x,cache.y)
+					if scene.port.move_island_party(destination):
+						salvage_target = cache.id
+						print("ISLAND salvage approach step=", step, " cache=", cache.id)
+				if cache.id == salvage_target and cache.collectible:
+					scene.refresh_snapshot()
+					var before := int(scene.snapshot.salvage)
+					scene.salvage_action()
+					print("ISLAND salvage collected step=", step, " cache=", cache.id, " gained=", int(scene.snapshot.salvage)-before, " notice=", scene.save_notice, " marker_removed=", not scene.salvage_markers.has(cache.id))
+					var payload: String = scene.port.save_island()
+					print("ISLAND salvage saved and loaded=", scene.port.load_island(payload))
+					scene.refresh_snapshot()
+					print("ISLAND salvage after reload treasury=", scene.snapshot.salvage, " cache=", scene.snapshot.salvage_caches.filter(func(c): return c.id == salvage_target))
+					salvage_complete = true
+					# Reinvest the recovered materials through the same workshop controls.
+					workshop_destination = Vector2i(cache.x,cache.y)
+					demonstrate_workshop = true
+					workshop_stage = 1
+					scene.port.move_island_party(workshop_destination)
 		if demonstrate_workshop:
 			scene.refresh_snapshot()
 			if workshop_stage == 0:
 				scene.salvage_action()
 				print("ISLAND workshop salvage=", scene.snapshot.salvage, " notice=", scene.save_notice)
-				scene.port.move_island_party(Vector2i(19,17))
+				scene.port.move_island_party(workshop_destination)
 				workshop_stage = 1
 			elif workshop_stage == 1:
 				for person in state.actors:
-					if person.id == scene.MICHAEL and person.x == 19 and person.y == 17:
+					if person.id == scene.MICHAEL and person.x == workshop_destination.x and person.y == workshop_destination.y:
 						scene.workshop_action()
 						print("ISLAND workshop construction step=", step, " notice=", scene.save_notice)
 						workshop_stage = 2
@@ -158,6 +191,8 @@ func run() -> void:
 		print("ISLAND conversation not reached in this bounded run")
 	if demonstrate_workshop and not machine_seen:
 		print("ISLAND workshop machine not reached in this bounded run")
+	if demonstrate_salvage and not salvage_complete:
+		print("ISLAND ruined holding salvage not reached in this bounded run")
 	scene.queue_free()
 	await process_frame
 	quit()

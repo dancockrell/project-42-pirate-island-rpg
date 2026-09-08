@@ -53,7 +53,8 @@ var workshop_button := Button.new()
 var restore_button := Button.new()
 var repair_button := Button.new()
 var machine_button := Button.new()
-var salvage_marker := Sprite2D.new()
+var salvage_markers := {}
+var salvage_texture: Texture2D
 
 func salvage_action() -> void:
 	var error: String = port.salvage_island_foothold()
@@ -86,12 +87,16 @@ func machine_action() -> void:
 func refresh_foothold_controls() -> void:
 	var treasury := int(snapshot.get("salvage", 0))
 	var michael_alive: bool = snapshot.actors.any(func(entry): return entry.id == MICHAEL)
-	var cache: Dictionary = snapshot.get("foothold_cache", {})
-	salvage_marker.visible = not cache.is_empty() and int(cache.get("remaining", 0)) > 0
-	if salvage_marker.visible:
-		salvage_marker.position = (Vector2(cache.x, cache.y) + Vector2.ONE * 0.5) * cell_size
-		salvage_marker.z_index = int(cache.y) - 1
-	salvage_button.disabled = not michael_alive or not salvage_marker.visible
+	refresh_salvage_markers()
+	salvage_button.text = "Recover salvage"
+	salvage_button.disabled = true
+	salvage_button.tooltip_text = "Move Michael beside a salvage pile to recover its materials."
+	for cache in snapshot.get("salvage_caches", []):
+		if cache.get("collectible", false):
+			salvage_button.text = "Recover %d salvage" % int(cache.remaining)
+			salvage_button.tooltip_text = str(cache.label)
+			salvage_button.disabled = not michael_alive
+			break
 	workshop_button.text = "Build workshop here · %d salvage" % int(snapshot.get("workshop_cost", 0))
 	workshop_button.disabled = not michael_alive or not snapshot.has("workshop_cost") or treasury < int(snapshot.get("workshop_cost", 0))
 	restore_button.text = "Restore companion · %d salvage" % int(snapshot.get("restoration_cost", 0))
@@ -119,6 +124,42 @@ func refresh_foothold_controls() -> void:
 		repair_button.text = "Repairing workshop" if repairing else "Repair workshop · %d salvage" % int(snapshot.get("workshop_repair_cost", 0))
 		repair_button.disabled = repairing or not michael_alive or not building.operational or int(building.get("development_remaining", 0)) > 0 or int(building.health) >= int(building.max_health) or not snapshot.has("workshop_repair_cost") or treasury < int(snapshot.get("workshop_repair_cost", 0))
 		repair_button.tooltip_text = "Keep Michael beside the workshop while he repairs it."
+
+func refresh_salvage_markers() -> void:
+	var present := {}
+	for cache in snapshot.get("salvage_caches", []):
+		if int(cache.remaining) <= 0:
+			continue
+		present[cache.id] = true
+		if not salvage_markers.has(cache.id):
+			var marker := Sprite2D.new()
+			marker.texture = salvage_texture
+			marker.centered = false
+			marker.offset = -Vector2(252, 304)
+			marker.scale = Vector2.ONE * (30.0 / 505.0)
+			marker.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			map_root.add_child(marker)
+			var caption := Label.new()
+			caption.name = "Caption"
+			caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			caption.add_theme_font_size_override("font_size", 12)
+			caption.add_theme_color_override("font_shadow_color", Color.BLACK)
+			caption.add_theme_constant_override("shadow_offset_x", 1)
+			caption.add_theme_constant_override("shadow_offset_y", 1)
+			marker.add_child(caption)
+			salvage_markers[cache.id] = marker
+		var marker: Sprite2D = salvage_markers[cache.id]
+		marker.position = (Vector2(cache.x, cache.y) + Vector2.ONE * 0.5) * cell_size
+		marker.z_index = int(cache.y) - 1
+		var caption: Label = marker.get_node("Caption")
+		caption.scale = Vector2.ONE / marker.scale.x
+		caption.position = Vector2(-25, -36) / marker.scale.x
+		caption.text = "%d salvage" % int(cache.remaining)
+		caption.visible = actor.visible and actor.position.distance_to(marker.position) <= cell_size * 4
+	for id in salvage_markers.keys():
+		if not present.has(id):
+			salvage_markers[id].queue_free()
+			salvage_markers.erase(id)
 
 func clear_hit_effects() -> void:
 	for effect in hit_effects:
@@ -306,12 +347,7 @@ func _ready() -> void:
 	restore_button.pressed.connect(restore_action)
 	repair_button.pressed.connect(repair_action)
 	machine_button.pressed.connect(machine_action)
-	salvage_marker.texture = ImageTexture.create_from_image(Image.load_from_file("res://assets/island/salvage_bale.png"))
-	salvage_marker.centered = false
-	salvage_marker.offset = -Vector2(252, 304)
-	salvage_marker.scale = Vector2.ONE * (30.0 / 505.0)
-	salvage_marker.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	map_root.add_child(salvage_marker)
+	salvage_texture = ImageTexture.create_from_image(Image.load_from_file("res://assets/island/salvage_bale.png"))
 	inspection.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	inspection.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inspection.visible = false
