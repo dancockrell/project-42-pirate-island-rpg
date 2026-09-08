@@ -41,6 +41,35 @@ orders. Dead slots retain the person's identity and do not issue movement.
 Membership, permanent attachment, discussion and slots persist through saves.
 Midnight undead conversion and restoration are still unimplemented.
 
+## Pirate waterfront
+
+New campaigns place the pirate tide quay at cell [34,22], entrance [1104,720]
+on the southeast cove's western edge. The existing shared tide-quay-01 cutout
+is copied unchanged as tide_quay.png: SHA256
+f9bc0ea135cc5a03959c7478a51103b3e6901830cec482e830088536b14be2d7.
+buildings.json owns its 150-pixel display width, [360,805] stair pivot,
+provisional collision offsets and exact coastal entrance. The same manifest
+feeds native placement/collision and faction-specific Godot presentation.
+The landing projects southeast into the cove; roof overlap with background
+palms is not a claim that their ground footprints overlap.
+
+Five narrow centerline corrections repair the overly conservative land mask:
+[30,17] and [30,18] reconnect the otherwise isolated southeast region, then
+[33,23], [34,23] and [34,22] approach the dock from the south. These are not
+permission to walk throughout the inlet. [33,22] remains excluded because of a
+palm near its center. The originally considered northern beach approach was
+rejected because its supposedly connected starting cell was itself isolated.
+The southern approach stays open in the provisional footprint. Grounding,
+canopy occlusion, foot-radius clearance and the coarse
+collision approximation still need actual rendered review; this is development
+integration, not final art acceptance or a general procedural shoreline solver.
+
+Old saves matching the exact previous mask receive only those five land
+cells. Their actors and holdings do not move. A legacy inland pirate holding
+does not receive the coastal sprite or an invented quay footprint; future map
+or settlement migration is a separate decision. Unrelated map changes remain
+rejected. Raw source, alpha correction and extraction evidence remain shared.
+
 ## Character presentation boundary
 
 troops/appearances.json owns existing texture, pivot and scale by unit definition
@@ -165,4 +194,4 @@ and final island scale remain unfinished.
 Checks:
 Godot headless tests/island_scene_test.gd passes actual scene load, native position
 projection, terrain rejection, travel and pause. The separate native bridge test
-and all 57 Rust tests pass. Headless success does not prove rendered visual quality.
+and Rust suite are tracked in the current task claims. Headless success does not prove rendered visual quality.

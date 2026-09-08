@@ -30,9 +30,16 @@ impl Project42SimulationBridge {
     }
     #[func]
     fn install_preview_factions(&mut self) -> bool {
-        self.island
-            .as_mut()
-            .is_some_and(|world| world.install_preview_factions().is_ok())
+        let Some(world) = self.island.as_mut() else {
+            return false;
+        };
+        match world.install_preview_factions() {
+            Ok(()) => true,
+            Err(reason) => {
+                godot_error!("Island placement failed: {reason}");
+                false
+            }
+        }
     }
     #[func]
     fn save_island(&self) -> GString {
@@ -46,19 +53,42 @@ impl Project42SimulationBridge {
 
     #[func]
     fn load_island(&mut self, payload: GString) -> bool {
-        let Ok(world) = FactionWorld::load_json(&payload.to_string()) else {
+        let Ok(mut world) = FactionWorld::load_json(&payload.to_string()) else {
             return false;
         };
         let Some(current) = self.island.as_ref() else {
             return false;
         };
-        if world.navigation.walkable != current.navigation.walkable
-            || !world
-                .positions
+        if world.navigation.walkable != current.navigation.walkable {
+            // One exact additive map correction, not arbitrary save-map coercion.
+            // Old island positions and buildings remain where they really were.
+            #[derive(serde::Deserialize)]
+            struct LandRevision {
+                #[serde(rename = "landCorrections")]
+                corrections: Vec<[i32; 2]>,
+            }
+            let Ok(revision) = serde_json::from_str::<LandRevision>(include_str!(
+                "../../game/assets/island/navigation.json"
+            )) else {
+                return false;
+            };
+            let mut legacy = current.navigation.walkable.clone();
+            for [x, y] in revision.corrections {
+                if !legacy.remove(&IslandPoint { x, y }) {
+                    return false;
+                }
+            }
+            if world.navigation.walkable != legacy {
+                return false;
+            }
+            world.navigation.walkable = current.navigation.walkable.clone();
+        }
+        if !world
+            .positions
+            .contains_key("character.protagonist.captain")
+            && !world
+                .casualties
                 .contains_key("character.protagonist.captain")
-                && !world
-                    .casualties
-                    .contains_key("character.protagonist.captain")
         {
             return false;
         }

@@ -5,5 +5,16 @@
     "source_width": 1125,
     "display_width": 150,
     "blocked_offsets": [[-2, -1], [-1, -1], [0, -1], [-2, 0], [-1, 0]]
+  },
+  "site_archetype.pirates.tide_quay": {
+    "texture": "res://assets/island/tide_quay.png",
+    "pivot": [360,805],
+    "source_width": 1166,
+    "display_width": 150,
+    "coastal_entrance": [34,22],
+    "blocked_offsets": [[-1,-2],[-1,-1],[1,-1],[1,0],[2,0]],
+    "status": "development-coastal-placement",
+    "source": "procedural/sprites/candidates/pirate-island/tide-quay-01/extracted/cell_00_00.png",
+    "sha256": "f9bc0ea135cc5a03959c7478a51103b3e6901830cec482e830088536b14be2d7"
   }
 }

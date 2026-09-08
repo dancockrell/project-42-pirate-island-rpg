@@ -134,16 +134,19 @@ func run() -> void:
 	assert(scene.hud_panel.size.x <= scene.get_viewport_rect().size.x)
 	print("PASS: visible pause/save/load actions share native campaign state and preserve test-only files")
 	assert(scene.snapshot.buildings.size() == 3)
-	assert(scene.building_sprites.size() == 1)
+	assert(scene.building_sprites.size() == 2)
 	for building in scene.snapshot.buildings:
 		assert(building.operational)
 		assert(building.queued == 0)
-		if building.archetype == "site_archetype.colonial.watch_fort":
+		if scene.building_art.has(building.archetype):
 			assert(scene.request_move(Vector2i(building.x, building.y)))
 			for offset in scene.building_art[building.archetype].blocked_offsets:
 				assert(not scene.request_move(Vector2i(building.x + offset[0], building.y + offset[1])))
 			assert(scene.building_sprites[building.id].position == (Vector2(building.x,building.y) + Vector2.ONE * 0.5) * 32)
 			assert(scene.building_sprites[building.id].texture.get_image().detect_alpha() == Image.ALPHA_BIT)
+			if building.archetype == "site_archetype.pirates.tide_quay":
+				assert(Vector2i(building.x,building.y) == Vector2i(34,22))
+				assert(scene.building_sprites[building.id].texture == scene.building_textures["res://assets/island/tide_quay.png"])
 	assert(scene.troop_textures.size() == 4)
 	for texture in scene.troop_textures.values():
 		assert(texture.get_image().detect_alpha() == Image.ALPHA_BIT)
@@ -250,6 +253,7 @@ func run() -> void:
 	assert(scene.inspected_id == inspected_unit.id and scene.inspected_person == inspected_unit)
 	print("PASS: Shift-click inspects native identities without movement, selection survives snapshot and save restoration")
 	# Building projection is restored from state, including removal and operation.
+	var building_count_before: int = scene.building_sprites.size()
 	var saved: Dictionary = save_integers(JSON.parse_string(payload))
 	var colonial: Dictionary = saved.world.factions["faction.colonial_powers.prototype"]
 	var fort_id: String = colonial.buildings.keys()[0]
@@ -262,10 +266,11 @@ func run() -> void:
 	saved.world.navigation.building_obstacles.erase(fort_id)
 	assert(scene.port.load_island(JSON.stringify(saved)))
 	scene.refresh_snapshot()
-	assert(scene.building_sprites.is_empty())
+	assert(not scene.building_sprites.has(fort_id))
+	assert(scene.building_sprites.size() == building_count_before - 1)
 	assert(scene.port.load_island(payload))
 	scene.refresh_snapshot()
-	assert(scene.building_sprites.size() == 1)
+	assert(scene.building_sprites.size() == building_count_before)
 	print("PASS: native building positions, transparent fort, operating state and removal/load projection")
 	print("PASS: native strike events project one effect per hit at recorded target positions; pause preserves effects")
 	print("PASS: autonomous skirmish casualties, capped survivors, removed dead sprites, roster preserved through load")
@@ -328,6 +333,9 @@ func run() -> void:
 		quit(1)
 		return
 	if not check_fresh_recruitment(scene, fresh_campaign):
+		quit(1)
+		return
+	if not check_coastal_save_upgrade(scene, fresh_campaign):
 		quit(1)
 		return
 	print("PASS: island scene suite complete")
@@ -504,4 +512,30 @@ func check_fresh_recruitment(scene: Node, fresh_campaign: String) -> bool:
 	assert(scene.inspected_person.faction == "faction.michael")
 	assert(scene.party_heading.text.contains("1/4 living"))
 	print("PASS: untouched campaign produces a woman; Approach walks to her through the live war; talk/recruit/assign and return to start without fixture edits")
+	return true
+
+func check_coastal_save_upgrade(scene: Node, fresh_campaign: String) -> bool:
+	assert(scene.port.load_island(fresh_campaign))
+	var legacy: Dictionary = save_integers(JSON.parse_string(fresh_campaign))
+	var corrections: Array = [[30,17],[30,18],[33,23],[34,23],[34,22]]
+	legacy.world.navigation.walkable = legacy.world.navigation.walkable.filter(func(point): return not corrections.has([int(point.x),int(point.y)]))
+	var holding := "preview.faction.pirates.prototype.holding"
+	var quay := "preview.faction.pirates.prototype.producer"
+	legacy.world.navigation.destinations[holding] = {"x":35,"y":14}
+	legacy.world.navigation.building_obstacles.erase(quay)
+	assert(scene.port.load_island(JSON.stringify(legacy)))
+	scene.refresh_snapshot()
+	assert(not scene.building_sprites.has(quay)) # no inland waterfront sprite
+	var migrated: Dictionary = save_integers(JSON.parse_string(scene.port.save_island()))
+	assert(migrated.world.navigation.destinations[holding] == {"x":35,"y":14})
+	assert(migrated.world.navigation.walkable.size() == legacy.world.navigation.walkable.size() + corrections.size())
+	assert(migrated.world.positions == legacy.world.positions)
+	var preserved: String = scene.port.save_island()
+	legacy.world.navigation.walkable.pop_back() # unrelated map change is not this upgrade
+	assert(not scene.port.load_island(JSON.stringify(legacy)))
+	assert(scene.port.save_island() == preserved)
+	assert(scene.port.load_island(fresh_campaign))
+	scene.refresh_snapshot()
+	assert(scene.building_sprites.has(quay))
+	print("PASS: coastal quay uses its own art/footprint; exact beach-mask upgrade preserves legacy inland holdings and rejects unrelated maps")
 	return true

@@ -1,6 +1,18 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
+#[derive(Deserialize)]
+struct IslandBuildingFootprint {
+    blocked_offsets: Vec<[i32; 2]>,
+    #[serde(default)]
+    coastal_entrance: Option<[i32; 2]>,
+}
+
+fn island_building_footprints() -> Result<BTreeMap<String, IslandBuildingFootprint>, String> {
+    serde_json::from_str(include_str!("../../game/assets/island/buildings.json"))
+        .map_err(|_| "invalid_building_contract".into())
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeathMemory {
     pub killed_by_player_count: u32,
@@ -995,6 +1007,7 @@ impl FactionWorld {
             return Err("scenario_already_started".into());
         }
         let mut staged = self.clone();
+        let footprints = island_building_footprints()?;
         let objective = *staged
             .positions
             .get("character.protagonist.captain")
@@ -1023,6 +1036,11 @@ impl FactionWorld {
         for (id, preferred, source) in entries {
             let rule: ProductionRule =
                 serde_json::from_str(source).map_err(|_| "invalid_authored_production")?;
+            let coastal = footprints
+                .get(&rule.producer_archetype_id)
+                .and_then(|footprint| footprint.coastal_entrance)
+                .map(|[x, y]| IslandPoint { x, y });
+            let preferred = coastal.unwrap_or(preferred);
             let spawn = staged
                 .navigation
                 .walkable
@@ -1034,6 +1052,11 @@ impl FactionWorld {
                 })
                 .copied()
                 .ok_or("no_connected_spawn")?;
+            // A shoreline asset may not slide inland to satisfy a nearest-cell
+            // search. Its reviewed entrance must be reachable exactly.
+            if coastal.is_some() && spawn != preferred {
+                return Err("coastal_entrance_unreachable".into());
+            }
             let building_id = format!("preview.{id}.producer");
             let spawn_id = format!("preview.{id}.holding");
             staged
@@ -1145,13 +1168,7 @@ impl FactionWorld {
         &self,
     ) -> Result<BTreeMap<String, BTreeSet<IslandPoint>>, String> {
         // New scenarios and old-save migration share the same asset contract.
-        #[derive(Deserialize)]
-        struct Footprint {
-            blocked_offsets: Vec<[i32; 2]>,
-        }
-        let footprints: BTreeMap<String, Footprint> =
-            serde_json::from_str(include_str!("../../game/assets/island/buildings.json"))
-                .map_err(|_| "invalid_building_contract")?;
+        let footprints = island_building_footprints()?;
         let mut obstacles = BTreeMap::new();
         for faction in self.factions.values() {
             for building in faction.buildings.values() {
@@ -1161,6 +1178,14 @@ impl FactionWorld {
                         .destinations
                         .get(&building.node_id)
                         .ok_or("missing_building_entrance")?;
+                    // Historical saves keep their real inland holding. Do not
+                    // add a coastal building's collision volume at that site.
+                    if footprint
+                        .coastal_entrance
+                        .is_some_and(|[x, y]| *entrance != (IslandPoint { x, y }))
+                    {
+                        continue;
+                    }
                     let cells: BTreeSet<_> = footprint
                         .blocked_offsets
                         .iter()

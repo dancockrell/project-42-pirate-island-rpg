@@ -44,7 +44,7 @@ var troop_textures := {}
 var troop_art: Dictionary
 var missing_appearance_count := 0
 var building_sprites := {}
-var fort_texture: Texture2D
+var building_textures := {}
 var building_art: Dictionary
 var hit_effects: Array[Line2D] = []
 var last_strikes: Array = []
@@ -125,8 +125,15 @@ func _ready() -> void:
 	for point in data.landPolygon:
 		polygon.append(Vector2(point[0], point[1]))
 	var cells: Array[Vector2i] = []
+	var land_corrections := {}
+	for point in data.get("landCorrections", []):
+		land_corrections[Vector2i(point[0], point[1])] = true
 	for y in range(int(data.size[1]) / cell_size):
 		for x in range(int(data.size[0]) / cell_size):
+			# Reviewed beach points correct only the conservative mask, not water.
+			if land_corrections.has(Vector2i(x,y)):
+				cells.append(Vector2i(x,y))
+				continue
 			var center := Vector2(x + 0.5, y + 0.5) * cell_size
 			if not Geometry2D.is_point_in_polygon(center, polygon):
 				continue
@@ -140,9 +147,13 @@ func _ready() -> void:
 	assert(port.configure_island_land(cells, Vector2i(data.start[0],data.start[1])))
 	assert(port.install_preview_factions())
 	building_art = JSON.parse_string(FileAccess.get_file_as_string("res://assets/island/buildings.json"))
-	var fort_image := Image.load_from_file(building_art["site_archetype.colonial.watch_fort"].texture)
-	assert(fort_image != null and fort_image.detect_alpha() == Image.ALPHA_BIT)
-	fort_texture = ImageTexture.create_from_image(fort_image)
+	for definition in building_art.values():
+		var building_image := Image.load_from_file(definition.texture)
+		assert(building_image != null and building_image.detect_alpha() == Image.ALPHA_BIT)
+		assert(building_image.get_width() == int(definition.source_width))
+		if definition.has("sha256"):
+			assert(FileAccess.get_sha256(definition.texture) == definition.sha256)
+		building_textures[definition.texture] = ImageTexture.create_from_image(building_image)
 	troop_art = JSON.parse_string(FileAccess.get_file_as_string("res://assets/island/troops/appearances.json"))
 	for definition in troop_art.values():
 		for appearance in definition.variants.values():
@@ -378,25 +389,29 @@ func refresh_snapshot() -> void:
 	refresh_inspection()
 	var visible_buildings := {}
 	for building in snapshot.buildings:
-		# Other archetypes await their own art, never substitute a colonial fort.
-		if building.archetype != "site_archetype.colonial.watch_fort":
+		# A faction uses its own admitted/development asset, never another's fort.
+		var art: Dictionary = building_art.get(building.archetype, {})
+		if art.is_empty():
+			continue
+		# Coastal art is currently anchored to a reviewed authored site. Preserve
+		# older inland saves without falsely drawing a waterfront over their land.
+		var coastal_entrance: Array = art.get("coastal_entrance", [])
+		if not coastal_entrance.is_empty() and Vector2i(building.x, building.y) != Vector2i(coastal_entrance[0], coastal_entrance[1]):
 			continue
 		visible_buildings[building.id] = true
 		if not building_sprites.has(building.id):
-			var fort := Sprite2D.new()
-			fort.texture = fort_texture
-			fort.centered = false
-			# Door apron is the native producer/rally anchor.
-			var art: Dictionary = building_art[building.archetype]
-			fort.offset = -Vector2(art.pivot[0], art.pivot[1])
-			fort.scale = Vector2.ONE * (float(art.display_width) / float(art.source_width))
-			fort.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-			map_root.add_child(fort)
-			building_sprites[building.id] = fort
-		var fort: Sprite2D = building_sprites[building.id]
-		fort.position = (Vector2(building.x, building.y) + Vector2.ONE * 0.5) * cell_size
-		fort.z_index = int(building.y) - 1
-		fort.modulate = Color.WHITE if building.operational else Color(0.55, 0.55, 0.55)
+			var structure := Sprite2D.new()
+			structure.centered = false
+			structure.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			map_root.add_child(structure)
+			building_sprites[building.id] = structure
+		var structure: Sprite2D = building_sprites[building.id]
+		structure.texture = building_textures[art.texture]
+		structure.offset = -Vector2(art.pivot[0], art.pivot[1])
+		structure.scale = Vector2.ONE * (float(art.display_width) / float(art.source_width))
+		structure.position = (Vector2(building.x, building.y) + Vector2.ONE * 0.5) * cell_size
+		structure.z_index = int(building.y) - 1
+		structure.modulate = Color.WHITE if building.operational else Color(0.55, 0.55, 0.55)
 	for id in building_sprites.keys():
 		if not visible_buildings.has(id):
 			building_sprites[id].queue_free()
