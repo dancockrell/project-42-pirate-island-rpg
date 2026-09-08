@@ -599,11 +599,12 @@ func refresh_inspection() -> void:
 	var offer: String = inspected_person.get("recruitment_offer", "")
 	var michael_alive: bool = snapshot.actors.any(func(entry): return entry.id == MICHAEL)
 	var potential: bool = michael_alive and live and inspected_person.get("sex", "") == "female" and inspected_person.get("faction", "") != "faction.michael" and not offer.is_empty()
-	talk_button.visible = potential
-	approach_button.visible = potential
+	var companion: bool = michael_alive and live and inspected_person.get("faction", "") == "faction.michael" and inspected_person.get("loyal_to_michael", false)
+	talk_button.visible = potential or companion
+	approach_button.visible = potential or companion
 	approach_button.disabled = snapshot.get("approach_target", "") == inspected_id
 	recruit_button.visible = potential and inspected_person.get("discussed", false)
-	conversation_actions.visible = potential
+	conversation_actions.visible = potential or companion
 	conversation_status.text = conversation_notice
 	var approaching: String = snapshot.get("approach_target", "")
 	if not approaching.is_empty():
@@ -624,8 +625,9 @@ func refresh_inspection() -> void:
 	# A missing live actor can mean death or departure; do not invent which.
 	var state_text := faction_text if live else "Dead or departed · Last seen: " + faction_text
 	inspection.text = "%s · %s\n%s\nShift-click empty land to close." % [name_text, state_text, inspected_person.get("biography", "")]
-	if live and inspected_person.get("discussed", false) and not offer.is_empty():
-		inspection.text += "\n“%s”" % offer
+	var dialogue: String = inspected_person.get("dialogue", "")
+	if live and not dialogue.is_empty():
+		inspection.text += "\n“%s”" % dialogue
 
 func _process(delta: float) -> void:
 	if not ready_ok or paused:

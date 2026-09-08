@@ -79,7 +79,12 @@
         "She can mend a sail and hold a narrow gangway. After another missing share of the prize money, she has decided her next captain will answer questions.",
         "She joined the quay crew for honest shares of dishonest work. She has kept the accounts, and the numbers have stopped adding up."
       ],
-      "recruitment_offer": "A fair share, and a captain who keeps his word. If that's your crew, Michael, I'll join it."
+      "recruitment_offer": "A fair share, and a captain who keeps his word. If that's your crew, Michael, I'll join it.",
+      "companion_responses": [
+        "Your crew now, Captain. Give me a sound rope and a straight answer and we'll get along beautifully. Here—your knot's slipping. Let me.",
+        "I used to mend their sails and hold their gangway. They still thought they could short my share. You listened when I spoke, Michael. Don't stop now that I'm here.",
+        "I've kept my old accounts. Leaving that crew doesn't make their sums add up. But today I'd rather walk beside you than spend another hour counting what they owe me."
+      ]
     }
   ],
   "actor_def.cthulhu.drowned_cultist": [

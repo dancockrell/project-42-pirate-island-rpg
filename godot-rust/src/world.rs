@@ -38,6 +38,8 @@ pub struct NamedPerson {
     #[serde(default)]
     pub recruitment_offer: String,
     #[serde(default)]
+    pub companion_response: String,
+    #[serde(default)]
     pub discussed: bool,
     #[serde(default)]
     pub loyal_to_michael: bool,
@@ -64,6 +66,8 @@ struct PersonaPool {
     histories: Vec<String>,
     #[serde(default)]
     recruitment_offer: String,
+    #[serde(default)]
+    companion_responses: Vec<String>,
 }
 
 fn produced_person(definition: &str, id: &str, serial: u64) -> Option<NamedPerson> {
@@ -95,6 +99,11 @@ fn produced_person(definition: &str, id: &str, serial: u64) -> Option<NamedPerso
         backstory: pick(&pool.histories, 37),
         generation_seed: Some(format!("{seed:016x}")),
         recruitment_offer: pool.recruitment_offer.clone(),
+        companion_response: if pool.companion_responses.is_empty() {
+            String::new()
+        } else {
+            pick(&pool.companion_responses, 37)
+        },
         ..Default::default()
     })
 }
@@ -108,6 +117,7 @@ impl NamedPerson {
             && !self.display_name.chars().any(char::is_control)
             && self.backstory.len() <= 4096
             && self.recruitment_offer.len() <= 4096
+            && self.companion_response.len() <= 4096
             && (!self.loyal_to_michael
                 || (self.sex == PersonSex::Female && self.age.is_some_and(|age| age >= 18)))
             && self.age.is_none_or(|age| age >= 18)
@@ -1912,7 +1922,8 @@ impl FactionWorld {
         };
         if person.sex != PersonSex::Female
             || !person.age.is_some_and(|age| age >= 18)
-            || person.recruitment_offer.trim().is_empty()
+            || (person.recruitment_offer.trim().is_empty()
+                && !(self.actors[id].faction_id == "faction.michael" && person.loyal_to_michael))
         {
             return false;
         }
@@ -1938,7 +1949,27 @@ impl FactionWorld {
         }
         let person = self.actors.get_mut(id).unwrap().person.as_mut().unwrap();
         person.discussed = true;
-        person.recruitment_offer.clone()
+        self.island_person_dialogue(id)
+    }
+
+    /// Authored speech follows current allegiance, never the old recruitment
+    /// offer. Older saves without companion prose get a neutral acknowledgement.
+    pub fn island_person_dialogue(&self, id: &str) -> String {
+        let Some(person) = self.living_person(id) else {
+            return String::new();
+        };
+        if !person.discussed {
+            return String::new();
+        }
+        if self.actors[id].faction_id == "faction.michael" && person.loyal_to_michael {
+            if person.companion_response.is_empty() {
+                "I'm with you, Michael.".into()
+            } else {
+                person.companion_response.clone()
+            }
+        } else {
+            person.recruitment_offer.clone()
+        }
     }
 
     pub fn can_talk_island_person(&self, id: &str) -> bool {
@@ -3512,6 +3543,15 @@ mod tests {
         assert!(pools.values().all(|variants| !variants.is_empty()));
         for pool in pools.values().flatten() {
             assert!(pool.age_min >= 18 && pool.age_min <= pool.age_max);
+            assert!(
+                pool.companion_responses.is_empty()
+                    || pool.companion_responses.len() == pool.histories.len()
+            );
+            assert!(
+                pool.companion_responses
+                    .iter()
+                    .all(|line| !line.trim().is_empty() && line.len() <= 4096)
+            );
             for values in [&pool.given_names, &pool.family_names, &pool.histories] {
                 assert!(!values.is_empty());
                 assert!(values.iter().all(|v| !v.trim().is_empty()));
@@ -4071,6 +4111,13 @@ mod tests {
                 actor_before.person.unwrap().display_name
             );
             assert!(world.actors[id].person.as_ref().unwrap().loyal_to_michael);
+            let companion_line = world.talk_island_person(id);
+            assert!(!companion_line.is_empty());
+            assert_eq!(companion_line, world.island_person_dialogue(id));
+            assert_ne!(
+                companion_line,
+                world.actors[id].person.as_ref().unwrap().recruitment_offer
+            );
             assert!(!world.travel_orders.contains_key(id));
             assert!(
                 !world

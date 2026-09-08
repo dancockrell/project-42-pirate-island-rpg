@@ -167,6 +167,7 @@ impl Project42SimulationBridge {
                     "discussed" => person.is_some_and(|p| p.discussed),
                     "loyal_to_michael" => person.is_some_and(|p| p.loyal_to_michael),
                     "recruitment_offer" => person.map(|p| p.recruitment_offer.as_str()).unwrap_or(""),
+                    "dialogue" => world.island_person_dialogue(id),
                     "age" => person.and_then(|p| p.age).map(i64::from).unwrap_or(-1),
                     "health" => world.unit_combat.get(id).map(|v| v.health).unwrap_or(0),
                     "max_health" => world.combat_profiles.get(&world.actors[id].definition_id).map(|v| v.health).unwrap_or(0),

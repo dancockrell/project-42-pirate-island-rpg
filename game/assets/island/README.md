@@ -216,6 +216,14 @@ Nearby developing buildings show a small progress bar. Level-specific building
 art, repair, unlocked vendor prerequisites, loot scaling and construction of new
 sites remain unfinished; the progress bar is not approved construction art.
 
+After recruitment, adult pirate women retain Talk and Approach. Their current
+speech acknowledges joining Michael instead of repeating the recruitment offer.
+Three authored companion responses are paired with the three existing histories
+using the same seed selection; the selected response is saved on the person.
+Older saves without this field use a neutral acknowledgement, not an invented
+past. Dismissing a party slot does not remove conversation or faction loyalty.
+This is post-join dialogue, not a completed romance quest or relationship system.
+
 Checks:
 Godot headless tests/island_scene_test.gd passes actual scene load, native position
 projection, terrain rejection, travel and pause. The separate native bridge test
