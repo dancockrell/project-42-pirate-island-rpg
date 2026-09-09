@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "task_id": "scenario-resources",
+  "agent": "claude-code (lane resources)",
+  "summary": "The resource catalogue and the authored faction economy; a resource key is declared, checked and capped rather than invented",
+  "status": "active",
+  "claimed_at": "2026-09-09T12:10:00Z",
+  "updated_at": "2026-09-09T12:10:00Z",
+  "paths": [
+    "content/scenarios/pirate_island/scenario.json",
+    "content/scenarios/pirate_island/resources.json",
+    "content/scenarios/pirate_island/factions/",
+    "content/schemas/scenario.json",
+    "tools/src/validate.mjs",
+    "tools/src/scaffold-scenario.mjs",
+    "game/generated/scenarios/scenario.pirate_island.json",
+    "godot-rust/src/world.rs",
+    "godot-rust/src/godot_bridge.rs",
+    "game/scripts/world/island_scene.gd",
+    "docs/SCENARIO_PACKS.md"
+  ],
+  "symbols": [
+    "ScenarioResource",
+    "ResourceCatalogue",
+    "ScenarioFactionEconomy",
+    "FactionWorld::gain_resource",
+    "FactionWorld::spend_resources"
+  ],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": ["scenario-items"],
+    "notes": "Contract: docs/SCENARIO_PACKS.md, 'Reserved: resources'. from_scenario invents every faction's economy today (world.rs:2760-2786: starting stock = costs x 2, income_per_tick = 1, storage_caps = 20); this lane moves those into the pack so a second scenario can have a different economy. Shares three files with scenario-items (the manifest, validate.mjs and the ScenarioDefinition reserved-key refusal): each lane lifts only its own reserved key and appends its own validator block, and the integrator reconciles. Does not touch inventories, ProducedActor or any item type."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
