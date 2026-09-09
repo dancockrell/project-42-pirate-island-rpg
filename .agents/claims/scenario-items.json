@@ -3,9 +3,9 @@
   "task_id": "scenario-items",
   "agent": "claude-code (lane items)",
   "summary": "Items as authored records with a per-actor inventory the simulation owns; effects are a closed set the world already implements",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-09T12:10:00Z",
-  "updated_at": "2026-09-09T18:40:00Z",
+  "updated_at": "2026-09-09T19:30:00Z",
   "paths": [
     "content/scenarios/pirate_island/scenario.json",
     "content/scenarios/pirate_island/items.json",
@@ -35,8 +35,29 @@
     "notes": "Contract: docs/SCENARIO_PACKS.md, now the implemented 'Items' section. Lifted only the `items` reserved-key refusal in ScenarioDefinition::from_document and the matching one in validate.mjs; `resources`, `triggers` and `quests` keep theirs, and scenario-resources lifts `resources` in parallel. Did not touch FactionState.resources as a type, FactionPolicy, storage caps as owned data, from_scenario's economy or island_scene.gd. An item whose effect grants a resource names the key as a plain string and clamps through the existing FactionPolicy.storage_caps read the tick's income already uses; the resources lane's catalogue check adopts the key at integration. The manifest's `items` key is `[]` or a path to the pack's catalogue, embedded like buildings and personas; scenario-resources can mirror the shape for `resources`."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "523b369",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml: passed (100 passed, 0 failed; includes scenario_world_equals_the_deleted_hard_coded_island and version_one_save_migrates_into_its_scenario_and_plays_identically)",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs: passed (146 stable IDs, 1 scenario pack)",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/: passed (regenerated scenario document committed; a second build produced no further diff)",
+      "python3 tools/test_sprite_source.py: passed (12 tests)",
+      "bash tools/build-native-bridge.sh debug: passed",
+      "GODOT=... bash tools/verify-godot.sh 60: passed ('Current 2D Godot verification passed', 0 ERROR lines in the full log)"
+    ],
+    "bites": [
+      {
+        "broke": "Emptied content/scenarios/pirate_island/items.json so the catalogue no longer defines the captain's signature weapon.",
+        "failed": "node tools/src/validate.mjs failed with 2 issues, naming the character and the missing weapon: 'scenario.pirate_island start.captainId character.protagonist.captain declares signatureWeaponId weapon.captain.handsome_jack_steam_carbine, which this scenario's item catalogue does not define'.",
+        "restored": "validate.mjs green again; items.json byte-identical to its pre-bite content."
+      },
+      {
+        "broke": "Replaced grant_item's `unknown_item` refusal with a silent default record, so an item no catalogue entry defines would be accepted.",
+        "failed": "world::tests::grant_item_refuses_an_unknown_actor_or_an_undefined_item_by_name FAILED (1 passed, 1 failed).",
+        "restored": "git checkout of world.rs; both grant_item_refuses_an_unknown_actor_or_an_undefined_item_by_name and a_saved_inventory_that_does_not_resolve_is_refused pass."
+      }
+    ]
   },
   "defects_found": [
     {
