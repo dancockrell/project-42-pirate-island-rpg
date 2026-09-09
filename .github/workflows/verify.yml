@@ -1,0 +1,132 @@
+name: Verify
+
+# The repository's CI. Two independent jobs: rust-and-content covers the checks
+# that need no game engine (the Rust simulation crate and the content tooling),
+# and godot-suites downloads a pinned Godot, builds the Rust GDExtension and
+# runs tools/verify-godot.sh against the real bridge. They run in parallel.
+#
+# Proposed changes run once through their pull request; main is re-verified on
+# push. The workflow can also be started by hand from the Actions tab.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Pinned exactly. An unpinned engine download would make this gate trust
+  # whatever the release page serves on the day it runs.
+  GODOT_VERSION: 4.7.2-stable
+  GODOT_ASSET: Godot_v4.7.2-stable_linux.x86_64.zip
+  # SHA-512 because the Godot release publishes exactly one checksum manifest
+  # for its binaries, SHA512-SUMS.txt; this literal is that file's line for the
+  # asset above in the 4.7.2-stable release of godotengine/godot-builds.
+  GODOT_SHA512: 9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65
+
+jobs:
+  rust-and-content:
+    name: Rust and content
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install the Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Cache the Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: godot-rust
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path godot-rust/Cargo.toml -- --check
+
+      - name: Run the Rust test suite
+        run: cargo test --manifest-path godot-rust/Cargo.toml
+
+      - name: Check the Godot extension build
+        run: cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext
+
+      - name: Validate content
+        run: node tools/src/validate.mjs
+
+      - name: Rebuild the content bundle
+        run: node tools/src/build-content-bundle.mjs
+
+      # A committed bundle that no longer matches content/ fails the build.
+      - name: Fail if the committed bundle is stale
+        run: git diff --exit-code game/generated/
+
+      - name: Check the sprite source manifests
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 tools/test_sprite_source.py
+
+      - name: Self-test the secret scanner
+        run: node tools/src/scan-staged-secrets.mjs --self-test
+
+  godot-suites:
+    name: Godot headless suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install the Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache the Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: godot-rust
+
+      - name: Download the pinned Godot
+        run: |
+          set -euo pipefail
+          curl -sSL --fail -o godot.zip \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/${GODOT_ASSET}"
+          echo "${GODOT_SHA512}  godot.zip" | sha512sum --check --strict
+          mkdir -p .local-tools/godot-4.7.2
+          unzip -q godot.zip -d .local-tools/godot-4.7.2
+          chmod +x .local-tools/godot-4.7.2/Godot_v4.7.2-stable_linux.x86_64
+          .local-tools/godot-4.7.2/Godot_v4.7.2-stable_linux.x86_64 --version
+
+      - name: Build the native bridge
+        run: bash tools/build-native-bridge.sh debug
+
+      # The .gdextension names this exact file. A missing library makes the
+      # scene fall back to nothing (release refuses the mock), so assert it.
+      - name: Assert the library the extension declares exists
+        run: test -f game/bin/linux/project42_sim.linux.template_debug.x86_64.so
+
+      - name: Run the Godot headless gate
+        run: bash tools/verify-godot.sh 60 | tee godot-gate.log
+
+      # The gate's suites print these only past a live-bridge path; their
+      # absence would mean a mock or a skipped suite passed for the real thing.
+      - name: Prove the real bridge loaded
+        run: |
+          grep -Fq "PASS: island scene suite complete" godot-gate.log
+          ! grep -Eq "MockSimulationPort|mock simulation" godot-gate.log
+
+      - name: Keep the gate log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-gate-${{ github.sha }}
+          path: godot-gate.log
+          retention-days: 7

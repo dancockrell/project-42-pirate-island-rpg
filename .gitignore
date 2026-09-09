@@ -17,3 +17,7 @@ work/__pycache__/
 *.zip
 .git-empty-backup-*/
 .gh-auth/
+
+# Native bridge builds for platforms this repository does not ship prebuilt; built by tools/build-native-bridge.sh.
+game/bin/linux/
+game/bin/macos/

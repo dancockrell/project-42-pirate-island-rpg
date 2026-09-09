@@ -53,4 +53,6 @@ npm install
 npm run validate
 ```
 
-Godot 4.7.2 stable is installed as an ignored local tool under `.local-tools/`. Run `tools/verify-godot.ps1` to parse, instantiate and advance the main scene headlessly. The executable is not committed; pass `-GodotExecutable` to use another official Godot 4 build.
+On Linux or macOS use the shell twins: `tools/build-native-bridge.sh debug` and `tools/verify-godot.sh`.
+
+Godot 4.7.2 stable is installed as an ignored local tool under `.local-tools/`. Run `tools/verify-godot.ps1` (or `tools/verify-godot.sh`) to run the bounded headless suites against the real bridge. The executable is not committed; pass `-GodotExecutable` (or set `GODOT`) to use another official Godot 4 build. The same gate runs in GitHub Actions on every pull request.

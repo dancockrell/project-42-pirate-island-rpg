@@ -4889,9 +4889,11 @@ mod tests {
             })
             .collect();
         assert_eq!(monsters.len(), 3);
-        assert!(monsters
-            .iter()
-            .all(|monster| monster.behavior_tags[1] == "individual-threat"));
+        assert!(
+            monsters
+                .iter()
+                .all(|monster| monster.behavior_tags[1] == "individual-threat")
+        );
     }
 
     #[test]
@@ -5060,9 +5062,11 @@ mod tests {
         assert_eq!(world, frozen);
         world.paused = false;
         let first = world.advance_island_tick();
-        assert!(first
-            .iter()
-            .any(|event| matches!(event, FactionWorldEvent::ActorMoved { .. })));
+        assert!(
+            first
+                .iter()
+                .any(|event| matches!(event, FactionWorldEvent::ActorMoved { .. }))
+        );
         assert_eq!(world.positions[&actor_id], IslandPoint { x: 1, y: 1 });
         assert_eq!(world.actors[&actor_id].node_id, "network_node.river_fork");
         for _ in 0..3 {
@@ -5142,12 +5146,13 @@ mod tests {
             .len(),
             2
         );
-        assert!(nav
-            .path(
+        assert!(
+            nav.path(
                 IslandPoint { x: 0, y: 0 },
                 IslandPoint { x: i32::MAX, y: 1 }
             )
-            .is_none());
+            .is_none()
+        );
     }
 
     #[test]
@@ -5307,9 +5312,11 @@ mod tests {
         faction.population_used = faction.population_capacity;
         faction.resources.insert("resource.iron".into(), 20);
         restored.advance_faction_decisions();
-        assert!(restored.factions[faction_id].buildings[building_id]
-            .development
-            .is_none());
+        assert!(
+            restored.factions[faction_id].buildings[building_id]
+                .development
+                .is_none()
+        );
         let building = restored
             .factions
             .get_mut(faction_id)
@@ -5320,13 +5327,15 @@ mod tests {
         building.health = building.max_health;
         building.level = 5;
         restored.advance_faction_decisions();
-        assert!(restored.factions[faction_id].buildings[building_id]
-            .development
-            .is_none());
+        assert!(
+            restored.factions[faction_id].buildings[building_id]
+                .development
+                .is_none()
+        );
         let mut invalid: serde_json::Value =
             serde_json::from_str(&world.save_json().unwrap()).unwrap();
-        invalid["world"]["factions"][faction_id]["buildings"][building_id]["development"]
-            ["reserved_costs"]["resource.iron"] = 1.into();
+        invalid["world"]["factions"][faction_id]["buildings"][building_id]["development"]["reserved_costs"]
+            ["resource.iron"] = 1.into();
         assert!(FactionWorld::load_json(&invalid.to_string()).is_err());
         world.eliminate_faction(faction_id).unwrap();
         for _ in 0..10 {
@@ -5363,24 +5372,34 @@ mod tests {
         for _ in 0..40 {
             history.extend(world.advance_island_tick());
         }
-        assert!(history
-            .iter()
-            .any(|e| matches!(e, FactionWorldEvent::ProductionQueued { .. })));
-        assert!(history
-            .iter()
-            .any(|e| matches!(e, FactionWorldEvent::ActorProduced { .. })));
-        assert!(history
-            .iter()
-            .any(|e| matches!(e, FactionWorldEvent::ActorAssigned { .. })));
+        assert!(
+            history
+                .iter()
+                .any(|e| matches!(e, FactionWorldEvent::ProductionQueued { .. }))
+        );
+        assert!(
+            history
+                .iter()
+                .any(|e| matches!(e, FactionWorldEvent::ActorProduced { .. }))
+        );
+        assert!(
+            history
+                .iter()
+                .any(|e| matches!(e, FactionWorldEvent::ActorAssigned { .. }))
+        );
         assert_eq!(world.actors.len(), 4); // population cap, not unlimited spawning
-        assert!(world
-            .actors
-            .values()
-            .all(|a| a.node_id == "network_node.smuggler_cove"));
-        assert!(world.factions["faction.colonial_powers.prototype"]
-            .resources
-            .values()
-            .all(|amount| *amount <= 10));
+        assert!(
+            world
+                .actors
+                .values()
+                .all(|a| a.node_id == "network_node.smuggler_cove")
+        );
+        assert!(
+            world.factions["faction.colonial_powers.prototype"]
+                .resources
+                .values()
+                .all(|amount| *amount <= 10)
+        );
         world.paused = true;
         let frozen = world.clone();
         world.advance_island_tick();
@@ -5403,9 +5422,11 @@ mod tests {
         assert!(restored.actors.is_empty());
         assert!(restored.policies.is_empty());
         assert!(restored.travel_orders.is_empty());
-        assert!(restored.factions["faction.colonial_powers.prototype"]
-            .buildings
-            .is_empty());
+        assert!(
+            restored.factions["faction.colonial_powers.prototype"]
+                .buildings
+                .is_empty()
+        );
         assert!(matches!(
             restored.enqueue_production(
                 "faction.colonial_powers.prototype",
@@ -5496,12 +5517,16 @@ mod tests {
         for _ in 0..100 {
             history.extend(world.advance_island_tick());
         }
-        assert!(history
-            .iter()
-            .any(|e| matches!(e, FactionWorldEvent::UnitStruck { .. })));
-        assert!(history
-            .iter()
-            .any(|e| matches!(e, FactionWorldEvent::UnitFallen { .. })));
+        assert!(
+            history
+                .iter()
+                .any(|e| matches!(e, FactionWorldEvent::UnitStruck { .. }))
+        );
+        assert!(
+            history
+                .iter()
+                .any(|e| matches!(e, FactionWorldEvent::UnitFallen { .. }))
+        );
         assert!(!world.casualties.is_empty());
         assert!(world.actors.contains_key("character.protagonist.captain"));
         for id in world.casualties.keys() {
@@ -5683,16 +5708,20 @@ mod tests {
         assert!(!world.aim_carbine("missing"));
         assert!(world.aim_carbine(&target));
         let hp = world.unit_combat[&target].health;
-        assert!(world
-            .order_move(captain, IslandPoint { x: -100, y: -100 })
-            .is_err());
+        assert!(
+            world
+                .order_move(captain, IslandPoint { x: -100, y: -100 })
+                .is_err()
+        );
         assert_eq!(world.player_attack_target.as_deref(), Some(target.as_str()));
         world.order_move(captain, position).unwrap();
         assert!(world.player_attack_target.is_none());
         assert!(world.aim_carbine(&target));
-        assert!(!world
-            .hostilities
-            .contains(&("faction.pirates.prototype".into(), "faction.michael".into())));
+        assert!(
+            !world
+                .hostilities
+                .contains(&("faction.pirates.prototype".into(), "faction.michael".into()))
+        );
         world.paused = true;
         assert!(world.advance_island_tick().is_empty());
         assert_eq!(world.unit_combat[&target].health, hp);
@@ -5704,9 +5733,11 @@ mod tests {
         let events = world.advance_island_tick();
         assert!(events.iter().any(|event| matches!(event, FactionWorldEvent::UnitStruck {attacker_id, target_id, ..} if attacker_id == captain && target_id == &target)));
         assert!(world.player_attack_target.is_none());
-        assert!(world
-            .hostilities
-            .contains(&("faction.pirates.prototype".into(), "faction.michael".into())));
+        assert!(
+            world
+                .hostilities
+                .contains(&("faction.pirates.prototype".into(), "faction.michael".into()))
+        );
         assert!(world.aim_carbine(&target));
         let events = world.advance_island_tick();
         assert!(!events.iter().any(|event| matches!(event, FactionWorldEvent::UnitStruck {attacker_id, ..} if attacker_id == captain)));
@@ -5723,10 +5754,11 @@ mod tests {
                 pool.companion_responses.is_empty()
                     || pool.companion_responses.len() == pool.histories.len()
             );
-            assert!(pool
-                .companion_responses
-                .iter()
-                .all(|line| !line.trim().is_empty() && line.len() <= 4096));
+            assert!(
+                pool.companion_responses
+                    .iter()
+                    .all(|line| !line.trim().is_empty() && line.len() <= 4096)
+            );
             for values in [&pool.given_names, &pool.family_names, &pool.histories] {
                 assert!(!values.is_empty());
                 assert!(values.iter().all(|v| !v.trim().is_empty()));
@@ -5817,9 +5849,11 @@ mod tests {
         assert!(!events.iter().any(|e| matches!(e, FactionWorldEvent::UnitStruck { attacker_id, .. } if attacker_id == captain)));
         assert_eq!(world.unit_combat[&target].health, hp);
         assert!(world.player_attack_target.is_none());
-        assert!(!world
-            .hostilities
-            .contains(&("faction.michael".into(), "faction.michael".into())));
+        assert!(
+            !world
+                .hostilities
+                .contains(&("faction.michael".into(), "faction.michael".into()))
+        );
         world.actors.get_mut(&target).unwrap().faction_id = "faction.pirates.prototype".into();
         assert!(world.island_firing_target(captain).is_none());
     }
@@ -5876,14 +5910,18 @@ mod tests {
         assert!(saw_elimination);
         assert_ne!(world.positions[&pirate], before);
         assert!(world.island_siege_target(&pirate).is_none());
-        assert!(world.factions["faction.colonial_powers.prototype"]
-            .buildings
-            .is_empty());
+        assert!(
+            world.factions["faction.colonial_powers.prototype"]
+                .buildings
+                .is_empty()
+        );
         assert!(!world.navigation.building_obstacles.contains_key(&fort_id));
         let restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
-        assert!(restored
-            .eliminated_factions
-            .contains("faction.colonial_powers.prototype"));
+        assert!(
+            restored
+                .eliminated_factions
+                .contains("faction.colonial_powers.prototype")
+        );
     }
 
     #[test]
@@ -6044,20 +6082,24 @@ mod tests {
                 .iter()
                 .find(|a| a.person.as_ref().unwrap().sex == PersonSex::Female)
                 .expect("ordinary production includes female units");
-            assert!(produced
-                .iter()
-                .all(|actor| !actor.undead && actor.person.as_ref().unwrap().alive_today));
+            assert!(
+                produced
+                    .iter()
+                    .all(|actor| !actor.undead && actor.person.as_ref().unwrap().alive_today)
+            );
             let id = female.instance_id.clone();
             let original = (*female).clone();
             let profile = world.combat_profiles[definition].clone();
             let male_id = male.instance_id.clone();
             assert!((18..=20).contains(&original.person.as_ref().unwrap().age.unwrap()));
-            assert!(!original
-                .person
-                .as_ref()
-                .unwrap()
-                .recruitment_offer
-                .is_empty());
+            assert!(
+                !original
+                    .person
+                    .as_ref()
+                    .unwrap()
+                    .recruitment_offer
+                    .is_empty()
+            );
             assert_eq!(male.definition_id, original.definition_id);
             assert_eq!(
                 world.unit_combat[&male_id].health,
@@ -6163,12 +6205,16 @@ mod tests {
             .filter(|a| a.faction_id == elves)
             .collect();
         assert_eq!(wardens.len(), 3);
-        assert!(wardens
-            .iter()
-            .all(|a| a.definition_id == definition && a.actor_kind == "soldier"));
-        assert!(wardens
-            .iter()
-            .any(|a| world.positions[&a.instance_id] != home));
+        assert!(
+            wardens
+                .iter()
+                .all(|a| a.definition_id == definition && a.actor_kind == "soldier")
+        );
+        assert!(
+            wardens
+                .iter()
+                .any(|a| world.positions[&a.instance_id] != home)
+        );
         let woman = wardens
             .iter()
             .find(|a| {
@@ -6314,12 +6360,16 @@ mod tests {
         let colonial = "faction.colonial_powers.prototype";
         let pirates = "faction.pirates.prototype";
         let cthulhu = "faction.cthulhu.prototype";
-        assert!(world
-            .hostilities
-            .contains(&(colonial.into(), "faction.elves.prototype".into())));
-        assert!(!world
-            .hostilities
-            .contains(&(pirates.into(), cthulhu.into())));
+        assert!(
+            world
+                .hostilities
+                .contains(&(colonial.into(), "faction.elves.prototype".into()))
+        );
+        assert!(
+            !world
+                .hostilities
+                .contains(&(pirates.into(), cthulhu.into()))
+        );
         assert!(!world.hostilities.contains(&(
             colonial.into(),
             "faction.eastern_fox_people.prototype".into()
@@ -6336,15 +6386,21 @@ mod tests {
             .damage = 100;
         world.tick = 32;
         world.advance_island_tick();
-        assert!(world
-            .hostilities
-            .contains(&(pirates.into(), cthulhu.into())));
-        assert!(!world
-            .hostilities
-            .contains(&(colonial.into(), pirates.into())));
-        assert!(!world
-            .hostilities
-            .contains(&(pirates.into(), colonial.into())));
+        assert!(
+            world
+                .hostilities
+                .contains(&(pirates.into(), cthulhu.into()))
+        );
+        assert!(
+            !world
+                .hostilities
+                .contains(&(colonial.into(), pirates.into()))
+        );
+        assert!(
+            !world
+                .hostilities
+                .contains(&(pirates.into(), colonial.into()))
+        );
         let treaty = world
             .survival_truces
             .iter()
@@ -6352,10 +6408,12 @@ mod tests {
             .unwrap()
             .clone();
         assert_eq!(treaty.expires_tick, 224);
-        assert!(world
-            .hostilities
-            .iter()
-            .all(|(a, b)| a != "faction.michael" && b != "faction.michael"));
+        assert!(
+            world
+                .hostilities
+                .iter()
+                .all(|(a, b)| a != "faction.michael" && b != "faction.michael")
+        );
         assert_eq!(
             FactionWorld::load_json(&world.save_json().unwrap()).unwrap(),
             world
@@ -6378,10 +6436,12 @@ mod tests {
         );
         world.tick = 224;
         world.advance_island_tick();
-        assert!(world
-            .survival_truces
-            .iter()
-            .any(|t| t.a == colonial && t.b == pirates && t.expires_tick == 416));
+        assert!(
+            world
+                .survival_truces
+                .iter()
+                .any(|t| t.a == colonial && t.b == pirates && t.expires_tick == 416)
+        );
         world
             .combat_profiles
             .get_mut("actor_def.cthulhu.drowned_cultist")
@@ -6389,9 +6449,11 @@ mod tests {
             .damage = 0;
         world.tick = 416;
         world.advance_island_tick();
-        assert!(world
-            .hostilities
-            .contains(&(colonial.into(), pirates.into())));
+        assert!(
+            world
+                .hostilities
+                .contains(&(colonial.into(), pirates.into()))
+        );
         // Approach an actual generated adult male; talking never makes him a recruit.
         world.hostilities.clear();
         world.policies.clear();
@@ -6519,9 +6581,11 @@ mod tests {
             .find(|(id, _)| id.as_str() != "salvage.wreck")
             .map(|(id, c)| (id.clone(), c.clone()))
             .expect("real siege produced ruined holding salvage");
-        assert!(!world.factions[&cache.source_faction]
-            .buildings
-            .contains_key(&cache.source_building_id));
+        assert!(
+            !world.factions[&cache.source_faction]
+                .buildings
+                .contains_key(&cache.source_building_id)
+        );
         assert_eq!(cache.initial_amount, 4 + 4 * cache.level);
         let before = world.factions["faction.michael"].resources["resource.salvage"];
         assert_eq!(before, 20); // Destruction never credits Michael remotely.
@@ -7110,9 +7174,10 @@ mod tests {
             ids.iter().all(|id| world.positions[id] == siege),
             "siegers hold until recall cadence"
         );
-        assert!(ids
-            .iter()
-            .all(|id| world.actors[id].current_assignment_id.as_deref() != Some(&defense)));
+        assert!(
+            ids.iter()
+                .all(|id| world.actors[id].current_assignment_id.as_deref() != Some(&defense))
+        );
         let events = world.advance_island_tick();
         let defenders: Vec<_> = ids
             .iter()
@@ -7283,9 +7348,11 @@ mod tests {
             assert_eq!(world, restored);
         }
         assert!(world.factions["faction.michael"].buildings[workshop].operational);
-        assert!(world.factions["faction.michael"].buildings[workshop]
-            .construction
-            .is_none());
+        assert!(
+            world.factions["faction.michael"].buildings[workshop]
+                .construction
+                .is_none()
+        );
         assert_eq!(
             world.factions["faction.michael"].buildings[workshop].level,
             1
@@ -7311,10 +7378,12 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("salvage_caches");
-        assert!(FactionWorld::load_json(&legacy.to_string())
-            .unwrap()
-            .salvage_caches
-            .is_empty());
+        assert!(
+            FactionWorld::load_json(&legacy.to_string())
+                .unwrap()
+                .salvage_caches
+                .is_empty()
+        );
         assert!(world.move_island_party(IslandPoint { x: 24, y: 18 }));
         for _ in 0..12 {
             world.advance_island_tick();
@@ -7336,9 +7405,11 @@ mod tests {
             .unwrap()
             .health = 1;
         world.resolve_island_skirmish();
-        assert!(!world.factions["faction.michael"]
-            .buildings
-            .contains_key(workshop));
+        assert!(
+            !world.factions["faction.michael"]
+                .buildings
+                .contains_key(workshop)
+        );
         assert!(world.living_actor(captain) && world.living_actor(woman));
         assert!(!world.eliminated_factions.contains("faction.michael"));
         assert!(!world.navigation.building_obstacles.contains_key(workshop));
@@ -7401,11 +7472,13 @@ mod tests {
         assert!(world.recruit_island_person(&victim));
         assert_eq!(world.actors[&victim].faction_id, "faction.michael");
         assert!(world.actors[&victim].undead); // Allegiance is not biological resurrection.
-        assert!(world
-            .plan_party_move(IslandPoint { x: 9, y: 16 })
-            .unwrap()
-            .iter()
-            .any(|(id, _)| id == &victim));
+        assert!(
+            world
+                .plan_party_move(IslandPoint { x: 9, y: 16 })
+                .unwrap()
+                .iter()
+                .any(|(id, _)| id == &victim)
+        );
         assert!(FactionWorld::load_json(&world.save_json().unwrap()).is_ok());
     }
 
@@ -7656,9 +7729,11 @@ mod tests {
             .insert(ids[0].clone(), IslandPoint { x: 1000, y: 1000 });
         unreachable.advance_island_tick();
         assert!(unreachable.approach_target.is_none());
-        assert!(!unreachable
-            .travel_orders
-            .contains_key("character.protagonist.captain"));
+        assert!(
+            !unreachable
+                .travel_orders
+                .contains_key("character.protagonist.captain")
+        );
         world
             .eliminate_faction("faction.pirates.prototype")
             .unwrap();
@@ -7670,10 +7745,12 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("approach_target");
-        assert!(FactionWorld::load_json(&legacy.to_string())
-            .unwrap()
-            .approach_target
-            .is_none());
+        assert!(
+            FactionWorld::load_json(&legacy.to_string())
+                .unwrap()
+                .approach_target
+                .is_none()
+        );
     }
 
     #[test]
@@ -7708,9 +7785,11 @@ mod tests {
         world.resolve_island_skirmish();
         assert!(world.casualties.contains_key(victim));
         assert!(world.approach_target.is_none());
-        assert!(!world
-            .travel_orders
-            .contains_key("character.protagonist.captain"));
+        assert!(
+            !world
+                .travel_orders
+                .contains_key("character.protagonist.captain")
+        );
         assert!(FactionWorld::load_json(&world.save_json().unwrap()).is_ok());
     }
 
@@ -7776,10 +7855,12 @@ mod tests {
                 world.actors[id].person.as_ref().unwrap().recruitment_offer
             );
             assert!(!world.travel_orders.contains_key(id));
-            assert!(!world
-                .navigation
-                .destinations
-                .contains_key(&format!("move.{id}")));
+            assert!(
+                !world
+                    .navigation
+                    .destinations
+                    .contains_key(&format!("move.{id}"))
+            );
             assert!(world.player_attack_target.is_none());
         }
         assert_eq!(world.actors.len(), count);
@@ -7924,9 +8005,11 @@ mod tests {
             .insert(IslandPoint { x: 1000, y: 1000 });
         let before = world.clone();
         assert!(!world.move_island_party(IslandPoint { x: 12, y: 16 }));
-        assert!(world
-            .party_move_failure(IslandPoint { x: 12, y: 16 })
-            .contains(&world.actors[stranded].person.as_ref().unwrap().display_name));
+        assert!(
+            world
+                .party_move_failure(IslandPoint { x: 12, y: 16 })
+                .contains(&world.actors[stranded].person.as_ref().unwrap().display_name)
+        );
         assert_eq!(world, before);
         world.positions.insert(stranded.clone(), old);
         world
@@ -7998,11 +8081,13 @@ mod tests {
         let mut legacy: serde_json::Value =
             serde_json::from_str(&world.save_json().unwrap()).unwrap();
         legacy["world"].as_object_mut().unwrap().remove("party");
-        assert!(FactionWorld::load_json(&legacy.to_string())
-            .unwrap()
-            .party
-            .iter()
-            .all(String::is_empty));
+        assert!(
+            FactionWorld::load_json(&legacy.to_string())
+                .unwrap()
+                .party
+                .iter()
+                .all(String::is_empty)
+        );
     }
 
     #[test]
@@ -8018,14 +8103,18 @@ mod tests {
         assert!(world.recruit_island_person(&ids[0]));
         assert!(world.assign_island_companion(&ids[0], 0));
         assert!(world.move_island_party(IslandPoint { x: 12, y: 16 }));
-        assert!(world
-            .party_move_failure(IslandPoint { x: 12, y: 16 })
-            .is_empty());
+        assert!(
+            world
+                .party_move_failure(IslandPoint { x: 12, y: 16 })
+                .is_empty()
+        );
         assert!(world.dismiss_island_companion(0));
-        assert!(!world
-            .navigation
-            .destinations
-            .contains_key(&format!("move.{}", ids[0])));
+        assert!(
+            !world
+                .navigation
+                .destinations
+                .contains_key(&format!("move.{}", ids[0]))
+        );
         assert_eq!(world.actors[&ids[0]].current_assignment_id, None);
     }
 

@@ -278,12 +278,17 @@ func run() -> void:
 	scene.refresh_snapshot()
 	assert(scene.building_sprites[fort_id].self_modulate != Color.WHITE)
 	saved.world.policies.erase("faction.colonial_powers.prototype")
+	# Every colonial holding goes, not only the fort: the loader refuses an
+	# obstacle whose building no longer exists, and colonial expansion may have
+	# raised a second holding by now.
+	var removed_count: int = colonial.buildings.size()
+	for removed_id in colonial.buildings.keys():
+		saved.world.navigation.building_obstacles.erase(removed_id)
 	colonial.buildings.clear()
-	saved.world.navigation.building_obstacles.erase(fort_id)
 	assert(scene.port.load_island(JSON.stringify(saved)))
 	scene.refresh_snapshot()
 	assert(not scene.building_sprites.has(fort_id))
-	assert(scene.building_sprites.size() == building_count_before - 1)
+	assert(scene.building_sprites.size() == building_count_before - removed_count)
 	assert(scene.port.load_island(payload))
 	scene.refresh_snapshot()
 	assert(scene.building_sprites.size() == building_count_before)

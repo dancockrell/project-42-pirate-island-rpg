@@ -53,8 +53,15 @@ impl Project42SimulationBridge {
 
     #[func]
     fn load_island(&mut self, payload: GString) -> bool {
-        let Ok(mut world) = FactionWorld::load_json(&payload.to_string()) else {
-            return false;
+        let mut world = match FactionWorld::load_json(&payload.to_string()) {
+            Ok(world) => world,
+            Err(reason) => {
+                // The reason is a stable token from the loader. A rejected save
+                // is a refusal the caller must be able to read, not a silent
+                // false: the scene's own log says why nothing changed.
+                godot_warn!("Island save rejected: {reason}");
+                return false;
+            }
         };
         let Some(current) = self.island.as_ref() else {
             return false;
@@ -224,18 +231,25 @@ impl Project42SimulationBridge {
                 .unwrap_or("");
             party_names.push(&name.to_variant());
         }
-        let salvage = world.factions.get("faction.michael")
-            .and_then(|f| f.resources.get("resource.salvage")).copied().unwrap_or(0);
+        let salvage = world
+            .factions
+            .get("faction.michael")
+            .and_then(|f| f.resources.get("resource.salvage"))
+            .copied()
+            .unwrap_or(0);
         let mut salvage_caches = VarArray::new();
         let nearby_salvage = world.nearby_salvage_id();
         for (id, cache) in &world.salvage_caches {
-            salvage_caches.push(&vdict! {
-                "id" => id.as_str(), "x" => cache.position.x, "y" => cache.position.y,
-                "remaining" => cache.remaining, "label" => cache.label.as_str(),
-                "source_building" => cache.source_building_id.as_str(),
-                "source_faction" => cache.source_faction.as_str(), "level" => cache.level,
-                "collectible" => nearby_salvage == Some(id.as_str())
-            }.to_variant());
+            salvage_caches.push(
+                &vdict! {
+                    "id" => id.as_str(), "x" => cache.position.x, "y" => cache.position.y,
+                    "remaining" => cache.remaining, "label" => cache.label.as_str(),
+                    "source_building" => cache.source_building_id.as_str(),
+                    "source_faction" => cache.source_faction.as_str(), "level" => cache.level,
+                    "collectible" => nearby_salvage == Some(id.as_str())
+                }
+                .to_variant(),
+            );
         }
         let mut snapshot = vdict! { "tick" => world.tick as i64, "day" => world.day() as i64, "minute_of_day" => world.minute_of_day(), "paused" => world.paused, "actors" => &actors, "buildings" => &buildings, "land" => &land, "casualties" => world.casualties.len() as i64, "party" => &party, "party_names" => &party_names, "approach_target" => world.approach_target.as_deref().unwrap_or(""), "salvage" => salvage, "salvage_caches" => &salvage_caches };
         snapshot.set("workshop_repair_cost", world.foothold_repair_cost());
@@ -243,51 +257,93 @@ impl Project42SimulationBridge {
         snapshot.set("machine_cost", machine_cost);
         snapshot.set("machine_ticks", machine_ticks);
         snapshot.set("machine_capacity", machine_capacity);
-        snapshot.set("mechanical_dogs", world.actors.values().filter(|a| a.faction_id == "faction.michael" && a.definition_id == "actor_def.michael.mechanical_dog").count() as i64);
+        snapshot.set(
+            "mechanical_dogs",
+            world
+                .actors
+                .values()
+                .filter(|a| {
+                    a.faction_id == "faction.michael"
+                        && a.definition_id == "actor_def.michael.mechanical_dog"
+                })
+                .count() as i64,
+        );
         match world.foothold_costs() {
             Ok((build, restore, ticks)) => {
                 snapshot.set("workshop_cost", build);
                 snapshot.set("restoration_cost", restore);
                 snapshot.set("workshop_construction_ticks", ticks);
             }
-            Err(error) => { snapshot.set("foothold_error", error.as_str()); }
+            Err(error) => {
+                snapshot.set("foothold_error", error.as_str());
+            }
         }
         snapshot
     }
 
     #[func]
     fn salvage_island_foothold(&mut self) -> GString {
-        self.island.as_mut().ok_or_else(|| "Island is unavailable.".to_owned())
+        self.island
+            .as_mut()
+            .ok_or_else(|| "Island is unavailable.".to_owned())
             .and_then(|world| world.salvage_foothold())
-            .err().unwrap_or_default().as_str().into()
+            .err()
+            .unwrap_or_default()
+            .as_str()
+            .into()
     }
 
     #[func]
     fn build_island_foothold(&mut self, target: Vector2i) -> GString {
-        self.island.as_mut().ok_or_else(|| "Island is unavailable.".to_owned())
-            .and_then(|world| world.build_foothold(IslandPoint { x: target.x, y: target.y }))
-            .err().unwrap_or_default().as_str().into()
+        self.island
+            .as_mut()
+            .ok_or_else(|| "Island is unavailable.".to_owned())
+            .and_then(|world| {
+                world.build_foothold(IslandPoint {
+                    x: target.x,
+                    y: target.y,
+                })
+            })
+            .err()
+            .unwrap_or_default()
+            .as_str()
+            .into()
     }
 
     #[func]
     fn repair_island_foothold(&mut self) -> GString {
-        self.island.as_mut().ok_or_else(|| "Island is unavailable.".to_owned())
+        self.island
+            .as_mut()
+            .ok_or_else(|| "Island is unavailable.".to_owned())
             .and_then(|world| world.repair_foothold())
-            .err().unwrap_or_default().as_str().into()
+            .err()
+            .unwrap_or_default()
+            .as_str()
+            .into()
     }
 
     #[func]
     fn queue_island_foothold_machine(&mut self) -> GString {
-        self.island.as_mut().ok_or_else(|| "Island is unavailable.".to_owned())
+        self.island
+            .as_mut()
+            .ok_or_else(|| "Island is unavailable.".to_owned())
             .and_then(|world| world.queue_foothold_machine())
-            .err().unwrap_or_default().as_str().into()
+            .err()
+            .unwrap_or_default()
+            .as_str()
+            .into()
     }
 
     #[func]
     fn restore_island_foothold_person(&mut self, id: GString) -> GString {
-        self.island.as_mut().ok_or_else(|| "Island is unavailable.".to_owned())
+        self.island
+            .as_mut()
+            .ok_or_else(|| "Island is unavailable.".to_owned())
             .and_then(|world| world.restore_foothold_person(&id.to_string()))
-            .err().unwrap_or_default().as_str().into()
+            .err()
+            .unwrap_or_default()
+            .as_str()
+            .into()
     }
 
     #[func]

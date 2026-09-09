@@ -56,6 +56,10 @@ For a bounded low-resource check without opening an editor or visible window:
 ./tools/verify-godot.ps1
 ```
 
+On Linux or macOS the twin is `tools/verify-godot.sh`; it runs the same suites
+and requires the same completion lines, locating Godot through `$GODOT`,
+`.local-tools/godot-4.7.2/`, or `godot4`/`godot` on `PATH`.
+
 The scene test resolves the configured main scene, then verifies native travel,
 pause, collision, production/combat and persistence. This does not render an art
 approval screenshot. Build the native extension after Rust or embedded building
@@ -93,15 +97,21 @@ Expected screen: four vertical heroine cards on the left; one large active place
 
 ## Native simulation boundary
 
-`Project42SimulationBridge` is the active authoritative simulation when its GDExtension is registered. Build it with `tools/build-native-bridge.ps1`, then run `tools/verify-godot.ps1`; the verifier performs an editor import pass before starting the scene and tests the real bridge through `NativeSimulationPort`.
+`Project42SimulationBridge` is the active authoritative simulation when its GDExtension is registered. Build it with `tools/build-native-bridge.ps1` (Windows) or `tools/build-native-bridge.sh` (Linux/macOS), then run `tools/verify-godot.ps1` or `tools/verify-godot.sh`; the verifier performs an editor import pass before starting the scene and tests the real bridge through `NativeSimulationPort`.
 
 `MockSimulationPort` remains a debug-only presentation fixture for work on machines that cannot build Rust. `BattlePrototype` selects it only when `OS.is_debug_build()` is true and the bridge class is unavailable. A release runtime exits with an error instead of silently running duplicate GDScript rules. See `docs/NATIVE_BRIDGE.md` for the pinned crate/API decision, exported class contract, library locations and acceptance gates.
 
 ## Validate before every commit
 
+Install the repository's pre-commit hook once per clone so the secret scan and
+whitespace check run before every commit: `git config core.hooksPath .githooks`.
+The same checks, the Rust suite, the content validator, the bundle staleness
+check and the Godot headless gate run in GitHub Actions on every pull request
+(`.github/workflows/verify.yml`).
+
 Run `cargo fmt --manifest-path godot-rust/Cargo.toml -- --check`, `cargo test --manifest-path godot-rust/Cargo.toml`, and `node tools/src/validate.mjs`. The content validator rejects missing stable-ID relationships, heroine rosters without exactly seven bond skills, animation records without explicit action beats or safe framing, penned dinosaurs, non-individual prototype monster groups, and encounters that abandon the card-rail/full-body-active presentation contract.
 
-Run `.\tools\verify-godot.ps1` to import and register extensions, instantiate and advance the configured main scene, execute the presentation suites, then submit both rejected and accepted commands through the native bridge. The verifier redirects Godot's per-user directories to task-specific temporary folders and fails on a nonzero engine exit. Its default is the ignored local Godot 4.7.2 stable build; pass `-GodotExecutable` to check another Godot 4 build. A root-certificate-store warning can appear inside a restricted Windows sandbox. The prototype performs no runtime network access, so that warning is not a scene failure.
+Run `.\tools\verify-godot.ps1` (or `bash tools/verify-godot.sh` on Linux/macOS) to import and register extensions, instantiate and advance the configured main scene, execute the presentation suites, then submit both rejected and accepted commands through the native bridge. The verifier redirects Godot's per-user directories to task-specific temporary folders and fails on a nonzero engine exit. Its default is the ignored local Godot 4.7.2 stable build; pass `-GodotExecutable` to check another Godot 4 build. A root-certificate-store warning can appear inside a restricted Windows sandbox. The prototype performs no runtime network access, so that warning is not a scene failure.
 
 After validation, run `npm run build:content` from `tools/` or `node tools/src/build-content-bundle.mjs` from the repository root. Commit `game/generated/content_bundle.json` whenever its source records change. `ContentCatalog` loads only that bundle and returns defensive copies so callers cannot mutate the catalog's authoritative definitions.
 
