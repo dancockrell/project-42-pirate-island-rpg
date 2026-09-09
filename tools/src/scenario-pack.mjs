@@ -11,10 +11,21 @@ export const scenarioDocumentFields = [
   ["personas", manifest => manifest.personas]
 ];
 
+/**
+ * Manifest keys that name a document only when the pack carries one. A pack with
+ * no item catalogue leaves `items` as the contract's empty array, so the key is
+ * a declared path only when its value is a string.
+ * Contract: docs/SCENARIO_PACKS.md, "Items".
+ */
+export const optionalScenarioDocumentFields = [["items", manifest => manifest.items]];
+
 /** Every `<field, declared path>` pair a manifest carries, in a stable order. */
 export function declaredPaths(manifest) {
   const declared = [];
   for (const [field, read] of scenarioDocumentFields) declared.push({ field, path: read(manifest) });
+  for (const [field, read] of optionalScenarioDocumentFields) {
+    if (typeof read(manifest) === "string") declared.push({ field, path: read(manifest) });
+  }
   for (const [index, faction] of (manifest.factions ?? []).entries()) {
     declared.push({ field: `factions[${index}].tuning`, path: faction?.tuning });
     declared.push({ field: `factions[${index}].production`, path: faction?.production });

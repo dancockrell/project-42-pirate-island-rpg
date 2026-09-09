@@ -441,6 +441,10 @@ impl FootholdConfig {
 /// Version 2 added the world's own `ScenarioRules`; version 1 saves migrate by
 /// adopting the rules of the scenario they are resumed into.
 const SAVE_VERSION: u32 = 2;
+/// Provisional per-actor inventory bound; the world refuses a longer one.
+const MAX_ACTOR_INVENTORY: usize = 32;
+/// Provisional bound on how many actors may carry anything at once.
+const MAX_INVENTORY_ENTRIES: usize = 4096;
 
 fn default_building_health() -> u32 {
     80
@@ -700,6 +704,72 @@ fn faction_label(id: &str) -> &str {
     }
 }
 
+/// How many of one item record a single actor may hold.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScenarioItemStack {
+    /// At most one, however many times the item is granted.
+    Unique,
+    /// Up to this many; the bound is authored and capped at load.
+    Stackable(u32),
+}
+
+impl ScenarioItemStack {
+    fn limit(self) -> u32 {
+        match self {
+            Self::Unique => 1,
+            Self::Stackable(max) => max,
+        }
+    }
+    fn valid(self) -> bool {
+        (1..=64).contains(&self.limit())
+    }
+}
+
+/// The closed set of outcomes an item may name. A pack cannot invent an effect:
+/// every variant here is something `FactionWorld` already performs.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ScenarioItemEffect {
+    /// Credited once to the holder's faction when the item is granted. The key
+    /// is a plain string until the resource catalogue contract owns it.
+    GrantResource { resource: String, amount: u32 },
+    /// Raises the holder's own combat numbers for as long as the item is held.
+    CombatBonus {
+        health: u32,
+        damage: u32,
+        range: u32,
+    },
+}
+
+/// One authored item record. Nothing here is executable.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScenarioItem {
+    pub display_name: String,
+    pub stack: ScenarioItemStack,
+    pub effect: ScenarioItemEffect,
+}
+
+impl ScenarioItem {
+    fn valid(&self) -> bool {
+        if self.display_name.trim().is_empty() || !self.stack.valid() {
+            return false;
+        }
+        match &self.effect {
+            ScenarioItemEffect::GrantResource { resource, amount } => {
+                resource.starts_with("resource.") && (1..=100_000).contains(amount)
+            }
+            // A held bonus must not push the resolved range past the cap that
+            // `invalid_saved_combat_profile` enforces on a base profile.
+            ScenarioItemEffect::CombatBonus {
+                health,
+                damage,
+                range,
+            } => *health <= 10_000 && *damage <= 10_000 && *range <= 16,
+        }
+    }
+}
+
 /// Every rule the island tick reads. The world carries it so a save remembers
 /// which scenario's rules it was playing and a pack's rules travel with its save.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -715,6 +785,10 @@ pub struct ScenarioRules {
     pub survival: SurvivalRules,
     pub footprints: BTreeMap<String, IslandBuildingFootprint>,
     pub personas: BTreeMap<String, Vec<PersonaPool>>,
+    /// The scenario's item catalogue, keyed by stable ID. A pack may carry
+    /// none; a save made before items existed loads with an empty catalogue.
+    #[serde(default)]
+    pub items: BTreeMap<String, ScenarioItem>,
 }
 
 impl ScenarioRules {
@@ -728,6 +802,54 @@ impl ScenarioRules {
             && !self.footprints.is_empty()
             && !self.personas.is_empty()
             && !self.repairs.is_empty()
+            && self.items.len() <= 256
+            && self.items.values().all(ScenarioItem::valid)
+    }
+}
+
+/// A manifest's `items` key: the bundle builder embeds the pack's catalogue
+/// document there, or leaves the contract's empty array when it carries none.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
+pub enum ScenarioItems {
+    Records(BTreeMap<String, ScenarioItem>),
+    /// `[]`: this pack has no item catalogue.
+    Absent(Vec<serde_json::Value>),
+}
+
+impl Default for ScenarioItems {
+    fn default() -> Self {
+        Self::Absent(Vec::new())
+    }
+}
+
+impl ScenarioItems {
+    fn valid(&self) -> bool {
+        match self {
+            Self::Records(records) => {
+                !records.is_empty()
+                    && records.len() <= 256
+                    && records.values().all(ScenarioItem::valid)
+                    // The prefix names the domain (docs/ARCHITECTURE.md).
+                    && records.keys().all(|id| {
+                        id.split('.').count() >= 2
+                            && id.split('.').all(|segment| {
+                                !segment.is_empty()
+                                    && segment
+                                        .bytes()
+                                        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+                            })
+                    })
+            }
+            Self::Absent(values) => values.is_empty(),
+        }
+    }
+
+    fn catalogue(&self) -> BTreeMap<String, ScenarioItem> {
+        match self {
+            Self::Records(records) => records.clone(),
+            Self::Absent(_) => BTreeMap::new(),
+        }
     }
 }
 
@@ -747,7 +869,7 @@ pub struct ScenarioDefinition {
     #[serde(default)]
     pub resources: Vec<serde_json::Value>,
     #[serde(default)]
-    pub items: Vec<serde_json::Value>,
+    pub items: ScenarioItems,
     #[serde(default)]
     pub triggers: Vec<serde_json::Value>,
     #[serde(default)]
@@ -832,7 +954,7 @@ impl ScenarioDefinition {
         if definition.schema_version != 1
             || !definition.id.starts_with("scenario.")
             || !definition.resources.is_empty()
-            || !definition.items.is_empty()
+            || !definition.items.valid()
             || !definition.triggers.is_empty()
             || !definition.quests.is_empty()
         {
@@ -862,6 +984,7 @@ impl ScenarioDefinition {
             survival: self.rules.survival.clone(),
             footprints: self.buildings.clone(),
             personas: self.personas.clone(),
+            items: self.items.catalogue(),
         }
     }
 }
@@ -900,6 +1023,12 @@ pub struct FactionWorld {
     pub combat_profiles: BTreeMap<String, IslandCombatProfile>,
     #[serde(default)]
     pub unit_combat: BTreeMap<String, IslandCombatState>,
+    /// What each actor carries, keyed by actor id like every other side table.
+    /// It moves with the person, so recruitment cannot strip her equipment.
+    /// An empty inventory writes nothing, so a world with no items saves
+    /// exactly as it did before items existed.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub inventories: BTreeMap<String, Vec<String>>,
     #[serde(default)]
     pub hostilities: BTreeSet<(String, String)>,
     #[serde(default)]
@@ -1193,9 +1322,8 @@ impl FactionWorld {
         self.actors
             .iter()
             .filter(|(id, a)| a.faction_id == faction && self.living_actor(id))
-            .filter_map(|(id, a)| {
-                self.combat_profiles
-                    .get(&a.definition_id)
+            .filter_map(|(id, _)| {
+                self.actor_combat_profile(id)
                     .filter(|p| p.damage > 0)
                     .map(|p| {
                         u64::from(self.unit_combat[id].health) * 100
@@ -2197,8 +2325,7 @@ impl FactionWorld {
             return Err("Bring Michael and her within reach of the workshop.".into());
         }
         let health = self
-            .combat_profiles
-            .get(&actor.definition_id)
+            .actor_combat_profile(id)
             .ok_or("Her health profile is unavailable.")?
             .health;
         let faction = self.factions.get_mut("faction.michael").unwrap();
@@ -2256,7 +2383,9 @@ impl FactionWorld {
             {
                 continue;
             }
-            let Some(profile) = self.combat_profiles.get(&casualty.actor.definition_id) else {
+            // She keeps what she carried, so her restored health is resolved
+            // against her own inventory, not her definition's bare profile.
+            let Some(profile) = self.actor_combat_profile(&id) else {
                 continue;
             };
             let restored_health = profile.health;
@@ -2339,7 +2468,7 @@ impl FactionWorld {
         let (Some(from), Some(to), Some(profile)) = (
             self.positions.get(CAPTAIN),
             self.positions.get(target),
-            self.combat_profiles.get(CAPTAIN),
+            self.actor_combat_profile(CAPTAIN),
         ) else {
             return false;
         };
@@ -2355,6 +2484,77 @@ impl FactionWorld {
         true
     }
 
+    /// What one actor carries, in the order it was granted.
+    pub fn actor_inventory(&self, actor_id: &str) -> Vec<String> {
+        self.inventories.get(actor_id).cloned().unwrap_or_default()
+    }
+
+    /// Put one catalogue item in one actor's hands. Items reach the world only
+    /// through a declared source; this round that source is a direct grant.
+    /// Triggers become a source of their own under their own contract.
+    pub fn grant_item(&mut self, actor_id: &str, item_id: &str) -> Result<(), String> {
+        if !self.actors.contains_key(actor_id) {
+            return Err("unknown_item_actor".into());
+        }
+        let Some(item) = self.rules.items.get(item_id).cloned() else {
+            return Err("unknown_item".into());
+        };
+        let held = self.inventories.entry(actor_id.to_string()).or_default();
+        if held.len() >= MAX_ACTOR_INVENTORY {
+            return Err("inventory_full".into());
+        }
+        let count = held.iter().filter(|id| *id == item_id).count() as u32;
+        if count >= item.stack.limit() {
+            return Err("item_stack_full".into());
+        }
+        held.push(item_id.to_string());
+        if let ScenarioItemEffect::GrantResource { resource, amount } = &item.effect {
+            // Credited once, through the same clamp the tick's income uses, so
+            // an item cannot put a faction over a storage cap it declares.
+            let faction_id = self.actors[actor_id].faction_id.clone();
+            let cap = self
+                .policies
+                .get(&faction_id)
+                .and_then(|policy| policy.storage_caps.get(resource))
+                .copied();
+            if let Some(faction) = self.factions.get_mut(&faction_id) {
+                let stored = faction.resources.entry(resource.clone()).or_default();
+                *stored = stored.saturating_add(*amount).min(cap.unwrap_or(u32::MAX));
+            }
+        }
+        Ok(())
+    }
+
+    /// One actor's combat numbers: the profile its definition declares, raised
+    /// by every `CombatBonus` it carries. `IslandCombatProfile` is keyed by
+    /// definition, so this resolve-on-read is the per-actor override; it holds
+    /// no second copy of the numbers, so nothing can fall out of step with the
+    /// inventory. An actor carrying nothing resolves to its base profile.
+    pub fn actor_combat_profile(&self, actor_id: &str) -> Option<IslandCombatProfile> {
+        let actor = self
+            .actors
+            .get(actor_id)
+            .or_else(|| self.casualties.get(actor_id).map(|c| &c.actor))?;
+        let mut profile = self.combat_profiles.get(&actor.definition_id)?.clone();
+        for item_id in self.inventories.get(actor_id).into_iter().flatten() {
+            if let Some(ScenarioItem {
+                effect:
+                    ScenarioItemEffect::CombatBonus {
+                        health,
+                        damage,
+                        range,
+                    },
+                ..
+            }) = self.rules.items.get(item_id)
+            {
+                profile.health = profile.health.saturating_add(*health);
+                profile.damage = profile.damage.saturating_add(*damage);
+                profile.range = profile.range.saturating_add(*range);
+            }
+        }
+        Some(profile)
+    }
+
     fn island_firing_target(&self, id: &str) -> Option<&String> {
         if self.actively_repairing(id) {
             return None;
@@ -2364,7 +2564,7 @@ impl FactionWorld {
         if state.health == 0 {
             return None;
         }
-        let profile = self.combat_profiles.get(&actor.definition_id)?;
+        let profile = self.actor_combat_profile(id)?;
         let origin = self.positions.get(id)?;
         self.actors
             .iter()
@@ -2405,7 +2605,7 @@ impl FactionWorld {
         }
         let actor = self.actors.get(id)?;
         let origin = *self.positions.get(id)?;
-        let profile = self.combat_profiles.get(&actor.definition_id)?;
+        let profile = self.actor_combat_profile(id)?;
         if !self.policies.contains_key(&actor.faction_id)
             || !self.unit_combat.get(id).is_some_and(|s| s.health > 0)
         {
@@ -2451,10 +2651,9 @@ impl FactionWorld {
         let mut strikes = Vec::new();
         let mut building_strikes = Vec::new();
         for (id, actor) in &self.actors {
-            let (Some(state), Some(profile)) = (
-                self.unit_combat.get(id),
-                self.combat_profiles.get(&actor.definition_id),
-            ) else {
+            let (Some(state), Some(profile)) =
+                (self.unit_combat.get(id), self.actor_combat_profile(id))
+            else {
                 continue;
             };
             if state.health == 0 || self.tick < state.next_attack_tick {
@@ -3134,8 +3333,7 @@ impl FactionWorld {
                     .filter(|(other_id, other)| {
                         self.living_actor(other_id)
                             && self
-                                .combat_profiles
-                                .get(&other.definition_id)
+                                .actor_combat_profile(other_id)
                                 .is_some_and(|p| p.damage > 0)
                             && self
                                 .hostilities
@@ -3160,8 +3358,7 @@ impl FactionWorld {
                             })
                             || !self.living_actor(actor_id)
                             || !self
-                                .combat_profiles
-                                .get(&actor.definition_id)
+                                .actor_combat_profile(actor_id)
                                 .is_some_and(|p| p.damage > 0)
                             || defense.contains_key(actor_id)
                         {
@@ -3688,13 +3885,38 @@ impl FactionWorld {
             }
         }
         for (id, state) in &world.unit_combat {
-            let actor = world.actors.get(id).ok_or("dangling_combat_state")?;
+            if !world.actors.contains_key(id) {
+                return Err("dangling_combat_state".into());
+            }
+            // Health is bounded by the profile the holder's own items resolve to.
             let profile = world
-                .combat_profiles
-                .get(&actor.definition_id)
+                .actor_combat_profile(id)
                 .ok_or("missing_combat_profile")?;
             if state.health == 0 || state.health > profile.health {
                 return Err("invalid_saved_health".into());
+            }
+        }
+        // Every carried item resolves against the loaded world: a living or
+        // fallen actor of this world holds it, the catalogue defines it, and no
+        // stack exceeds what its record allows.
+        if world.inventories.len() > MAX_INVENTORY_ENTRIES {
+            return Err("invalid_saved_inventory".into());
+        }
+        for (id, held) in &world.inventories {
+            if held.is_empty()
+                || held.len() > MAX_ACTOR_INVENTORY
+                || !(world.actors.contains_key(id) || world.casualties.contains_key(id))
+            {
+                return Err("invalid_saved_inventory".into());
+            }
+            for item_id in held {
+                let Some(item) = world.rules.items.get(item_id) else {
+                    return Err("invalid_saved_inventory".into());
+                };
+                if held.iter().filter(|other| *other == item_id).count() as u32 > item.stack.limit()
+                {
+                    return Err("invalid_saved_inventory".into());
+                }
             }
         }
         for (id, casualty) in &world.casualties {
@@ -8324,5 +8546,289 @@ mod tests {
         assert_eq!(removed.id, "site.first");
         assert!(map.occupied_cubes.is_empty());
         assert!(map.buildings.is_empty());
+    }
+
+    /// The one item the main pack authors. Its ID is the character record's
+    /// own `signatureWeaponId`, not a second ID minted for the same object.
+    const CARBINE: &str = "weapon.captain.handsome_jack_steam_carbine";
+
+    fn carbine_bonus(world: &FactionWorld) -> (u32, u32, u32) {
+        match &world.rules.items[CARBINE].effect {
+            ScenarioItemEffect::CombatBonus {
+                health,
+                damage,
+                range,
+            } => (*health, *damage, *range),
+            other => panic!("the authored carbine is a combat modifier, not {other:?}"),
+        }
+    }
+
+    /// The catalogue travels with the scenario and with its save; a world that
+    /// carries no items is unchanged, which the equality proof also asserts.
+    #[test]
+    fn the_main_scenario_carries_its_item_catalogue_into_the_world_and_its_save() {
+        let world = main_scenario_world();
+        assert!(world.rules.items.contains_key(CARBINE));
+        assert!(world.inventories.is_empty());
+        let save = world.save_json().unwrap();
+        assert!(
+            !save.contains("\"inventories\""),
+            "an empty inventory must add nothing to the save"
+        );
+        let reloaded = FactionWorld::load_json(&save).unwrap();
+        assert_eq!(reloaded.rules.items, world.rules.items);
+    }
+
+    /// `IslandCombatProfile` is keyed by definition, so an item can only change
+    /// one actor's numbers through the per-actor override.
+    #[test]
+    fn a_granted_item_overrides_only_its_own_holders_combat_numbers() {
+        let (mut world, ids) = recruitment_fixture();
+        let (holder, bystander) = (ids[0].clone(), ids[1].clone());
+        let base = world.actor_combat_profile(&holder).unwrap();
+        assert_eq!(
+            world.actors[&holder].definition_id,
+            world.actors[&bystander].definition_id
+        );
+        assert!(world.actor_inventory(&holder).is_empty());
+        world.grant_item(&holder, CARBINE).unwrap();
+        let (health, damage, range) = carbine_bonus(&world);
+        let armed = world.actor_combat_profile(&holder).unwrap();
+        assert_eq!(armed.health, base.health + health);
+        assert_eq!(armed.damage, base.damage + damage);
+        assert_eq!(armed.range, base.range + range);
+        assert_eq!(armed.cooldown_ticks, base.cooldown_ticks);
+        assert_eq!(world.actor_combat_profile(&bystander).unwrap(), base);
+        assert_eq!(
+            world.combat_profiles[&world.actors[&holder].definition_id],
+            base
+        );
+        // A unique record is carried once however often it is granted.
+        assert_eq!(
+            world.grant_item(&holder, CARBINE),
+            Err("item_stack_full".into())
+        );
+        assert_eq!(world.actor_inventory(&holder), vec![CARBINE.to_string()]);
+        let reloaded = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        assert_eq!(reloaded, world);
+        assert_eq!(reloaded.actor_combat_profile(&holder).unwrap(), armed);
+    }
+
+    /// The other half of the closed effect set. No shipped record uses it yet,
+    /// so the catalogue that drives it is the test's own.
+    #[test]
+    fn a_resource_granting_item_credits_its_holders_faction_once_per_grant() {
+        let (mut world, ids) = recruitment_fixture();
+        let holder = ids[0].clone();
+        let faction = world.actors[&holder].faction_id.clone();
+        world.rules.items.insert(
+            "item.test.salvage_bundle".into(),
+            ScenarioItem {
+                display_name: "Test salvage bundle".into(),
+                stack: ScenarioItemStack::Stackable(2),
+                effect: ScenarioItemEffect::GrantResource {
+                    resource: "resource.salvage".into(),
+                    amount: 5,
+                },
+            },
+        );
+        let before = world.factions[&faction]
+            .resources
+            .get("resource.salvage")
+            .copied()
+            .unwrap_or(0);
+        world
+            .grant_item(&holder, "item.test.salvage_bundle")
+            .unwrap();
+        world
+            .grant_item(&holder, "item.test.salvage_bundle")
+            .unwrap();
+        assert_eq!(
+            world.factions[&faction].resources["resource.salvage"],
+            before + 10
+        );
+        // The stack rule bounds how often the effect can be taken.
+        assert_eq!(
+            world.grant_item(&holder, "item.test.salvage_bundle"),
+            Err("item_stack_full".into())
+        );
+        assert_eq!(
+            world.factions[&faction].resources["resource.salvage"],
+            before + 10
+        );
+        // A faction that declares a cap for the resource keeps it: the grant
+        // clamps exactly as the tick's income does.
+        let capped = ids[1].clone();
+        world.policies.insert(
+            faction.clone(),
+            FactionPolicy {
+                storage_caps: [("resource.salvage".into(), before + 12)]
+                    .into_iter()
+                    .collect(),
+                ..Default::default()
+            },
+        );
+        world
+            .grant_item(&capped, "item.test.salvage_bundle")
+            .unwrap();
+        assert_eq!(
+            world.factions[&faction].resources["resource.salvage"],
+            before + 12
+        );
+    }
+
+    /// Recruitment transfers the person, not a copy, and her equipment goes
+    /// with her; leaving the active party does not take it back.
+    /// Contract: docs/CHARACTER_AND_HAREMLIT_AUTHORING.md.
+    #[test]
+    fn recruitment_carries_a_womans_equipment_and_leaving_the_party_does_not_remove_it() {
+        let (mut world, ids) = recruitment_fixture();
+        let woman = ids[0].clone();
+        world.grant_item(&woman, CARBINE).unwrap();
+        let armed = world.actor_combat_profile(&woman).unwrap();
+        let source = world.actors[&woman].faction_id.clone();
+        world.talk_island_person(&woman);
+        assert!(world.recruit_island_person(&woman));
+        assert_eq!(world.actors[&woman].faction_id, "faction.michael");
+        assert_ne!(source, "faction.michael");
+        assert_eq!(world.actor_inventory(&woman), vec![CARBINE.to_string()]);
+        assert_eq!(world.actor_combat_profile(&woman).unwrap(), armed);
+        assert_eq!(world.inventories.len(), 1, "no copy stayed behind");
+        assert!(world.assign_island_companion(&woman, 0));
+        assert!(world.dismiss_island_companion(0));
+        assert_eq!(world.actor_inventory(&woman), vec![CARBINE.to_string()]);
+        assert_eq!(world.actor_combat_profile(&woman).unwrap(), armed);
+        let reloaded = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        assert_eq!(reloaded.actor_inventory(&woman), vec![CARBINE.to_string()]);
+        assert_eq!(reloaded.actor_combat_profile(&woman).unwrap(), armed);
+    }
+
+    /// `begin_building_construction` saves and reloads the world in place, so
+    /// anything the world newly carries has to pass its own load validation.
+    #[test]
+    fn an_inventory_survives_the_building_construction_round_trip() {
+        let (mut world, ids) = recruitment_fixture();
+        let woman = ids[0].clone();
+        world.talk_island_person(&woman);
+        assert!(world.recruit_island_person(&woman));
+        assert!(world.assign_island_companion(&woman, 0));
+        world.grant_item(&woman, CARBINE).unwrap();
+        let armed = world.actor_combat_profile(&woman).unwrap();
+        let cache = world.salvage_caches["salvage.wreck"].position;
+        assert!(world.move_island_party(cache));
+        for _ in 0..40 {
+            world.advance_island_tick();
+        }
+        world.salvage_foothold().unwrap();
+        // The reviewed workshop site, as the foothold proof uses it.
+        let entrance = IslandPoint { x: 19, y: 17 };
+        assert!(world.move_island_party(entrance));
+        for _ in 0..8 {
+            world.advance_island_tick();
+        }
+        // She must not stand in the new wall footprint.
+        world
+            .order_move(&woman, IslandPoint { x: 18, y: 17 })
+            .unwrap();
+        for _ in 0..4 {
+            world.advance_island_tick();
+        }
+        // This saves and reloads the world in place.
+        world.build_foothold(entrance).unwrap();
+        assert!(
+            world.factions["faction.michael"]
+                .buildings
+                .contains_key("site.michael.field_workshop")
+        );
+        assert_eq!(world.actor_inventory(&woman), vec![CARBINE.to_string()]);
+        assert_eq!(world.actor_combat_profile(&woman).unwrap(), armed);
+    }
+
+    /// An effect naming an unknown actor, or an item no catalogue entry
+    /// defines, fails by name and changes nothing.
+    #[test]
+    fn grant_item_refuses_an_unknown_actor_or_an_undefined_item_by_name() {
+        let (mut world, ids) = recruitment_fixture();
+        let holder = ids[0].clone();
+        let before = world.clone();
+        assert_eq!(
+            world.grant_item("actor.nobody", CARBINE),
+            Err("unknown_item_actor".into())
+        );
+        assert_eq!(
+            world.grant_item(&holder, "item.not_in_the_catalogue"),
+            Err("unknown_item".into())
+        );
+        assert_eq!(world, before);
+        // The cap is the world's, not the catalogue's.
+        world.rules.items.insert(
+            "item.test.spare".into(),
+            ScenarioItem {
+                display_name: "Test spare part".into(),
+                stack: ScenarioItemStack::Stackable(64),
+                effect: ScenarioItemEffect::CombatBonus {
+                    health: 0,
+                    damage: 0,
+                    range: 0,
+                },
+            },
+        );
+        for _ in 0..MAX_ACTOR_INVENTORY {
+            world.grant_item(&holder, "item.test.spare").unwrap();
+        }
+        assert_eq!(
+            world.grant_item(&holder, "item.test.spare"),
+            Err("inventory_full".into())
+        );
+    }
+
+    /// A save is untrusted: every carried item must resolve against the world
+    /// it is loaded into.
+    #[test]
+    fn a_saved_inventory_that_does_not_resolve_is_refused() {
+        let (mut world, ids) = recruitment_fixture();
+        let holder = ids[0].clone();
+        world.grant_item(&holder, CARBINE).unwrap();
+        let save = world.save_json().unwrap();
+        assert!(FactionWorld::load_json(&save).is_ok());
+        let edit = |change: &dyn Fn(&mut serde_json::Value)| {
+            let mut value: serde_json::Value = serde_json::from_str(&save).unwrap();
+            change(&mut value);
+            FactionWorld::load_json(&serde_json::to_string(&value).unwrap())
+        };
+        // An item no catalogue entry defines.
+        assert_eq!(
+            edit(&|value| {
+                value["world"]["inventories"][&holder] =
+                    serde_json::json!(["item.not_in_the_catalogue"]);
+            })
+            .unwrap_err(),
+            "invalid_saved_inventory"
+        );
+        // An actor this world does not have.
+        assert_eq!(
+            edit(&|value| {
+                value["world"]["inventories"]["actor.nobody"] = serde_json::json!([CARBINE]);
+            })
+            .unwrap_err(),
+            "invalid_saved_inventory"
+        );
+        // More of a unique record than its stack rule allows.
+        assert_eq!(
+            edit(&|value| {
+                value["world"]["inventories"][&holder] = serde_json::json!([CARBINE, CARBINE]);
+            })
+            .unwrap_err(),
+            "invalid_saved_inventory"
+        );
+        // More than the world's per-actor cap.
+        assert_eq!(
+            edit(&|value| {
+                value["world"]["inventories"][&holder] =
+                    serde_json::json!(vec![CARBINE; MAX_ACTOR_INVENTORY + 1]);
+            })
+            .unwrap_err(),
+            "invalid_saved_inventory"
+        );
     }
 }

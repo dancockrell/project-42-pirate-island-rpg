@@ -69,7 +69,7 @@ content/scenarios/<scenario-id>/
   "buildings": "../../../game/assets/island/buildings.json",
   "personas": "../../../game/assets/island/personas.json",
   "resources": [],
-  "items": [],
+  "items": "items.json",
   "triggers": [],
   "quests": []
 }
@@ -79,10 +79,11 @@ Every string value under `geography.navigation`, `factions[].tuning`,
 `factions[].production`, `rules.*`, `buildings` and `personas` is a path
 relative to the pack directory; the referenced document is **embedded verbatim**
 by the bundle builder. The manifest never restates a rule file: one owner per
-document, referenced, not copied. `resources`, `items`, `triggers` and `quests`
-are reserved for the next contracts (below) and must be empty arrays in schema
-version 1; the validator refuses anything else so no pack can carry data the
-simulation does not yet run.
+document, referenced, not copied. `items` names the pack's item catalogue the
+same way, or stays `[]` when the pack carries none ([Items](#items) below).
+`resources`, `triggers` and `quests` are reserved for the next contracts (below)
+and must be empty arrays in schema version 1; the validator refuses anything
+else so no pack can carry data the simulation does not yet run.
 
 ## The bundle
 
@@ -137,7 +138,77 @@ built before the change, at tick zero and after 1,440 ticks, byte-identical
 saves. The main scenario is then the only path and the hard-coded one is
 deleted.
 
-## Reserved: resources, items, triggers, quests
+## Items
+
+Implemented. The manifest's `items` key is either the empty array — this pack
+carries none, and its world is exactly the world without items — or a path to
+the pack's catalogue document, embedded verbatim like `buildings` and
+`personas`:
+
+```
+content/scenarios/<scenario-id>/items.json
+```
+
+a keyed document of item records:
+
+```json
+{
+  "weapon.captain.handsome_jack_steam_carbine": {
+    "display_name": "Handsome Jack steam carbine",
+    "stack": "unique",
+    "effect": {"kind": "combat_bonus", "health": 0, "damage": 2, "range": 2}
+  }
+}
+```
+
+A record's key is a stable ID whose **prefix names its domain**, as
+[ARCHITECTURE.md](ARCHITECTURE.md) requires of every identifier: a weapon uses
+`weapon.`, and a record that already exists elsewhere in the repository keeps
+the ID it already has rather than gaining an `item.` twin. `stack` is
+`"unique"` (at most one per actor) or `{"stackable": n}` for `n` in 1 to 64.
+
+`effect` names **one of a closed set the simulation implements**. There are two
+and a pack may use no others:
+
+- `{"kind": "grant_resource", "resource": "<resource id>", "amount": n}` —
+  credited once to the holder's faction when the item is granted, through the
+  same storage clamp the tick's income uses. The resource key is a plain string
+  until the resource catalogue contract owns it.
+- `{"kind": "combat_bonus", "health": n, "damage": n, "range": n}` — raises the
+  holder's own combat numbers for as long as the item is held.
+
+`ScenarioRules` carries the catalogue, so a save remembers the items it was
+playing and a mod's items travel with its save. Inventories are a side table on
+`FactionWorld` keyed by actor id, like `positions` and `unit_combat`: an actor's
+items therefore move with the person, and neither recruitment
+(`recruit_island_person`) nor leaving the active party can strip her equipment,
+which is what [the character contract](CHARACTER_AND_HAREMLIT_AUTHORING.md)
+requires. An empty inventory writes nothing to the save. Load refuses, as
+`invalid_saved_inventory`, an inventory over 4,096 actors or 32 items per actor,
+a key naming an actor the world does not have living or fallen, an item no
+catalogue entry defines, or a stack over its record's rule.
+
+`IslandCombatProfile` is keyed by **definition**, so `combat_bonus` cannot
+change it. `FactionWorld::actor_combat_profile` resolves one actor's numbers on
+read — the definition's profile raised by what that actor carries. It is the
+only answer to an actor's combat numbers, so nothing holds a second copy that
+could fall out of step with the inventory.
+
+`FactionWorld::grant_item(actor, item)` and `FactionWorld::actor_inventory(actor)`
+are the only doors. Items reach the world **only through a declared source**;
+today that source is a direct grant, and triggers become a source of their own
+under their own contract. `grant_item` refuses by name: `unknown_item_actor`,
+`unknown_item`, `item_stack_full`, `inventory_full`. The validator proves before
+bundling that every record's ID, stack rule and effect are ones the simulation
+runs, and that a character a scenario starts has its `signatureWeaponId` defined
+in that scenario's catalogue, so a signature weapon cannot dangle unreferenced.
+
+The per-actor snapshot entry carries `inventory` — an array of `{id, name}` in
+the order the items were granted — and `max_health` is the resolved profile's,
+so an inspection panel reads equipment and its effect from the snapshot without
+keeping a second table of either.
+
+## Reserved: resources, triggers, quests
 
 Each is its own contract and its own claim; this document reserves the keys so
 the manifest shape does not change again.
@@ -145,9 +216,6 @@ the manifest shape does not change again.
 - **Resources.** A catalogue of resource IDs (`resource.<name>`) with display
   names and storage rules; faction income, storage caps and costs reference the
   catalogue instead of free strings.
-- **Items.** Records (`item.<name>`) with stack rules, an owner (an actor or a
-  holding), and effects the simulation implements (a health bonus, a carbine
-  upgrade, a key that unlocks a trigger). No item carries logic.
 - **Triggers.** Deterministic rules evaluated in the island tick: a condition
   over world state (day, tick, a faction eliminated, a holding reaching a
   level, an actor entering a cell region, a recruitment, a flag) and an effect
@@ -170,7 +238,9 @@ document text and nothing else, so the loading path is one.
 
 ## What this contract does not decide
 
-Balance numbers stay where their files say (provisional). Whether the land
+Balance numbers stay where their files say (provisional) — including the
+carbine's bonus magnitudes and the world's inventory caps, which are the item
+contract's own provisional numbers. Whether the land
 polygon moves to Rust. The in-game builder's interface. Save migration for
 scenarios with differing rules across versions (version 1 saves carry the rules
 they were made with; a differing rule set on load is refused, not coerced).

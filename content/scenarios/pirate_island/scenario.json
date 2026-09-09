@@ -58,7 +58,7 @@
   "buildings": "../../../game/assets/island/buildings.json",
   "personas": "../../../game/assets/island/personas.json",
   "resources": [],
-  "items": [],
+  "items": "items.json",
   "triggers": [],
   "quests": []
 }

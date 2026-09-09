@@ -5,30 +5,44 @@
   "summary": "Items as authored records with a per-actor inventory the simulation owns; effects are a closed set the world already implements",
   "status": "active",
   "claimed_at": "2026-09-09T12:10:00Z",
-  "updated_at": "2026-09-09T12:10:00Z",
+  "updated_at": "2026-09-09T18:40:00Z",
   "paths": [
     "content/scenarios/pirate_island/scenario.json",
     "content/scenarios/pirate_island/items.json",
-    "content/schemas/scenario.json",
+    "tools/src/scenario-pack.mjs",
     "tools/src/validate.mjs",
+    "game/generated/scenarios/scenario.pirate_island.json",
     "godot-rust/src/world.rs",
     "godot-rust/src/godot_bridge.rs",
-    "game/tests/island_bridge_test.gd",
     "docs/SCENARIO_PACKS.md"
   ],
   "symbols": [
     "ScenarioItem",
-    "ItemCatalogue",
+    "ScenarioItemStack",
+    "ScenarioItemEffect",
+    "ScenarioItems",
+    "ScenarioRules::items",
+    "FactionWorld::inventories",
     "FactionWorld::grant_item",
-    "FactionWorld::actor_inventory"
+    "FactionWorld::actor_inventory",
+    "FactionWorld::actor_combat_profile"
   ],
   "coordination": {
     "depends_on": [],
-    "conflicts_with": ["scenario-resources"],
-    "notes": "Contract: docs/SCENARIO_PACKS.md, 'Reserved: items'. Nothing item-shaped exists in the repository today: no type, no field, no record, only prose in the docs. Shares three files with scenario-resources (the manifest, validate.mjs and the ScenarioDefinition reserved-key refusal): each lane lifts only its own reserved key and appends its own validator block, and the integrator reconciles. Does not touch FactionState.resources, FactionPolicy, from_scenario's economy or storage caps; an item whose effect grants a resource names the key as a string this round and the resources lane's catalogue check adopts it at integration."
+    "conflicts_with": [
+      "scenario-resources"
+    ],
+    "notes": "Contract: docs/SCENARIO_PACKS.md, now the implemented 'Items' section. Lifted only the `items` reserved-key refusal in ScenarioDefinition::from_document and the matching one in validate.mjs; `resources`, `triggers` and `quests` keep theirs, and scenario-resources lifts `resources` in parallel. Did not touch FactionState.resources as a type, FactionPolicy, storage caps as owned data, from_scenario's economy or island_scene.gd. An item whose effect grants a resource names the key as a plain string and clamps through the existing FactionPolicy.storage_caps read the tick's income already uses; the resources lane's catalogue check adopts the key at integration. The manifest's `items` key is `[]` or a path to the pack's catalogue, embedded like buildings and personas; scenario-resources can mirror the shape for `resources`."
   },
   "completion": {
     "commit": null,
     "checks": []
-  }
+  },
+  "defects_found": [
+    {
+      "summary": "content/characters/captain.json and content/characters/betty.json both declare a signatureWeaponId that no record defined, and tools/src/validate.mjs never resolved the field. The same class of silent dangle as the earlier victory.lootTableId defect.",
+      "status": "closed_for_scenario_started_characters",
+      "detail": "weapon.captain.handsome_jack_steam_carbine is now defined by content/scenarios/pirate_island/items.json and validate.mjs proves that a character a scenario starts has its signatureWeaponId defined in that scenario's catalogue. weapon.betty.boarding_mace remains undefined: betty is not started by any scenario, so no pack catalogue can own it yet. Still open, and named here so it is not lost."
+    }
+  ]
 }
