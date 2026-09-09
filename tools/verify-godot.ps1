@@ -13,6 +13,13 @@ if (-not (Test-Path -LiteralPath $GodotExecutable -PathType Leaf)) {
     throw "Godot executable not found: $GodotExecutable"
 }
 
+# Editor import pass first: a fresh checkout has no .godot cache, and without it
+# a script that preloads another by path fails to resolve. The pass registers
+# the extension and imports resources, then quits.
+$importArguments = @("--headless", "--editor", "--path", (Join-Path $workspace "game"), "--quit")
+& (Resolve-Path -LiteralPath $GodotExecutable).Path @importArguments *> $null
+if ($LASTEXITCODE -ne 0) { throw "Godot import and extension registration failed with exit code $LASTEXITCODE" }
+
 # Verify the current sprite-based island.
 $checks = @(
     @{ Script = "res://tests/directional_sprite_test.gd"; Completion = "PASS: four facings, alpha-source identity, frame regions, nearest sampling, idle retention, no simulation movement" },

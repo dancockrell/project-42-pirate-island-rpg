@@ -43,7 +43,22 @@ if [[ ! -f "$game_path/project.godot" ]]; then
     exit 1
 fi
 
-# Verify the current sprite-based island. The suite list and each completion
+# 1. Editor import pass. A fresh checkout has no .godot/ cache, and without it
+#    a script that preloads another by path fails to resolve ("Could not
+#    resolve script"), which is exactly what the first CI run of this gate hit.
+#    The pass registers the extension and imports resources, then quits.
+echo "==> Godot import and extension registration"
+import_status=0
+(
+    cd "$workspace"
+    timeout --kill-after=5 120 "$godot_executable" --headless --editor --path "$game_path" --quit
+) >/dev/null 2>&1 || import_status=$?
+if [[ $import_status -ne 0 ]]; then
+    echo "Godot import and extension registration failed with exit code $import_status" >&2
+    exit "$import_status"
+fi
+
+# 2. Verify the current sprite-based island. The suite list and each completion
 # line are the ones verify-godot.ps1 requires; a suite that exits 0 without
 # printing its line has not finished, and any ERROR line fails it regardless
 # of the exit code.
