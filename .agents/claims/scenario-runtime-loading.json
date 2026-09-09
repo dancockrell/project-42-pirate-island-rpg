@@ -3,29 +3,48 @@
   "task_id": "scenario-runtime-loading",
   "agent": "claude-code (lane scenario-runtime)",
   "summary": "FactionWorld builds from a scenario document at runtime; the hard-coded island and its include_str! tuning leave the simulation",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-09T00:30:00Z",
-  "updated_at": "2026-09-09T00:30:00Z",
+  "updated_at": "2026-09-09T12:00:00Z",
   "paths": [
     "godot-rust/src/world.rs",
     "godot-rust/src/godot_bridge.rs",
+    "godot-rust/src/lib.rs",
+    "godot-rust/src/scenario_fixture.rs",
+    "godot-rust/tests/fixtures/",
     "game/scripts/simulation/native_simulation_port.gd",
     "game/scripts/world/island_scene.gd",
-    "game/tests/island_bridge_test.gd",
-    "game/tests/island_scene_test.gd"
+    "game/tests/island_bridge_test.gd"
   ],
   "symbols": [
     "ScenarioDefinition",
+    "ScenarioRules",
     "FactionWorld::from_scenario",
-    "Project42SimulationBridge.create_island_from_scenario"
+    "FactionWorld::load_json_for_scenario",
+    "Project42SimulationBridge.create_island_from_scenario",
+    "NativeSimulationPort.create_island_from_scenario"
   ],
   "coordination": {
-    "depends_on": ["scenario-pack-tooling"],
+    "depends_on": [
+      "scenario-pack-tooling"
+    ],
     "conflicts_with": [],
-    "notes": "Contract: docs/SCENARIO_PACKS.md. Builds to the manifest shape that scenario-pack-tooling bundles; until that lane's generated file exists this lane assembles the same document in a test helper from the current files so the equality proof can run. island_scene.gd changes are limited to how create_island is called and where the land polygon is read from."
+    "notes": "Contract: docs/SCENARIO_PACKS.md. Two things scenario-pack-tooling must supply before the game runs: the generated document at game/generated/scenarios/scenario.pirate_island.json (the port reads it), and one extra rules key, michaelMachineProduction -> ../../production/michael_field_workshop_mechanical_dogs.json, because Michael's workshop production rule is read every tick and the contract's manifest reserves no slot for it. Until then godot-rust/src/scenario_fixture.rs assembles the same document from the same source files; assembled_fixture_matches_the_generated_scenario_document compares the two whenever the generated file is present, and the fixture module is deleted on integration."
   },
   "completion": {
     "commit": null,
-    "checks": []
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml: passed (94 tests)",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs: passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/: passed",
+      "python3 tools/test_sprite_source.py: passed (12 tests)",
+      "bash tools/build-native-bridge.sh debug: passed",
+      "GODOT=... bash tools/verify-godot.sh 60: passed, with scenario-pack-tooling's generated scenario document copied in locally (plus the michaelMachineProduction key); it cannot pass on this branch alone until that lane lands the file",
+      "godot --headless --path game --script tests/island_bridge_test.gd: passed (proves create_island_from_scenario through the port)",
+      "godot --headless --path game --script tests/native_simulation_port_test.gd: passed",
+      "bite: income_per_tick 1 -> 2 in from_scenario; scenario_world_equals_the_deleted_hard_coded_island FAILED by name; restored; passed"
+    ]
   }
 }

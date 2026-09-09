@@ -229,35 +229,14 @@ func load_campaign(path: String = "user://pirate-island-save.json") -> bool:
 func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color("#073c48"))
 	add_child(map_root)
-	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/island/navigation.json"))
+	# The scenario pack owns the map: the scene reads the geography the
+	# simulation is built from, never the asset file behind it.
+	var scenario: Dictionary = JSON.parse_string(port.main_scenario_document())
+	var data: Dictionary = scenario.scenario.geography.navigation
 	cell_size = int(data.cellSize)
 	map_size = Vector2(data.size[0], data.size[1])
 	camera_center = map_size * 0.5
-	var polygon := PackedVector2Array()
-	for point in data.landPolygon:
-		polygon.append(Vector2(point[0], point[1]))
-	var cells: Array[Vector2i] = []
-	var land_corrections := {}
-	for point in data.get("landCorrections", []):
-		land_corrections[Vector2i(point[0], point[1])] = true
-	for y in range(int(data.size[1]) / cell_size):
-		for x in range(int(data.size[0]) / cell_size):
-			# Reviewed beach points correct only the conservative mask, not water.
-			if land_corrections.has(Vector2i(x,y)):
-				cells.append(Vector2i(x,y))
-				continue
-			var center := Vector2(x + 0.5, y + 0.5) * cell_size
-			if not Geometry2D.is_point_in_polygon(center, polygon):
-				continue
-			var blocked := false
-			for rect in data.blockedRects:
-				if Rect2(rect[0],rect[1],rect[2],rect[3]).grow(10).has_point(center):
-					blocked = true
-			if not blocked:
-				cells.append(Vector2i(x,y))
-	port.create_island()
-	assert(port.configure_island_land(cells, Vector2i(data.start[0],data.start[1])))
-	assert(port.install_preview_factions())
+	assert(not port.create_island().has("error"))
 	building_art = JSON.parse_string(FileAccess.get_file_as_string("res://assets/island/buildings.json"))
 	for definition in building_art.values():
 		var building_image := Image.load_from_file(definition.texture)

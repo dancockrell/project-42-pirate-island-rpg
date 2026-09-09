@@ -5,6 +5,7 @@ extends SimulationPort
 ## Battle scenes depend on SimulationPort and never call the extension directly.
 
 const BRIDGE_CLASS := "Project42SimulationBridge"
+const MAIN_SCENARIO_PATH := "res://generated/scenarios/scenario.pirate_island.json"
 var bridge: Object
 
 func _init() -> void:
@@ -16,11 +17,59 @@ func _init() -> void:
 func is_available() -> bool:
 	return bridge != null
 
+## The main scenario, read from the generated pack and built by the simulation.
 func create_island() -> Dictionary:
-	return bridge.create_island() if is_available() else error_snapshot("native_bridge_unavailable")
+	return create_island_from_scenario(main_scenario_document())
 
-func install_preview_factions() -> bool:
-	return is_available() and bridge.install_preview_factions()
+func main_scenario_document() -> String:
+	return scenario_document(MAIN_SCENARIO_PATH)
+
+## Any scenario pack, as the generated document text.
+func create_island_from_scenario(payload: String) -> Dictionary:
+	if not is_available():
+		return error_snapshot("native_bridge_unavailable")
+	var document: Variant = JSON.parse_string(payload)
+	if not (document is Dictionary and document.get("scenario") is Dictionary):
+		return error_snapshot("invalid_scenario_document")
+	var geography: Variant = document.scenario.get("geography")
+	var navigation: Variant = geography.get("navigation") if geography is Dictionary else null
+	if not (navigation is Dictionary and navigation.has("cellSize") and navigation.has("size") and navigation.has("start") and navigation.has("landPolygon") and navigation.has("blockedRects")):
+		return error_snapshot("invalid_scenario_document")
+	var start := Vector2i(int(navigation.start[0]), int(navigation.start[1]))
+	if not bridge.configure_island_land(land_cells(navigation), start):
+		return error_snapshot("island_land_not_configured")
+	return bridge.create_island_from_scenario(payload)
+
+func scenario_document(path: String) -> String:
+	return FileAccess.get_file_as_string(path)
+
+## Polygon and blocked rects to cells. The simulation owns every rule; this is
+## the one rasteriser, here until a later contract moves it into Rust.
+func land_cells(navigation: Dictionary) -> Array[Vector2i]:
+	var cell_size := int(navigation.cellSize)
+	var polygon := PackedVector2Array()
+	for point in navigation.landPolygon:
+		polygon.append(Vector2(point[0], point[1]))
+	var corrections := {}
+	for point in navigation.get("landCorrections", []):
+		corrections[Vector2i(int(point[0]), int(point[1]))] = true
+	var cells: Array[Vector2i] = []
+	for y in range(int(navigation.size[1]) / cell_size):
+		for x in range(int(navigation.size[0]) / cell_size):
+			# Reviewed beach points correct only the conservative mask, not water.
+			if corrections.has(Vector2i(x,y)):
+				cells.append(Vector2i(x,y))
+				continue
+			var center := Vector2(x + 0.5, y + 0.5) * cell_size
+			if not Geometry2D.is_point_in_polygon(center, polygon):
+				continue
+			var blocked := false
+			for rect in navigation.blockedRects:
+				if Rect2(rect[0],rect[1],rect[2],rect[3]).grow(10).has_point(center):
+					blocked = true
+			if not blocked:
+				cells.append(Vector2i(x,y))
+	return cells
 
 func save_island() -> String:
 	return bridge.save_island() if is_available() else ""

@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 /// Provisional scenario tuning. An explicit organic roster avoids guessing
 /// susceptibility from a sprite, actor role, or a future machine's sex field.
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct CthulhuMadness {
+pub struct CthulhuMadness {
     faction_id: String,
     ritual_archetype_id: String,
     radius_cells: u32,
@@ -17,34 +17,27 @@ struct CthulhuMadness {
     susceptible_definitions: BTreeSet<String>,
 }
 
-fn madness_rules() -> &'static CthulhuMadness {
-    static RULE: std::sync::OnceLock<CthulhuMadness> = std::sync::OnceLock::new();
-    RULE.get_or_init(|| {
-        let rule: CthulhuMadness =
-            serde_json::from_str(include_str!("../../content/island/cthulhu_madness.json"))
-                .expect("authored Cthulhu madness rule");
-        assert!(
-            rule.radius_cells <= 32
-                && rule.exposure_percent <= 100
-                && rule.exposure_gain > 0
-                && rule.decay_per_tick > 0
-                && rule.warning_threshold > 0
-                && rule.warning_threshold < rule.conversion_threshold
-        );
-        rule
-    })
+impl CthulhuMadness {
+    fn valid(&self) -> bool {
+        self.radius_cells <= 32
+            && self.exposure_percent <= 100
+            && self.exposure_gain > 0
+            && self.decay_per_tick > 0
+            && self.warning_threshold > 0
+            && self.warning_threshold < self.conversion_threshold
+    }
 }
 
-#[derive(Deserialize)]
-struct IslandBuildingFootprint {
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IslandBuildingFootprint {
     blocked_offsets: Vec<[i32; 2]>,
     #[serde(default)]
     placement_entrance: Option<[i32; 2]>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct HoldingExpansion {
+pub struct HoldingExpansion {
     faction_id: String,
     building_id: String,
     archetype_id: String,
@@ -55,28 +48,13 @@ struct HoldingExpansion {
     holding_health: u32,
 }
 
-fn holding_expansion() -> Result<&'static HoldingExpansion, String> {
-    static RULE: std::sync::OnceLock<Result<HoldingExpansion, String>> = std::sync::OnceLock::new();
-    RULE.get_or_init(|| {
-        let rule: HoldingExpansion =
-            serde_json::from_str(include_str!("../../content/island/colonial_expansion.json"))
-                .map_err(|_| "invalid_expansion_rule".to_string())?;
-        if !(1..=100000).contains(&rule.construction_ticks)
-            || !(1..=100000).contains(&rule.holding_health)
-            || rule.costs.is_empty()
-            || rule.costs.values().any(|cost| !(1..=100000).contains(cost))
-        {
-            return Err("invalid_expansion_rule".into());
-        }
-        Ok(rule)
-    })
-    .as_ref()
-    .map_err(Clone::clone)
-}
-
-fn island_building_footprints() -> Result<BTreeMap<String, IslandBuildingFootprint>, String> {
-    serde_json::from_str(include_str!("../../game/assets/island/buildings.json"))
-        .map_err(|_| "invalid_building_contract".into())
+impl HoldingExpansion {
+    fn valid(&self) -> bool {
+        (1..=100000).contains(&self.construction_ticks)
+            && (1..=100000).contains(&self.holding_health)
+            && !self.costs.is_empty()
+            && self.costs.values().all(|cost| (1..=100000).contains(cost))
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -121,9 +99,9 @@ pub enum PersonSex {
     Other,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct PersonaPool {
+pub struct PersonaPool {
     sex: PersonSex,
     age_min: u16,
     age_max: u16,
@@ -136,13 +114,12 @@ struct PersonaPool {
     companion_responses: Vec<String>,
 }
 
-fn produced_person(definition: &str, id: &str, serial: u64) -> Option<NamedPerson> {
-    static POOLS: std::sync::OnceLock<BTreeMap<String, Vec<PersonaPool>>> =
-        std::sync::OnceLock::new();
-    let pools = POOLS.get_or_init(|| {
-        serde_json::from_str(include_str!("../../game/assets/island/personas.json"))
-            .expect("validated persona catalog")
-    });
+fn produced_person(
+    pools: &BTreeMap<String, Vec<PersonaPool>>,
+    definition: &str,
+    id: &str,
+    serial: u64,
+) -> Option<NamedPerson> {
     let seed = mix_seed(serial, 0, id, 0);
     let variants = pools.get(definition)?;
     let pool = variants.get((seed % variants.len().max(1) as u64) as usize)?;
@@ -336,7 +313,7 @@ fn mix_seed(mut seed: u64, day: u32, region_id: &str, slot: u8) -> u64 {
     seed ^ (seed >> 29)
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProductionRule {
     pub id: String,
     #[serde(alias = "producerArchetypeId")]
@@ -352,8 +329,8 @@ pub struct ProductionRule {
     pub population_use: u32,
 }
 
-#[derive(Deserialize)]
-struct IslandFactionTuning {
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize)]
+pub struct IslandFactionTuning {
     population_capacity: u32,
     holding_level: u32,
     holding_health: u32,
@@ -399,49 +376,22 @@ pub struct BuildingWork {
     pub reserved_costs: BTreeMap<String, u32>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct HoldingRepairRule {
+pub struct HoldingRepairRule {
     costs: BTreeMap<String, u32>,
     ticks: u32,
     health_gain: u32,
     emergency_health_percent: u32,
 }
 
-fn holding_repair_rules() -> &'static BTreeMap<String, HoldingRepairRule> {
-    static RULES: std::sync::OnceLock<BTreeMap<String, HoldingRepairRule>> =
-        std::sync::OnceLock::new();
-    RULES.get_or_init(|| {
-        serde_json::from_str(include_str!("../../content/island/holding_repairs.json"))
-            .expect("authored holding repair rules")
-    })
-}
-
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct MichaelMachinery {
+pub struct MichaelMachinery {
     definition_id: String,
     display_name: String,
     capacity: usize,
     combat: IslandCombatProfile,
-}
-
-fn michael_machinery() -> &'static MichaelMachinery {
-    static RULE: std::sync::OnceLock<MichaelMachinery> = std::sync::OnceLock::new();
-    RULE.get_or_init(|| {
-        serde_json::from_str(include_str!("../../content/island/michael_machinery.json"))
-            .expect("authored Michael machinery")
-    })
-}
-
-fn mechanical_dog_production() -> &'static ProductionRule {
-    static RULE: std::sync::OnceLock<ProductionRule> = std::sync::OnceLock::new();
-    RULE.get_or_init(|| {
-        serde_json::from_str(include_str!(
-            "../../content/production/michael_field_workshop_mechanical_dogs.json"
-        ))
-        .expect("authored mechanical dog production")
-    })
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -456,24 +406,16 @@ pub struct SalvageCache {
     pub created_tick: u64,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct HoldingSalvageRule {
+pub struct HoldingSalvageRule {
     base_yield: u32,
     per_completed_level: u32,
     workshop_yield: u32,
 }
 
-fn holding_salvage_rule() -> &'static HoldingSalvageRule {
-    static RULE: std::sync::OnceLock<HoldingSalvageRule> = std::sync::OnceLock::new();
-    RULE.get_or_init(|| {
-        serde_json::from_str(include_str!("../../content/island/holding_salvage.json"))
-            .expect("authored holding salvage rule")
-    })
-}
-
-#[derive(Deserialize)]
-struct FootholdConfig {
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FootholdConfig {
     cache_position: IslandPoint,
     cache_salvage: u32,
     build_salvage: u32,
@@ -482,30 +424,23 @@ struct FootholdConfig {
     building_health: u32,
 }
 
-fn foothold_config() -> Result<&'static FootholdConfig, String> {
-    static CONFIG: std::sync::OnceLock<Result<FootholdConfig, String>> = std::sync::OnceLock::new();
-    CONFIG
-        .get_or_init(|| {
-            let config: FootholdConfig =
-                serde_json::from_str(include_str!("../../content/island/michael_foothold.json"))
-                    .map_err(|_| "Invalid foothold configuration.")?;
-            if [
-                config.cache_salvage,
-                config.build_salvage,
-                config.construction_ticks,
-                config.restore_salvage,
-                config.building_health,
-            ]
-            .iter()
-            .any(|v| !(1..=100000).contains(v))
-            {
-                return Err("Invalid foothold configuration.".into());
-            }
-            Ok(config)
-        })
-        .as_ref()
-        .map_err(Clone::clone)
+impl FootholdConfig {
+    fn valid(&self) -> bool {
+        [
+            self.cache_salvage,
+            self.build_salvage,
+            self.construction_ticks,
+            self.restore_salvage,
+            self.building_health,
+        ]
+        .iter()
+        .all(|v| (1..=100000).contains(v))
+    }
 }
+
+/// Version 2 added the world's own `ScenarioRules`; version 1 saves migrate by
+/// adopting the rules of the scenario they are resumed into.
+const SAVE_VERSION: u32 = 2;
 
 fn default_building_health() -> u32 {
     80
@@ -723,32 +658,34 @@ pub struct DiplomacyNotice {
     pub text: String,
 }
 
-#[derive(Deserialize)]
-struct InitialDiplomacy {
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize)]
+pub struct InitialDiplomacy {
     #[serde(rename = "factionIds")]
     faction_ids: Vec<String>,
     relationships: Vec<InitialRelationship>,
 }
-#[derive(Deserialize)]
-struct InitialRelationship {
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize)]
+pub struct InitialRelationship {
     a: String,
     b: String,
     #[serde(rename = "atWar")]
     at_war: bool,
 }
-#[derive(Deserialize)]
-struct SurvivalRules {
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SurvivalRules {
     decision_ticks: u64,
     truce_ticks: u64,
     dominance_percent: u64,
     strength_horizon_ticks: u64,
 }
-fn survival_rules() -> &'static SurvivalRules {
-    static RULES: std::sync::OnceLock<SurvivalRules> = std::sync::OnceLock::new();
-    RULES.get_or_init(|| {
-        serde_json::from_str(include_str!("../../content/island/survival_diplomacy.json"))
-            .expect("authored survival rules")
-    })
+
+impl SurvivalRules {
+    fn valid(&self) -> bool {
+        (1..=1024).contains(&self.decision_ticks)
+            && (1..=100000).contains(&self.truce_ticks)
+            && (101..=1000).contains(&self.dominance_percent)
+            && (1..=1024).contains(&self.strength_horizon_ticks)
+    }
 }
 
 fn faction_label(id: &str) -> &str {
@@ -763,8 +700,176 @@ fn faction_label(id: &str) -> &str {
     }
 }
 
+/// Every rule the island tick reads. The world carries it so a save remembers
+/// which scenario's rules it was playing and a pack's rules travel with its save.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ScenarioRules {
+    pub madness: CthulhuMadness,
+    pub expansion: HoldingExpansion,
+    pub repairs: BTreeMap<String, HoldingRepairRule>,
+    pub salvage: HoldingSalvageRule,
+    pub foothold: FootholdConfig,
+    pub machinery: MichaelMachinery,
+    pub machine_production: ProductionRule,
+    pub survival: SurvivalRules,
+    pub footprints: BTreeMap<String, IslandBuildingFootprint>,
+    pub personas: BTreeMap<String, Vec<PersonaPool>>,
+}
+
+impl ScenarioRules {
+    fn valid(&self) -> bool {
+        self.madness.valid()
+            && self.expansion.valid()
+            && self.foothold.valid()
+            && self.survival.valid()
+            && self.machinery.capacity > 0
+            && self.machine_production.production_ticks > 0
+            && !self.footprints.is_empty()
+            && !self.personas.is_empty()
+            && !self.repairs.is_empty()
+    }
+}
+
+/// The scenario pack's resolved manifest, as the bundle builder writes it.
+/// Nothing here is executable: it is the data the one simulation runs on.
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct ScenarioDefinition {
+    #[serde(rename = "schemaVersion")]
+    pub schema_version: u32,
+    pub id: String,
+    pub geography: ScenarioGeography,
+    pub start: ScenarioStart,
+    pub factions: Vec<ScenarioFaction>,
+    pub rules: ScenarioRuleSet,
+    pub buildings: BTreeMap<String, IslandBuildingFootprint>,
+    pub personas: BTreeMap<String, Vec<PersonaPool>>,
+    #[serde(default)]
+    pub resources: Vec<serde_json::Value>,
+    #[serde(default)]
+    pub items: Vec<serde_json::Value>,
+    #[serde(default)]
+    pub triggers: Vec<serde_json::Value>,
+    #[serde(default)]
+    pub quests: Vec<serde_json::Value>,
+    /// Rasterised land, supplied by the caller. Polygon-to-cell rasterisation
+    /// lives in GDScript until a later contract moves it into Rust, so a
+    /// definition is not playable until its land is set.
+    #[serde(skip)]
+    pub land: Option<(BTreeSet<IslandPoint>, IslandPoint)>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct ScenarioGeography {
+    #[serde(rename = "terrainTexture")]
+    pub terrain_texture: String,
+    pub navigation: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct ScenarioStart {
+    #[serde(rename = "captainId")]
+    pub captain_id: String,
+    #[serde(rename = "combatProfile")]
+    pub combat_profile: IslandCombatProfile,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct ScenarioFaction {
+    pub id: String,
+    pub seed: [i32; 2],
+    pub tuning: IslandFactionTuning,
+    pub production: ProductionRule,
+}
+
+/// The manifest's `rules` block. Keys are the contract's; the runtime splits
+/// them into the saved `ScenarioRules` and the start-only rules beside it.
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct ScenarioRuleSet {
+    #[serde(rename = "cthulhuMadness")]
+    pub madness: CthulhuMadness,
+    #[serde(rename = "colonialExpansion")]
+    pub expansion: HoldingExpansion,
+    #[serde(rename = "holdingRepairs")]
+    pub repairs: BTreeMap<String, HoldingRepairRule>,
+    #[serde(rename = "holdingSalvage")]
+    pub salvage: HoldingSalvageRule,
+    #[serde(rename = "holdingDevelopment")]
+    pub development: BTreeMap<String, BuildingDevelopmentRule>,
+    #[serde(rename = "michaelFoothold")]
+    pub foothold: FootholdConfig,
+    #[serde(rename = "michaelMachinery")]
+    pub machinery: MichaelMachinery,
+    /// Provisional key: Michael's workshop production rule has no slot in the
+    /// contract's manifest, and the simulation reads it every tick.
+    #[serde(rename = "michaelMachineProduction")]
+    pub machine_production: ProductionRule,
+    #[serde(rename = "survivalDiplomacy")]
+    pub survival: SurvivalRules,
+    #[serde(rename = "initialDiplomacy")]
+    pub initial_diplomacy: InitialDiplomacy,
+}
+
+impl ScenarioDefinition {
+    /// Parse one generated scenario document (`game/generated/scenarios/<id>.json`).
+    pub fn from_document(text: &str) -> Result<Self, String> {
+        if text.len() > 8 * 1024 * 1024 {
+            return Err("scenario_too_large".into());
+        }
+        #[derive(Deserialize)]
+        struct Document {
+            format: String,
+            version: u32,
+            scenario: serde_json::Value,
+        }
+        let document: Document =
+            serde_json::from_str(text).map_err(|_| "invalid_scenario_document".to_string())?;
+        if document.format != "project42.scenario" || document.version != 1 {
+            return Err("unsupported_scenario_document".into());
+        }
+        let definition: Self = serde_json::from_value(document.scenario)
+            .map_err(|_| "invalid_scenario_manifest".to_string())?;
+        if definition.schema_version != 1
+            || !definition.id.starts_with("scenario.")
+            || !definition.resources.is_empty()
+            || !definition.items.is_empty()
+            || !definition.triggers.is_empty()
+            || !definition.quests.is_empty()
+        {
+            return Err("invalid_scenario_manifest".into());
+        }
+        Ok(definition)
+    }
+
+    /// Supply the rasterised land and the captain's start cell.
+    pub fn set_land(&mut self, cells: BTreeSet<IslandPoint>, start: IslandPoint) -> bool {
+        if cells.is_empty() || cells.len() > 16384 || !cells.contains(&start) {
+            return false;
+        }
+        self.land = Some((cells, start));
+        true
+    }
+
+    pub fn scenario_rules(&self) -> ScenarioRules {
+        ScenarioRules {
+            madness: self.rules.madness.clone(),
+            expansion: self.rules.expansion.clone(),
+            repairs: self.rules.repairs.clone(),
+            salvage: self.rules.salvage.clone(),
+            foothold: self.rules.foothold.clone(),
+            machinery: self.rules.machinery.clone(),
+            machine_production: self.rules.machine_production.clone(),
+            survival: self.rules.survival.clone(),
+            footprints: self.buildings.clone(),
+            personas: self.personas.clone(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FactionWorld {
+    /// The scenario's rules travel with the world and with its save.
+    pub rules: ScenarioRules,
     #[serde(default)]
     pub survival_truces: Vec<SurvivalTruce>,
     #[serde(default)]
@@ -803,7 +908,7 @@ pub struct FactionWorld {
     next_order_serial: u64,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IslandCombatProfile {
     pub health: u32,
     pub damage: u32,
@@ -852,7 +957,7 @@ pub struct FactionPolicy {
 }
 
 /// Physical navigation cells, not rooms or strategic graph nodes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IslandPoint {
     pub x: i32,
     pub y: i32,
@@ -1094,7 +1199,7 @@ impl FactionWorld {
                     .filter(|p| p.damage > 0)
                     .map(|p| {
                         u64::from(self.unit_combat[id].health) * 100
-                            + u64::from(p.damage) * survival_rules().strength_horizon_ticks * 100
+                            + u64::from(p.damage) * self.rules.survival.strength_horizon_ticks * 100
                                 / u64::from(p.cooldown_ticks.max(1))
                     })
             })
@@ -1112,7 +1217,7 @@ impl FactionWorld {
                     .military_strength(a)
                     .max(self.military_strength(b))
                     .max(1)
-                    .saturating_mul(survival_rules().dominance_percent)
+                    .saturating_mul(self.rules.survival.dominance_percent)
     }
 
     fn record_diplomacy(&mut self, factions: Vec<String>, text: String) {
@@ -1127,7 +1232,7 @@ impl FactionWorld {
     }
 
     fn advance_diplomacy(&mut self) {
-        let rules = survival_rules();
+        let rules = self.rules.survival.clone();
         if self.tick == 0 || self.tick % rules.decision_ticks.max(1) != 0 {
             return;
         }
@@ -1312,18 +1417,17 @@ impl FactionWorld {
     }
     pub fn building_construction_ticks(&self, building: &FactionBuilding) -> u32 {
         if building.archetype_id == "site_archetype.michael.field_workshop" {
-            foothold_config().map(|c| c.construction_ticks).unwrap_or(0)
+            self.rules.foothold.construction_ticks
+        } else if self.rules.expansion.building_id == building.id {
+            self.rules.expansion.construction_ticks
         } else {
-            holding_expansion()
-                .ok()
-                .filter(|r| r.building_id == building.id)
-                .map(|r| r.construction_ticks)
-                .unwrap_or(0)
+            0
         }
     }
 
     pub fn building_repair_ticks(&self, building: &FactionBuilding) -> u32 {
-        holding_repair_rules()
+        self.rules
+            .repairs
             .get(&building.archetype_id)
             .map(|r| r.ticks)
             .unwrap_or(0)
@@ -1387,7 +1491,9 @@ impl FactionWorld {
             .get(faction_id)
             .and_then(|f| f.buildings.get(building_id))
             .ok_or("No holding to repair.")?;
-        let rule = holding_repair_rules()
+        let rule = self
+            .rules
+            .repairs
             .get(&building.archetype_id)
             .ok_or("This holding cannot be repaired.")?;
         if building.repair.is_some() {
@@ -1439,7 +1545,8 @@ impl FactionWorld {
     }
 
     pub fn foothold_repair_cost(&self) -> u32 {
-        holding_repair_rules()
+        self.rules
+            .repairs
             .get("site_archetype.michael.field_workshop")
             .and_then(|r| r.costs.get("resource.salvage"))
             .copied()
@@ -1447,20 +1554,20 @@ impl FactionWorld {
     }
 
     pub fn machine_foothold_costs(&self) -> (u32, u32, u32) {
-        let rule = mechanical_dog_production();
+        let rule = &self.rules.machine_production;
         (
             rule.costs.get("resource.salvage").copied().unwrap_or(0),
             rule.production_ticks,
-            michael_machinery().capacity as u32,
+            self.rules.machinery.capacity as u32,
         )
     }
 
     pub fn machine_display_name(&self) -> &str {
-        &michael_machinery().display_name
+        &self.rules.machinery.display_name
     }
 
     fn mechanical_dog_count(&self) -> usize {
-        let definition = &michael_machinery().definition_id;
+        let definition = &self.rules.machinery.definition_id;
         self.actors
             .values()
             .filter(|a| a.faction_id == "faction.michael" && &a.definition_id == definition)
@@ -1500,15 +1607,15 @@ impl FactionWorld {
         if !building.production_queue.is_empty() {
             return Err("The workshop is already building a machine.".into());
         }
-        if self.mechanical_dog_count() >= michael_machinery().capacity {
+        if self.mechanical_dog_count() >= self.rules.machinery.capacity {
             return Err("All mechanical dog berths are occupied.".into());
         }
-        self.enqueue_production(faction, site, mechanical_dog_production().clone())
+        let machine = self.rules.machine_production.clone();
+        self.enqueue_production(faction, site, machine)
             .map_err(|_| "Not enough salvage to build a mechanical dog.".to_string())?;
-        self.combat_profiles.insert(
-            michael_machinery().definition_id.clone(),
-            michael_machinery().combat.clone(),
-        );
+        let machinery = self.rules.machinery.clone();
+        self.combat_profiles
+            .insert(machinery.definition_id, machinery.combat);
         Ok(())
     }
 
@@ -1523,7 +1630,7 @@ impl FactionWorld {
         for (faction_id, building_id) in sites {
             let building = &self.factions[&faction_id].buildings[&building_id];
             let action = format!("repair.{building_id}");
-            let Some(rule) = holding_repair_rules().get(&building.archetype_id) else {
+            let Some(rule) = self.rules.repairs.get(&building.archetype_id) else {
                 continue;
             };
             if building.development.is_some()
@@ -1637,9 +1744,7 @@ impl FactionWorld {
     }
 
     fn advance_holding_expansion(&mut self) {
-        let Ok(rule) = holding_expansion() else {
-            return;
-        };
+        let rule = self.rules.expansion.clone();
         if !self.policies.contains_key(&rule.faction_id) || self.tick < rule.minimum_tick {
             return;
         }
@@ -1796,7 +1901,7 @@ impl FactionWorld {
         }
     }
     pub fn foothold_costs(&self) -> Result<(u32, u32, u32), String> {
-        let config = foothold_config()?;
+        let config = &self.rules.foothold;
         Ok((
             config.build_salvage,
             config.restore_salvage,
@@ -1863,7 +1968,7 @@ impl FactionWorld {
         let Some(position) = self.navigation.destinations.get(&building.node_id).copied() else {
             return;
         };
-        let rule = holding_salvage_rule();
+        let rule = &self.rules.salvage;
         let amount = if building.archetype_id == "site_archetype.michael.field_workshop" {
             rule.workshop_yield
         } else {
@@ -1897,7 +2002,7 @@ impl FactionWorld {
         const CAPTAIN: &str = "character.protagonist.captain";
         const BUILDING: &str = "site.michael.field_workshop";
         const ARCHETYPE: &str = "site_archetype.michael.field_workshop";
-        let config = foothold_config()?;
+        let config = self.rules.foothold.clone();
         if !self.within_work_range(CAPTAIN, entrance) {
             return Err("Bring Michael within reach of the workshop site.".into());
         }
@@ -1919,8 +2024,9 @@ impl FactionWorld {
                 config.build_salvage
             ));
         }
-        let footprints = island_building_footprints()?;
-        let footprint = footprints
+        let footprint = self
+            .rules
+            .footprints
             .get(ARCHETYPE)
             .ok_or("The workshop building art is not available yet.")?;
         if footprint.blocked_offsets.is_empty()
@@ -2063,7 +2169,7 @@ impl FactionWorld {
     }
 
     pub fn restore_foothold_person(&mut self, id: &str) -> Result<(), String> {
-        let config = foothold_config()?;
+        let config = self.rules.foothold.clone();
         let actor = self
             .actors
             .get(id)
@@ -2500,60 +2606,97 @@ impl FactionWorld {
         events
     }
 
-    /// Four autonomous factions plus Michael, using real authored production.
-    /// Elven deployment awaits an admitted monster sprite; no invisible army.
-    /// Economy sizes are preview budgets, not final faction balancing.
-    pub fn install_preview_factions(&mut self) -> Result<(), String> {
-        if self.tick != 0 || self.factions.len() != 1 || !self.travel_orders.is_empty() {
-            return Err("scenario_already_started".into());
+    /// Build the island the scenario describes: its captain, its factions,
+    /// their holdings, production, policies and opening diplomacy. One owner
+    /// of the rules, from the pack's data instead of from compiled-in JSON.
+    pub fn from_scenario(definition: &ScenarioDefinition) -> Result<Self, String> {
+        let rules = definition.scenario_rules();
+        if !rules.valid() {
+            return Err("invalid_scenario_rules".into());
         }
-        let mut staged = self.clone();
-        let footprints = island_building_footprints()?;
-        let roster: BTreeMap<String, IslandFactionTuning> =
-            serde_json::from_str(include_str!("../../content/island/faction_roster.json"))
-                .map_err(|_| "invalid_faction_roster")?;
-        let objective = *staged
-            .positions
-            .get("character.protagonist.captain")
-            .ok_or("missing_michael")?;
+        let Some((land, start)) = definition.land.clone() else {
+            return Err("island_land_not_configured".into());
+        };
+        if !land.contains(&start) {
+            return Err("island_land_not_configured".into());
+        }
+        let captain = definition.start.captain_id.clone();
+        if captain.is_empty() || definition.factions.is_empty() {
+            return Err("invalid_scenario_start".into());
+        }
+        let mut staged = Self {
+            rules,
+            ..Default::default()
+        };
+        staged.navigation.walkable = land;
+        staged
+            .combat_profiles
+            .insert(captain.clone(), definition.start.combat_profile.clone());
+        staged.unit_combat.insert(
+            captain.clone(),
+            IslandCombatState {
+                health: definition.start.combat_profile.health,
+                next_attack_tick: 0,
+                population_use: 1,
+            },
+        );
+        let michael = "faction.michael".to_owned();
+        staged.factions.insert(
+            michael.clone(),
+            FactionState {
+                id: michael.clone(),
+                resources: BTreeMap::new(),
+                population_used: 1,
+                population_capacity: 1,
+                wobble_limit: 0,
+                buildings: BTreeMap::new(),
+            },
+        );
+        staged.actors.insert(
+            captain.clone(),
+            ProducedActor {
+                madness: 0,
+                undead: false,
+                // Provisional: the manifest reserves no field for the captain's
+                // name or history, so the scenario's hero identity stays here.
+                person: Some(NamedPerson {
+                    id: captain.clone(),
+                    display_name: "Michael".into(),
+                    alive_today: true,
+                    sex: PersonSex::Male,
+                    age: Some(20),
+                    backstory: "Captain of the Handsome Jack. Shipwreck survivor and inventor."
+                        .into(),
+                    ..Default::default()
+                }),
+                instance_id: captain.clone(),
+                definition_id: captain.clone(),
+                actor_kind: "hero".into(),
+                faction_id: michael.clone(),
+                node_id: "scenario.shipwreck".into(),
+                current_assignment_id: None,
+                provenance: ActorProductionProvenance {
+                    faction_id: michael,
+                    producer_building_id: String::new(),
+                    production_rule_id: "scenario_start.shipwreck".into(),
+                    reserved_costs: BTreeMap::new(),
+                    completed_tick: 0,
+                    rally_point_id: "scenario.shipwreck".into(),
+                },
+            },
+        );
+        staged.positions.insert(captain, start);
+        let objective = start;
         staged
             .navigation
             .destinations
             .insert("island.contested_clearing".into(), objective);
-        let entries = [
-            (
-                "faction.colonial_powers.prototype",
-                IslandPoint { x: 12, y: 11 },
-                include_str!("../../content/production/colonial_fort_soldiers.json"),
-            ),
-            (
-                "faction.pirates.prototype",
-                IslandPoint { x: 35, y: 15 },
-                include_str!("../../content/production/tide_quay_deckhands.json"),
-            ),
-            (
-                "faction.cthulhu.prototype",
-                IslandPoint { x: 28, y: 23 },
-                include_str!("../../content/production/drowned_shrine_cultists.json"),
-            ),
-            (
-                "faction.eastern_fox_people.prototype",
-                IslandPoint { x: 33, y: 9 },
-                include_str!(
-                    "../../content/production/eastern_fox_people_river_market_skirmishers.json"
-                ),
-            ),
-            (
-                "faction.elves.prototype",
-                IslandPoint { x: 13, y: 17 },
-                include_str!("../../content/production/elven_heart_grove_bow_wardens.json"),
-            ),
-        ];
-        if roster.len() != entries.len() {
-            return Err("invalid_faction_roster".into());
-        }
-        for (id, preferred, source) in entries {
-            let tuning = roster.get(id).ok_or("missing_faction_tuning")?;
+        for entry in &definition.factions {
+            let id = entry.id.as_str();
+            let tuning = &entry.tuning;
+            if staged.factions.contains_key(id) {
+                return Err("duplicate_scenario_faction".into());
+            }
             if !(1..=4096).contains(&tuning.population_capacity)
                 || tuning.combat.health > 100000
                 || tuning.combat.damage > 100000
@@ -2561,13 +2704,17 @@ impl FactionWorld {
             {
                 return Err("invalid_faction_tuning".into());
             }
-            let rule: ProductionRule =
-                serde_json::from_str(source).map_err(|_| "invalid_authored_production")?;
-            let placement = footprints
+            let rule = entry.production.clone();
+            let placement = staged
+                .rules
+                .footprints
                 .get(&rule.producer_archetype_id)
                 .and_then(|footprint| footprint.placement_entrance)
                 .map(|[x, y]| IslandPoint { x, y });
-            let preferred = placement.unwrap_or(preferred);
+            let preferred = placement.unwrap_or(IslandPoint {
+                x: entry.seed[0],
+                y: entry.seed[1],
+            });
             let spawn = staged
                 .navigation
                 .walkable
@@ -2625,20 +2772,16 @@ impl FactionWorld {
                 .combat_profiles
                 .insert(rule.actor_definition_id.clone(), tuning.combat.clone());
             let policy = FactionPolicy {
-                development: {
-                    let rules: BTreeMap<String, BuildingDevelopmentRule> = serde_json::from_str(
-                        include_str!("../../content/island/holding_development.json"),
-                    )
-                    .map_err(|_| "invalid_authored_development")?;
-                    rules
-                        .get(&rule.producer_archetype_id)
-                        .map(|development| {
-                            [(building_id.clone(), development.clone())]
-                                .into_iter()
-                                .collect()
-                        })
-                        .unwrap_or_default()
-                },
+                development: definition
+                    .rules
+                    .development
+                    .get(&rule.producer_archetype_id)
+                    .map(|development| {
+                        [(building_id.clone(), development.clone())]
+                            .into_iter()
+                            .collect()
+                    })
+                    .unwrap_or_default(),
                 income_per_tick: rule.costs.keys().map(|id| (id.clone(), 1)).collect(),
                 storage_caps: rule.costs.keys().map(|id| (id.clone(), 20)).collect(),
                 production: [(building_id, rule)].into_iter().collect(),
@@ -2655,25 +2798,17 @@ impl FactionWorld {
             };
             staged
                 .set_policy(id, policy)
-                .map_err(|_| "invalid_preview_policy")?;
+                .map_err(|_| "invalid_scenario_policy")?;
         }
-        let initial: InitialDiplomacy = serde_json::from_str(include_str!(
-            "../../content/diplomacy/initial_relationships.prototype.json"
-        ))
-        .map_err(|_| "invalid_initial_diplomacy")?;
+        let initial = &definition.rules.initial_diplomacy;
         let mut pairs = BTreeSet::new();
-        let rules = survival_rules();
-        if !(1..=1024).contains(&rules.decision_ticks)
-            || !(1..=100000).contains(&rules.truce_ticks)
-            || !(101..=1000).contains(&rules.dominance_percent)
-            || !(1..=1024).contains(&rules.strength_horizon_ticks)
+        let count = initial.faction_ids.len();
+        if count != definition.factions.len()
+            || initial.relationships.len() != count * (count - 1) / 2
         {
-            return Err("invalid_survival_rules".into());
-        }
-        if initial.faction_ids.len() != 5 || initial.relationships.len() != 10 {
             return Err("invalid_initial_diplomacy".into());
         }
-        for row in initial.relationships {
+        for row in &initial.relationships {
             let mut pair = [row.a.clone(), row.b.clone()];
             pair.sort();
             if row.a == row.b
@@ -2687,7 +2822,7 @@ impl FactionWorld {
             }
             if row.at_war {
                 staged.hostilities.insert((row.a.clone(), row.b.clone()));
-                staged.hostilities.insert((row.b, row.a));
+                staged.hostilities.insert((row.b.clone(), row.a.clone()));
             }
         }
         staged.navigation.building_obstacles = staged.authored_building_obstacles()?;
@@ -2714,7 +2849,7 @@ impl FactionWorld {
         }
         // Authored scenarios and resumed campaigns obey the same authoritative
         // profile, building, navigation and population validity boundary.
-        let config = foothold_config()?;
+        let config = staged.rules.foothold.clone();
         if staged
             .navigation
             .path(objective, config.cache_position)
@@ -2735,15 +2870,14 @@ impl FactionWorld {
                 created_tick: 0,
             },
         );
-        *self = Self::load_json(&staged.save_json()?)?;
-        Ok(())
+        Self::load_json(&staged.save_json()?)
     }
 
     fn authored_building_obstacles(
         &self,
     ) -> Result<BTreeMap<String, BTreeSet<IslandPoint>>, String> {
         // New scenarios and old-save migration share the same asset contract.
-        let footprints = island_building_footprints()?;
+        let footprints = &self.rules.footprints;
         let mut obstacles = BTreeMap::new();
         for faction in self.factions.values() {
             for building in faction.buildings.values() {
@@ -3198,7 +3332,7 @@ impl FactionWorld {
             world: &'a FactionWorld,
         }
         serde_json::to_string(&Save {
-            version: 1,
+            version: SAVE_VERSION,
             world: self,
         })
         .map_err(|error| error.to_string())
@@ -3206,7 +3340,19 @@ impl FactionWorld {
 
     /// Deserialize into a new value; callers replace live state only after all
     /// validation succeeds. File-size and collection caps bound untrusted saves.
+    /// A version-2 save carries its scenario's rules; only a version-1 save
+    /// needs them supplied, and it takes the scenario it is being resumed into.
     pub fn load_json(text: &str) -> Result<Self, String> {
+        Self::load_saved(text, None)
+    }
+
+    /// Resume a save into a scenario: the migration path for version-1 saves,
+    /// which predate the world carrying its own rules.
+    pub fn load_json_for_scenario(text: &str, rules: &ScenarioRules) -> Result<Self, String> {
+        Self::load_saved(text, Some(rules))
+    }
+
+    fn load_saved(text: &str, scenario_rules: Option<&ScenarioRules>) -> Result<Self, String> {
         if text.len() > 8 * 1024 * 1024 {
             return Err("save_too_large".into());
         }
@@ -3218,6 +3364,27 @@ impl FactionWorld {
         }
         let mut json: serde_json::Value =
             serde_json::from_str(text).map_err(|_| "invalid_save_json")?;
+        let version = json.get("version").and_then(serde_json::Value::as_u64);
+        if version == Some(1) {
+            let Some(rules) = scenario_rules else {
+                return Err("save_needs_scenario_rules".into());
+            };
+            let Some(saved_world) = json.get_mut("world").and_then(|v| v.as_object_mut()) else {
+                return Err("invalid_save_json".into());
+            };
+            if saved_world.contains_key("rules") {
+                return Err("invalid_save_json".into());
+            }
+            saved_world.insert(
+                "rules".into(),
+                serde_json::to_value(rules).map_err(|_| "invalid_save_json")?,
+            );
+            json["version"] = serde_json::json!(SAVE_VERSION);
+        }
+        let migration_rules = json
+            .pointer("/world/rules")
+            .and_then(|value| serde_json::from_value::<ScenarioRules>(value.clone()).ok())
+            .ok_or("invalid_save_json")?;
         if let Some(saved_world) = json.get_mut("world").and_then(|v| v.as_object_mut()) {
             let legacy = saved_world.remove("foothold_cache");
             if !saved_world.contains_key("salvage_caches") {
@@ -3232,7 +3399,7 @@ impl FactionWorld {
                     let cache = SalvageCache {
                         position: old.position,
                         remaining: old.remaining,
-                        initial_amount: old.remaining.max(foothold_config()?.cache_salvage),
+                        initial_amount: old.remaining.max(migration_rules.foothold.cache_salvage),
                         label: "Wreck salvage".into(),
                         source_building_id: "scenario.shipwreck".into(),
                         source_faction: String::new(),
@@ -3250,10 +3417,13 @@ impl FactionWorld {
             .pointer("/world/navigation/building_obstacles")
             .is_none();
         let save: Save = serde_json::from_value(json).map_err(|_| "invalid_save_json")?;
-        if save.version != 1 {
+        if save.version != SAVE_VERSION {
             return Err("unsupported_save_version".into());
         }
         let mut world = save.world;
+        if !world.rules.valid() {
+            return Err("invalid_saved_scenario_rules".into());
+        }
         let mut treaty_pairs = BTreeSet::new();
         if world.survival_truces.len() > 6
             || world.diplomacy_notices.len() > 16
@@ -3270,7 +3440,7 @@ impl FactionWorld {
                     || !treaty_pairs.insert((t.a.clone(), t.b.clone()))
                     || world.hostilities.contains(&(t.a.clone(), t.b.clone()))
                     || world.hostilities.contains(&(t.b.clone(), t.a.clone()))
-                    || t.expires_tick > world.tick.saturating_add(survival_rules().truce_ticks)
+                    || t.expires_tick > world.tick.saturating_add(world.rules.survival.truce_ticks)
             })
             || world.diplomacy_notices.iter().any(|n| {
                 n.tick > world.tick
@@ -3340,7 +3510,9 @@ impl FactionWorld {
                     }
                 }
                 if let Some(job) = &building.repair {
-                    let valid = holding_repair_rules()
+                    let valid = world
+                        .rules
+                        .repairs
                         .get(&building.archetype_id)
                         .is_some_and(|r| {
                             (1..=100000).contains(&r.ticks)
@@ -3365,12 +3537,14 @@ impl FactionWorld {
                     let workshop = faction.id == "faction.michael"
                         && building.archetype_id == "site_archetype.michael.field_workshop"
                         && job.builder_id == "character.protagonist.captain"
-                        && foothold_config().is_ok_and(|c| {
+                        && {
+                            let c = &world.rules.foothold;
                             job.remaining_ticks <= c.construction_ticks
                                 && job.reserved_costs
                                     == [("resource.salvage".into(), c.build_salvage)].into()
-                        });
-                    let expansion = holding_expansion().is_ok_and(|r| {
+                        };
+                    let expansion = {
+                        let r = &world.rules.expansion;
                         faction.id == r.faction_id
                             && building.id == r.building_id
                             && building.archetype_id == r.archetype_id
@@ -3381,7 +3555,7 @@ impl FactionWorld {
                                 })
                             && job.remaining_ticks <= r.construction_ticks
                             && job.reserved_costs == r.costs
-                    });
+                    };
                     if building.operational
                         || !(workshop || expansion)
                         || building.development.is_some()
@@ -3460,7 +3634,7 @@ impl FactionWorld {
                 }
             }
         }
-        if world.mechanical_dog_count() > michael_machinery().capacity {
+        if world.mechanical_dog_count() > world.rules.machinery.capacity {
             return Err("invalid_saved_machine_capacity".into());
         }
         for (id, actor) in &world.actors {
@@ -3476,7 +3650,7 @@ impl FactionWorld {
             }
             if id != &actor.instance_id
                 || !world.factions.contains_key(&actor.faction_id)
-                || actor.madness > madness_rules().conversion_threshold
+                || actor.madness > world.rules.madness.conversion_threshold
             {
                 return Err("invalid_saved_actor".into());
             }
@@ -3577,85 +3751,6 @@ impl FactionWorld {
                 .map_err(|_| "invalid_saved_policy")?;
         }
         Ok(world)
-    }
-
-    /// Small physical island fixture for runtime integration, not the final map.
-    /// Michael is scenario-seeded alone; no automatic companion recruitment.
-    pub fn prototype_island() -> Self {
-        let mut world = Self::default();
-        // Provisional basic carbine, not Michael's future Echo skill deck.
-        world.combat_profiles.insert(
-            "character.protagonist.captain".into(),
-            IslandCombatProfile {
-                health: 30,
-                damage: 4,
-                range: 4,
-                cooldown_ticks: 5,
-            },
-        );
-        world.unit_combat.insert(
-            "character.protagonist.captain".into(),
-            IslandCombatState {
-                health: 30,
-                next_attack_tick: 0,
-                population_use: 1,
-            },
-        );
-        for x in 0..48 {
-            for y in 0..32 {
-                if (x - 24_i32).pow(2) * 196 + (y - 16_i32).pow(2) * 484 < 484 * 196 {
-                    world.navigation.walkable.insert(IslandPoint { x, y });
-                }
-            }
-        }
-        let faction_id = "faction.michael".to_owned();
-        world.factions.insert(
-            faction_id.clone(),
-            FactionState {
-                id: faction_id.clone(),
-                resources: BTreeMap::new(),
-                population_used: 1,
-                population_capacity: 1,
-                wobble_limit: 0,
-                buildings: BTreeMap::new(),
-            },
-        );
-        let actor_id = "character.protagonist.captain".to_owned();
-        world.actors.insert(
-            actor_id.clone(),
-            ProducedActor {
-                madness: 0,
-                undead: false,
-                person: Some(NamedPerson {
-                    id: actor_id.clone(),
-                    display_name: "Michael".into(),
-                    alive_today: true,
-                    sex: PersonSex::Male,
-                    age: Some(20),
-                    backstory: "Captain of the Handsome Jack. Shipwreck survivor and inventor."
-                        .into(),
-                    ..Default::default()
-                }),
-                instance_id: actor_id.clone(),
-                definition_id: actor_id.clone(),
-                actor_kind: "hero".into(),
-                faction_id: faction_id.clone(),
-                node_id: "scenario.shipwreck".into(),
-                current_assignment_id: None,
-                provenance: ActorProductionProvenance {
-                    faction_id,
-                    producer_building_id: String::new(),
-                    production_rule_id: "scenario_start.shipwreck".into(),
-                    reserved_costs: BTreeMap::new(),
-                    completed_tick: 0,
-                    rally_point_id: "scenario.shipwreck".into(),
-                },
-            },
-        );
-        world
-            .positions
-            .insert(actor_id, IslandPoint { x: 8, y: 16 });
-        world
     }
 
     fn minimum_population(&self, faction_id: &str) -> Option<u32> {
@@ -3850,7 +3945,7 @@ impl FactionWorld {
         if actor.undead {
             return "";
         }
-        let rule = madness_rules();
+        let rule = &self.rules.madness;
         if !actor.undead
             && actor.faction_id == rule.faction_id
             && actor.madness >= rule.conversion_threshold
@@ -3864,7 +3959,7 @@ impl FactionWorld {
     }
 
     fn advance_madness(&mut self) -> Vec<FactionWorldEvent> {
-        let rule = madness_rules();
+        let rule = self.rules.madness.clone();
         let shrines: Vec<_> = self
             .factions
             .get(&rule.faction_id)
@@ -3988,7 +4083,7 @@ impl FactionWorld {
             .iter()
             .filter(|(id, a)| {
                 a.faction_id == "faction.michael"
-                    && a.definition_id == michael_machinery().definition_id
+                    && a.definition_id == self.rules.machinery.definition_id
                     && self.living_actor(id)
             })
             .map(|(id, _)| id.clone())
@@ -4221,10 +4316,10 @@ impl FactionWorld {
         if rule.production_ticks == 0 {
             return Err(FactionWorldError::InvalidProductionTicks);
         }
-        if rule.actor_definition_id == michael_machinery().definition_id
+        if rule.actor_definition_id == self.rules.machinery.definition_id
             && (faction_id != "faction.michael"
-                || rule != *mechanical_dog_production()
-                || self.mechanical_dog_count() >= michael_machinery().capacity)
+                || rule != self.rules.machine_production
+                || self.mechanical_dog_count() >= self.rules.machinery.capacity)
         {
             return Err(FactionWorldError::QueueFull(building_id.into()));
         }
@@ -4328,7 +4423,7 @@ impl FactionWorld {
                     if repair_ready.contains(&building.id) {
                         job.remaining_ticks = job.remaining_ticks.saturating_sub(1);
                         if job.remaining_ticks == 0 {
-                            if let Some(rule) = holding_repair_rules().get(&building.archetype_id) {
+                            if let Some(rule) = self.rules.repairs.get(&building.archetype_id) {
                                 building.health = building
                                     .health
                                     .saturating_add(rule.health_gain)
@@ -4402,6 +4497,7 @@ impl FactionWorld {
                     None
                 } else {
                     produced_person(
+                        &self.rules.personas,
                         &order.rule.actor_definition_id,
                         &format!("actor_instance.{faction_id}.{}", self.next_actor_serial),
                         self.next_actor_serial,
@@ -4699,8 +4795,7 @@ mod tests {
     fn fox_expansion_produces_real_skirmishers_with_bounded_population_and_saved_identity() {
         let fox = "faction.eastern_fox_people.prototype";
         let definition = "actor_def.eastern_fox_people.spear_skirmisher";
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        let mut world = main_scenario_world();
         assert_eq!(world.factions.len(), 6); // Five AI factions plus Michael.
         assert!(world.factions.contains_key("faction.elves.prototype"));
         assert_eq!(world.factions[fox].population_capacity, 8);
@@ -4751,6 +4846,27 @@ mod tests {
         assert_eq!(world, frozen);
     }
 
+    /// Every proof reads the scenario document, never a compiled-in rule file.
+    fn main_scenario() -> ScenarioDefinition {
+        crate::scenario_fixture::main_scenario()
+    }
+
+    fn scenario_production(faction_id: &str) -> ProductionRule {
+        main_scenario()
+            .factions
+            .iter()
+            .find(|faction| faction.id == faction_id)
+            .expect("scenario faction")
+            .production
+            .clone()
+    }
+
+    /// The one main-scenario world every proof runs on.
+    fn main_scenario_world() -> FactionWorld {
+        FactionWorld::from_scenario(&crate::scenario_fixture::main_scenario())
+            .expect("main scenario world")
+    }
+
     fn production_world() -> FactionWorld {
         let building = FactionBuilding {
             construction: None,
@@ -4782,6 +4898,8 @@ mod tests {
             buildings: [(building.id.clone(), building)].into_iter().collect(),
         };
         FactionWorld {
+            // Even a bare production fixture plays a scenario's rules.
+            rules: main_scenario().scenario_rules(),
             factions: [(faction.id.clone(), faction)].into_iter().collect(),
             navigation: IslandNavigation {
                 building_obstacles: BTreeMap::new(),
@@ -5181,14 +5299,107 @@ mod tests {
         }
     }
 
+    /// The proof the scenario path replaced the hard-coded island exactly:
+    /// the world `prototype_island()` + `install_preview_factions()` built at
+    /// the commit before they were deleted, field for field, at tick zero and
+    /// after a full day. `godot-rust/tests/fixtures/` holds that world's save.
+    #[test]
+    fn scenario_world_equals_the_deleted_hard_coded_island() {
+        fn canonical(save: &str) -> String {
+            let mut value: serde_json::Value = serde_json::from_str(save).unwrap();
+            // Version 2 added the world's own rules; nothing else may differ.
+            value["version"] = serde_json::json!(1);
+            value["world"].as_object_mut().unwrap().remove("rules");
+            serde_json::to_string(&value).unwrap()
+        }
+        fn fixture(name: &str) -> String {
+            std::fs::read_to_string(format!(
+                "{}/tests/fixtures/{name}",
+                env!("CARGO_MANIFEST_DIR")
+            ))
+            .unwrap()
+        }
+        let mut world = main_scenario_world();
+        assert_eq!(
+            canonical(&world.save_json().unwrap()),
+            canonical(&fixture("hard_coded_island_tick_0.json")),
+        );
+        for _ in 0..1440 {
+            world.advance_island_tick();
+        }
+        assert_eq!(
+            canonical(&world.save_json().unwrap()),
+            canonical(&fixture("hard_coded_island_tick_1440.json")),
+        );
+    }
+
+    /// A version-1 save predates the world carrying its rules. It resumes into
+    /// the scenario it is loaded for, and then plays the same day identically.
+    #[test]
+    fn version_one_save_migrates_into_its_scenario_and_plays_identically() {
+        fn fixture(name: &str) -> String {
+            std::fs::read_to_string(format!(
+                "{}/tests/fixtures/{name}",
+                env!("CARGO_MANIFEST_DIR")
+            ))
+            .unwrap()
+        }
+        let legacy = fixture("hard_coded_island_tick_0.json");
+        let rules = main_scenario().scenario_rules();
+        // Without a scenario there is nothing to fill the missing rules with.
+        assert_eq!(
+            FactionWorld::load_json(&legacy).unwrap_err(),
+            "save_needs_scenario_rules"
+        );
+        let mut migrated = FactionWorld::load_json_for_scenario(&legacy, &rules).unwrap();
+        assert_eq!(migrated, main_scenario_world());
+        assert_eq!(migrated.rules, rules);
+        // A migrated save is a version-2 save and needs no rules again.
+        assert!(FactionWorld::load_json(&migrated.save_json().unwrap()).is_ok());
+        for _ in 0..1440 {
+            migrated.advance_island_tick();
+        }
+        let mut expected: serde_json::Value =
+            serde_json::from_str(&migrated.save_json().unwrap()).unwrap();
+        expected["version"] = serde_json::json!(1);
+        expected["world"].as_object_mut().unwrap().remove("rules");
+        assert_eq!(
+            serde_json::to_string(&expected).unwrap(),
+            serde_json::to_string(
+                &serde_json::from_str::<serde_json::Value>(&fixture(
+                    "hard_coded_island_tick_1440.json"
+                ))
+                .unwrap()
+            )
+            .unwrap()
+        );
+    }
+
+    /// Until the pack tooling lands, the fixture stands in for the generated
+    /// document. When the real one is present they must be the same document.
+    #[test]
+    fn assembled_fixture_matches_the_generated_scenario_document() {
+        let path = format!(
+            "{}/../game/generated/scenarios/scenario.pirate_island.json",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let Ok(generated) = std::fs::read_to_string(&path) else {
+            return;
+        };
+        let generated: serde_json::Value = serde_json::from_str(&generated).unwrap();
+        let assembled: serde_json::Value =
+            serde_json::from_str(&crate::scenario_fixture::main_scenario_document()).unwrap();
+        assert_eq!(generated["scenario"], assembled["scenario"]);
+    }
+
     #[test]
     fn saved_world_rejects_version_and_dangling_actor() {
-        let world = FactionWorld::prototype_island();
+        let world = main_scenario_world();
         let mut data: serde_json::Value =
             serde_json::from_str(&world.save_json().unwrap()).unwrap();
         data["version"] = 99.into();
         assert!(FactionWorld::load_json(&data.to_string()).is_err());
-        data["version"] = 1.into();
+        data["version"] = 2.into();
         data["world"]["factions"] = serde_json::json!({});
         assert!(FactionWorld::load_json(&data.to_string()).is_err());
         assert!(FactionWorld::load_json("{broken").is_err());
@@ -5346,16 +5557,13 @@ mod tests {
 
     #[test]
     fn authored_development_matches_live_producer_resources() {
-        let rules: BTreeMap<String, BuildingDevelopmentRule> = serde_json::from_str(include_str!(
-            "../../content/island/holding_development.json"
-        ))
-        .unwrap();
-        for source in [
-            include_str!("../../content/production/colonial_fort_soldiers.json"),
-            include_str!("../../content/production/tide_quay_deckhands.json"),
-            include_str!("../../content/production/drowned_shrine_cultists.json"),
+        let rules = main_scenario().rules.development.clone();
+        for faction_id in [
+            "faction.colonial_powers.prototype",
+            "faction.pirates.prototype",
+            "faction.cthulhu.prototype",
         ] {
-            let producer: ProductionRule = serde_json::from_str(source).unwrap();
+            let producer = scenario_production(faction_id);
             let development = &rules[&producer.producer_archetype_id];
             assert_eq!(development.max_level, 5);
             assert!(development
@@ -5455,8 +5663,7 @@ mod tests {
 
     #[test]
     fn autonomous_campaign_reaches_and_destroys_hostile_holdings() {
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        let mut world = main_scenario_world();
         let mut siege_assigned = false;
         let mut building_struck = false;
         for step in 0..600 {
@@ -5511,8 +5718,7 @@ mod tests {
 
     #[test]
     fn preview_factions_fight_and_preserve_casualties_without_attacking_michael() {
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        let mut world = main_scenario_world();
         let mut history = Vec::new();
         for _ in 0..100 {
             history.extend(world.advance_island_tick());
@@ -5555,8 +5761,7 @@ mod tests {
 
     #[test]
     fn fort_footprint_routes_around_walls_and_survives_save() {
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        let mut world = main_scenario_world();
         let (id, cells) = world.navigation.building_obstacles.iter().next().unwrap();
         let id = id.clone();
         let cells = cells.clone();
@@ -5593,8 +5798,7 @@ mod tests {
 
     #[test]
     fn legacy_save_gets_authored_obstacles_without_teleporting_actors() {
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        let mut world = main_scenario_world();
         let mut legacy: serde_json::Value =
             serde_json::from_str(&world.save_json().unwrap()).unwrap();
         legacy["world"]["navigation"]
@@ -5634,8 +5838,7 @@ mod tests {
 
     #[test]
     fn autonomous_ranged_holds_while_melee_closes_and_resumes_when_target_is_lost() {
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        let mut world = main_scenario_world();
         for _ in 0..4 {
             world.advance_island_tick();
         }
@@ -5689,8 +5892,7 @@ mod tests {
 
     #[test]
     fn player_carbine_is_queued_paused_and_provokes_retaliation_on_hit() {
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        let mut world = main_scenario_world();
         for _ in 0..4 {
             world.advance_island_tick();
         }
@@ -5745,8 +5947,7 @@ mod tests {
 
     #[test]
     fn persona_catalog_is_safe_and_produced_identity_survives_death_and_reload() {
-        let pools: BTreeMap<String, Vec<PersonaPool>> =
-            serde_json::from_str(include_str!("../../game/assets/island/personas.json")).unwrap();
+        let pools = main_scenario().personas.clone();
         assert!(pools.values().all(|variants| !variants.is_empty()));
         for pool in pools.values().flatten() {
             assert!(pool.age_min >= 18 && pool.age_min <= pool.age_max);
@@ -5764,9 +5965,8 @@ mod tests {
                 assert!(values.iter().all(|v| !v.trim().is_empty()));
             }
         }
-        assert!(produced_person("actor_def.unknown_machine", "machine.1", 1).is_none());
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        assert!(produced_person(&pools, "actor_def.unknown_machine", "machine.1", 1).is_none());
+        let mut world = main_scenario_world();
         for _ in 0..4 {
             world.advance_island_tick();
         }
@@ -5824,8 +6024,7 @@ mod tests {
 
     #[test]
     fn queued_carbine_cancels_when_target_changes_to_michaels_faction() {
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        let mut world = main_scenario_world();
         for _ in 0..4 {
             world.advance_island_tick();
         }
@@ -5860,8 +6059,7 @@ mod tests {
 
     #[test]
     fn siege_destroys_last_producer_and_elimination_survives_load() {
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        let mut world = main_scenario_world();
         for _ in 0..4 {
             world.advance_island_tick();
         }
@@ -6043,8 +6241,7 @@ mod tests {
             "actor_def.colonial.line_marine",
             "actor_def.cthulhu.drowned_cultist",
         ] {
-            let mut world = FactionWorld::prototype_island();
-            world.install_preview_factions().unwrap();
+            let mut world = main_scenario_world();
             // Peace isolates the authored production and voluntary recruitment loop;
             // no actors, identities, population, or positions are fabricated.
             world.hostilities.clear();
@@ -6174,8 +6371,7 @@ mod tests {
 
     #[test]
     fn elven_wardens_replace_slowly_deploy_and_retain_longbow_when_recruited() {
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        let mut world = main_scenario_world();
         world.hostilities.clear();
         let elves = "faction.elves.prototype";
         let definition = "actor_def.elven.bow_warden";
@@ -6264,10 +6460,9 @@ mod tests {
 
     #[test]
     fn colonial_expansion_uses_real_travel_and_paid_saved_work_when_settlement_survives() {
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        let mut world = main_scenario_world();
         world.hostilities.clear(); // Controlled survival, no gifted resources or teleported builder.
-        let rule = holding_expansion().unwrap();
+        let rule = world.rules.expansion.clone();
         let mut started = None;
         for _ in 0..500 {
             world.advance_island_tick();
@@ -6355,8 +6550,7 @@ mod tests {
 
     #[test]
     fn authored_wars_survival_truces_and_local_male_news_share_combat_truth() {
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        let mut world = main_scenario_world();
         let colonial = "faction.colonial_powers.prototype";
         let pirates = "faction.pirates.prototype";
         let cthulhu = "faction.cthulhu.prototype";
@@ -6508,8 +6702,7 @@ mod tests {
     }
 
     fn recruitment_fixture() -> (FactionWorld, Vec<String>) {
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        let mut world = main_scenario_world();
         for _ in 0..2 {
             world.advance_island_tick();
         }
@@ -6561,8 +6754,7 @@ mod tests {
 
     #[test]
     fn holding_salvage_actual_siege_creates_collectible_persistent_ruins() {
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        let mut world = main_scenario_world();
         let captain = "character.protagonist.captain";
         world.positions.insert(
             captain.into(),
@@ -6616,8 +6808,7 @@ mod tests {
 
     #[test]
     fn holding_salvage_legacy_migration_never_refills_collected_materials() {
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        let mut world = main_scenario_world();
         let mut saved: serde_json::Value =
             serde_json::from_str(&world.save_json().unwrap()).unwrap();
         saved["world"]
@@ -6665,8 +6856,7 @@ mod tests {
     }
 
     fn mechanical_workshop_fixture() -> FactionWorld {
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        let mut world = main_scenario_world();
         world.policies.clear();
         world.hostilities.clear();
         let captain = "character.protagonist.captain";
@@ -6788,10 +6978,7 @@ mod tests {
             .next()
             .unwrap()
             .clone();
-        let rule: ProductionRule = serde_json::from_str(include_str!(
-            "../../content/production/tide_quay_deckhands.json"
-        ))
-        .unwrap();
+        let rule = scenario_production(pirates);
         world.enqueue_production(pirates, &site, rule).unwrap();
         for _ in 0..2 {
             world.advance_production_tick();
@@ -6834,10 +7021,7 @@ mod tests {
         building.operational = true;
         building.health = 20;
         // These resources are the treasury AFTER the upgrade reservation.
-        let development: BTreeMap<String, BuildingDevelopmentRule> = serde_json::from_str(
-            include_str!("../../content/island/holding_development.json"),
-        )
-        .unwrap();
+        let development = main_scenario().rules.development.clone();
         let upgrade = development[&building.archetype_id].clone();
         building.development = Some(BuildingDevelopment {
             remaining_ticks: upgrade.ticks,
@@ -6897,8 +7081,7 @@ mod tests {
 
     #[test]
     fn holding_repairs_michael_workshop_stops_when_away_and_caps_healing() {
-        let mut world = FactionWorld::prototype_island();
-        world.install_preview_factions().unwrap();
+        let mut world = main_scenario_world();
         world.policies.clear();
         let captain = "character.protagonist.captain";
         let faction = "faction.michael";
@@ -7811,10 +7994,7 @@ mod tests {
             .get_mut(&building)
             .unwrap()
             .operational = true;
-        let rule = serde_json::from_str(include_str!(
-            "../../content/production/tide_quay_deckhands.json"
-        ))
-        .unwrap();
+        let rule = scenario_production("faction.pirates.prototype");
         world.enqueue_production(faction, &building, rule).unwrap();
         world
             .factions
@@ -8136,10 +8316,7 @@ mod tests {
             .get_mut(&building)
             .unwrap()
             .operational = true;
-        let rule = serde_json::from_str(include_str!(
-            "../../content/production/tide_quay_deckhands.json"
-        ))
-        .unwrap();
+        let rule = scenario_production("faction.pirates.prototype");
         world.enqueue_production(faction, &building, rule).unwrap();
         world.talk_island_person(&ids[0]);
         world.factions.get_mut(faction).unwrap().population_used = 5; // Five live people PLUS one reserved: six required.
