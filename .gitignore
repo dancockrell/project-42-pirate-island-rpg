@@ -21,3 +21,6 @@ work/__pycache__/
 # Native bridge builds for platforms this repository does not ship prebuilt; built by tools/build-native-bridge.sh.
 game/bin/linux/
 game/bin/macos/
+
+# Python bytecode from the sprite inspector tests.
+__pycache__/
