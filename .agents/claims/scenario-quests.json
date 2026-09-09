@@ -34,27 +34,71 @@
     "ScenarioDefinition::quest_catalogue"
   ],
   "coordination": {
-    "depends_on": ["scenario-triggers"],
+    "depends_on": [
+      "scenario-triggers"
+    ],
     "conflicts_with": [],
     "notes": "Implemented -- the last of the four reserved keys. A quest is data (a stage machine: displayName, initialStage, a keyed stages map with objective text and an optional terminal outcome) plus one new closed trigger effect, SetQuestStage, that is the only thing that moves it: completion and failure are effects, exactly as the contract stated, not a second mechanism this lane had to invent. SetQuestStage refuses to move a quest to the stage it is already on and refuses to move it out of a terminal stage, so a quest settles exactly once per outcome. quest_stages (quest id to current stage id) is play state on FactionWorld, seeded from every declared quest's initialStage in from_scenario (and, for the fixture that builds a FactionWorld by hand rather than through from_scenario, seeded the same way at that call site), and saved/refused by name (invalid_saved_quest_stages) if a save is missing a declared quest's entry, carries an entry for an undeclared quest, or names a stage that quest does not define. A version-1 save migrating into a scenario is seeded identically at migration time. The validator proves every quest has a reachable initial stage, at least one terminal stage, and every other stage reached by some set_quest_stage effect in the pack, all failing by name. The main pack's one quest (quest.the_cult_beneath_the_water) is wired onto the two triggers that already existed, closing the loop from heat through diplomacy to a visible campaign outcome."
   },
   "completion": {
-    "commit": null,
+    "commit": "9394220",
     "checks": [
-      {"command": "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check", "result": "pass"},
-      {"command": "cargo test --manifest-path godot-rust/Cargo.toml", "result": "pass: 128 passed, 0 failed (5 new)"},
-      {"command": "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext", "result": "pass"},
-      {"command": "node tools/src/validate.mjs", "result": "pass"},
-      {"command": "node tools/src/build-content-bundle.mjs then git diff game/generated/", "result": "pass: regenerated document committed"},
-      {"command": "python3 tools/test_sprite_source.py", "result": "pass: 12 tests"},
-      {"command": "bash tools/build-native-bridge.sh debug", "result": "pass"},
-      {"command": "bash tools/verify-godot.sh 60", "result": "pass: all three suites, no ERROR line, 'Current 2D Godot verification passed'"},
-      {"command": "bite: a set_quest_stage effect renamed to name an undeclared quest", "result": "validate.mjs failed by name: 'names quest quest.does_not_exist, which no catalogue this pack references declares'"},
-      {"command": "bite: an unreachable stage added to the quest catalogue", "result": "validate.mjs failed by name: 'stage stage.dangling is never reached by a set_quest_stage effect in this pack'"},
-      {"command": "bite: the quest's one terminal stage stripped of its terminal marker", "result": "validate.mjs failed by name: 'needs at least one terminal stage, or it can never resolve'"},
-      {"command": "bite: the terminal-lock clause removed from SetQuestStage's applicability check", "result": "set_quest_stage_moves_a_quest_and_then_refuses_to_move_it_again FAILED, restored green"},
-      {"command": "first run of the new ScenarioQuest deserialization", "result": "FAILED: struct fields display_name/initial_stage lacked #[serde(rename)] for the manifest's camelCase displayName/initialStage, so from_document panicked on the generated document; added the renames, matching every other manifest-facing struct's convention"},
-      {"command": "first full-suite run after adding the terminal-stage-lock rule", "result": "FAILED: 5 pre-existing tests -- production_world() builds a FactionWorld by hand with a non-empty rules.quests but no seeded quest_stages, and the version-1 migration path had never needed to seed anything non-empty before; fixed both call sites to seed quest_stages the same way from_scenario does, not by weakening the new invariant"}
+      {
+        "command": "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check",
+        "result": "pass"
+      },
+      {
+        "command": "cargo test --manifest-path godot-rust/Cargo.toml",
+        "result": "pass: 128 passed, 0 failed (5 new)"
+      },
+      {
+        "command": "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext",
+        "result": "pass"
+      },
+      {
+        "command": "node tools/src/validate.mjs",
+        "result": "pass"
+      },
+      {
+        "command": "node tools/src/build-content-bundle.mjs then git diff game/generated/",
+        "result": "pass: regenerated document committed"
+      },
+      {
+        "command": "python3 tools/test_sprite_source.py",
+        "result": "pass: 12 tests"
+      },
+      {
+        "command": "bash tools/build-native-bridge.sh debug",
+        "result": "pass"
+      },
+      {
+        "command": "bash tools/verify-godot.sh 60",
+        "result": "pass: all three suites, no ERROR line, 'Current 2D Godot verification passed'"
+      },
+      {
+        "command": "bite: a set_quest_stage effect renamed to name an undeclared quest",
+        "result": "validate.mjs failed by name: 'names quest quest.does_not_exist, which no catalogue this pack references declares'"
+      },
+      {
+        "command": "bite: an unreachable stage added to the quest catalogue",
+        "result": "validate.mjs failed by name: 'stage stage.dangling is never reached by a set_quest_stage effect in this pack'"
+      },
+      {
+        "command": "bite: the quest's one terminal stage stripped of its terminal marker",
+        "result": "validate.mjs failed by name: 'needs at least one terminal stage, or it can never resolve'"
+      },
+      {
+        "command": "bite: the terminal-lock clause removed from SetQuestStage's applicability check",
+        "result": "set_quest_stage_moves_a_quest_and_then_refuses_to_move_it_again FAILED, restored green"
+      },
+      {
+        "command": "first run of the new ScenarioQuest deserialization",
+        "result": "FAILED: struct fields display_name/initial_stage lacked #[serde(rename)] for the manifest's camelCase displayName/initialStage, so from_document panicked on the generated document; added the renames, matching every other manifest-facing struct's convention"
+      },
+      {
+        "command": "first full-suite run after adding the terminal-stage-lock rule",
+        "result": "FAILED: 5 pre-existing tests -- production_world() builds a FactionWorld by hand with a non-empty rules.quests but no seeded quest_stages, and the version-1 migration path had never needed to seed anything non-empty before; fixed both call sites to seed quest_stages the same way from_scenario does, not by weakening the new invariant"
+      }
     ]
   }
 }
