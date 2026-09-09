@@ -10,22 +10,62 @@
     "worldDeadlineDay": {"const": 100},
     "heat": {
       "type": "object",
-      "required": ["irreversible", "playerVisibleNumeric", "storedAsEventLedger", "signalChannels"],
+      "required": [
+        "irreversible",
+        "playerVisibleNumeric",
+        "storedAsEventLedger",
+        "signalChannels",
+        "terminalSeverity",
+        "sources"
+      ],
       "properties": {
         "irreversible": {"const": true},
         "playerVisibleNumeric": {"const": false},
         "storedAsEventLedger": {"const": true},
-        "signalChannels": {"type": "array", "minItems": 5, "uniqueItems": true, "items": {"type": "string"}}
+        "signalChannels": {"type": "array", "minItems": 5, "uniqueItems": true, "items": {"type": "string"}},
+        "terminalSeverity": {
+          "description": "Summed severity at which heat becomes terminal. Never shown to the player as a number; the signal channels are the only tell.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "sources": {
+          "description": "The simulated occurrences that write to the ledger. `on` is a closed set the simulation implements; an unknown value is refused rather than ignored.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "required": ["id", "on", "signal", "severity"],
+            "properties": {
+              "id": {"type": "string", "pattern": "^heat\\.[a-z0-9_]+$"},
+              "on": {"enum": ["madness_conversion", "midnight_return", "faction_eliminated"]},
+              "signal": {"type": "string", "minLength": 1},
+              "severity": {"type": "integer", "minimum": 1, "maximum": 100}
+            },
+            "additionalProperties": false
+          }
+        }
       },
       "additionalProperties": false
     },
     "confrontation": {
       "type": "object",
-      "required": ["firstTriggerWins", "causes", "sameTransactionPriority"],
+      "required": [
+        "firstTriggerWins",
+        "causes",
+        "sameTransactionPriority",
+        "deliberateDiscoveryFactionId"
+      ],
       "properties": {
         "firstTriggerWins": {"const": true},
         "causes": {"const": ["deliberate_discovery", "terminal_heat", "day_100"]},
-        "sameTransactionPriority": {"const": ["deliberate_discovery", "terminal_heat", "day_100"]}
+        "sameTransactionPriority": {"const": ["deliberate_discovery", "terminal_heat", "day_100"]},
+        "deliberateDiscoveryFactionId": {
+          "description": "Eliminating this faction is the player going and finding the truth on purpose.",
+          "type": "string",
+          "pattern": "^faction\\."
+        }
       },
       "additionalProperties": false
     }

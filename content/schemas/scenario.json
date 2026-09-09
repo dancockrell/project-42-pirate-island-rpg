@@ -45,7 +45,7 @@
     },
     "rules": {
       "type": "object",
-      "required": ["cthulhuMadness", "colonialExpansion", "holdingRepairs", "holdingSalvage", "holdingDevelopment", "michaelFoothold", "michaelMachinery", "survivalDiplomacy", "initialDiplomacy"],
+      "required": ["cthulhuMadness", "colonialExpansion", "holdingRepairs", "holdingSalvage", "holdingDevelopment", "michaelFoothold", "michaelMachinery", "survivalDiplomacy", "initialDiplomacy", "campaignClock"],
       "additionalProperties": {"$ref": "#/$defs/packPath"}
     },
     "buildings": {"$ref": "#/$defs/packPath"},

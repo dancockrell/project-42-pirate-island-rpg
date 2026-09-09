@@ -442,6 +442,10 @@ impl FootholdConfig {
 /// adopting the rules of the scenario they are resumed into.
 const SAVE_VERSION: u32 = 2;
 
+/// The heat ledger is append-only, so it needs a ceiling for the same reason
+/// every other saved collection has one: a save is untrusted input.
+pub const HEAT_LEDGER_CAP: usize = 512;
+
 fn default_building_health() -> u32 {
     80
 }
@@ -715,6 +719,11 @@ pub struct ScenarioRules {
     pub survival: SurvivalRules,
     pub footprints: BTreeMap<String, IslandBuildingFootprint>,
     pub personas: BTreeMap<String, Vec<PersonaPool>>,
+    /// Defaulted so a version-2 save written before the campaign clock landed
+    /// still parses; the default is deliberately invalid, so such a save is
+    /// then refused by name rather than played with no deadline.
+    #[serde(default)]
+    pub campaign_clock: CampaignClock,
 }
 
 impl ScenarioRules {
@@ -728,7 +737,108 @@ impl ScenarioRules {
             && !self.footprints.is_empty()
             && !self.personas.is_empty()
             && !self.repairs.is_empty()
+            && self.campaign_clock.valid()
     }
+}
+
+/// The three ways the campaign can end up at its confrontation. The scenario
+/// authors the order they are arbitrated in when more than one lands on the
+/// same tick; the simulation never invents a fourth.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum ConfrontationCause {
+    #[serde(rename = "deliberate_discovery")]
+    DeliberateDiscovery,
+    #[serde(rename = "terminal_heat")]
+    TerminalHeat,
+    #[serde(rename = "day_100")]
+    Day100,
+}
+
+impl ConfrontationCause {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::DeliberateDiscovery => "deliberate_discovery",
+            Self::TerminalHeat => "terminal_heat",
+            Self::Day100 => "day_100",
+        }
+    }
+}
+
+/// The simulated occurrences a scenario declares as heat. `on` is closed: the
+/// simulation implements exactly these, so a pack cannot name an occurrence
+/// nothing produces and quietly get a clock that never advances.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HeatTrigger {
+    MadnessConversion,
+    MidnightReturn,
+    FactionEliminated,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeatSource {
+    pub id: String,
+    pub on: HeatTrigger,
+    pub signal: String,
+    pub severity: u32,
+}
+
+/// The campaign's clock, as the scenario authors it. It is a rule, not play
+/// state: it lives on `ScenarioRules` so a mod's deadline travels with its save.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CampaignClock {
+    pub world_deadline_day: u64,
+    /// The channels the island signals through. Heat is stored as a ledger of
+    /// events on these channels and is never exposed as a number.
+    pub signal_channels: Vec<String>,
+    pub terminal_severity: u32,
+    pub sources: Vec<HeatSource>,
+    pub priority: Vec<ConfrontationCause>,
+    /// Eliminating this faction is the player finding the truth on purpose.
+    pub deliberate_discovery_faction: String,
+}
+
+impl CampaignClock {
+    fn valid(&self) -> bool {
+        let channels: BTreeSet<&String> = self.signal_channels.iter().collect();
+        let source_ids: BTreeSet<&String> = self.sources.iter().map(|s| &s.id).collect();
+        let causes: BTreeSet<ConfrontationCause> = self.priority.iter().copied().collect();
+        self.world_deadline_day > 0
+            && self.terminal_severity > 0
+            && self.signal_channels.len() >= 5
+            && self.signal_channels.iter().all(|c| !c.is_empty())
+            && channels.len() == self.signal_channels.len()
+            && !self.sources.is_empty()
+            && self.sources.len() <= 64
+            && source_ids.len() == self.sources.len()
+            && self.sources.iter().all(|source| {
+                !source.id.is_empty()
+                    && source.id.len() <= 256
+                    && (1..=100).contains(&source.severity)
+                    && channels.contains(&source.signal)
+            })
+            && causes.len() == 3
+            && self.priority.len() == 3
+            && self.deliberate_discovery_faction.starts_with("faction.")
+    }
+}
+
+/// One irreversible entry in the heat ledger. There is no verb that removes one.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeatEvent {
+    pub id: String,
+    pub signal: String,
+    pub severity: u32,
+    pub tick: u64,
+}
+
+/// Recorded once, never rewritten: the first cause to fire settles the campaign.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Confrontation {
+    pub cause: ConfrontationCause,
+    pub tick: u64,
+    pub day: u64,
 }
 
 /// The scenario pack's resolved manifest, as the bundle builder writes it.
@@ -808,6 +918,50 @@ pub struct ScenarioRuleSet {
     pub survival: SurvivalRules,
     #[serde(rename = "initialDiplomacy")]
     pub initial_diplomacy: InitialDiplomacy,
+    #[serde(rename = "campaignClock")]
+    pub campaign_clock: ScenarioCampaignClock,
+}
+
+/// The authored campaign-clock record, embedded verbatim by the bundle builder.
+/// Its shape is `content/schemas/campaign_clock.schema.json`; the descriptive
+/// keys (`id`, `kind`, `irreversible`, `causes`) are the record's own contract
+/// and the schema holds them, so the runtime reads only what it executes.
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct ScenarioCampaignClock {
+    #[serde(rename = "worldDeadlineDay")]
+    pub world_deadline_day: u64,
+    pub heat: ScenarioHeatRules,
+    pub confrontation: ScenarioConfrontationRules,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct ScenarioHeatRules {
+    #[serde(rename = "signalChannels")]
+    pub signal_channels: Vec<String>,
+    #[serde(rename = "terminalSeverity")]
+    pub terminal_severity: u32,
+    pub sources: Vec<HeatSource>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct ScenarioConfrontationRules {
+    #[serde(rename = "sameTransactionPriority")]
+    pub priority: Vec<ConfrontationCause>,
+    #[serde(rename = "deliberateDiscoveryFactionId")]
+    pub deliberate_discovery_faction: String,
+}
+
+impl ScenarioCampaignClock {
+    fn resolve(&self) -> CampaignClock {
+        CampaignClock {
+            world_deadline_day: self.world_deadline_day,
+            signal_channels: self.heat.signal_channels.clone(),
+            terminal_severity: self.heat.terminal_severity,
+            sources: self.heat.sources.clone(),
+            priority: self.confrontation.priority.clone(),
+            deliberate_discovery_faction: self.confrontation.deliberate_discovery_faction.clone(),
+        }
+    }
 }
 
 impl ScenarioDefinition {
@@ -862,6 +1016,7 @@ impl ScenarioDefinition {
             survival: self.rules.survival.clone(),
             footprints: self.buildings.clone(),
             personas: self.personas.clone(),
+            campaign_clock: self.rules.campaign_clock.resolve(),
         }
     }
 }
@@ -904,6 +1059,13 @@ pub struct FactionWorld {
     pub hostilities: BTreeSet<(String, String)>,
     #[serde(default)]
     pub casualties: BTreeMap<String, IslandCasualty>,
+    /// The heat ledger: append-only, in the order it happened. There is no
+    /// verb that removes an entry and none that reports its sum to the player.
+    #[serde(default)]
+    pub heat: Vec<HeatEvent>,
+    /// Set once, by the first cause to fire. Never rewritten.
+    #[serde(default)]
+    pub confrontation: Option<Confrontation>,
     next_actor_serial: u64,
     next_order_serial: u64,
 }
@@ -3479,6 +3641,34 @@ impl FactionWorld {
         if !(1..=1000000).contains(&world.clock.ticks_per_day) {
             return Err("invalid_saved_clock".into());
         }
+        let mut heat_ids = BTreeSet::new();
+        let mut previous_heat_tick = 0u64;
+        if world.heat.len() > HEAT_LEDGER_CAP
+            || world.heat.iter().any(|event| {
+                let out_of_order = event.tick < previous_heat_tick;
+                previous_heat_tick = event.tick;
+                out_of_order
+                    || event.id.is_empty()
+                    || event.id.len() > 256
+                    || !(1..=100).contains(&event.severity)
+                    || event.tick > world.tick
+                    || !heat_ids.insert(event.id.clone())
+                    || !world
+                        .rules
+                        .campaign_clock
+                        .signal_channels
+                        .contains(&event.signal)
+            })
+        {
+            return Err("invalid_saved_heat_ledger".into());
+        }
+        if world.confrontation.is_some_and(|record| {
+            record.tick > world.tick
+                || record.day > world.day()
+                || !world.rules.campaign_clock.priority.contains(&record.cause)
+        }) {
+            return Err("invalid_saved_confrontation".into());
+        }
         if world.navigation.walkable.len() > 16384
             || world.actors.len() > 4096
             || world.factions.len() > 64
@@ -4715,7 +4905,115 @@ impl FactionWorld {
         {
             self.cancel_approach();
         }
+        // One arbitration point, at the settled end of the tick: movement,
+        // combat, elimination, madness and the midnight return have all
+        // resolved and `self.tick` has already advanced, so a cause reads a
+        // world nothing else will change this tick. A pass before the tick
+        // would re-fire on load.
+        self.advance_campaign_clock(&events);
         events
+    }
+
+    /// Append one entry to the heat ledger. Refuses a duplicate ID, an
+    /// undeclared signal channel, an out-of-range severity, and a ledger that
+    /// has reached its cap. Returns whether the ledger changed.
+    pub fn record_heat_event(&mut self, id: &str, signal: &str, severity: u32) -> bool {
+        if id.is_empty()
+            || id.len() > 256
+            || !(1..=100).contains(&severity)
+            || !self
+                .rules
+                .campaign_clock
+                .signal_channels
+                .iter()
+                .any(|channel| channel == signal)
+            || self.heat.len() >= HEAT_LEDGER_CAP
+            || self.heat.iter().any(|event| event.id == id)
+        {
+            return false;
+        }
+        self.heat.push(HeatEvent {
+            id: id.to_string(),
+            signal: signal.to_string(),
+            severity,
+            tick: self.tick,
+        });
+        true
+    }
+
+    /// The ledger's summed severity. Deliberately not exposed through the
+    /// bridge: the authored record says heat is never a number the player sees.
+    pub fn heat_severity(&self) -> u32 {
+        self.heat
+            .iter()
+            .fold(0u32, |total, event| total.saturating_add(event.severity))
+    }
+
+    /// The channels the island has actually signalled on, which is the only
+    /// tell the player gets.
+    pub fn heat_channels(&self) -> BTreeSet<String> {
+        self.heat.iter().map(|event| event.signal.clone()).collect()
+    }
+
+    pub fn confrontation_cause(&self) -> Option<ConfrontationCause> {
+        self.confrontation.map(|record| record.cause)
+    }
+
+    fn advance_campaign_clock(&mut self, events: &[FactionWorldEvent]) {
+        let clock = self.rules.campaign_clock.clone();
+        for source in &clock.sources {
+            for event in events {
+                let subject = match (source.on, event) {
+                    (
+                        HeatTrigger::MadnessConversion,
+                        FactionWorldEvent::MadnessConverted { actor_id, .. },
+                    ) => actor_id,
+                    (
+                        HeatTrigger::MidnightReturn,
+                        FactionWorldEvent::MidnightReturned { actor_id, .. },
+                    ) => actor_id,
+                    (
+                        HeatTrigger::FactionEliminated,
+                        FactionWorldEvent::FactionEliminated { faction_id },
+                    ) => faction_id,
+                    _ => continue,
+                };
+                let id = format!("{}:{subject}:{}", source.id, self.tick);
+                self.record_heat_event(&id, &source.signal, source.severity);
+            }
+        }
+        // First trigger wins: once a cause is recorded it is the campaign's,
+        // whatever happens later.
+        if self.confrontation.is_some() {
+            return;
+        }
+        let mut satisfied = BTreeSet::new();
+        if self
+            .eliminated_factions
+            .contains(&clock.deliberate_discovery_faction)
+        {
+            satisfied.insert(ConfrontationCause::DeliberateDiscovery);
+        }
+        if self.heat_severity() >= clock.terminal_severity {
+            satisfied.insert(ConfrontationCause::TerminalHeat);
+        }
+        if self.day() >= clock.world_deadline_day {
+            satisfied.insert(ConfrontationCause::Day100);
+        }
+        // Within one tick the authored order decides, so two causes landing
+        // together always record the same one.
+        if let Some(cause) = clock
+            .priority
+            .iter()
+            .copied()
+            .find(|cause| satisfied.contains(cause))
+        {
+            self.confrontation = Some(Confrontation {
+                cause,
+                tick: self.tick,
+                day: self.day(),
+            });
+        }
     }
 
     pub fn dispatch_actor(
@@ -5307,9 +5605,18 @@ mod tests {
     fn scenario_world_equals_the_deleted_hard_coded_island() {
         fn canonical(save: &str) -> String {
             let mut value: serde_json::Value = serde_json::from_str(save).unwrap();
-            // Version 2 added the world's own rules; nothing else may differ.
+            // Version 2 added the world's own rules, and the campaign clock
+            // added a heat ledger and a confrontation record. The hard-coded
+            // island had none of the three, so they are removed here and
+            // nothing else may differ: every field that island did have is
+            // still produced identically. The clock's own state is proved in
+            // `heat_accrues_from_the_islands_own_occurrences` and the
+            // confrontation tests, not hidden by this strip.
             value["version"] = serde_json::json!(1);
-            value["world"].as_object_mut().unwrap().remove("rules");
+            let world = value["world"].as_object_mut().unwrap();
+            world.remove("rules");
+            world.remove("heat");
+            world.remove("confrontation");
             serde_json::to_string(&value).unwrap()
         }
         fn fixture(name: &str) -> String {
@@ -5362,7 +5669,13 @@ mod tests {
         let mut expected: serde_json::Value =
             serde_json::from_str(&migrated.save_json().unwrap()).unwrap();
         expected["version"] = serde_json::json!(1);
-        expected["world"].as_object_mut().unwrap().remove("rules");
+        // As above: the fixture predates the world's rules and the campaign
+        // clock's play state, so those three are removed and everything the
+        // fixture does carry must still match field for field.
+        let expected_world = expected["world"].as_object_mut().unwrap();
+        expected_world.remove("rules");
+        expected_world.remove("heat");
+        expected_world.remove("confrontation");
         assert_eq!(
             serde_json::to_string(&expected).unwrap(),
             serde_json::to_string(
@@ -5372,6 +5685,221 @@ mod tests {
                 .unwrap()
             )
             .unwrap()
+        );
+    }
+
+    /// The main scenario's clock is the authored record, not a Rust default.
+    #[test]
+    fn the_scenario_document_supplies_the_campaign_clock() {
+        let clock = main_scenario_world().rules.campaign_clock;
+        assert_eq!(clock.world_deadline_day, 100);
+        assert_eq!(clock.terminal_severity, 24);
+        assert_eq!(
+            clock.priority,
+            vec![
+                ConfrontationCause::DeliberateDiscovery,
+                ConfrontationCause::TerminalHeat,
+                ConfrontationCause::Day100,
+            ]
+        );
+        assert_eq!(
+            clock.deliberate_discovery_faction,
+            "faction.cthulhu.prototype"
+        );
+        assert!(clock.signal_channels.contains(&"dreams".to_string()));
+        assert_eq!(clock.sources.len(), 3);
+    }
+
+    /// A rule set with no campaign clock is refused rather than played with no
+    /// deadline, which is what a version-2 save written before this contract is.
+    #[test]
+    fn a_world_without_a_campaign_clock_is_refused() {
+        let mut world = main_scenario_world();
+        world.rules.campaign_clock = CampaignClock::default();
+        let payload = world.save_json().unwrap();
+        assert_eq!(
+            FactionWorld::load_json(&payload).unwrap_err(),
+            "invalid_saved_scenario_rules"
+        );
+    }
+
+    /// Heat is written by the island's own occurrences, not by a verb Godot
+    /// calls: a day of play leaves a ledger, on declared channels only, and
+    /// the same day played twice leaves the same ledger.
+    #[test]
+    fn heat_accrues_from_the_islands_own_occurrences() {
+        let mut world = main_scenario_world();
+        assert!(world.heat.is_empty());
+        for _ in 0..1440 {
+            world.advance_island_tick();
+        }
+        assert!(
+            !world.heat.is_empty(),
+            "a day of the main scenario must signal at least once"
+        );
+        let channels = &world.rules.campaign_clock.signal_channels;
+        let mut seen = BTreeSet::new();
+        let mut previous = 0;
+        for event in &world.heat {
+            assert!(channels.contains(&event.signal), "{}", event.signal);
+            assert!(seen.insert(event.id.clone()), "{}", event.id);
+            assert!(event.tick >= previous);
+            previous = event.tick;
+        }
+        assert!(world.heat_severity() > 0);
+        assert!(
+            world
+                .heat_channels()
+                .is_subset(&channels.iter().cloned().collect())
+        );
+
+        let mut twin = main_scenario_world();
+        for _ in 0..1440 {
+            twin.advance_island_tick();
+        }
+        assert_eq!(world.heat, twin.heat);
+    }
+
+    /// The ledger is append-only and closed: an undeclared channel, a repeated
+    /// ID and an out-of-range severity are each refused without writing.
+    #[test]
+    fn the_heat_ledger_refuses_what_the_clock_does_not_declare() {
+        let mut world = main_scenario_world();
+        assert!(world.record_heat_event("heat.test:1", "dreams", 3));
+        assert_eq!(world.heat.len(), 1);
+        assert!(!world.record_heat_event("heat.test:1", "dreams", 3));
+        assert!(!world.record_heat_event("heat.test:2", "not_a_channel", 3));
+        assert!(!world.record_heat_event("heat.test:3", "dreams", 0));
+        assert!(!world.record_heat_event("heat.test:4", "dreams", 101));
+        assert!(!world.record_heat_event("", "dreams", 3));
+        assert_eq!(world.heat.len(), 1);
+        assert_eq!(world.heat_severity(), 3);
+    }
+
+    /// Day 100 is a real deadline: it records a confrontation, and once one is
+    /// recorded nothing rewrites it, however many later causes come true.
+    #[test]
+    fn the_deadline_records_a_confrontation_that_is_never_rewritten() {
+        let mut world = main_scenario_world();
+        world.tick = world.clock.ticks_per_day * 98;
+        world.advance_island_tick();
+        assert_eq!(world.day(), 99);
+        assert!(world.confrontation.is_none());
+        world.tick = world.clock.ticks_per_day * 99;
+        world.advance_island_tick();
+        let recorded = world.confrontation.expect("day 100 must confront");
+        assert_eq!(recorded.cause, ConfrontationCause::Day100);
+        assert_eq!(recorded.day, 100);
+        // A later, higher-priority cause does not displace the recorded one.
+        world
+            .eliminated_factions
+            .insert("faction.cthulhu.prototype".into());
+        world.advance_island_tick();
+        assert_eq!(world.confrontation, Some(recorded));
+    }
+
+    /// When more than one cause is true in the same tick, the authored order
+    /// decides, so the recorded cause is never a matter of evaluation order.
+    #[test]
+    fn causes_landing_together_are_settled_by_the_authored_priority() {
+        let mut world = main_scenario_world();
+        world.tick = world.clock.ticks_per_day * 99;
+        for index in 0..8 {
+            assert!(world.record_heat_event(&format!("heat.test:{index}"), "dreams", 3));
+        }
+        assert!(world.heat_severity() >= world.rules.campaign_clock.terminal_severity);
+        world
+            .eliminated_factions
+            .insert("faction.cthulhu.prototype".into());
+        world.advance_campaign_clock(&[]);
+        assert_eq!(
+            world.confrontation.map(|record| record.cause),
+            Some(ConfrontationCause::DeliberateDiscovery)
+        );
+
+        // With deliberate discovery absent, terminal heat outranks the deadline.
+        let mut heated = main_scenario_world();
+        heated.tick = heated.clock.ticks_per_day * 99;
+        for index in 0..8 {
+            assert!(heated.record_heat_event(&format!("heat.test:{index}"), "dreams", 3));
+        }
+        heated.advance_campaign_clock(&[]);
+        assert_eq!(
+            heated.confrontation.map(|record| record.cause),
+            Some(ConfrontationCause::TerminalHeat)
+        );
+    }
+
+    /// The ledger and the recorded cause are play state, so they survive a
+    /// save and a load exactly.
+    #[test]
+    fn the_ledger_and_the_confrontation_survive_a_save_round_trip() {
+        let mut world = main_scenario_world();
+        world.tick = world.clock.ticks_per_day * 99;
+        assert!(world.record_heat_event("heat.test:1", "npc_behavior", 5));
+        world.advance_campaign_clock(&[]);
+        assert!(world.confrontation.is_some());
+        let restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        assert_eq!(restored.heat, world.heat);
+        assert_eq!(restored.confrontation, world.confrontation);
+        assert_eq!(restored, world);
+    }
+
+    /// A save is untrusted input, so a tampered ledger or a confrontation from
+    /// the future is refused by name rather than loaded.
+    #[test]
+    fn a_tampered_ledger_or_confrontation_is_refused_by_name() {
+        fn refusal(mutate: impl FnOnce(&mut FactionWorld)) -> String {
+            let mut world = main_scenario_world();
+            world.tick = 10;
+            mutate(&mut world);
+            FactionWorld::load_json(&world.save_json().unwrap()).unwrap_err()
+        }
+        let entry = |id: &str, signal: &str, tick: u64| HeatEvent {
+            id: id.into(),
+            signal: signal.into(),
+            severity: 3,
+            tick,
+        };
+        assert_eq!(
+            refusal(|world| world.heat.push(entry("heat.a", "not_a_channel", 1))),
+            "invalid_saved_heat_ledger"
+        );
+        assert_eq!(
+            refusal(|world| world.heat.push(entry("heat.a", "dreams", 99))),
+            "invalid_saved_heat_ledger"
+        );
+        assert_eq!(
+            refusal(|world| {
+                world.heat.push(entry("heat.a", "dreams", 1));
+                world.heat.push(entry("heat.a", "dreams", 2));
+            }),
+            "invalid_saved_heat_ledger"
+        );
+        assert_eq!(
+            refusal(|world| {
+                world.heat.push(entry("heat.a", "dreams", 5));
+                world.heat.push(entry("heat.b", "dreams", 1));
+            }),
+            "invalid_saved_heat_ledger"
+        );
+        assert_eq!(
+            refusal(|world| {
+                world.heat = (0..=HEAT_LEDGER_CAP)
+                    .map(|index| entry(&format!("heat.{index}"), "dreams", 1))
+                    .collect();
+            }),
+            "invalid_saved_heat_ledger"
+        );
+        assert_eq!(
+            refusal(|world| {
+                world.confrontation = Some(Confrontation {
+                    cause: ConfrontationCause::Day100,
+                    tick: 99,
+                    day: 1,
+                });
+            }),
+            "invalid_saved_confrontation"
         );
     }
 

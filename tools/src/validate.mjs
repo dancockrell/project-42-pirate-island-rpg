@@ -305,6 +305,25 @@ for (const { file, value } of await readJsonDirectory("campaign")) {
   const causes = ["deliberate_discovery", "terminal_heat", "day_100"];
   if (value.confrontation?.firstTriggerWins !== true || JSON.stringify(value.confrontation?.causes) !== JSON.stringify(causes) || JSON.stringify(value.confrontation?.sameTransactionPriority) !== JSON.stringify(causes)) fail(file, "confrontation must use the canonical first-of-three triggers and tie priority");
   if (!Array.isArray(value.heat?.signalChannels) || value.heat.signalChannels.length < 5) fail(file, "heat requires at least five diegetic signal channels");
+  // The ledger has to be reachable, or the clock declares a terminal state
+  // nothing can ever produce. Each source names an occurrence the simulation
+  // actually emits and a channel this record itself declares.
+  const channels = new Set(Array.isArray(value.heat?.signalChannels) ? value.heat.signalChannels : []);
+  const simulatedOccurrences = new Set(["madness_conversion", "midnight_return", "faction_eliminated"]);
+  if (!Number.isInteger(value.heat?.terminalSeverity) || value.heat.terminalSeverity < 1) fail(file, "heat requires a positive terminalSeverity");
+  const sources = Array.isArray(value.heat?.sources) ? value.heat.sources : [];
+  if (sources.length === 0) fail(file, "heat requires at least one source, or terminal heat is unreachable");
+  const seenSourceIds = new Set();
+  for (const [index, source] of sources.entries()) {
+    if (typeof source?.id !== "string" || !/^heat\.[a-z0-9_]+$/.test(source.id)) fail(file, `heat.sources[${index}].id must be a stable ID of the form heat.<name>`);
+    else if (seenSourceIds.has(source.id)) fail(file, `heat.sources[${index}] repeats id ${source.id}`);
+    else seenSourceIds.add(source.id);
+    if (!simulatedOccurrences.has(source?.on)) fail(file, `heat.sources[${index}].on ${source?.on} is not an occurrence the simulation emits`);
+    if (!channels.has(source?.signal)) fail(file, `heat.sources[${index}].signal ${source?.signal} is not one of this clock's signalChannels`);
+    if (!Number.isInteger(source?.severity) || source.severity < 1 || source.severity > 100) fail(file, `heat.sources[${index}].severity must be between 1 and 100`);
+  }
+  if (typeof value.confrontation?.deliberateDiscoveryFactionId !== "string") fail(file, "confrontation requires a deliberateDiscoveryFactionId");
+  else reference(value.confrontation.deliberateDiscoveryFactionId, file, "confrontation.deliberateDiscoveryFactionId");
 }
 
 for (const { file, value } of await readJsonDirectory("world")) {
@@ -582,7 +601,7 @@ for (const pack of scenarioPacks) {
     if (!Array.isArray(manifest[field])) fail(file, `${name} reserved array ${field} must be an array`);
     else if (manifest[field].length !== 0) fail(file, `${name} reserved array ${field} must be empty in schema version 1; the simulation does not run ${field} yet`);
   }
-  for (const key of ["cthulhuMadness", "colonialExpansion", "holdingRepairs", "holdingSalvage", "holdingDevelopment", "michaelFoothold", "michaelMachinery", "michaelMachineProduction", "survivalDiplomacy", "initialDiplomacy"]) {
+  for (const key of ["cthulhuMadness", "colonialExpansion", "holdingRepairs", "holdingSalvage", "holdingDevelopment", "michaelFoothold", "michaelMachinery", "michaelMachineProduction", "survivalDiplomacy", "initialDiplomacy", "campaignClock"]) {
     if (typeof manifest.rules?.[key] !== "string") fail(file, `${name} rules.${key} must name a rule document`);
   }
   const resolved = new Map();

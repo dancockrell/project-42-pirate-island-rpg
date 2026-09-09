@@ -20,7 +20,7 @@ Counting `content/` against the code that loads it:
 
 | Domain | Files | Read by Rust | The authority section it serves |
 |---|---|---|---|
-| `campaign/` | 1 | **no** | Three endgame triggers; Day 100; hidden heat (M3) |
+| `campaign/` | 1 | **yes** | Three endgame triggers; Day 100; hidden heat (M3) |
 | `world/` (island network) | 3 | **no** | One island, one board; complex network, not three lanes |
 | `weather/` | 2 | **no** | Magical weather system |
 | `sites/` | 5 | **no** | Faction structures are also adventure sites |
@@ -50,6 +50,11 @@ Order is by dependency, not by appetite.
 - **Portable gate and CI.** The Godot gate and native build run on Linux and
   macOS; two jobs verify every pull request; a third builds the Windows library
   so a deleted verb cannot silently break the owner's platform.
+- **The campaign clock.** `content/campaign/cthulhu_clocks.json` is read.
+  Day 100 is a real deadline, heat is an irreversible ledger written by the
+  island's own occurrences on the record's declared channels, and the three
+  confrontation causes are arbitrated once at the settled tail of the tick with
+  the authored first-wins priority. Milestone M3.
 
 ### In flight
 
@@ -68,35 +73,30 @@ Order is by dependency, not by appetite.
    a trigger changes the world, it does not narrate it. No journal, no feed.
 4. **Quests.** Stage machines whose transitions are triggers, their stage in the
    snapshot so Godot shows state it does not invent.
-5. **The campaign clock.** `content/campaign/cthulhu_clocks.json` exists and is
-   read by nothing. Day 100 as a real deadline, heat as an irreversible event
-   ledger (IDs and severity, never a number the player sees), and the three
-   confrontation triggers with `firstTriggerWins` arbitration recording an
-   immutable cause. This is milestone M3 and it is entirely unbuilt.
-6. **The island network.** `content/world/island_network.prototype.json`
+5. **The island network.** `content/world/island_network.prototype.json`
    declares six nodes and eight tethers with a loop, a hub and a chokepoint; the
    simulation has a flat walkable grid and named destinations. Give the world the
    node/tether graph the authority requires, with tether state (blocked, hidden,
    conditional) changing reachability without moving geography. Regions become
    expressible, which is what location triggers were deferred for.
-7. **Weather.** Two authored fronts with selection weights, movement across
+6. **Weather.** Two authored fronts with selection weights, movement across
    tethers, faction modifiers, terrain interactions and advance tells. Weather
-   moves on the network from item 6 and modifies production, movement and sight
+   moves on the network from item 5 and modifies production, movement and sight
    through the same rules factions already use.
-8. **Terrain influence.** Layered fields over cells sourced by structures,
+7. **Terrain influence.** Layered fields over cells sourced by structures,
    units and rituals, competing deterministically, changing movement cost, build
    legality and encounter grammar. Depends on the network.
-9. **Companions and leads.** The heart of the product and the largest piece:
+8. **Companions and leads.** The heart of the product and the largest piece:
    Betty and Ayla exist as authored characters with skills and are not in the
    game. Put a heroine on the island as a recruitable, directable hero with her
    own competence domain; give her a lead that reads simulated evidence, offers
    two interpretations and asks for support; let the player's answer change board
    state, relationships and proof in one transaction. Milestone M2, and M4 begins
    here.
-10. **Adventure sites.** A faction holding becomes enterable, its layout and
+9. **Adventure sites.** A faction holding becomes enterable, its layout and
     defenders derived from the recorded composite seed the site records already
     describe, so a level-five cult shrine differs from a level-two fort.
-11. **Battle, reconnected.** `battle.rs` compiles, has 26 tests, and is wired to
+10. **Battle, reconnected.** `battle.rs` compiles, has 26 tests, and is wired to
     nothing: the island tick never calls it. Either the board resolves combat
     where it stands or a bounded tactical view opens; the authority marks that
     choice provisional, so it needs a decision before it needs code.

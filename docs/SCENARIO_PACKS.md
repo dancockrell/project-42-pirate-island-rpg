@@ -137,6 +137,41 @@ built before the change, at tick zero and after 1,440 ticks, byte-identical
 saves. The main scenario is then the only path and the hard-coded one is
 deleted.
 
+## The campaign clock — shipped
+
+`rules.campaignClock` names a campaign-clock record
+(`content/schemas/campaign_clock.schema.json`; the main pack points at
+`content/campaign/cthulhu_clocks.json`). It is a rule, so it lives on
+`ScenarioRules` and travels with a save: a mod's deadline is its own.
+
+The record declares three things the simulation runs.
+
+- **A deadline.** `worldDeadlineDay`. When the world reaches it, the campaign
+  has its confrontation.
+- **Heat, as an irreversible event ledger.** `signalChannels` are the diegetic
+  channels the island signals through. `sources` say which of the island's own
+  occurrences write to the ledger — `on` is a closed set the simulation emits
+  (`madness_conversion`, `midnight_return`, `faction_eliminated`), so a pack
+  cannot name an occurrence nothing produces and get a clock that never
+  advances. `FactionWorld.heat` is append-only: there is no verb that removes
+  an entry, and `record_heat_event` refuses a repeated ID, an undeclared
+  channel and an out-of-range severity. Heat reaches `terminalSeverity` and
+  stays there.
+- **Confrontation, arbitrated once.** `deliberate_discovery` (the scenario's
+  `deliberateDiscoveryFactionId` is eliminated — the player went and found the
+  truth), `terminal_heat`, and the deadline. All three are evaluated at one
+  point, the settled tail of `advance_island_tick`, after movement, combat,
+  elimination, madness and the midnight return have resolved. The first cause
+  to fire is recorded in `FactionWorld.confrontation` and is never rewritten;
+  when more than one lands in the same tick, `sameTransactionPriority` decides,
+  so the recorded cause never depends on evaluation order.
+
+**Heat is never a number the player sees.** The snapshot's `campaign` entry
+carries `deadline_day`, `days_remaining`, the `heat_signals` channels the
+island has actually signalled on, and the recorded `confrontation` and
+`confrontation_day`. `heat_severity()` exists in Rust for the arbitration and
+is deliberately not exposed through the bridge.
+
 ## Reserved: resources, items, triggers, quests
 
 Each is its own contract and its own claim; this document reserves the keys so
@@ -153,8 +188,9 @@ the manifest shape does not change again.
   level, an actor entering a cell region, a recruitment, a flag) and an effect
   the simulation implements (a news line, a flag, an item granted, a diplomacy
   change, a spawn through a declared producer, a quest stage). Every trigger
-  fires at most once unless it says `repeat`, and every firing is journalled
-  with its cause.
+  fires at most once unless it says `repeat`. By the owner's decision of
+  9 September a trigger changes the world and does not narrate it: there is no
+  journal and no event feed.
 - **Quests.** Stage machines whose transitions are triggers; a quest exposes
   its current stage and objective text through the snapshot; completion and
   failure are effects.

@@ -53,5 +53,15 @@ func _initialize() -> void:
 		var state: Dictionary = port.tick_island()
 		assert(Vector2i(captain(state).x, captain(state).y) == start + step_direction * (step + 1))
 	assert(not captain(port.island_snapshot()).moving)
-	print("PASS: actual Rust island bridge, scenario document, solo start, movement, ocean rejection, pause and arrival")
+	# The campaign clock reaches Godot as authored state, and only as much of
+	# it as the player may see: the authored record says heat is never a
+	# number, so the snapshot carries signalling channels and no total.
+	var campaign: Dictionary = port.island_snapshot().campaign
+	assert(campaign.deadline_day == 100)
+	assert(campaign.days_remaining == 99)
+	assert(campaign.confrontation == "")
+	assert(campaign.confrontation_day == 0)
+	assert(campaign.heat_signals is Array)
+	assert(not campaign.has("heat_severity"))
+	print("PASS: actual Rust island bridge, scenario document, solo start, movement, ocean rejection, pause, arrival and the campaign clock")
 	quit()

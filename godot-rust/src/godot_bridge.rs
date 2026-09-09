@@ -261,6 +261,24 @@ impl Project42SimulationBridge {
             );
         }
         let mut snapshot = vdict! { "tick" => world.tick as i64, "day" => world.day() as i64, "minute_of_day" => world.minute_of_day(), "paused" => world.paused, "actors" => &actors, "buildings" => &buildings, "land" => &land, "casualties" => world.casualties.len() as i64, "party" => &party, "party_names" => &party_names, "approach_target" => world.approach_target.as_deref().unwrap_or(""), "salvage" => salvage, "salvage_caches" => &salvage_caches };
+        // The campaign clock, as much of it as the player is allowed to see.
+        // The authored record says heat is never a number, so the snapshot
+        // carries the channels the island has signalled on and no total.
+        let mut heat_signals = VarArray::new();
+        for channel in world.heat_channels() {
+            heat_signals.push(&channel.to_variant());
+        }
+        let deadline = world.rules.campaign_clock.world_deadline_day;
+        snapshot.set(
+            "campaign",
+            &vdict! {
+                "deadline_day" => deadline as i64,
+                "days_remaining" => deadline.saturating_sub(world.day()) as i64,
+                "heat_signals" => &heat_signals,
+                "confrontation" => world.confrontation_cause().map(|cause| cause.as_str()).unwrap_or(""),
+                "confrontation_day" => world.confrontation.map(|record| record.day as i64).unwrap_or(0)
+            },
+        );
         snapshot.set("workshop_repair_cost", world.foothold_repair_cost());
         let (machine_cost, machine_ticks, machine_capacity) = world.machine_foothold_costs();
         snapshot.set("machine_cost", machine_cost);

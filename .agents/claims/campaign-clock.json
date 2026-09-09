@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "task_id": "campaign-clock",
+  "agent": "claude-code (lane campaign-clock)",
+  "summary": "The campaign has a clock: Day 100 as a real deadline, heat as an irreversible event ledger, and the three confrontation triggers with first-wins arbitration",
+  "status": "completed",
+  "claimed_at": "2026-09-09T12:55:00Z",
+  "updated_at": "2026-09-09T16:40:00Z",
+  "paths": [
+    "content/campaign/cthulhu_clocks.json",
+    "content/schemas/campaign_clock.schema.json",
+    "content/schemas/scenario.json",
+    "content/scenarios/pirate_island/scenario.json",
+    "game/generated/content_bundle.json",
+    "game/generated/scenarios/scenario.pirate_island.json",
+    "game/tests/island_bridge_test.gd",
+    "godot-rust/src/godot_bridge.rs",
+    "godot-rust/src/world.rs",
+    "tools/src/validate.mjs",
+    "tools/verify-godot.ps1",
+    "tools/verify-godot.sh",
+    "docs/BUILD_OUT_PLAN.md",
+    "docs/SCENARIO_PACKS.md"
+  ],
+  "symbols": [
+    "CampaignClock",
+    "ConfrontationCause",
+    "HeatTrigger",
+    "HeatSource",
+    "HeatEvent",
+    "Confrontation",
+    "ScenarioCampaignClock",
+    "FactionWorld::record_heat_event",
+    "FactionWorld::heat_severity",
+    "FactionWorld::heat_channels",
+    "FactionWorld::confrontation_cause",
+    "FactionWorld::advance_campaign_clock",
+    "HEAT_LEDGER_CAP"
+  ],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [
+      "scenario-resources",
+      "scenario-items"
+    ],
+    "notes": "Implemented. rules.campaignClock names content/campaign/cthulhu_clocks.json, which no code had ever read. The record gained the three things it needed to be executable: heat.terminalSeverity, heat.sources (on is a closed set the simulation emits: madness_conversion, midnight_return, faction_eliminated), and confrontation.deliberateDiscoveryFactionId. The clock is a rule on ScenarioRules, so it travels with a mod's save; the ledger and the recorded confrontation are play state on FactionWorld, serde(default) so a version-2 save written before this contract still parses and is then refused by name (invalid_saved_scenario_rules) rather than played with no deadline. Arbitration happens at one point, the settled tail of advance_island_tick after the midnight return, and never re-runs on a recorded confrontation. Heat is never exposed as a number through the bridge: the snapshot's campaign entry carries deadline_day, days_remaining, the signalling channels, and the recorded cause. This lane touched neither the economy (scenario-resources) nor ProducedActor and inventories (scenario-items); the shared file is world.rs and the two equality proofs, whose canonicalisation now strips heat and confrontation alongside rules, with the reason stated in the test."
+  },
+  "completion": {
+    "commit": "17a12c5",
+    "checks": [
+      {
+        "command": "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check",
+        "result": "pass"
+      },
+      {
+        "command": "cargo test --manifest-path godot-rust/Cargo.toml",
+        "result": "pass: 101 passed, 0 failed (8 new)"
+      },
+      {
+        "command": "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext",
+        "result": "pass"
+      },
+      {
+        "command": "node tools/src/validate.mjs",
+        "result": "pass"
+      },
+      {
+        "command": "node tools/src/build-content-bundle.mjs then git status --porcelain game/generated/",
+        "result": "pass: regenerated document committed, tree clean"
+      },
+      {
+        "command": "python3 tools/test_sprite_source.py",
+        "result": "pass: 12 tests"
+      },
+      {
+        "command": "bash tools/build-native-bridge.sh debug",
+        "result": "pass"
+      },
+      {
+        "command": "bash tools/verify-godot.sh 60",
+        "result": "pass: all three suites, no ERROR line, 'Current 2D Godot verification passed'"
+      },
+      {
+        "command": "bite: heat.sources[1].on set to ship_sighted",
+        "result": "validate.mjs failed by name: 'heat.sources[1].on ship_sighted is not an occurrence the simulation emits'"
+      },
+      {
+        "command": "bite: heat.sources[1].signal set to starlight",
+        "result": "validate.mjs failed by name: 'heat.sources[1].signal starlight is not one of this clock's signalChannels'"
+      },
+      {
+        "command": "bite: duplicate-ID refusal removed from record_heat_event",
+        "result": "the_heat_ledger_refuses_what_the_clock_does_not_declare FAILED, restored green"
+      },
+      {
+        "command": "first run of cargo test after the change",
+        "result": "FAILED: 2 of 93 \u2014 the two equality proofs, because the world gained fields the hard-coded island never had; canonicalisation now strips them with the reason recorded, and the ledger's own accrual is proved separately"
+      }
+    ]
+  }
+}
