@@ -63,5 +63,8 @@ func _initialize() -> void:
 	assert(campaign.confrontation_day == 0)
 	assert(campaign.heat_signals is Array)
 	assert(not campaign.has("heat_severity"))
-	print("PASS: actual Rust island bridge, scenario document, solo start, movement, ocean rejection, pause, arrival and the campaign clock")
+	# Triggers change the world, not a feed: what Godot reads is the flag
+	# array, the same shape as any other board fact in the snapshot.
+	assert(port.island_snapshot().flags is Array)
+	print("PASS: actual Rust island bridge, scenario document, solo start, movement, ocean rejection, pause, arrival, the campaign clock and triggers")
 	quit()

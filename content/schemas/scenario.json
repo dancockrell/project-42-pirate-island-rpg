@@ -58,7 +58,7 @@
       "items": {"$ref": "#/$defs/packPath"}
     },
     "items": {"$ref": "#/$defs/reserved"},
-    "triggers": {"$ref": "#/$defs/reserved"},
+    "triggers": {"type": "array", "maxItems": 32, "items": {"$ref": "#/$defs/packPath"}},
     "quests": {"$ref": "#/$defs/reserved"}
   },
   "additionalProperties": false,

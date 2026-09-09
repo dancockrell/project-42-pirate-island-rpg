@@ -55,48 +55,51 @@ Order is by dependency, not by appetite.
   island's own occurrences on the record's declared channels, and the three
   confrontation causes are arbitrated once at the settled tail of the tick with
   the authored first-wins priority. Milestone M3.
-
-### In flight
-
-1. **Resources.** The faction economy becomes authored: today `from_scenario`
-   gives every faction the same invented income, cap and starting stock, so a
-   second scenario cannot have a different economy. Adds a catalogue and refuses
-   an undeclared resource key instead of creating one on a typo.
-2. **Items.** The first inventory the simulation owns, with a closed effect set,
-   surviving recruitment and save. Closes a real dangle: the captain's signature
-   weapon is referenced by his character record and defined nowhere.
+- **Resources.** The faction economy is authored: a catalogue on `ScenarioRules`
+  replaces the invented income, cap and starting stock `from_scenario` used to
+  fabricate, and every gain and spend goes through a checked pair that refuses
+  an undeclared key instead of creating one on a typo.
+- **Items.** The first inventory the simulation owns, with a closed effect set,
+  surviving recruitment and save. Closed the real dangle it found: the
+  captain's signature weapon was referenced by his character record and
+  defined nowhere.
+- **Triggers.** Deterministic condition→effect rules at one settled point in
+  the tick, immediately before the campaign clock so an effect is visible to
+  that tick's arbitration; a trigger is a transaction (every effect applies or
+  none does), fires at most once unless it repeats, and is recorded in the
+  save. `grant_item` gets its first declared source. The owner's decision of
+  9 September holds: a trigger changes the world, it does not narrate it — no
+  journal, no feed, only the `flags` a trigger has set, read like any other
+  board fact.
 
 ### Next, in order
 
-3. **Triggers.** Deterministic condition→effect rules at one point in the tick,
-   fired at most once, recorded in the save. The owner's decision of 9 September:
-   a trigger changes the world, it does not narrate it. No journal, no feed.
-4. **Quests.** Stage machines whose transitions are triggers, their stage in the
+1. **Quests.** Stage machines whose transitions are triggers, their stage in the
    snapshot so Godot shows state it does not invent.
-5. **The island network.** `content/world/island_network.prototype.json`
+2. **The island network.** `content/world/island_network.prototype.json`
    declares six nodes and eight tethers with a loop, a hub and a chokepoint; the
    simulation has a flat walkable grid and named destinations. Give the world the
    node/tether graph the authority requires, with tether state (blocked, hidden,
    conditional) changing reachability without moving geography. Regions become
    expressible, which is what location triggers were deferred for.
-6. **Weather.** Two authored fronts with selection weights, movement across
+3. **Weather.** Two authored fronts with selection weights, movement across
    tethers, faction modifiers, terrain interactions and advance tells. Weather
-   moves on the network from item 5 and modifies production, movement and sight
+   moves on the network from item 2 and modifies production, movement and sight
    through the same rules factions already use.
-7. **Terrain influence.** Layered fields over cells sourced by structures,
+4. **Terrain influence.** Layered fields over cells sourced by structures,
    units and rituals, competing deterministically, changing movement cost, build
    legality and encounter grammar. Depends on the network.
-8. **Companions and leads.** The heart of the product and the largest piece:
+5. **Companions and leads.** The heart of the product and the largest piece:
    Betty and Ayla exist as authored characters with skills and are not in the
    game. Put a heroine on the island as a recruitable, directable hero with her
    own competence domain; give her a lead that reads simulated evidence, offers
    two interpretations and asks for support; let the player's answer change board
    state, relationships and proof in one transaction. Milestone M2, and M4 begins
    here.
-9. **Adventure sites.** A faction holding becomes enterable, its layout and
+6. **Adventure sites.** A faction holding becomes enterable, its layout and
     defenders derived from the recorded composite seed the site records already
     describe, so a level-five cult shrine differs from a level-two fort.
-10. **Battle, reconnected.** `battle.rs` compiles, has 26 tests, and is wired to
+7. **Battle, reconnected.** `battle.rs` compiles, has 26 tests, and is wired to
     nothing: the island tick never calls it. Either the board resolves combat
     where it stands or a bounded tactical view opens; the authority marks that
     choice provisional, so it needs a decision before it needs code.

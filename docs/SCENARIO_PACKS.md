@@ -76,20 +76,22 @@ content/scenarios/<scenario-id>/
   "personas": "../../../game/assets/island/personas.json",
   "resources": ["resources.json"],
   "items": "items.json",
-  "triggers": [],
+  "triggers": ["triggers.json"],
   "quests": []
 }
 ```
 
 Every string value under `geography.navigation`, `factions[].tuning`,
-`factions[].production`, `rules.*`, `resources[]`, `buildings` and `personas` is
-a path relative to the pack directory; the referenced document is **embedded
-verbatim** by the bundle builder. The manifest never restates a rule file: one
-owner per document, referenced, not copied. `resources` carries the pack's
-resource catalogue and `items` its item catalogue, the latter either a path or
-`[]` when the pack carries none ([Resources](#resources) and [Items](#items)
-below). `triggers` and `quests` are reserved for the next contracts and must be
-empty arrays in schema version 1; the validator refuses anything else so no pack
+`factions[].production`, `rules.*`, `resources[]`, `triggers[]`, `buildings`
+and `personas` is a path relative to the pack directory; the referenced
+document is **embedded verbatim** by the bundle builder. The manifest never
+restates a rule file: one owner per document, referenced, not copied.
+`resources` carries the pack's resource catalogue, `items` its item catalogue
+(either a path or `[]` when the pack carries none), and `triggers` its trigger
+documents, concatenated in authored order ([Resources](#resources),
+[Items](#items) and [Triggers](#triggers) below). `quests` is reserved for the
+next contract and must be an empty array in schema version 1; the validator
+refuses anything else so no pack
 can carry data the simulation does not yet run.
 
 ## The bundle
@@ -309,19 +311,79 @@ the order the items were granted — and `max_health` is the resolved profile's,
 so an inspection panel reads equipment and its effect from the snapshot without
 keeping a second table of either.
 
-## Reserved: triggers, quests
+## Triggers
 
-Each is its own contract and its own claim; this document reserves the keys so
-the manifest shape does not change again.
+Implemented. `triggers` is an **array of paths**, each naming a document that is
+a JSON array of trigger records, resolved and embedded like `resources[]`.
+Every string in the array is one manifest field (`triggers[0]`, `triggers[1]`,
+…); the documents concatenate in order into one trigger list, and firing order
+is authored order.
 
-- **Triggers.** Deterministic rules evaluated in the island tick: a condition
-  over world state (day, tick, a faction eliminated, a holding reaching a
-  level, an actor entering a cell region, a recruitment, a flag) and an effect
-  the simulation implements (a flag, an item granted, a diplomacy
-  change, a spawn through a declared producer, a quest stage). Every trigger
-  fires at most once unless it says `repeat`. By the owner's decision of
-  9 September a trigger changes the world and does not narrate it: there is no
-  journal and no event feed.
+```json
+{
+  "id": "trigger.cthulhu.shrine_grown",
+  "when": [
+    { "kind": "holding_level_at_least", "faction_id": "faction.cthulhu.prototype",
+      "archetype_id": "site_archetype.cthulhu.drowned_shrine", "level": 3 }
+  ],
+  "then": [
+    { "kind": "set_flag", "flag": "flag.cthulhu.shrine_grown" },
+    { "kind": "record_heat", "id": "heat.cthulhu.shrine_grown", "signal": "dreams", "severity": 5 }
+  ]
+}
+```
+
+**Both `when` and `then` are closed sets `godot-rust/src/world.rs` implements**,
+so a trigger can neither read nor change anything the simulation does not
+already own. Conditions: `day_at_least`, `faction_eliminated`,
+`resource_at_least`, `holding_level_at_least`, `actor_at_cell`, `flag_set`,
+`heat_signalled`, `confrontation_begun`. Effects: `set_flag`, `grant_resource`,
+`grant_item`, `record_heat`, `set_hostility`. `grant_item` is the item
+catalogue's first declared source — before this contract `grant_item` was
+reachable only from a test. `set_hostility(true)` ends any survival truce
+between the pair as part of the same change, so the load-time invariant that a
+truce pair is never hostile still holds.
+
+**Deliberately absent: anything about regions.** `IslandNavigation` has
+`walkable`, `destinations` and `building_obstacles` and no region type, so "a
+trigger fires when an actor enters a region" would mean inventing geography a
+future contract owns. A trigger names an explicit cell (`actor_at_cell`) until
+the island-network contract makes regions real.
+
+**A trigger is a transaction.** `advance_island_tick` checks every effect's
+applicability before applying any of them; if one effect could not take (an
+eliminated faction, an item already held, a resource key no catalogue
+declares), none of them do and the trigger stays pending for a tick where it
+can fully apply. A trigger fires at most once unless it says `"repeat": true`;
+`fired_triggers` (trigger ID to the tick it last fired) is play state, saved,
+capped, and refused by name (`invalid_saved_trigger_history`) if it names a
+trigger the rule set no longer declares or claims a tick past the world's own.
+
+**Evaluated at one point, immediately before the campaign clock**, at the
+settled tail of `advance_island_tick` — after movement, combat, elimination,
+madness and the midnight return have resolved and `self.tick` has already
+advanced. A trigger's effect is therefore visible to the clock's arbitration in
+the same tick it happens (a `record_heat` effect can push heat over
+`terminalSeverity` and confront that very tick), and a pre-tick pass would
+double-fire on load.
+
+**No journal, by the owner's decision of 9 September.** A trigger changes the
+world; it does not narrate it. `flags` (`FactionWorld.flags`, a `BTreeSet<String>`
+a trigger's `set_flag` writes to) is the one thing the snapshot exposes, and it
+is a board fact like any other — a name Godot may read, never a line of text
+the engine did not author. There is no event feed and `FactionWorldEvent` gains
+no trigger-fired variant.
+
+The validator proves, for every pack: every condition and effect names a kind
+the simulation implements; every faction ID names one this scenario places or
+starts (`faction.michael`, created from `start`, counts); every resource,
+archetype, item and channel a trigger names is declared by a catalogue this
+pack references; every flag a condition reads is set by some effect in the
+pack, so a condition can never be permanently unreachable — all **failing by
+name**.
+
+## Reserved: quests
+
 - **Quests.** Stage machines whose transitions are triggers; a quest exposes
   its current stage and objective text through the snapshot; completion and
   failure are effects.

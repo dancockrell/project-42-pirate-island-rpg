@@ -284,6 +284,15 @@ impl Project42SimulationBridge {
             );
         }
         let mut snapshot = vdict! { "tick" => world.tick as i64, "day" => world.day() as i64, "minute_of_day" => world.minute_of_day(), "paused" => world.paused, "actors" => &actors, "buildings" => &buildings, "land" => &land, "casualties" => world.casualties.len() as i64, "party" => &party, "party_names" => &party_names, "approach_target" => world.approach_target.as_deref().unwrap_or(""), "salvage" => salvage, "salvage_caches" => &salvage_caches };
+        // Flags a trigger has set: state, not narration. By the owner's
+        // decision of 9 September a trigger changes the world and does not
+        // describe the change, so there is no event feed beside this -- a
+        // flag is a board fact Godot may read, exactly like a building level.
+        let mut flags = VarArray::new();
+        for flag in &world.flags {
+            flags.push(&flag.to_variant());
+        }
+        snapshot.set("flags", &flags);
         // The campaign clock, as much of it as the player is allowed to see.
         // The authored record says heat is never a number, so the snapshot
         // carries the channels the island has signalled on and no total.

@@ -507,6 +507,13 @@ const MAX_ACTOR_INVENTORY: usize = 32;
 /// Provisional bound on how many actors may carry anything at once.
 const MAX_INVENTORY_ENTRIES: usize = 4096;
 
+/// A pack's trigger list and the record of what has fired are both bounded,
+/// for the same reason every other collection is: a pack and a save are both
+/// untrusted input.
+pub const MAX_TRIGGERS: usize = 512;
+pub const MAX_FLAGS: usize = 512;
+pub const MAX_TRIGGER_HISTORY: usize = 512;
+
 /// The heat ledger is append-only, so it needs a ceiling for the same reason
 /// every other saved collection has one: a save is untrusted input.
 pub const HEAT_LEDGER_CAP: usize = 512;
@@ -881,6 +888,111 @@ pub struct ScenarioRules {
     /// none; a save made before items existed loads with an empty catalogue.
     #[serde(default)]
     pub items: BTreeMap<String, ScenarioItem>,
+    /// The pack's triggers, in authored order, which is also firing order. A
+    /// pack may carry none; a save made before triggers existed loads with an
+    /// empty list and the tick's trigger pass does nothing.
+    #[serde(default)]
+    pub triggers: Vec<ScenarioTrigger>,
+}
+
+/// One authored rule: when every condition holds, apply every effect. There is
+/// no scripting here — both lists are closed sets the simulation implements, so
+/// a trigger can neither read nor write anything `FactionWorld` does not own.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ScenarioTrigger {
+    pub id: String,
+    /// A trigger fires once unless it says otherwise. A repeating trigger fires
+    /// at most once per tick, whenever its conditions hold.
+    #[serde(default)]
+    pub repeat: bool,
+    pub when: Vec<TriggerCondition>,
+    pub then: Vec<TriggerEffect>,
+}
+
+impl ScenarioTrigger {
+    fn valid(&self) -> bool {
+        !self.id.is_empty()
+            && self.id.len() <= 256
+            && !self.when.is_empty()
+            && self.when.len() <= 16
+            && !self.then.is_empty()
+            && self.then.len() <= 16
+    }
+}
+
+/// Every condition reads state the simulation already keeps. Deliberately
+/// absent: anything about regions. `IslandNavigation` has `walkable`,
+/// `destinations` and `building_obstacles` and no region type, so "entering a
+/// region" would mean inventing geography; a trigger names an explicit cell
+/// until the island-network contract makes regions real.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum TriggerCondition {
+    DayAtLeast {
+        day: u64,
+    },
+    FactionEliminated {
+        faction_id: String,
+    },
+    ResourceAtLeast {
+        faction_id: String,
+        resource_id: String,
+        amount: u32,
+    },
+    /// Any operational holding of that archetype at that level or above.
+    HoldingLevelAtLeast {
+        faction_id: String,
+        archetype_id: String,
+        level: u32,
+    },
+    /// Any living actor of that faction standing on that cell.
+    ActorAtCell {
+        faction_id: String,
+        x: i32,
+        y: i32,
+    },
+    FlagSet {
+        flag: String,
+    },
+    /// The heat ledger carries at least one event on that channel.
+    HeatSignalled {
+        signal: String,
+    },
+    ConfrontationBegun,
+}
+
+/// Every effect is something the simulation already does, reached through the
+/// verb that already guards it. No effect narrates: by the owner's decision of
+/// 9 September a trigger changes the world and does not describe the change.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum TriggerEffect {
+    SetFlag {
+        flag: String,
+    },
+    GrantResource {
+        faction_id: String,
+        resource_id: String,
+        amount: u32,
+    },
+    GrantItem {
+        actor_id: String,
+        item_id: String,
+    },
+    RecordHeat {
+        id: String,
+        signal: String,
+        severity: u32,
+    },
+    /// Hostility both ways, as `advance_diplomacy` sets it. Turning two
+    /// factions hostile ends any survival truce between them, so the
+    /// load-time invariant that a truce pair is never hostile still holds.
+    SetHostility {
+        a: String,
+        b: String,
+        hostile: bool,
+    },
 }
 
 impl ScenarioRules {
@@ -898,6 +1010,12 @@ impl ScenarioRules {
             && self.resources.contains_key(&self.salvage.resource_id)
             && self.items.len() <= 256
             && self.items.values().all(ScenarioItem::valid)
+            && self.triggers.len() <= MAX_TRIGGERS
+            && self.triggers.iter().all(ScenarioTrigger::valid)
+            && {
+                let ids: BTreeSet<&String> = self.triggers.iter().map(|t| &t.id).collect();
+                ids.len() == self.triggers.len()
+            }
     }
 
     /// The catalogue's answer, and the only one: an undeclared key is not a
@@ -1071,8 +1189,9 @@ pub struct ScenarioDefinition {
     pub resources: Vec<BTreeMap<String, ScenarioResource>>,
     #[serde(default)]
     pub items: ScenarioItems,
+    /// One or more trigger documents, concatenated in order into one list.
     #[serde(default)]
-    pub triggers: Vec<serde_json::Value>,
+    pub triggers: Vec<Vec<ScenarioTrigger>>,
     #[serde(default)]
     pub quests: Vec<serde_json::Value>,
     /// Rasterised land, supplied by the caller. Polygon-to-cell rasterisation
@@ -1204,7 +1323,11 @@ impl ScenarioDefinition {
         if definition.schema_version != 1
             || !definition.id.starts_with("scenario.")
             || !definition.items.valid()
-            || !definition.triggers.is_empty()
+            || !definition
+                .triggers
+                .iter()
+                .flatten()
+                .all(ScenarioTrigger::valid)
             || !definition.quests.is_empty()
         {
             return Err("invalid_scenario_manifest".into());
@@ -1258,6 +1381,7 @@ impl ScenarioDefinition {
             personas: self.personas.clone(),
             campaign_clock: self.rules.campaign_clock.resolve(),
             items: self.items.catalogue(),
+            triggers: self.triggers.iter().flatten().cloned().collect(),
         }
     }
 }
@@ -1313,6 +1437,14 @@ pub struct FactionWorld {
     /// Set once, by the first cause to fire. Never rewritten.
     #[serde(default)]
     pub confrontation: Option<Confrontation>,
+    /// World flags a trigger has set. A flag is a name and nothing else: the
+    /// simulation never attaches meaning to one, only conditions read it.
+    #[serde(default)]
+    pub flags: BTreeSet<String>,
+    /// Trigger ID to the tick it last fired on. A non-repeating trigger with an
+    /// entry here never fires again, across a save and a load.
+    #[serde(default)]
+    pub fired_triggers: BTreeMap<String, u64>,
     next_actor_serial: u64,
     next_order_serial: u64,
 }
@@ -4087,6 +4219,23 @@ impl FactionWorld {
         {
             return Err("invalid_saved_heat_ledger".into());
         }
+        if world.flags.len() > MAX_FLAGS
+            || world
+                .flags
+                .iter()
+                .any(|flag| flag.is_empty() || flag.len() > 256)
+            || world.fired_triggers.len() > MAX_TRIGGER_HISTORY
+            || world.fired_triggers.iter().any(|(id, fired_tick)| {
+                id.is_empty()
+                    || id.len() > 256
+                    // The shape casualty.death_tick already uses: recorded play
+                    // state may not claim to have happened in the future.
+                    || *fired_tick > world.tick
+                    || !world.rules.triggers.iter().any(|trigger| &trigger.id == id)
+            })
+        {
+            return Err("invalid_saved_trigger_history".into());
+        }
         if world.confrontation.is_some_and(|record| {
             record.tick > world.tick
                 || record.day > world.day()
@@ -5358,6 +5507,11 @@ impl FactionWorld {
         {
             self.cancel_approach();
         }
+        // Triggers run immediately before the campaign clock, at the same
+        // settled point, so an effect of theirs -- a recorded heat event, a
+        // faction turned hostile -- is visible to the arbitration in the very
+        // tick it happens rather than a tick later.
+        self.advance_triggers();
         // One arbitration point, at the settled end of the tick: movement,
         // combat, elimination, madness and the midnight return have all
         // resolved and `self.tick` has already advanced, so a cause reads a
@@ -5365,6 +5519,167 @@ impl FactionWorld {
         // would re-fire on load.
         self.advance_campaign_clock(&events);
         events
+    }
+
+    /// Every authored trigger, in authored order. A trigger is a transaction:
+    /// either every effect applies or none does and the trigger stays pending,
+    /// so a firing can never leave the world half-changed.
+    fn advance_triggers(&mut self) {
+        let triggers = self.rules.triggers.clone();
+        for trigger in &triggers {
+            if !trigger.repeat && self.fired_triggers.contains_key(&trigger.id) {
+                continue;
+            }
+            if !trigger
+                .when
+                .iter()
+                .all(|condition| self.trigger_condition_met(condition))
+            {
+                continue;
+            }
+            if !self.trigger_effects_applicable(&trigger.then) {
+                continue;
+            }
+            if !self.fired_triggers.contains_key(&trigger.id)
+                && self.fired_triggers.len() >= MAX_TRIGGER_HISTORY
+            {
+                continue;
+            }
+            for effect in &trigger.then {
+                self.apply_trigger_effect(effect);
+            }
+            self.fired_triggers.insert(trigger.id.clone(), self.tick);
+        }
+    }
+
+    fn trigger_condition_met(&self, condition: &TriggerCondition) -> bool {
+        match condition {
+            TriggerCondition::DayAtLeast { day } => self.day() >= *day,
+            TriggerCondition::FactionEliminated { faction_id } => {
+                self.eliminated_factions.contains(faction_id)
+            }
+            TriggerCondition::ResourceAtLeast {
+                faction_id,
+                resource_id,
+                amount,
+            } => self.stored_resource(faction_id, resource_id) >= *amount,
+            TriggerCondition::HoldingLevelAtLeast {
+                faction_id,
+                archetype_id,
+                level,
+            } => self.factions.get(faction_id).is_some_and(|faction| {
+                faction.buildings.values().any(|building| {
+                    building.archetype_id == *archetype_id && building.level >= *level
+                })
+            }),
+            TriggerCondition::ActorAtCell { faction_id, x, y } => {
+                let cell = IslandPoint { x: *x, y: *y };
+                self.positions.iter().any(|(actor_id, position)| {
+                    *position == cell
+                        && self
+                            .actors
+                            .get(actor_id)
+                            .is_some_and(|actor| actor.faction_id == *faction_id)
+                })
+            }
+            TriggerCondition::FlagSet { flag } => self.flags.contains(flag),
+            TriggerCondition::HeatSignalled { signal } => {
+                self.heat.iter().any(|event| event.signal == *signal)
+            }
+            TriggerCondition::ConfrontationBegun => self.confrontation.is_some(),
+        }
+    }
+
+    /// Whether every effect would take. Checked before any of them is applied,
+    /// which is what makes a firing all-or-nothing.
+    fn trigger_effects_applicable(&self, effects: &[TriggerEffect]) -> bool {
+        effects.iter().all(|effect| match effect {
+            TriggerEffect::SetFlag { flag } => {
+                !flag.is_empty()
+                    && flag.len() <= 256
+                    && (self.flags.contains(flag) || self.flags.len() < MAX_FLAGS)
+            }
+            TriggerEffect::GrantResource {
+                faction_id,
+                resource_id,
+                amount,
+            } => {
+                *amount > 0
+                    && self.rules.knows(resource_id)
+                    && self.factions.contains_key(faction_id)
+                    && !self.eliminated_factions.contains(faction_id)
+            }
+            TriggerEffect::GrantItem { actor_id, item_id } => {
+                self.actors.contains_key(actor_id)
+                    && self.rules.items.contains_key(item_id)
+                    // An item already held is not a failure to grant, but it is
+                    // not applicable either: the trigger stays pending rather
+                    // than firing on a no-op.
+                    && !self
+                        .actor_inventory(actor_id)
+                        .iter()
+                        .any(|held| held == item_id)
+            }
+            TriggerEffect::RecordHeat {
+                id,
+                signal,
+                severity,
+            } => {
+                !id.is_empty()
+                    && (1..=100).contains(severity)
+                    && self.rules.campaign_clock.signal_channels.contains(signal)
+                    && self.heat.len() < HEAT_LEDGER_CAP
+                    && !self.heat.iter().any(|event| &event.id == id)
+            }
+            TriggerEffect::SetHostility { a, b, hostile } => {
+                a != b
+                    && self.factions.contains_key(a)
+                    && self.factions.contains_key(b)
+                    && (self.hostilities.contains(&(a.clone(), b.clone())) != *hostile
+                        || self.hostilities.contains(&(b.clone(), a.clone())) != *hostile)
+            }
+        })
+    }
+
+    fn apply_trigger_effect(&mut self, effect: &TriggerEffect) {
+        match effect {
+            TriggerEffect::SetFlag { flag } => {
+                self.flags.insert(flag.clone());
+            }
+            TriggerEffect::GrantResource {
+                faction_id,
+                resource_id,
+                amount,
+            } => {
+                // The same checked door income uses: an undeclared key is
+                // refused, and the gain clamps to the faction's storage cap.
+                let _ = self.gain_resource(faction_id, resource_id, *amount);
+            }
+            TriggerEffect::GrantItem { actor_id, item_id } => {
+                let _ = self.grant_item(actor_id, item_id);
+            }
+            TriggerEffect::RecordHeat {
+                id,
+                signal,
+                severity,
+            } => {
+                self.record_heat_event(id, signal, *severity);
+            }
+            TriggerEffect::SetHostility { a, b, hostile } => {
+                if *hostile {
+                    // A truce pair may never be hostile, and the loader refuses
+                    // a save where one is. Ending the truce is part of the change.
+                    self.survival_truces.retain(|truce| {
+                        !(truce.a == *a && truce.b == *b || truce.a == *b && truce.b == *a)
+                    });
+                    self.hostilities.insert((a.clone(), b.clone()));
+                    self.hostilities.insert((b.clone(), a.clone()));
+                } else {
+                    self.hostilities.remove(&(a.clone(), b.clone()));
+                    self.hostilities.remove(&(b.clone(), a.clone()));
+                }
+            }
+        }
     }
 
     /// Append one entry to the heat ledger. Refuses a duplicate ID, an
@@ -6058,9 +6373,10 @@ mod tests {
     fn scenario_world_equals_the_deleted_hard_coded_island() {
         fn canonical(save: &str) -> String {
             let mut value: serde_json::Value = serde_json::from_str(save).unwrap();
-            // Version 2 added the world's own rules, and the campaign clock
-            // added a heat ledger and a confrontation record. The hard-coded
-            // island had none of the three, so they are removed here and
+            // Version 2 added the world's own rules; the campaign clock added
+            // a heat ledger and a confrontation record; triggers added flags
+            // and a firing record. The hard-coded island had none of them, so
+            // they are removed here and
             // nothing else may differ: every field that island did have is
             // still produced identically. The clock's own state is proved in
             // `heat_accrues_from_the_islands_own_occurrences` and the
@@ -6070,6 +6386,8 @@ mod tests {
             world.remove("rules");
             world.remove("heat");
             world.remove("confrontation");
+            world.remove("flags");
+            world.remove("fired_triggers");
             serde_json::to_string(&value).unwrap()
         }
         fn fixture(name: &str) -> String {
@@ -6311,13 +6629,15 @@ mod tests {
         let mut expected: serde_json::Value =
             serde_json::from_str(&migrated.save_json().unwrap()).unwrap();
         expected["version"] = serde_json::json!(1);
-        // As above: the fixture predates the world's rules and the campaign
-        // clock's play state, so those three are removed and everything the
-        // fixture does carry must still match field for field.
+        // As above: the fixture predates the world's rules, the campaign
+        // clock's play state and the triggers', so those are removed and
+        // everything the fixture does carry must still match field for field.
         let expected_world = expected["world"].as_object_mut().unwrap();
         expected_world.remove("rules");
         expected_world.remove("heat");
         expected_world.remove("confrontation");
+        expected_world.remove("flags");
+        expected_world.remove("fired_triggers");
         assert_eq!(
             serde_json::to_string(&expected).unwrap(),
             serde_json::to_string(
@@ -6542,6 +6862,238 @@ mod tests {
                 });
             }),
             "invalid_saved_confrontation"
+        );
+    }
+
+    /// The main scenario's own three triggers are the authored record, not a
+    /// Rust default: they resolve with real conditions and real effects.
+    #[test]
+    fn the_scenario_document_supplies_its_triggers() {
+        let triggers = main_scenario_world().rules.triggers;
+        assert_eq!(triggers.len(), 3);
+        assert!(
+            triggers
+                .iter()
+                .any(|trigger| trigger.id == "trigger.cthulhu.shrine_grown")
+        );
+    }
+
+    /// A day condition fires a trigger once the world reaches it, its effects
+    /// land in the same tick, and a non-repeating trigger never fires twice.
+    #[test]
+    fn a_trigger_fires_once_its_condition_holds_and_never_again() {
+        let mut world = main_scenario_world();
+        world.rules.triggers = vec![ScenarioTrigger {
+            id: "trigger.test.day_five".into(),
+            repeat: false,
+            when: vec![TriggerCondition::DayAtLeast { day: 5 }],
+            then: vec![TriggerEffect::SetFlag {
+                flag: "flag.test.day_five".into(),
+            }],
+        }];
+        world.tick = world.clock.ticks_per_day * 3;
+        world.advance_island_tick();
+        assert!(!world.flags.contains("flag.test.day_five"));
+        assert!(!world.fired_triggers.contains_key("trigger.test.day_five"));
+        world.tick = world.clock.ticks_per_day * 4;
+        world.advance_island_tick();
+        assert!(world.flags.contains("flag.test.day_five"));
+        let fired_tick = *world
+            .fired_triggers
+            .get("trigger.test.day_five")
+            .expect("recorded firing");
+        assert_eq!(fired_tick, world.tick);
+        // The world keeps advancing; a non-repeating trigger does not re-fire,
+        // so its recorded tick never moves.
+        world.advance_island_tick();
+        world.advance_island_tick();
+        assert_eq!(
+            world.fired_triggers.get("trigger.test.day_five"),
+            Some(&fired_tick)
+        );
+    }
+
+    /// `repeat: true` fires again on every tick the condition holds, and each
+    /// firing is still visible in `fired_triggers` at its own most recent tick.
+    #[test]
+    fn a_repeating_trigger_fires_on_every_qualifying_tick() {
+        let mut world = main_scenario_world();
+        world.rules.triggers = vec![ScenarioTrigger {
+            id: "trigger.test.repeating".into(),
+            repeat: true,
+            when: vec![TriggerCondition::FlagSet {
+                flag: "flag.test.armed".into(),
+            }],
+            then: vec![TriggerEffect::RecordHeat {
+                id: "heat.test.tick".into(),
+                signal: "dreams".into(),
+                severity: 1,
+            }],
+        }];
+        world.flags.insert("flag.test.armed".into());
+        // The effect is not repeatable (a duplicate heat ID is refused), so the
+        // trigger becomes inapplicable and stays pending after its one firing --
+        // proving repeat controls re-evaluation, not that an effect must repeat.
+        world.advance_island_tick();
+        assert_eq!(world.heat.len(), 1);
+        let first_tick = world.tick;
+        world.advance_island_tick();
+        assert_eq!(world.heat.len(), 1);
+        assert_eq!(
+            world.fired_triggers.get("trigger.test.repeating"),
+            Some(&first_tick)
+        );
+    }
+
+    /// A trigger is a transaction: if any effect could not apply, none of them
+    /// do, and the trigger is left pending rather than half-fired.
+    #[test]
+    fn a_trigger_with_an_inapplicable_effect_changes_nothing() {
+        let mut world = main_scenario_world();
+        world.rules.triggers = vec![ScenarioTrigger {
+            id: "trigger.test.transaction".into(),
+            repeat: false,
+            when: vec![TriggerCondition::DayAtLeast { day: 1 }],
+            then: vec![
+                TriggerEffect::SetFlag {
+                    flag: "flag.test.would_have_set".into(),
+                },
+                TriggerEffect::GrantResource {
+                    faction_id: "faction.does_not_exist".into(),
+                    resource_id: "resource.iron".into(),
+                    amount: 1,
+                },
+            ],
+        }];
+        world.advance_island_tick();
+        assert!(!world.flags.contains("flag.test.would_have_set"));
+        assert!(
+            !world
+                .fired_triggers
+                .contains_key("trigger.test.transaction")
+        );
+    }
+
+    /// `grant_item` reaches the world for the first time through a trigger.
+    #[test]
+    fn a_trigger_grants_the_captains_signature_weapon() {
+        const CAPTAIN: &str = "character.protagonist.captain";
+        const WEAPON: &str = "weapon.captain.handsome_jack_steam_carbine";
+        let mut world = main_scenario_world();
+        assert!(world.actor_inventory(CAPTAIN).is_empty());
+        world.rules.triggers = vec![ScenarioTrigger {
+            id: "trigger.test.arm_the_captain".into(),
+            repeat: false,
+            when: vec![TriggerCondition::DayAtLeast { day: 1 }],
+            then: vec![TriggerEffect::GrantItem {
+                actor_id: CAPTAIN.into(),
+                item_id: WEAPON.into(),
+            }],
+        }];
+        world.advance_island_tick();
+        assert_eq!(world.actor_inventory(CAPTAIN), vec![WEAPON.to_string()]);
+    }
+
+    /// `set_hostility(true)` ends any survival truce between the two factions,
+    /// so the load-time invariant that a truce pair is never hostile still holds.
+    #[test]
+    fn set_hostility_true_ends_a_survival_truce_between_the_pair() {
+        let mut world = main_scenario_world();
+        // The main scenario starts colonial and pirates already at war
+        // (`content/diplomacy/initial_relationships.prototype.json`). A real
+        // survival truce suspends that hostility for as long as it holds, so
+        // the fixture models the same suspended state: hostilities removed,
+        // a truce recorded to resume them once it ends.
+        let (a, b) = (
+            "faction.colonial_powers.prototype".to_string(),
+            "faction.pirates.prototype".to_string(),
+        );
+        assert!(world.hostilities.contains(&(a.clone(), b.clone())));
+        world.hostilities.remove(&(a.clone(), b.clone()));
+        world.hostilities.remove(&(b.clone(), a.clone()));
+        world.survival_truces.push(SurvivalTruce {
+            a: a.clone(),
+            b: b.clone(),
+            threat: "faction.cthulhu.prototype".into(),
+            expires_tick: world.tick + world.rules.survival.truce_ticks,
+            resume_ab: true,
+            resume_ba: true,
+        });
+        world.rules.triggers = vec![ScenarioTrigger {
+            id: "trigger.test.betrayal".into(),
+            repeat: false,
+            when: vec![TriggerCondition::DayAtLeast { day: 1 }],
+            then: vec![TriggerEffect::SetHostility {
+                a: a.clone(),
+                b: b.clone(),
+                hostile: true,
+            }],
+        }];
+        world.advance_island_tick();
+        assert!(world.hostilities.contains(&(a.clone(), b.clone())));
+        assert!(world.hostilities.contains(&(b.clone(), a.clone())));
+        assert!(
+            world
+                .survival_truces
+                .iter()
+                .all(|truce| !(truce.a == a && truce.b == b))
+        );
+        // The save loader's own truce invariant still holds on this world.
+        let restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        assert_eq!(restored, world);
+    }
+
+    /// Flags, the firing record and their effects survive a save round trip.
+    #[test]
+    fn triggers_and_flags_survive_a_save_round_trip() {
+        let mut world = main_scenario_world();
+        world.rules.triggers = vec![ScenarioTrigger {
+            id: "trigger.test.persisted".into(),
+            repeat: false,
+            when: vec![TriggerCondition::DayAtLeast { day: 1 }],
+            then: vec![TriggerEffect::SetFlag {
+                flag: "flag.test.persisted".into(),
+            }],
+        }];
+        world.advance_island_tick();
+        assert!(world.flags.contains("flag.test.persisted"));
+        let restored =
+            FactionWorld::load_json_for_scenario(&world.save_json().unwrap(), &world.rules.clone())
+                .unwrap();
+        assert_eq!(restored.flags, world.flags);
+        assert_eq!(restored.fired_triggers, world.fired_triggers);
+        assert_eq!(restored, world);
+    }
+
+    /// A save is untrusted input: a flag or a firing record naming a trigger
+    /// this rule set no longer declares is refused by name, not silently kept.
+    #[test]
+    fn a_tampered_trigger_history_is_refused_by_name() {
+        fn refusal(mutate: impl FnOnce(&mut FactionWorld)) -> String {
+            let mut world = main_scenario_world();
+            mutate(&mut world);
+            FactionWorld::load_json(&world.save_json().unwrap()).unwrap_err()
+        }
+        assert_eq!(
+            refusal(|world| {
+                world
+                    .fired_triggers
+                    .insert("trigger.does_not_exist".into(), 0);
+            }),
+            "invalid_saved_trigger_history"
+        );
+        assert_eq!(
+            refusal(|world| {
+                let id = world.rules.triggers[0].id.clone();
+                world.fired_triggers.insert(id, world.tick + 1);
+            }),
+            "invalid_saved_trigger_history"
+        );
+        assert_eq!(
+            refusal(|world| {
+                world.flags.insert(String::new());
+            }),
+            "invalid_saved_trigger_history"
         );
     }
 

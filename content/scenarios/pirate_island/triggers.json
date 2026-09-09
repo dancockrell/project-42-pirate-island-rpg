@@ -1,0 +1,57 @@
+[
+  {
+    "id": "trigger.cthulhu.shrine_grown",
+    "when": [
+      {
+        "kind": "holding_level_at_least",
+        "faction_id": "faction.cthulhu.prototype",
+        "archetype_id": "site_archetype.cthulhu.drowned_shrine",
+        "level": 3
+      }
+    ],
+    "then": [
+      { "kind": "set_flag", "flag": "flag.cthulhu.shrine_grown" },
+      {
+        "kind": "record_heat",
+        "id": "heat.cthulhu.shrine_grown",
+        "signal": "dreams",
+        "severity": 5
+      }
+    ]
+  },
+  {
+    "id": "trigger.michael.signature_weapon",
+    "when": [
+      {
+        "kind": "holding_level_at_least",
+        "faction_id": "faction.michael",
+        "archetype_id": "site_archetype.michael.field_workshop",
+        "level": 1
+      }
+    ],
+    "then": [
+      {
+        "kind": "grant_item",
+        "actor_id": "character.protagonist.captain",
+        "item_id": "weapon.captain.handsome_jack_steam_carbine"
+      },
+      { "kind": "set_flag", "flag": "flag.michael.armed" }
+    ]
+  },
+  {
+    "id": "trigger.colonial.answer_the_dreams",
+    "when": [
+      { "kind": "heat_signalled", "signal": "dreams" },
+      { "kind": "day_at_least", "day": 10 }
+    ],
+    "then": [
+      {
+        "kind": "set_hostility",
+        "a": "faction.colonial_powers.prototype",
+        "b": "faction.cthulhu.prototype",
+        "hostile": true
+      },
+      { "kind": "set_flag", "flag": "flag.colonial.answered_the_dreams" }
+    ]
+  }
+]

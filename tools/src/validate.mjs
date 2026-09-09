@@ -4,6 +4,9 @@ import { loadScenarioPacks, packLabel, scenarioRootsFromArgv } from "./scenario-
 import process from "node:process";
 
 const repo = resolve(import.meta.dirname, "../..");
+// The faction FactionWorld::from_scenario creates for the hero from the manifest's
+// start block. It is a real faction of the world but no factions[] entry seeds it.
+const HERO_FACTION_ID = "faction.michael";
 const failures = [];
 const ids = new Map();
 const references = [];
@@ -600,11 +603,12 @@ for (const pack of scenarioPacks) {
   for (const field of ["health", "damage", "range", "cooldown_ticks"]) {
     if (!Number.isInteger(profile?.[field]) || profile[field] < 0) fail(file, `${name} start.combatProfile.${field} must be a non-negative integer`);
   }
-  for (const field of ["triggers", "quests"]) {
+  for (const field of ["quests"]) {
     if (!Array.isArray(manifest[field])) fail(file, `${name} reserved array ${field} must be an array`);
     else if (manifest[field].length !== 0) fail(file, `${name} reserved array ${field} must be empty in schema version 1; the simulation does not run ${field} yet`);
   }
   if (!Array.isArray(manifest.resources)) fail(file, `${name} resources must be an array of resource catalogue document paths`);
+  if (!Array.isArray(manifest.triggers)) fail(file, `${name} triggers must be an array of trigger document paths`);
   // Items: either the contract's empty array, or a path to this pack's catalogue.
   if (Array.isArray(manifest.items)) {
     if (manifest.items.length !== 0) fail(file, `${name} items must name a catalogue document, or be an empty array when the pack has none`);
@@ -793,6 +797,122 @@ for (const pack of scenarioPacks) {
         if (!Number.isInteger(tuning.combat?.[field]) || tuning.combat[field] < 0) fail(file, `${name} ${factionName} tuning combat.${field} must be a non-negative integer`);
       }
     }
+  }
+  // Triggers. Conditions and effects are closed sets godot-rust/src/world.rs
+  // implements; every ID one names must resolve inside this pack, so a trigger
+  // cannot silently watch for or change something that does not exist.
+  const triggerConditionFields = {
+    day_at_least: ["day"],
+    faction_eliminated: ["faction_id"],
+    resource_at_least: ["faction_id", "resource_id", "amount"],
+    holding_level_at_least: ["faction_id", "archetype_id", "level"],
+    actor_at_cell: ["faction_id", "x", "y"],
+    flag_set: ["flag"],
+    heat_signalled: ["signal"],
+    confrontation_begun: []
+  };
+  const triggerEffectFields = {
+    set_flag: ["flag"],
+    grant_resource: ["faction_id", "resource_id", "amount"],
+    grant_item: ["actor_id", "item_id"],
+    record_heat: ["id", "signal", "severity"],
+    set_hostility: ["a", "b", "hostile"]
+  };
+  // The channels a trigger may signal on are this scenario's own, read from the
+  // campaign-clock document the manifest names rather than from a second list.
+  const campaignClockRecord = resolved.get("rules.campaignClock");
+  const heatChannels = new Set(Array.isArray(campaignClockRecord?.heat?.signalChannels) ? campaignClockRecord.heat.signalChannels : []);
+  const triggerIds = new Set();
+  const setFlags = new Set();
+  const readFlags = new Map();
+  // The scenario's factions are the ones it places plus the hero faction the
+  // start block creates, which is a faction of the world like any other even
+  // though no factions[] entry seeds it.
+  const triggerFactions = new Set([...seenFactions, HERO_FACTION_ID]);
+  const checkTriggerFaction = (id, where) => {
+    if (typeof id !== "string" || !triggerFactions.has(id)) fail(file, `${name} ${where} names faction ${id}, which this scenario neither places nor starts`);
+  };
+  const checkTriggerClause = (clause, schema, where, kindLabel) => {
+    if (typeof clause !== "object" || clause === null || Array.isArray(clause)) { fail(file, `${name} ${where} must be a record with a kind`); return null; }
+    const fields = schema[clause.kind];
+    if (fields === undefined) { fail(file, `${name} ${where} kind ${clause.kind} is not a ${kindLabel} the simulation implements`); return null; }
+    for (const key of Object.keys(clause)) {
+      if (key !== "kind" && !fields.includes(key)) fail(file, `${name} ${where} ${clause.kind} declares unknown field ${key}`);
+    }
+    for (const field of fields) {
+      if (clause[field] === undefined) fail(file, `${name} ${where} ${clause.kind} requires ${field}`);
+    }
+    return clause;
+  };
+  for (const [index] of (Array.isArray(manifest.triggers) ? manifest.triggers : []).entries()) {
+    const field = `triggers[${index}]`;
+    const document = resolved.get(field);
+    if (document === undefined) continue;
+    if (!Array.isArray(document)) { fail(file, `${name} ${field} must be an array of trigger records`); continue; }
+    if (document.length === 0 || document.length > 512) fail(file, `${name} ${field} must carry between one and 512 triggers`);
+    for (const [position, trigger] of document.entries()) {
+      const where = `${field}[${position}]`;
+      if (typeof trigger !== "object" || trigger === null || Array.isArray(trigger)) { fail(file, `${name} ${where} must be a trigger record`); continue; }
+      for (const key of Object.keys(trigger)) {
+        if (!["id", "repeat", "when", "then"].includes(key)) fail(file, `${name} ${where} declares unknown field ${key}`);
+      }
+      if (typeof trigger.id !== "string" || !/^trigger\.[a-z0-9_.]+$/.test(trigger.id)) fail(file, `${name} ${where} id must be of the form trigger.<name>`);
+      else if (triggerIds.has(trigger.id)) fail(file, `${name} ${where} repeats trigger id ${trigger.id}`);
+      else triggerIds.add(trigger.id);
+      if (trigger.repeat !== undefined && typeof trigger.repeat !== "boolean") fail(file, `${name} ${where} repeat must be a boolean`);
+      if (!Array.isArray(trigger.when) || trigger.when.length === 0 || trigger.when.length > 16) fail(file, `${name} ${where} needs between one and sixteen conditions`);
+      else for (const [conditionIndex, raw] of trigger.when.entries()) {
+        const condition = checkTriggerClause(raw, triggerConditionFields, `${where}.when[${conditionIndex}]`, "condition");
+        if (!condition) continue;
+        const at = `${where}.when[${conditionIndex}]`;
+        if (condition.kind === "day_at_least" && (!Number.isInteger(condition.day) || condition.day < 1)) fail(file, `${name} ${at} day must be a positive integer`);
+        if (["faction_eliminated", "resource_at_least", "holding_level_at_least", "actor_at_cell"].includes(condition.kind)) checkTriggerFaction(condition.faction_id, at);
+        if (condition.kind === "resource_at_least") {
+          if (!usedResources.has(condition.resource_id)) usedResources.set(condition.resource_id, at);
+          if (!catalogue.has(condition.resource_id)) fail(file, `${name} ${at} names resource ${condition.resource_id}, which no catalogue this pack references declares`);
+          if (!Number.isInteger(condition.amount) || condition.amount < 1) fail(file, `${name} ${at} amount must be a positive integer`);
+        }
+        if (condition.kind === "holding_level_at_least") {
+          if (buildings && !Object.hasOwn(buildings, condition.archetype_id ?? "")) fail(file, `${name} ${at} names archetype ${condition.archetype_id}, which the scenario buildings document does not define`);
+          if (!Number.isInteger(condition.level) || condition.level < 1) fail(file, `${name} ${at} level must be a positive integer`);
+        }
+        if (condition.kind === "actor_at_cell") {
+          for (const axis of ["x", "y"]) if (!Number.isInteger(condition[axis]) || condition[axis] < 0) fail(file, `${name} ${at} ${axis} must be a non-negative integer`);
+          if (columns !== null && (condition.x >= columns || condition.y >= rows)) fail(file, `${name} ${at} cell ${condition.x},${condition.y} is outside the navigation size (${columns} by ${rows} cells)`);
+        }
+        if (condition.kind === "flag_set" && typeof condition.flag === "string") readFlags.set(condition.flag, at);
+        if (condition.kind === "heat_signalled" && !heatChannels.has(condition.signal)) fail(file, `${name} ${at} signal ${condition.signal} is not one of this scenario's campaign-clock signalChannels`);
+      }
+      if (!Array.isArray(trigger.then) || trigger.then.length === 0 || trigger.then.length > 16) fail(file, `${name} ${where} needs between one and sixteen effects`);
+      else for (const [effectIndex, raw] of trigger.then.entries()) {
+        const effect = checkTriggerClause(raw, triggerEffectFields, `${where}.then[${effectIndex}]`, "effect");
+        if (!effect) continue;
+        const at = `${where}.then[${effectIndex}]`;
+        if (effect.kind === "set_flag" && typeof effect.flag === "string") setFlags.add(effect.flag);
+        if (effect.kind === "grant_resource") {
+          checkTriggerFaction(effect.faction_id, at);
+          if (!usedResources.has(effect.resource_id)) usedResources.set(effect.resource_id, at);
+          if (!catalogue.has(effect.resource_id)) fail(file, `${name} ${at} names resource ${effect.resource_id}, which no catalogue this pack references declares`);
+          if (!Number.isInteger(effect.amount) || effect.amount < 1) fail(file, `${name} ${at} amount must be a positive integer`);
+        }
+        if (effect.kind === "grant_item" && !catalogueIds.has(effect.item_id)) fail(file, `${name} ${at} grants item ${effect.item_id}, which this scenario's item catalogue does not define`);
+        if (effect.kind === "record_heat") {
+          if (typeof effect.id !== "string" || !/^heat\.[a-z0-9_.]+$/.test(effect.id)) fail(file, `${name} ${at} id must be of the form heat.<name>`);
+          if (!heatChannels.has(effect.signal)) fail(file, `${name} ${at} signal ${effect.signal} is not one of this scenario's campaign-clock signalChannels`);
+          if (!Number.isInteger(effect.severity) || effect.severity < 1 || effect.severity > 100) fail(file, `${name} ${at} severity must be between 1 and 100`);
+        }
+        if (effect.kind === "set_hostility") {
+          checkTriggerFaction(effect.a, at);
+          checkTriggerFaction(effect.b, at);
+          if (effect.a === effect.b) fail(file, `${name} ${at} cannot set a faction hostile to itself`);
+          if (typeof effect.hostile !== "boolean") fail(file, `${name} ${at} hostile must be a boolean`);
+        }
+      }
+    }
+  }
+  // A flag no effect ever sets is a condition that can never be true.
+  for (const [flag, at] of readFlags) {
+    if (!setFlags.has(flag)) fail(file, `${name} ${at} reads flag ${flag}, which no trigger effect in this pack sets`);
   }
   for (const [id, entry] of catalogue) {
     if (!usedResources.has(id)) fail(file, `${name} catalogue ${entry.field} declares resource ${id}, which no economy, cost, income, cap or rule in this pack uses`);
