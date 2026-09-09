@@ -32,7 +32,7 @@
     "notes": "Contract: docs/SCENARIO_PACKS.md. Two things scenario-pack-tooling must supply before the game runs: the generated document at game/generated/scenarios/scenario.pirate_island.json (the port reads it), and one extra rules key, michaelMachineProduction -> ../../production/michael_field_workshop_mechanical_dogs.json, because Michael's workshop production rule is read every tick and the contract's manifest reserves no slot for it. Until then godot-rust/src/scenario_fixture.rs assembles the same document from the same source files; assembled_fixture_matches_the_generated_scenario_document compares the two whenever the generated file is present, and the fixture module is deleted on integration."
   },
   "completion": {
-    "commit": null,
+    "commit": "430b03f4351523d4b0b894a5b148641d82126168",
     "checks": [
       "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
       "cargo test --manifest-path godot-rust/Cargo.toml: passed (94 tests)",
