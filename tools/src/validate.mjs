@@ -603,12 +603,9 @@ for (const pack of scenarioPacks) {
   for (const field of ["health", "damage", "range", "cooldown_ticks"]) {
     if (!Number.isInteger(profile?.[field]) || profile[field] < 0) fail(file, `${name} start.combatProfile.${field} must be a non-negative integer`);
   }
-  for (const field of ["quests"]) {
-    if (!Array.isArray(manifest[field])) fail(file, `${name} reserved array ${field} must be an array`);
-    else if (manifest[field].length !== 0) fail(file, `${name} reserved array ${field} must be empty in schema version 1; the simulation does not run ${field} yet`);
-  }
   if (!Array.isArray(manifest.resources)) fail(file, `${name} resources must be an array of resource catalogue document paths`);
   if (!Array.isArray(manifest.triggers)) fail(file, `${name} triggers must be an array of trigger document paths`);
+  if (!Array.isArray(manifest.quests)) fail(file, `${name} quests must be an array of quest catalogue document paths`);
   // Items: either the contract's empty array, or a path to this pack's catalogue.
   if (Array.isArray(manifest.items)) {
     if (manifest.items.length !== 0) fail(file, `${name} items must name a catalogue document, or be an empty array when the pack has none`);
@@ -798,6 +795,49 @@ for (const pack of scenarioPacks) {
       }
     }
   }
+  // The quest catalogue. A quest is a stage machine; only set_quest_stage (a
+  // trigger effect, checked below) moves it, so every stage it names here
+  // must be real and every quest must be reachable to its terminal outcome.
+  const questCatalogue = new Map();
+  for (const [index] of (Array.isArray(manifest.quests) ? manifest.quests : []).entries()) {
+    const field = `quests[${index}]`;
+    const document = resolved.get(field);
+    if (document === undefined) continue;
+    if (typeof document !== "object" || document === null || Array.isArray(document)) {
+      fail(file, `${name} ${field} must be a keyed quest catalogue document`);
+      continue;
+    }
+    for (const [questId, quest] of Object.entries(document)) {
+      if (!/^quest\.[a-z0-9_]+$/.test(questId)) fail(file, `${name} ${field} declares ${questId}, which is not a quest ID of the form quest.<name>`);
+      else if (questCatalogue.has(questId)) fail(file, `${name} ${field} redeclares quest ${questId}, already declared in ${questCatalogue.get(questId).field}`);
+      else { registerId(questId, file); questCatalogue.set(questId, { field, quest }); }
+      if (typeof quest !== "object" || quest === null || Array.isArray(quest)) { fail(file, `${name} quest ${questId} must be a record with displayName, initialStage and stages`); continue; }
+      for (const key of Object.keys(quest)) {
+        if (!["displayName", "initialStage", "stages"].includes(key)) fail(file, `${name} quest ${questId} declares unknown field ${key}`);
+      }
+      if (typeof quest.displayName !== "string" || quest.displayName.trim() === "" || quest.displayName.length > 128) fail(file, `${name} quest ${questId} needs a non-empty displayName of at most 128 characters`);
+      const stages = quest.stages;
+      if (typeof stages !== "object" || stages === null || Array.isArray(stages) || Object.keys(stages).length === 0 || Object.keys(stages).length > 32) {
+        fail(file, `${name} quest ${questId} needs between one and 32 stages`);
+        continue;
+      }
+      let terminalCount = 0;
+      for (const [stageId, stage] of Object.entries(stages)) {
+        if (stageId.trim() === "" || stageId.length > 128) fail(file, `${name} quest ${questId} stage ${stageId} must be a non-empty ID of at most 128 characters`);
+        if (typeof stage !== "object" || stage === null || Array.isArray(stage)) { fail(file, `${name} quest ${questId} stage ${stageId} must be a record with objective`); continue; }
+        for (const key of Object.keys(stage)) {
+          if (!["objective", "terminal"].includes(key)) fail(file, `${name} quest ${questId} stage ${stageId} declares unknown field ${key}`);
+        }
+        if (typeof stage.objective !== "string" || stage.objective.length > 1024) fail(file, `${name} quest ${questId} stage ${stageId} objective must be a string of at most 1024 characters`);
+        if (stage.terminal !== undefined) {
+          if (!["success", "failure"].includes(stage.terminal)) fail(file, `${name} quest ${questId} stage ${stageId} terminal must be success or failure`);
+          else terminalCount += 1;
+        }
+      }
+      if (typeof quest.initialStage !== "string" || !Object.hasOwn(stages, quest.initialStage)) fail(file, `${name} quest ${questId} initialStage must name one of its own stages`);
+      if (terminalCount === 0) fail(file, `${name} quest ${questId} needs at least one terminal stage, or it can never resolve`);
+    }
+  }
   // Triggers. Conditions and effects are closed sets godot-rust/src/world.rs
   // implements; every ID one names must resolve inside this pack, so a trigger
   // cannot silently watch for or change something that does not exist.
@@ -816,8 +856,15 @@ for (const pack of scenarioPacks) {
     grant_resource: ["faction_id", "resource_id", "amount"],
     grant_item: ["actor_id", "item_id"],
     record_heat: ["id", "signal", "severity"],
-    set_hostility: ["a", "b", "hostile"]
+    set_hostility: ["a", "b", "hostile"],
+    set_quest_stage: ["quest_id", "stage_id"]
   };
+  // A quest stage no trigger ever sets is unreachable; the initial stage is
+  // reached by starting there, so only the other stages need a mover.
+  const questStagesReached = new Map();
+  for (const [questId, entry] of questCatalogue) {
+    questStagesReached.set(questId, new Set([entry.quest?.initialStage]));
+  }
   // The channels a trigger may signal on are this scenario's own, read from the
   // campaign-clock document the manifest names rather than from a second list.
   const campaignClockRecord = resolved.get("rules.campaignClock");
@@ -907,7 +954,24 @@ for (const pack of scenarioPacks) {
           if (effect.a === effect.b) fail(file, `${name} ${at} cannot set a faction hostile to itself`);
           if (typeof effect.hostile !== "boolean") fail(file, `${name} ${at} hostile must be a boolean`);
         }
+        if (effect.kind === "set_quest_stage") {
+          const quest = questCatalogue.get(effect.quest_id);
+          if (!quest) fail(file, `${name} ${at} names quest ${effect.quest_id}, which no catalogue this pack references declares`);
+          else if (typeof effect.stage_id !== "string" || !Object.hasOwn(quest.quest.stages ?? {}, effect.stage_id)) {
+            fail(file, `${name} ${at} names stage ${effect.stage_id}, which quest ${effect.quest_id} does not define`);
+          } else {
+            questStagesReached.get(effect.quest_id)?.add(effect.stage_id);
+          }
+        }
       }
+    }
+  }
+  // A stage no trigger ever moves a quest to (and that is not its initial
+  // stage) can never be reached, including its terminal outcome.
+  for (const [questId, entry] of questCatalogue) {
+    const reached = questStagesReached.get(questId) ?? new Set();
+    for (const stageId of Object.keys(entry.quest.stages ?? {})) {
+      if (!reached.has(stageId)) fail(file, `${name} quest ${questId} stage ${stageId} is never reached by a set_quest_stage effect in this pack`);
     }
   }
   // A flag no effect ever sets is a condition that can never be true.

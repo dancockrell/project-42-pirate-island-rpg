@@ -87,5 +87,5 @@
   "resources": ["resources.json"],
   "items": "items.json",
   "triggers": ["triggers.json"],
-  "quests": []
+  "quests": ["quests.json"]
 }

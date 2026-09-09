@@ -16,6 +16,11 @@
         "id": "heat.cthulhu.shrine_grown",
         "signal": "dreams",
         "severity": 5
+      },
+      {
+        "kind": "set_quest_stage",
+        "quest_id": "quest.the_cult_beneath_the_water",
+        "stage_id": "stage.confirmed"
       }
     ]
   },
@@ -51,7 +56,12 @@
         "b": "faction.cthulhu.prototype",
         "hostile": true
       },
-      { "kind": "set_flag", "flag": "flag.colonial.answered_the_dreams" }
+      { "kind": "set_flag", "flag": "flag.colonial.answered_the_dreams" },
+      {
+        "kind": "set_quest_stage",
+        "quest_id": "quest.the_cult_beneath_the_water",
+        "stage_id": "stage.colonial_response"
+      }
     ]
   }
 ]

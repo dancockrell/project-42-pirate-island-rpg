@@ -24,7 +24,7 @@ if ($LASTEXITCODE -ne 0) { throw "Godot import and extension registration failed
 $checks = @(
     @{ Script = "res://tests/directional_sprite_test.gd"; Completion = "PASS: four facings, alpha-source identity, frame regions, nearest sampling, idle retention, no simulation movement" },
     @{ Script = "res://tests/island_scene_test.gd"; Completion = "PASS: island scene suite complete" },
-    @{ Script = "res://tests/island_bridge_test.gd"; Completion = "PASS: actual Rust island bridge, scenario document, solo start, movement, ocean rejection, pause, arrival, the campaign clock and triggers" }
+    @{ Script = "res://tests/island_bridge_test.gd"; Completion = "PASS: actual Rust island bridge, scenario document, solo start, movement, ocean rejection, pause, arrival, the campaign clock, triggers and quests" }
 )
 foreach ($check in $checks) {
     $start = [System.Diagnostics.ProcessStartInfo]::new()

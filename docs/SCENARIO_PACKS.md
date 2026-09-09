@@ -77,22 +77,22 @@ content/scenarios/<scenario-id>/
   "resources": ["resources.json"],
   "items": "items.json",
   "triggers": ["triggers.json"],
-  "quests": []
+  "quests": ["quests.json"]
 }
 ```
 
 Every string value under `geography.navigation`, `factions[].tuning`,
-`factions[].production`, `rules.*`, `resources[]`, `triggers[]`, `buildings`
-and `personas` is a path relative to the pack directory; the referenced
-document is **embedded verbatim** by the bundle builder. The manifest never
-restates a rule file: one owner per document, referenced, not copied.
-`resources` carries the pack's resource catalogue, `items` its item catalogue
-(either a path or `[]` when the pack carries none), and `triggers` its trigger
-documents, concatenated in authored order ([Resources](#resources),
-[Items](#items) and [Triggers](#triggers) below). `quests` is reserved for the
-next contract and must be an empty array in schema version 1; the validator
-refuses anything else so no pack
-can carry data the simulation does not yet run.
+`factions[].production`, `rules.*`, `resources[]`, `triggers[]`, `quests[]`,
+`buildings` and `personas` is a path relative to the pack directory; the
+referenced document is **embedded verbatim** by the bundle builder. The
+manifest never restates a rule file: one owner per document, referenced, not
+copied. `resources` carries the pack's resource catalogue, `items` its item
+catalogue (either a path or `[]` when the pack carries none), `triggers` its
+trigger documents, and `quests` its quest catalogue documents, each
+concatenated in authored order ([Resources](#resources), [Items](#items),
+[Triggers](#triggers) and [Quests](#quests) below). Every reserved key from
+schema version 1 is now implemented; the validator's job from here is proving
+each pack's content against the rules, not refusing an unimplemented shape.
 
 ## The bundle
 
@@ -113,8 +113,10 @@ the embedded `buildings` document and its `outputDefinitionId` a key of the
 embedded `personas` document; every seed is inside the navigation `size`; no two
 factions share a seed; every resource named by an economy, a cost, an income, a
 cap or a rule is declared by a catalogue the pack references and every catalogue
-entry is used; the reserved arrays are empty; the scenario `id` is a stable ID
-with the `scenario.` prefix and is registered like every other.
+entry is used; every declared item, trigger and quest resolves against its own
+rules ([Items](#items), [Triggers](#triggers), [Quests](#quests)); the
+scenario `id` is a stable ID with the `scenario.` prefix and is registered
+like every other.
 
 ## The runtime
 
@@ -382,16 +384,64 @@ pack references; every flag a condition reads is set by some effect in the
 pack, so a condition can never be permanently unreachable — all **failing by
 name**.
 
-## Reserved: quests
+## Quests
 
-- **Quests.** Stage machines whose transitions are triggers; a quest exposes
-  its current stage and objective text through the snapshot; completion and
-  failure are effects.
+Implemented. The last reserved key. `quests` is an **array of paths**, in the
+same shape as `resources[]`: each names a document keyed by quest ID
+(`quest.<name>`), resolved and embedded like every other referenced document.
+
+```json
+{
+  "quest.the_cult_beneath_the_water": {
+    "displayName": "The Cult Beneath the Water",
+    "initialStage": "stage.rumors",
+    "stages": {
+      "stage.rumors": { "objective": "Something is wrong out past the reef." },
+      "stage.confirmed": { "objective": "The drowned shrine is growing." },
+      "stage.colonial_response": { "objective": "It has begun.", "terminal": "success" }
+    }
+  }
+}
+```
+
+**A quest is data, not code.** It is a stage machine: a set of named stages,
+each with authored objective text, and one designated `initialStage`. There is
+no logic on the quest itself — `set_quest_stage`, one of the closed trigger
+effects [Triggers](#triggers) declares, is the only thing that moves it, so
+**completion and failure are effects**, exactly as the contract said they
+would be, not a second mechanism this contract had to invent.
+
+A stage may declare `"terminal": "success"` or `"terminal": "failure"`.
+`set_quest_stage` refuses to move a quest out of a terminal stage — once a
+quest completes or fails it stays there — and refuses to move it to the stage
+it is already on, so a quest settles exactly once per outcome and a firing
+never becomes a no-op that still consumes the trigger's one shot.
+
+**Every declared quest starts active**, seeded onto its own `initialStage` the
+moment the world is created from a scenario (`from_scenario`), and a
+version-1 save migrating into a scenario is seeded the same way. `quest_stages`
+(quest ID to current stage ID) is play state on `FactionWorld`, saved, and
+refused by name (`invalid_saved_quest_stages`) if a save is missing a declared
+quest's entry, carries an entry for a quest the rule set no longer declares, or
+names a stage that quest does not define.
+
+The snapshot's `quests` entry carries, per quest, `id`, `display_name`,
+`stage`, `objective` and `terminal` (empty string when the current stage is
+not terminal) — state Godot shows, never text the engine composes.
+
+The validator proves, for every pack and failing by name: every quest ID is
+of the form `quest.<name>` and declared once; every quest has at least one
+terminal stage, or it can never resolve; `initialStage` names one of the
+quest's own stages; every `set_quest_stage` effect names a catalogued quest
+and one of its declared stages; and **every stage is reachable** — a stage no
+`set_quest_stage` effect in the pack ever moves a quest to (other than the
+initial stage, reached by starting there) fails by name, so a quest can never
+declare an ending nothing in the pack can produce.
 
 ## The builder
 
 `node tools/src/scaffold-scenario.mjs <scenario-id>` writes a pack skeleton
-that already validates (every reserved array empty, the main scenario's rule
+that already validates (no items, triggers or quests declared, the main scenario's rule
 files referenced, a two-faction default). An in-game builder is a later
 contract; the CLI is its data layer. A mod is a pack loaded from
 `user://packs/<id>/` through the same bundle format; the bridge accepts the

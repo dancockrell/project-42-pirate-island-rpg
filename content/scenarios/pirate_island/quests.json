@@ -1,0 +1,18 @@
+{
+  "quest.the_cult_beneath_the_water": {
+    "displayName": "The Cult Beneath the Water",
+    "initialStage": "stage.rumors",
+    "stages": {
+      "stage.rumors": {
+        "objective": "Something is wrong out past the reef. The colonial patrols dismiss it as superstition."
+      },
+      "stage.confirmed": {
+        "objective": "The drowned shrine is growing. Whatever is down there is no longer content to wait."
+      },
+      "stage.colonial_response": {
+        "objective": "The colonials have finally turned their guns on the water. It has begun.",
+        "terminal": "success"
+      }
+    }
+  }
+}

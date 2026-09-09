@@ -1,7 +1,7 @@
 // node tools/src/scaffold-scenario.mjs <scenario-id> [--out <directory>]
 //
-// Writes a scenario pack skeleton that already validates: reserved arrays empty,
-// the main scenario's rule, buildings, personas and navigation documents
+// Writes a scenario pack skeleton that already validates: no items, triggers or
+// quests declared, the main scenario's rule, buildings, personas and navigation documents
 // referenced by relative path, and two factions with their seeds and tuning.
 // Every value is taken from the committed main scenario pack, so the skeleton
 // invents no numbers. Contract: docs/SCENARIO_PACKS.md.
@@ -77,5 +77,5 @@ const manifest = {
 await mkdir(resolve(packDirectory, "factions"), { recursive: true });
 for (const [path, value] of tuningFiles) await writeFile(resolve(packDirectory, path), `${JSON.stringify(value, null, 2)}\n`, "utf8");
 await writeFile(resolve(packDirectory, "scenario.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-console.log(`Scaffolded ${scenarioId} into ${packDirectory} with ${factions.length} factions, ${resources.length} resource catalogue(s) referenced and every reserved array empty.`);
+console.log(`Scaffolded ${scenarioId} into ${packDirectory} with ${factions.length} factions, ${resources.length} resource catalogue(s) referenced, and no items, triggers or quests declared.`);
 console.log(`Validate it with: node tools/src/validate.mjs --scenario-root ${resolve(packDirectory, "..")}`);

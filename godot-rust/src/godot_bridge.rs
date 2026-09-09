@@ -293,6 +293,31 @@ impl Project42SimulationBridge {
             flags.push(&flag.to_variant());
         }
         snapshot.set("flags", &flags);
+        // Every declared quest's current stage and objective text, so Godot
+        // shows state it does not invent rather than composing its own prose.
+        let mut quests = VarArray::new();
+        for (quest_id, stage_id) in &world.quest_stages {
+            let Some(quest) = world.rules.quests.get(quest_id) else {
+                continue;
+            };
+            let Some(stage) = quest.stages.get(stage_id) else {
+                continue;
+            };
+            quests.push(
+                &vdict! {
+                    "id" => quest_id.as_str(),
+                    "display_name" => quest.display_name.as_str(),
+                    "stage" => stage_id.as_str(),
+                    "objective" => stage.objective.as_str(),
+                    "terminal" => stage.terminal.map(|outcome| match outcome {
+                        crate::world::QuestOutcome::Success => "success",
+                        crate::world::QuestOutcome::Failure => "failure",
+                    }).unwrap_or("")
+                }
+                .to_variant(),
+            );
+        }
+        snapshot.set("quests", &quests);
         // The campaign clock, as much of it as the player is allowed to see.
         // The authored record says heat is never a number, so the snapshot
         // carries the channels the island has signalled on and no total.

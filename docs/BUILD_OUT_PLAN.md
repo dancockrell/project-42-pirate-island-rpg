@@ -71,35 +71,41 @@ Order is by dependency, not by appetite.
   9 September holds: a trigger changes the world, it does not narrate it — no
   journal, no feed, only the `flags` a trigger has set, read like any other
   board fact.
+- **Quests.** Stage machines whose transitions are triggers: `set_quest_stage`,
+  one closed trigger effect, is the only thing that moves one, so completion
+  and failure are effects exactly as the contract said, not a second mechanism.
+  Every declared quest starts active on its own authored stage; a terminal
+  stage locks a quest there; the snapshot carries each quest's current stage
+  and objective text, so Godot shows state it does not invent. Every reserved
+  key from schema version 1 (`resources`, `items`, `triggers`, `quests`) is now
+  implemented.
 
 ### Next, in order
 
-1. **Quests.** Stage machines whose transitions are triggers, their stage in the
-   snapshot so Godot shows state it does not invent.
-2. **The island network.** `content/world/island_network.prototype.json`
+1. **The island network.** `content/world/island_network.prototype.json`
    declares six nodes and eight tethers with a loop, a hub and a chokepoint; the
    simulation has a flat walkable grid and named destinations. Give the world the
    node/tether graph the authority requires, with tether state (blocked, hidden,
    conditional) changing reachability without moving geography. Regions become
    expressible, which is what location triggers were deferred for.
-3. **Weather.** Two authored fronts with selection weights, movement across
+2. **Weather.** Two authored fronts with selection weights, movement across
    tethers, faction modifiers, terrain interactions and advance tells. Weather
-   moves on the network from item 2 and modifies production, movement and sight
+   moves on the network from item 1 and modifies production, movement and sight
    through the same rules factions already use.
-4. **Terrain influence.** Layered fields over cells sourced by structures,
+3. **Terrain influence.** Layered fields over cells sourced by structures,
    units and rituals, competing deterministically, changing movement cost, build
    legality and encounter grammar. Depends on the network.
-5. **Companions and leads.** The heart of the product and the largest piece:
+4. **Companions and leads.** The heart of the product and the largest piece:
    Betty and Ayla exist as authored characters with skills and are not in the
    game. Put a heroine on the island as a recruitable, directable hero with her
    own competence domain; give her a lead that reads simulated evidence, offers
    two interpretations and asks for support; let the player's answer change board
    state, relationships and proof in one transaction. Milestone M2, and M4 begins
    here.
-6. **Adventure sites.** A faction holding becomes enterable, its layout and
+5. **Adventure sites.** A faction holding becomes enterable, its layout and
     defenders derived from the recorded composite seed the site records already
     describe, so a level-five cult shrine differs from a level-two fort.
-7. **Battle, reconnected.** `battle.rs` compiles, has 26 tests, and is wired to
+6. **Battle, reconnected.** `battle.rs` compiles, has 26 tests, and is wired to
     nothing: the island tick never calls it. Either the board resolves combat
     where it stands or a bounded tactical view opens; the authority marks that
     choice provisional, so it needs a decision before it needs code.

@@ -513,6 +513,8 @@ const MAX_INVENTORY_ENTRIES: usize = 4096;
 pub const MAX_TRIGGERS: usize = 512;
 pub const MAX_FLAGS: usize = 512;
 pub const MAX_TRIGGER_HISTORY: usize = 512;
+pub const MAX_QUESTS: usize = 64;
+pub const MAX_QUEST_STAGES: usize = 32;
 
 /// The heat ledger is append-only, so it needs a ceiling for the same reason
 /// every other saved collection has one: a save is untrusted input.
@@ -527,6 +529,18 @@ const MAXIMUM_RESOURCES: usize = 256;
 fn valid_resource_id(id: &str) -> bool {
     id.len() <= 256
         && id.strip_prefix("resource.").is_some_and(|name| {
+            !name.is_empty()
+                && name
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+        })
+}
+
+/// `quest.<name>`, the form the catalogue, the validator and the schema all
+/// agree on.
+fn valid_quest_id(id: &str) -> bool {
+    id.len() <= 256
+        && id.strip_prefix("quest.").is_some_and(|name| {
             !name.is_empty()
                 && name
                     .bytes()
@@ -893,6 +907,61 @@ pub struct ScenarioRules {
     /// empty list and the tick's trigger pass does nothing.
     #[serde(default)]
     pub triggers: Vec<ScenarioTrigger>,
+    /// The pack's quest catalogue, keyed by stable ID. A pack may carry none;
+    /// a save made before quests existed loads with an empty catalogue.
+    #[serde(default)]
+    pub quests: BTreeMap<String, ScenarioQuest>,
+}
+
+/// One quest: an authored stage machine. `SetQuestStage`, a trigger effect, is
+/// the only thing that moves it -- a quest has no logic of its own, only stages
+/// and the text each one shows.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ScenarioQuest {
+    #[serde(rename = "displayName")]
+    pub display_name: String,
+    #[serde(rename = "initialStage")]
+    pub initial_stage: String,
+    pub stages: BTreeMap<String, QuestStage>,
+}
+
+impl ScenarioQuest {
+    fn valid(&self) -> bool {
+        !self.display_name.trim().is_empty()
+            && self.display_name.len() <= 128
+            && !self.stages.is_empty()
+            && self.stages.len() <= MAX_QUEST_STAGES
+            && self.stages.contains_key(&self.initial_stage)
+            && self
+                .stages
+                .keys()
+                .all(|id| !id.is_empty() && id.len() <= 128)
+            && self.stages.values().all(QuestStage::valid)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QuestStage {
+    pub objective: String,
+    /// Absent for an ordinary stage. A terminal stage is where a quest
+    /// settles: `SetQuestStage` refuses to move a quest out of one.
+    #[serde(default)]
+    pub terminal: Option<QuestOutcome>,
+}
+
+impl QuestStage {
+    fn valid(&self) -> bool {
+        self.objective.len() <= 1024
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QuestOutcome {
+    Success,
+    Failure,
 }
 
 /// One authored rule: when every condition holds, apply every effect. There is
@@ -993,6 +1062,13 @@ pub enum TriggerEffect {
         b: String,
         hostile: bool,
     },
+    /// A quest's only mover. Refused if the quest or stage is undeclared, if
+    /// the quest is already on that stage, or if its current stage is
+    /// terminal: once a quest completes or fails it stays there.
+    SetQuestStage {
+        quest_id: String,
+        stage_id: String,
+    },
 }
 
 impl ScenarioRules {
@@ -1016,6 +1092,8 @@ impl ScenarioRules {
                 let ids: BTreeSet<&String> = self.triggers.iter().map(|t| &t.id).collect();
                 ids.len() == self.triggers.len()
             }
+            && self.quests.len() <= MAX_QUESTS
+            && self.quests.values().all(ScenarioQuest::valid)
     }
 
     /// The catalogue's answer, and the only one: an undeclared key is not a
@@ -1192,8 +1270,9 @@ pub struct ScenarioDefinition {
     /// One or more trigger documents, concatenated in order into one list.
     #[serde(default)]
     pub triggers: Vec<Vec<ScenarioTrigger>>,
+    /// One or more quest catalogue documents, merged in order into one catalogue.
     #[serde(default)]
-    pub quests: Vec<serde_json::Value>,
+    pub quests: Vec<BTreeMap<String, ScenarioQuest>>,
     /// Rasterised land, supplied by the caller. Polygon-to-cell rasterisation
     /// lives in GDScript until a later contract moves it into Rust, so a
     /// definition is not playable until its land is set.
@@ -1328,11 +1407,16 @@ impl ScenarioDefinition {
                 .iter()
                 .flatten()
                 .all(ScenarioTrigger::valid)
-            || !definition.quests.is_empty()
+            || !definition
+                .quests
+                .iter()
+                .flatten()
+                .all(|(_, quest)| quest.valid())
         {
             return Err("invalid_scenario_manifest".into());
         }
         definition.resource_catalogue()?;
+        definition.quest_catalogue()?;
         Ok(definition)
     }
 
@@ -1366,6 +1450,25 @@ impl ScenarioDefinition {
         Ok(catalogue)
     }
 
+    /// Every quest document merged into one catalogue. A key declared twice is
+    /// a pack error, not a silent overwrite; `ScenarioQuest::valid` catches a
+    /// malformed stage machine (an unreachable initial stage, an empty
+    /// catalogue) once the merge itself has succeeded.
+    pub fn quest_catalogue(&self) -> Result<BTreeMap<String, ScenarioQuest>, String> {
+        let mut catalogue: BTreeMap<String, ScenarioQuest> = BTreeMap::new();
+        for document in &self.quests {
+            for (id, record) in document {
+                if !valid_quest_id(id) || catalogue.insert(id.clone(), record.clone()).is_some() {
+                    return Err("invalid_scenario_quests".into());
+                }
+            }
+        }
+        if catalogue.len() > MAX_QUESTS {
+            return Err("invalid_scenario_quests".into());
+        }
+        Ok(catalogue)
+    }
+
     pub fn scenario_rules(&self) -> ScenarioRules {
         ScenarioRules {
             resources: self.resource_catalogue().unwrap_or_default(),
@@ -1382,6 +1485,7 @@ impl ScenarioDefinition {
             campaign_clock: self.rules.campaign_clock.resolve(),
             items: self.items.catalogue(),
             triggers: self.triggers.iter().flatten().cloned().collect(),
+            quests: self.quest_catalogue().unwrap_or_default(),
         }
     }
 }
@@ -1445,6 +1549,10 @@ pub struct FactionWorld {
     /// entry here never fires again, across a save and a load.
     #[serde(default)]
     pub fired_triggers: BTreeMap<String, u64>,
+    /// Quest ID to its current stage ID. Seeded from each declared quest's
+    /// `initialStage` when the world is created; only `SetQuestStage` moves it.
+    #[serde(default)]
+    pub quest_stages: BTreeMap<String, String>,
     next_actor_serial: u64,
     next_order_serial: u64,
 }
@@ -3280,6 +3388,13 @@ impl FactionWorld {
             rules,
             ..Default::default()
         };
+        // Every declared quest starts active, on its own authored stage.
+        staged.quest_stages = staged
+            .rules
+            .quests
+            .iter()
+            .map(|(id, quest)| (id.clone(), quest.initial_stage.clone()))
+            .collect();
         staged.navigation.walkable = land;
         staged
             .combat_profiles
@@ -4057,6 +4172,21 @@ impl FactionWorld {
                 "rules".into(),
                 serde_json::to_value(rules).map_err(|_| "invalid_save_json")?,
             );
+            // A version-1 save predates quests entirely. Seed every quest the
+            // scenario it is resuming into declares onto its own initial
+            // stage -- the same invariant `from_scenario` establishes for a
+            // freshly created world, restated here for one migrating in.
+            if !saved_world.contains_key("quest_stages") {
+                let quest_stages: BTreeMap<String, String> = rules
+                    .quests
+                    .iter()
+                    .map(|(id, quest)| (id.clone(), quest.initial_stage.clone()))
+                    .collect();
+                saved_world.insert(
+                    "quest_stages".into(),
+                    serde_json::to_value(quest_stages).map_err(|_| "invalid_save_json")?,
+                );
+            }
             json["version"] = serde_json::json!(SAVE_VERSION);
         }
         let migration_rules = json
@@ -4235,6 +4365,20 @@ impl FactionWorld {
             })
         {
             return Err("invalid_saved_trigger_history".into());
+        }
+        // Every declared quest is active on exactly one of its own stages:
+        // no quest missing an entry, no entry for an undeclared quest, and no
+        // stage that quest does not define.
+        if world.quest_stages.len() != world.rules.quests.len()
+            || world.quest_stages.iter().any(|(quest_id, stage_id)| {
+                world
+                    .rules
+                    .quests
+                    .get(quest_id)
+                    .is_none_or(|quest| !quest.stages.contains_key(stage_id))
+            })
+        {
+            return Err("invalid_saved_quest_stages".into());
         }
         if world.confrontation.is_some_and(|record| {
             record.tick > world.tick
@@ -5638,6 +5782,18 @@ impl FactionWorld {
                     && (self.hostilities.contains(&(a.clone(), b.clone())) != *hostile
                         || self.hostilities.contains(&(b.clone(), a.clone())) != *hostile)
             }
+            TriggerEffect::SetQuestStage { quest_id, stage_id } => {
+                self.rules
+                    .quests
+                    .get(quest_id)
+                    .is_some_and(|quest| quest.stages.contains_key(stage_id))
+                    && self.quest_stages.get(quest_id).is_some_and(|current| {
+                        current != stage_id
+                            && self.rules.quests[quest_id].stages[current]
+                                .terminal
+                                .is_none()
+                    })
+            }
         })
     }
 
@@ -5678,6 +5834,9 @@ impl FactionWorld {
                     self.hostilities.remove(&(a.clone(), b.clone()));
                     self.hostilities.remove(&(b.clone(), a.clone()));
                 }
+            }
+            TriggerEffect::SetQuestStage { quest_id, stage_id } => {
+                self.quest_stages.insert(quest_id.clone(), stage_id.clone());
             }
         }
     }
@@ -5963,9 +6122,19 @@ mod tests {
             wobble_limit: 5,
             buildings: [(building.id.clone(), building)].into_iter().collect(),
         };
+        let rules = main_scenario().scenario_rules();
+        // Even a bare production fixture plays a scenario's rules, and a
+        // declared quest is never absent from quest_stages -- from_scenario's
+        // own seeding invariant, restated here since this fixture builds a
+        // FactionWorld by hand rather than through from_scenario.
+        let quest_stages = rules
+            .quests
+            .iter()
+            .map(|(id, quest)| (id.clone(), quest.initial_stage.clone()))
+            .collect();
         FactionWorld {
-            // Even a bare production fixture plays a scenario's rules.
-            rules: main_scenario().scenario_rules(),
+            rules,
+            quest_stages,
             factions: [(faction.id.clone(), faction)].into_iter().collect(),
             navigation: IslandNavigation {
                 building_obstacles: BTreeMap::new(),
@@ -6375,12 +6544,13 @@ mod tests {
             let mut value: serde_json::Value = serde_json::from_str(save).unwrap();
             // Version 2 added the world's own rules; the campaign clock added
             // a heat ledger and a confrontation record; triggers added flags
-            // and a firing record. The hard-coded island had none of them, so
-            // they are removed here and
+            // and a firing record; quests added their seeded stage map. The
+            // hard-coded island had none of them, so they are removed here and
             // nothing else may differ: every field that island did have is
             // still produced identically. The clock's own state is proved in
             // `heat_accrues_from_the_islands_own_occurrences` and the
-            // confrontation tests, not hidden by this strip.
+            // confrontation tests, and quest state in the quest tests below,
+            // not hidden by this strip.
             value["version"] = serde_json::json!(1);
             let world = value["world"].as_object_mut().unwrap();
             world.remove("rules");
@@ -6388,6 +6558,7 @@ mod tests {
             world.remove("confrontation");
             world.remove("flags");
             world.remove("fired_triggers");
+            world.remove("quest_stages");
             serde_json::to_string(&value).unwrap()
         }
         fn fixture(name: &str) -> String {
@@ -6630,14 +6801,16 @@ mod tests {
             serde_json::from_str(&migrated.save_json().unwrap()).unwrap();
         expected["version"] = serde_json::json!(1);
         // As above: the fixture predates the world's rules, the campaign
-        // clock's play state and the triggers', so those are removed and
-        // everything the fixture does carry must still match field for field.
+        // clock's play state, the triggers' and the quests', so those are
+        // removed and everything the fixture does carry must still match
+        // field for field.
         let expected_world = expected["world"].as_object_mut().unwrap();
         expected_world.remove("rules");
         expected_world.remove("heat");
         expected_world.remove("confrontation");
         expected_world.remove("flags");
         expected_world.remove("fired_triggers");
+        expected_world.remove("quest_stages");
         assert_eq!(
             serde_json::to_string(&expected).unwrap(),
             serde_json::to_string(
@@ -7094,6 +7267,195 @@ mod tests {
                 world.flags.insert(String::new());
             }),
             "invalid_saved_trigger_history"
+        );
+    }
+
+    /// The main scenario's own quest is the authored record, not a Rust
+    /// default: it resolves with real stages and a real terminal outcome.
+    #[test]
+    fn the_scenario_document_supplies_its_quest() {
+        let quests = main_scenario_world().rules.quests;
+        let quest = quests
+            .get("quest.the_cult_beneath_the_water")
+            .expect("authored quest");
+        assert_eq!(quest.initial_stage, "stage.rumors");
+        assert_eq!(quest.stages.len(), 3);
+        assert_eq!(
+            quest.stages["stage.colonial_response"].terminal,
+            Some(QuestOutcome::Success)
+        );
+    }
+
+    /// Every declared quest starts active on its own authored stage the
+    /// moment the world is created from a scenario -- no separate start verb.
+    #[test]
+    fn a_declared_quest_starts_on_its_initial_stage() {
+        let world = main_scenario_world();
+        for (id, quest) in &world.rules.quests {
+            assert_eq!(world.quest_stages.get(id), Some(&quest.initial_stage));
+        }
+    }
+
+    fn test_quest(initial_stage: &str) -> ScenarioQuest {
+        ScenarioQuest {
+            display_name: "Test quest".into(),
+            initial_stage: initial_stage.into(),
+            stages: BTreeMap::from([
+                (
+                    "stage.a".into(),
+                    QuestStage {
+                        objective: "Do the first thing.".into(),
+                        terminal: None,
+                    },
+                ),
+                (
+                    "stage.b".into(),
+                    QuestStage {
+                        objective: "Do the second thing.".into(),
+                        terminal: None,
+                    },
+                ),
+                (
+                    "stage.done".into(),
+                    QuestStage {
+                        objective: String::new(),
+                        terminal: Some(QuestOutcome::Success),
+                    },
+                ),
+            ]),
+        }
+    }
+
+    /// `set_quest_stage` moves a quest from its current stage to a declared
+    /// one, and once a quest reaches a terminal stage no further effect can
+    /// move it again.
+    #[test]
+    fn set_quest_stage_moves_a_quest_and_then_refuses_to_move_it_again() {
+        let mut world = main_scenario_world();
+        world.rules.quests = BTreeMap::from([("quest.test".to_string(), test_quest("stage.a"))]);
+        world.quest_stages = BTreeMap::from([("quest.test".to_string(), "stage.a".to_string())]);
+        world.rules.triggers = vec![ScenarioTrigger {
+            id: "trigger.test.advance".into(),
+            repeat: false,
+            when: vec![TriggerCondition::DayAtLeast { day: 1 }],
+            then: vec![TriggerEffect::SetQuestStage {
+                quest_id: "quest.test".into(),
+                stage_id: "stage.b".into(),
+            }],
+        }];
+        world.advance_island_tick();
+        assert_eq!(
+            world.quest_stages.get("quest.test"),
+            Some(&"stage.b".to_string())
+        );
+        assert!(world.fired_triggers.contains_key("trigger.test.advance"));
+        // Non-repeating and already fired: a second tick does not re-fire it,
+        // even though its effect (b -> b would be a no-op, but the trigger
+        // itself is settled) stays recorded at the tick it happened.
+        let advanced_tick = *world.fired_triggers.get("trigger.test.advance").unwrap();
+        world.advance_island_tick();
+        assert_eq!(
+            world.fired_triggers.get("trigger.test.advance"),
+            Some(&advanced_tick)
+        );
+
+        // A repeating trigger reaches the terminal stage, then can never move
+        // the quest again -- not even to a different stage, which is the
+        // terminal-lock rule and not just the same-stage no-op guard.
+        world.rules.triggers = vec![ScenarioTrigger {
+            id: "trigger.test.repeat_finish".into(),
+            repeat: true,
+            when: vec![TriggerCondition::DayAtLeast { day: 1 }],
+            then: vec![TriggerEffect::SetQuestStage {
+                quest_id: "quest.test".into(),
+                stage_id: "stage.done".into(),
+            }],
+        }];
+        world.advance_island_tick();
+        assert_eq!(
+            world.quest_stages.get("quest.test"),
+            Some(&"stage.done".to_string())
+        );
+        let settled_tick = *world
+            .fired_triggers
+            .get("trigger.test.repeat_finish")
+            .unwrap();
+        // A different repeating trigger now tries to move the settled quest
+        // back to stage.a -- a genuinely different target, not a no-op.
+        world.rules.triggers = vec![ScenarioTrigger {
+            id: "trigger.test.repeat_revert".into(),
+            repeat: true,
+            when: vec![TriggerCondition::DayAtLeast { day: 1 }],
+            then: vec![TriggerEffect::SetQuestStage {
+                quest_id: "quest.test".into(),
+                stage_id: "stage.a".into(),
+            }],
+        }];
+        world.advance_island_tick();
+        assert_eq!(
+            world.quest_stages.get("quest.test"),
+            Some(&"stage.done".to_string())
+        );
+        assert!(
+            !world
+                .fired_triggers
+                .contains_key("trigger.test.repeat_revert")
+        );
+        assert_eq!(
+            world.fired_triggers.get("trigger.test.repeat_finish"),
+            Some(&settled_tick)
+        );
+    }
+
+    /// Quest state survives a save round trip.
+    #[test]
+    fn quest_stages_survive_a_save_round_trip() {
+        let mut world = main_scenario_world();
+        world.rules.quests = BTreeMap::from([("quest.test".to_string(), test_quest("stage.a"))]);
+        world.quest_stages = BTreeMap::from([("quest.test".to_string(), "stage.b".to_string())]);
+        let restored =
+            FactionWorld::load_json_for_scenario(&world.save_json().unwrap(), &world.rules.clone())
+                .unwrap();
+        assert_eq!(restored.quest_stages, world.quest_stages);
+        assert_eq!(restored, world);
+    }
+
+    /// A save is untrusted input: a quest missing a stage entry, an entry
+    /// naming an undeclared quest, or a stage that quest does not define are
+    /// each refused by name.
+    #[test]
+    fn a_tampered_quest_stage_is_refused_by_name() {
+        fn refusal(mutate: impl FnOnce(&mut FactionWorld)) -> String {
+            let mut world = main_scenario_world();
+            world.rules.quests =
+                BTreeMap::from([("quest.test".to_string(), test_quest("stage.a"))]);
+            world.quest_stages =
+                BTreeMap::from([("quest.test".to_string(), "stage.a".to_string())]);
+            mutate(&mut world);
+            FactionWorld::load_json_for_scenario(&world.save_json().unwrap(), &world.rules.clone())
+                .unwrap_err()
+        }
+        assert_eq!(
+            refusal(|world| {
+                world.quest_stages.clear();
+            }),
+            "invalid_saved_quest_stages"
+        );
+        assert_eq!(
+            refusal(|world| {
+                world
+                    .quest_stages
+                    .insert("quest.does_not_exist".into(), "stage.a".into());
+            }),
+            "invalid_saved_quest_stages"
+        );
+        assert_eq!(
+            refusal(|world| {
+                world
+                    .quest_stages
+                    .insert("quest.test".into(), "stage.does_not_exist".into());
+            }),
+            "invalid_saved_quest_stages"
         );
     }
 
