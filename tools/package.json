@@ -6,7 +6,8 @@
   "scripts": {
     "validate": "node src/validate.mjs",
     "report:placeholders": "node src/placeholder-report.mjs",
-    "build:content": "node src/validate.mjs && node src/build-content-bundle.mjs"
+    "build:content": "node src/validate.mjs && node src/build-content-bundle.mjs",
+    "scaffold:scenario": "node src/scaffold-scenario.mjs"
   },
   "engines": {"node": ">=20"}
 }

@@ -1,5 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import { resolve, relative } from "node:path";
+import { loadScenarioPacks, packLabel, scenarioRootsFromArgv } from "./scenario-pack.mjs";
 import process from "node:process";
 
 const repo = resolve(import.meta.dirname, "../..");
@@ -557,6 +558,87 @@ for (const [index, collection] of (sharedSourceCollections.sourceCollections ?? 
   if (!Array.isArray(collection?.styleTags) || collection.styleTags.length < 2) fail(sharedSourceCollectionsFile, `${field}.styleTags needs at least two tags`);
 }
 
+// Scenario packs (docs/SCENARIO_PACKS.md). One block: every rule the contract's
+// "The bundle" section requires the validator to prove before bundling.
+const scenarioRoots = scenarioRootsFromArgv(repo, process.argv.slice(2));
+const scenarioPacks = await loadScenarioPacks(scenarioRoots);
+for (const pack of scenarioPacks) {
+  const file = pack.manifestFile;
+  const manifest = pack.manifest;
+  const name = typeof manifest.id === "string" ? manifest.id : packLabel(repo, pack.directory);
+  if (pack.manifestError) { fail(file, `${packLabel(repo, pack.directory)} ${pack.manifestError}`); continue; }
+  registerId(manifest.id, file);
+  if (typeof manifest.id !== "string" || !/^scenario\.[a-z0-9_]+$/.test(manifest.id)) fail(file, "scenario id must be a stable ID of the form scenario.<name>");
+  if (manifest.schemaVersion !== 1) fail(file, `${name} schemaVersion must be 1`);
+  for (const field of ["title", "summary"]) requireString(manifest, field, file);
+  if (typeof manifest.geography?.terrainTexture !== "string" || !manifest.geography.terrainTexture.startsWith("res://")) fail(file, `${name} geography.terrainTexture must be a res:// path`);
+  if (typeof manifest.start?.captainId !== "string" || !manifest.start.captainId.startsWith("character.")) fail(file, `${name} start.captainId must name a character`);
+  else reference(manifest.start.captainId, file, "start.captainId");
+  const profile = manifest.start?.combatProfile;
+  for (const field of ["health", "damage", "range", "cooldown_ticks"]) {
+    if (!Number.isInteger(profile?.[field]) || profile[field] < 0) fail(file, `${name} start.combatProfile.${field} must be a non-negative integer`);
+  }
+  for (const field of ["resources", "items", "triggers", "quests"]) {
+    if (!Array.isArray(manifest[field])) fail(file, `${name} reserved array ${field} must be an array`);
+    else if (manifest[field].length !== 0) fail(file, `${name} reserved array ${field} must be empty in schema version 1; the simulation does not run ${field} yet`);
+  }
+  for (const key of ["cthulhuMadness", "colonialExpansion", "holdingRepairs", "holdingSalvage", "holdingDevelopment", "michaelFoothold", "michaelMachinery", "survivalDiplomacy", "initialDiplomacy"]) {
+    if (typeof manifest.rules?.[key] !== "string") fail(file, `${name} rules.${key} must name a rule document`);
+  }
+  const resolved = new Map();
+  for (const document of pack.documents) {
+    if (document.error) fail(file, `${name} ${document.field} ${document.error}`);
+    else resolved.set(document.field, document.value);
+  }
+  const navigation = resolved.get("geography.navigation");
+  const buildings = resolved.get("buildings");
+  const personas = resolved.get("personas");
+  let columns = null;
+  let rows = null;
+  if (navigation) {
+    const size = navigation.size;
+    const cellSize = navigation.cellSize;
+    if (!Array.isArray(size) || size.length !== 2 || size.some(value => !Number.isInteger(value) || value <= 0)) fail(file, `${name} navigation size must be two positive integers`);
+    else if (!Number.isInteger(cellSize) || cellSize <= 0 || size[0] % cellSize !== 0 || size[1] % cellSize !== 0) fail(file, `${name} navigation cellSize must divide its size`);
+    else { columns = size[0] / cellSize; rows = size[1] / cellSize; }
+  }
+  if (buildings && (typeof buildings !== "object" || Array.isArray(buildings))) fail(file, `${name} buildings must be a keyed archetype document`);
+  if (personas && (typeof personas !== "object" || Array.isArray(personas))) fail(file, `${name} personas must be a keyed actor-definition document`);
+  if (!Array.isArray(manifest.factions) || manifest.factions.length === 0) fail(file, `${name} must place at least one faction`);
+  const seenSeeds = new Map();
+  const seenFactions = new Set();
+  for (const [index, faction] of (manifest.factions ?? []).entries()) {
+    const factionName = typeof faction?.id === "string" ? faction.id : `factions[${index}]`;
+    if (typeof faction?.id !== "string" || !factionIds.has(faction.id)) fail(file, `${name} ${factionName} is not a faction declared in content/factions/`);
+    else if (seenFactions.has(faction.id)) fail(file, `${name} places ${factionName} more than once`);
+    else seenFactions.add(faction.id);
+    const seed = faction?.seed;
+    if (!Array.isArray(seed) || seed.length !== 2 || seed.some(value => !Number.isInteger(value))) fail(file, `${name} ${factionName} seed must be two integers`);
+    else {
+      if (columns !== null && (seed[0] < 0 || seed[0] >= columns || seed[1] < 0 || seed[1] >= rows)) fail(file, `${name} ${factionName} seed ${seed[0]},${seed[1]} is outside the navigation size (${columns} by ${rows} cells)`);
+      const key = `${seed[0]},${seed[1]}`;
+      if (seenSeeds.has(key)) fail(file, `${name} ${factionName} shares seed ${key} with ${seenSeeds.get(key)}`);
+      else seenSeeds.set(key, factionName);
+    }
+    const rule = resolved.get(`factions[${index}].production`);
+    if (rule) {
+      if (rule.kind !== "production_rule") fail(file, `${name} ${factionName} production ${faction.production} is not a production rule`);
+      reference(rule.id, file, `factions[${index}].production id`);
+      if (buildings && !Object.hasOwn(buildings, rule.producerArchetypeId ?? "")) fail(file, `${name} ${factionName} production rule ${rule.id} names producerArchetypeId ${rule.producerArchetypeId} which the scenario buildings document does not define`);
+      if (personas && !Object.hasOwn(personas, rule.outputDefinitionId ?? "")) fail(file, `${name} ${factionName} production rule ${rule.id} names outputDefinitionId ${rule.outputDefinitionId} which the scenario personas document does not define`);
+    }
+    const tuning = resolved.get(`factions[${index}].tuning`);
+    if (tuning) {
+      for (const field of ["population_capacity", "holding_level", "holding_health"]) {
+        if (!Number.isInteger(tuning[field]) || tuning[field] < 1) fail(file, `${name} ${factionName} tuning ${field} must be a positive integer`);
+      }
+      for (const field of ["health", "damage", "range", "cooldown_ticks"]) {
+        if (!Number.isInteger(tuning.combat?.[field]) || tuning.combat[field] < 0) fail(file, `${name} ${factionName} tuning combat.${field} must be a non-negative integer`);
+      }
+    }
+  }
+}
+
 const intentionallyExternalPrefixes = ["skill.enemy."];
 for (const item of references) {
   if (!ids.has(item.id) && !intentionallyExternalPrefixes.some(prefix => item.id.startsWith(prefix))) {
@@ -569,4 +651,4 @@ if (failures.length) {
   for (const message of failures) console.error(`- ${message}`);
   process.exit(1);
 }
-console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked.`);
+console.log(`Project 42 content valid: ${ids.size} stable IDs checked; ${skillCount} skills, ${presentationCueCount} presentation cues, ${reelPlan.reels.length} video reels, ${(sharedAssetLedger.assetRecords ?? []).length} shared asset records and ${(sharedSourceCollections.sourceCollections ?? []).length} source collections validated; ${placeholderManifest.assets.length} placeholders explicitly tracked; ${scenarioPacks.length} scenario pack(s) resolved.`);
