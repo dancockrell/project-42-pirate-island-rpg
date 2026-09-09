@@ -130,3 +130,71 @@ jobs:
           name: godot-gate-${{ github.sha }}
           path: godot-gate.log
           retention-days: 7
+
+  windows-bridge:
+    name: Windows native bridge
+    runs-on: windows-latest
+    timeout-minutes: 30
+    # game/bin/windows/*.dll are committed artefacts, and nothing rebuilds them
+    # when the bridge's exported verbs change: a contributor without Windows
+    # cannot produce one, so a change that adds or removes a #[func] leaves the
+    # committed library exporting a surface the code no longer has, and the game
+    # fails on the one platform the owner plays on. This job builds both
+    # configurations on every pull request and uploads them, so the correct
+    # library is always one download away from the commit that needs it. It
+    # deliberately does not commit anything: a binary enters the repository
+    # through a person who has looked at it.
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install the Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache the Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: godot-rust
+
+      - name: Build the native bridge, both configurations
+        shell: pwsh
+        run: |
+          ./tools/build-native-bridge.ps1 -Configuration debug
+          ./tools/build-native-bridge.ps1 -Configuration release
+
+      # The .gdextension names these exact files. Asserting them here is what
+      # makes the artefact trustworthy: it is the library the extension asks
+      # for, at the path it asks for, not whatever the build happened to leave.
+      - name: Assert the libraries the extension declares exist
+        shell: pwsh
+        run: |
+          $paths = @(
+            'game/bin/windows/project42_sim.windows.template_debug.x86_64.dll',
+            'game/bin/windows/project42_sim.windows.template_release.x86_64.dll'
+          )
+          foreach ($path in $paths) {
+            if (-not (Test-Path -LiteralPath $path)) { throw "Missing: $path" }
+          }
+
+      # Says whether the committed libraries still match this commit's code.
+      # A difference is expected and fine on a pull request that changes the
+      # bridge; it is the notice that they need replacing before the game runs
+      # on Windows, and the artefact above is what replaces them.
+      - name: Report whether the committed libraries are current
+        shell: pwsh
+        run: |
+          $changed = git status --porcelain -- game/bin/windows
+          if ($changed) {
+            Write-Host 'The committed Windows libraries differ from this commit.'
+            Write-Host 'Download the windows-bridge artefact and commit it before playing on Windows.'
+            Write-Host $changed
+          } else {
+            Write-Host 'The committed Windows libraries match this commit.'
+          }
+
+      - name: Upload the built libraries
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-bridge-${{ github.sha }}
+          path: game/bin/windows/*.dll
+          retention-days: 7

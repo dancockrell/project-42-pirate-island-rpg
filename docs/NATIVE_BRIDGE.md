@@ -32,7 +32,9 @@ Every event contains `event_id`, `command_id` when applicable, monotonically inc
 
 ## Build outputs
 
-The Rust library emits both `rlib` for engine-independent tests and `cdylib` for Godot. `tools/build-native-bridge.ps1` builds the selected configuration and copies the verified Windows library to `game/bin/windows/`. `game/bin/project42_sim.gdextension` maps debug and release libraries separately. Godot import is part of `tools/verify-godot.ps1`, because a compiled DLL that the editor has not registered is not a usable bridge.
+The Rust library emits both `rlib` for engine-independent tests and `cdylib` for Godot. `tools/build-native-bridge.ps1` builds the selected configuration and copies the verified Windows library to `game/bin/windows/`; `tools/build-native-bridge.sh` is its twin for Linux and macOS and writes to `game/bin/linux/` or `game/bin/macos/`. `game/bin/project42_sim.gdextension` maps debug and release libraries separately for each platform. Godot import is part of `tools/verify-godot.ps1` and `tools/verify-godot.sh`, because a compiled library the editor has not registered is not a usable bridge.
+
+The Windows libraries under `game/bin/windows/` are committed; the Linux and macOS ones are built locally and ignored. A committed library goes stale the moment the bridge's exported verbs change, and a contributor without Windows cannot rebuild it, so the `Windows native bridge` CI job builds both configurations on every pull request, reports whether the committed pair still matches the code, and uploads the result as the `windows-bridge-<sha>` artefact. Download it and commit it when it differs. CI never commits a binary itself: an artefact enters the repository through a person who has looked at it.
 
 ## Acceptance gates
 

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "task_id": "windows-bridge-artifact",
+  "agent": "claude-code",
+  "summary": "CI builds the Windows native bridge on every pull request and says when the committed libraries have gone stale",
+  "status": "completed",
+  "claimed_at": "2026-09-09T12:40:00Z",
+  "updated_at": "2026-09-09T12:45:00Z",
+  "paths": [
+    ".github/workflows/verify.yml",
+    "docs/NATIVE_BRIDGE.md"
+  ],
+  "symbols": [],
+  "coordination": {
+    "depends_on": ["linux-gate-and-ci"],
+    "conflicts_with": [],
+    "notes": "game/bin/windows/*.dll are committed artefacts that nothing rebuilds when the bridge's exported verbs change. The scenario-runtime-loading lane deleted create_island and install_preview_factions and recorded the resulting staleness as failed, because no contributor without Windows can produce a replacement. This job closes that: windows-latest builds both configurations, asserts the two paths the .gdextension declares, reports whether the committed pair still matches the commit, and uploads windows-bridge-<sha>. It deliberately does not commit the binary; a binary enters the repository through a person who has looked at it. Touches no file either running scenario lane owns."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
