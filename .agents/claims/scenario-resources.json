@@ -3,15 +3,16 @@
   "task_id": "scenario-resources",
   "agent": "claude-code (lane resources)",
   "summary": "The resource catalogue and the authored faction economy; a resource key is declared, checked and capped rather than invented",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-09T12:10:00Z",
-  "updated_at": "2026-09-09T12:10:00Z",
+  "updated_at": "2026-09-09T15:40:00Z",
   "paths": [
     "content/scenarios/pirate_island/scenario.json",
     "content/scenarios/pirate_island/resources.json",
-    "content/scenarios/pirate_island/factions/",
+    "content/island/holding_salvage.json",
     "content/schemas/scenario.json",
     "tools/src/validate.mjs",
+    "tools/src/scenario-pack.mjs",
     "tools/src/scaffold-scenario.mjs",
     "game/generated/scenarios/scenario.pirate_island.json",
     "godot-rust/src/world.rs",
@@ -21,18 +22,38 @@
   ],
   "symbols": [
     "ScenarioResource",
-    "ResourceCatalogue",
     "ScenarioFactionEconomy",
+    "ScenarioDefinition::resource_catalogue",
+    "ScenarioRules::resources",
+    "HoldingSalvageRule::resource_id",
+    "FactionWorld::salvage_resource",
+    "FactionWorld::stored_resource",
+    "FactionWorld::can_afford",
     "FactionWorld::gain_resource",
-    "FactionWorld::spend_resources"
+    "FactionWorld::spend_resources",
+    "FactionWorldError::UnknownResource"
   ],
   "coordination": {
     "depends_on": [],
     "conflicts_with": ["scenario-items"],
-    "notes": "Contract: docs/SCENARIO_PACKS.md, 'Reserved: resources'. from_scenario invents every faction's economy today (world.rs:2760-2786: starting stock = costs x 2, income_per_tick = 1, storage_caps = 20); this lane moves those into the pack so a second scenario can have a different economy. Shares three files with scenario-items (the manifest, validate.mjs and the ScenarioDefinition reserved-key refusal): each lane lifts only its own reserved key and appends its own validator block, and the integrator reconciles. Does not touch inventories, ProducedActor or any item type."
+    "notes": "Contract: docs/SCENARIO_PACKS.md, now 'Resources' (shipped). from_scenario invented every faction's economy (starting stock = costs x 2, income = 1, caps = 20); the economy is now authored per factions[] entry and, for the captain's own faction, in the optional start.economy. The main pack authors exactly the previous numbers, so scenario_world_equals_the_deleted_hard_coded_island is unchanged. resources is an array of catalogue document paths, merged by the runtime; resource IDs are pack-local and deliberately not registered as global stable IDs. rules.holdingSalvage gained resourceId, which replaced ten compiled-in 'resource.salvage' literals. Shares three files with scenario-items (the manifest, validate.mjs and the ScenarioDefinition reserved-key refusal): this lane lifted only the resources reserved key and appended its own validator block; the integrator reconciles. Did not touch items, triggers, quests, inventories, ProducedActor or any item type."
   },
   "completion": {
-    "commit": null,
-    "checks": []
+    "commit": "ca0608b",
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml: passed (100 tests, including scenario_world_equals_the_deleted_hard_coded_island and version_one_save_migrates_into_its_scenario_and_plays_identically)",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs: passed",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/: passed (regenerated scenario document committed)",
+      "node tools/src/scaffold-scenario.mjs + validate --scenario-root: passed (a scaffolded pack still validates)",
+      "python3 tools/test_sprite_source.py: passed (12 tests)",
+      "bash tools/build-native-bridge.sh debug then verify-godot.sh 60: passed, ended 'Current 2D Godot verification passed' with no ERROR line",
+      "bite: a cost naming an uncatalogued resource.irn failed validation by name ('names resource resource.irn, which no catalogue this pack references declares'); restored and green"
+    ],
+    "provisional": [
+      "Balance numbers are unchanged and stay where their files say. The main pack's catalogue records carry a display name only; a resource's storage rule is its owning faction's authored storageCaps, so no unused flag was added.",
+      "rules.holdingSalvage.resourceId must name a catalogued resource: the salvage key is now the pack's choice, but a pack cannot yet switch the salvage feature off entirely."
+    ]
   }
 }

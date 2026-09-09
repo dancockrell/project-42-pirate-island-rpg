@@ -597,10 +597,11 @@ for (const pack of scenarioPacks) {
   for (const field of ["health", "damage", "range", "cooldown_ticks"]) {
     if (!Number.isInteger(profile?.[field]) || profile[field] < 0) fail(file, `${name} start.combatProfile.${field} must be a non-negative integer`);
   }
-  for (const field of ["resources", "items", "triggers", "quests"]) {
+  for (const field of ["items", "triggers", "quests"]) {
     if (!Array.isArray(manifest[field])) fail(file, `${name} reserved array ${field} must be an array`);
     else if (manifest[field].length !== 0) fail(file, `${name} reserved array ${field} must be empty in schema version 1; the simulation does not run ${field} yet`);
   }
+  if (!Array.isArray(manifest.resources)) fail(file, `${name} resources must be an array of resource catalogue document paths`);
   for (const key of ["cthulhuMadness", "colonialExpansion", "holdingRepairs", "holdingSalvage", "holdingDevelopment", "michaelFoothold", "michaelMachinery", "michaelMachineProduction", "survivalDiplomacy", "initialDiplomacy", "campaignClock"]) {
     if (typeof manifest.rules?.[key] !== "string") fail(file, `${name} rules.${key} must name a rule document`);
   }
@@ -623,6 +624,85 @@ for (const pack of scenarioPacks) {
   }
   if (buildings && (typeof buildings !== "object" || Array.isArray(buildings))) fail(file, `${name} buildings must be a keyed archetype document`);
   if (personas && (typeof personas !== "object" || Array.isArray(personas))) fail(file, `${name} personas must be a keyed actor-definition document`);
+  // The resource catalogue. Resource IDs are pack-local, not global stable IDs:
+  // two packs must each be free to declare resource.iron.
+  const catalogue = new Map();
+  for (const [index] of (Array.isArray(manifest.resources) ? manifest.resources : []).entries()) {
+    const field = `resources[${index}]`;
+    const document = resolved.get(field);
+    if (document === undefined) continue;
+    if (typeof document !== "object" || document === null || Array.isArray(document)) {
+      fail(file, `${name} ${field} must be a keyed resource catalogue document`);
+      continue;
+    }
+    for (const [id, record] of Object.entries(document)) {
+      if (!/^resource\.[a-z0-9_]+$/.test(id)) fail(file, `${name} ${field} declares ${id}, which is not a resource ID of the form resource.<name>`);
+      else if (catalogue.has(id)) fail(file, `${name} ${field} redeclares resource ${id}, already declared in ${catalogue.get(id).field}`);
+      else catalogue.set(id, { field, record });
+      if (typeof record !== "object" || record === null || Array.isArray(record)) fail(file, `${name} resource ${id} must be a record with a displayName`);
+      else {
+        if (typeof record.displayName !== "string" || record.displayName.trim() === "" || record.displayName.length > 128) fail(file, `${name} resource ${id} needs a non-empty displayName of at most 128 characters`);
+        for (const key of Object.keys(record)) {
+          if (key !== "displayName") fail(file, `${name} resource ${id} declares unknown field ${key}`);
+        }
+      }
+    }
+  }
+  // Every resource the pack names, and where it named it, so an uncatalogued
+  // key and an unused catalogue entry both fail by name.
+  const usedResources = new Map();
+  const useResources = (record, where) => {
+    if (typeof record !== "object" || record === null || Array.isArray(record)) return;
+    for (const id of Object.keys(record)) {
+      if (!usedResources.has(id)) usedResources.set(id, where);
+      if (!catalogue.has(id)) fail(file, `${name} ${where} names resource ${id}, which no catalogue this pack references declares`);
+    }
+  };
+  const checkEconomy = (economy, where) => {
+    if (typeof economy !== "object" || economy === null || Array.isArray(economy)) {
+      fail(file, `${name} ${where} must be an economy with stockpile, incomePerTick and storageCaps`);
+      return;
+    }
+    for (const key of Object.keys(economy)) {
+      if (!["stockpile", "incomePerTick", "storageCaps"].includes(key)) fail(file, `${name} ${where} declares unknown field ${key}`);
+    }
+    for (const field of ["stockpile", "incomePerTick", "storageCaps"]) {
+      const amounts = economy[field];
+      if (typeof amounts !== "object" || amounts === null || Array.isArray(amounts)) {
+        fail(file, `${name} ${where}.${field} must be a map of resource ID to a non-negative integer`);
+        continue;
+      }
+      useResources(amounts, `${where}.${field}`);
+      for (const [id, amount] of Object.entries(amounts)) {
+        if (!Number.isInteger(amount) || amount < 0 || amount > 100000) fail(file, `${name} ${where}.${field} ${id} must be an integer between 0 and 100000`);
+      }
+    }
+    const caps = typeof economy.storageCaps === "object" && economy.storageCaps !== null ? economy.storageCaps : {};
+    for (const id of Object.keys(typeof economy.incomePerTick === "object" && economy.incomePerTick !== null ? economy.incomePerTick : {})) {
+      if (!Object.hasOwn(caps, id)) fail(file, `${name} ${where} earns ${id} every tick but declares no storage cap for it`);
+    }
+    for (const [id, amount] of Object.entries(typeof economy.stockpile === "object" && economy.stockpile !== null ? economy.stockpile : {})) {
+      if (Object.hasOwn(caps, id) && Number.isInteger(amount) && Number.isInteger(caps[id]) && amount > caps[id]) fail(file, `${name} ${where} starts with ${amount} ${id} above its storage cap of ${caps[id]}`);
+    }
+  };
+  // start.economy is optional: a captain who begins with nothing authors nothing.
+  if (manifest.start?.economy !== undefined) checkEconomy(manifest.start.economy, "start.economy");
+  const salvageRule = resolved.get("rules.holdingSalvage");
+  if (salvageRule) {
+    const salvageId = salvageRule.resourceId;
+    if (typeof salvageId !== "string" || salvageId.trim() === "") fail(file, `${name} rules.holdingSalvage must name the resource its yields are paid in with resourceId`);
+    else useResources({ [salvageId]: 0 }, "rules.holdingSalvage.resourceId");
+  }
+  for (const key of ["colonialExpansion", "michaelMachineProduction"]) {
+    const rule = resolved.get(`rules.${key}`);
+    if (rule) useResources(rule.costs, `rules.${key} costs`);
+  }
+  for (const key of ["holdingRepairs", "holdingDevelopment"]) {
+    const rules = resolved.get(`rules.${key}`);
+    if (typeof rules === "object" && rules !== null && !Array.isArray(rules)) {
+      for (const [archetype, rule] of Object.entries(rules)) useResources(rule?.costs, `rules.${key} ${archetype} costs`);
+    }
+  }
   if (!Array.isArray(manifest.factions) || manifest.factions.length === 0) fail(file, `${name} must place at least one faction`);
   const seenSeeds = new Map();
   const seenFactions = new Set();
@@ -645,7 +725,9 @@ for (const pack of scenarioPacks) {
       reference(rule.id, file, `factions[${index}].production id`);
       if (buildings && !Object.hasOwn(buildings, rule.producerArchetypeId ?? "")) fail(file, `${name} ${factionName} production rule ${rule.id} names producerArchetypeId ${rule.producerArchetypeId} which the scenario buildings document does not define`);
       if (personas && !Object.hasOwn(personas, rule.outputDefinitionId ?? "")) fail(file, `${name} ${factionName} production rule ${rule.id} names outputDefinitionId ${rule.outputDefinitionId} which the scenario personas document does not define`);
+      useResources(rule.costs, `${factionName} production rule ${rule.id} costs`);
     }
+    checkEconomy(faction?.economy, `${factionName} economy`);
     const tuning = resolved.get(`factions[${index}].tuning`);
     if (tuning) {
       for (const field of ["population_capacity", "holding_level", "holding_health"]) {
@@ -655,6 +737,9 @@ for (const pack of scenarioPacks) {
         if (!Number.isInteger(tuning.combat?.[field]) || tuning.combat[field] < 0) fail(file, `${name} ${factionName} tuning combat.${field} must be a non-negative integer`);
       }
     }
+  }
+  for (const [id, entry] of catalogue) {
+    if (!usedResources.has(id)) fail(file, `${name} catalogue ${entry.field} declares resource ${id}, which no economy, cost, income, cap or rule in this pack uses`);
   }
 }
 

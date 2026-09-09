@@ -51,7 +51,12 @@ content/scenarios/<scenario-id>/
       "id": "faction.pirates.prototype",
       "seed": [35, 15],
       "tuning": "factions/pirates.tuning.json",
-      "production": "../../production/tide_quay_deckhands.json"
+      "production": "../../production/tide_quay_deckhands.json",
+      "economy": {
+        "stockpile": { "resource.provisions": 2, "resource.coin": 2 },
+        "incomePerTick": { "resource.provisions": 1, "resource.coin": 1 },
+        "storageCaps": { "resource.provisions": 20, "resource.coin": 20 }
+      }
     }
   ],
   "rules": {
@@ -64,11 +69,12 @@ content/scenarios/<scenario-id>/
     "michaelMachinery": "../../island/michael_machinery.json",
     "michaelMachineProduction": "../../production/michael_field_workshop_mechanical_dogs.json",
     "survivalDiplomacy": "../../island/survival_diplomacy.json",
-    "initialDiplomacy": "../../diplomacy/initial_relationships.prototype.json"
+    "initialDiplomacy": "../../diplomacy/initial_relationships.prototype.json",
+    "campaignClock": "../../campaign/cthulhu_clocks.json"
   },
   "buildings": "../../../game/assets/island/buildings.json",
   "personas": "../../../game/assets/island/personas.json",
-  "resources": [],
+  "resources": ["resources.json"],
   "items": [],
   "triggers": [],
   "quests": []
@@ -76,13 +82,13 @@ content/scenarios/<scenario-id>/
 ```
 
 Every string value under `geography.navigation`, `factions[].tuning`,
-`factions[].production`, `rules.*`, `buildings` and `personas` is a path
-relative to the pack directory; the referenced document is **embedded verbatim**
-by the bundle builder. The manifest never restates a rule file: one owner per
-document, referenced, not copied. `resources`, `items`, `triggers` and `quests`
-are reserved for the next contracts (below) and must be empty arrays in schema
-version 1; the validator refuses anything else so no pack can carry data the
-simulation does not yet run.
+`factions[].production`, `rules.*`, `resources[]`, `buildings` and `personas` is
+a path relative to the pack directory; the referenced document is **embedded
+verbatim** by the bundle builder. The manifest never restates a rule file: one
+owner per document, referenced, not copied. `resources` carries the pack's
+resource catalogue (below). `items`, `triggers` and `quests` are reserved for the
+next contracts and must be empty arrays in schema version 1; the validator
+refuses anything else so no pack can carry data the simulation does not yet run.
 
 ## The bundle
 
@@ -101,8 +107,10 @@ before bundling that: every path resolves; every faction `id` exists in
 `content/factions/`; every production rule's `producerArchetypeId` is a key of
 the embedded `buildings` document and its `outputDefinitionId` a key of the
 embedded `personas` document; every seed is inside the navigation `size`; no two
-factions share a seed; the reserved arrays are empty; the scenario `id` is a
-stable ID with the `scenario.` prefix and is registered like every other.
+factions share a seed; every resource named by an economy, a cost, an income, a
+cap or a rule is declared by a catalogue the pack references and every catalogue
+entry is used; the reserved arrays are empty; the scenario `id` is a stable ID
+with the `scenario.` prefix and is registered like every other.
 
 ## The runtime
 
@@ -172,21 +180,75 @@ island has actually signalled on, and the recorded `confrontation` and
 `confrontation_day`. `heat_severity()` exists in Rust for the arbitration and
 is deliberately not exposed through the bridge.
 
-## Reserved: resources, items, triggers, quests
+## Resources
+
+Shipped. A resource key is declared by the pack or it does not exist.
+
+`resources` is an **array of paths**, each naming a catalogue document keyed by
+resource ID, in the shape of `buildings` and `personas`:
+
+```json
+{"resource.iron": {"displayName": "Iron"}}
+```
+
+An array rather than a single path because a pack may compose a shared
+catalogue with its own, and because the documents are resolved and embedded by
+the same machinery as every other referenced path. The runtime merges them in
+order and refuses a key declared twice. Resource IDs are **pack-local**: two
+packs may each declare `resource.iron` without colliding, so they are not
+registered in the repository's global stable-ID table. A catalogue record
+carries a display name and nothing else; how much of a resource a faction may
+hold is a property of that faction, not of the resource, and is authored in its
+`storageCaps` below.
+
+Each `factions[]` entry carries an `economy` block, inline like `seed`:
+
+```json
+"economy": {
+  "stockpile": {"resource.provisions": 4, "resource.iron": 2},
+  "incomePerTick": {"resource.provisions": 1, "resource.iron": 1},
+  "storageCaps": {"resource.provisions": 20, "resource.iron": 20}
+}
+```
+
+`start.economy` is the same block for the captain's own faction, and is
+optional. The main pack authors it **empty**, because Michael reaches the island
+with nothing but a wreck — not because the slot is unused: a scenario whose hero
+begins with supplies authors them there.
+
+`rules.holdingSalvage` names the resource salvage is paid in
+(`"resourceId": "resource.salvage"`), so no stockpile in the simulation is
+addressed by a compiled-in key and a scenario may salvage something else.
+
+In Rust, `ScenarioResource` and the merged catalogue live on `ScenarioRules`, so
+the catalogue saves and travels with a mod's save like every other rule.
+`FactionWorld::from_scenario` reads the authored economy instead of deriving one
+from production costs. Every gain and every spend goes through one checked pair,
+`gain_resource` and `spend_resources`: an undeclared key is **refused**, never
+created, and a gain is clamped to the faction's storage cap wherever one is
+declared — income is not the only way resources arrive. A save carrying a key
+its catalogue does not declare is refused with `invalid_saved_resources`, and
+the catalogue is bounded like every other collection the loader admits.
+
+The validator proves, for every pack: every resource named by an economy, a
+cost, an income, a cap or a rule is in the catalogue, and every catalogue entry
+is used — both **failing by name**. The snapshot carries the player faction's
+whole stockpile as `stockpile`, the catalogue's display names as
+`resource_names`, and the salvage key as `salvage_resource`, beside the
+`salvage` scalar the island scene already reads.
+
+## Reserved: items, triggers, quests
 
 Each is its own contract and its own claim; this document reserves the keys so
 the manifest shape does not change again.
 
-- **Resources.** A catalogue of resource IDs (`resource.<name>`) with display
-  names and storage rules; faction income, storage caps and costs reference the
-  catalogue instead of free strings.
 - **Items.** Records (`item.<name>`) with stack rules, an owner (an actor or a
   holding), and effects the simulation implements (a health bonus, a carbine
   upgrade, a key that unlocks a trigger). No item carries logic.
 - **Triggers.** Deterministic rules evaluated in the island tick: a condition
   over world state (day, tick, a faction eliminated, a holding reaching a
   level, an actor entering a cell region, a recruitment, a flag) and an effect
-  the simulation implements (a news line, a flag, an item granted, a diplomacy
+  the simulation implements (a flag, an item granted, a diplomacy
   change, a spawn through a declared producer, a quest stage). Every trigger
   fires at most once unless it says `repeat`. By the owner's decision of
   9 September a trigger changes the world and does not narrate it: there is no

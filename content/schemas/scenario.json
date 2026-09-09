@@ -24,7 +24,8 @@
       "required": ["captainId", "combatProfile"],
       "properties": {
         "captainId": {"type": "string", "pattern": "^character\\."},
-        "combatProfile": {"$ref": "#/$defs/combatProfile"}
+        "combatProfile": {"$ref": "#/$defs/combatProfile"},
+        "economy": {"$ref": "#/$defs/economy"}
       },
       "additionalProperties": false
     },
@@ -33,12 +34,13 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "seed", "tuning", "production"],
+        "required": ["id", "seed", "tuning", "production", "economy"],
         "properties": {
           "id": {"type": "string", "pattern": "^faction\\."},
           "seed": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}},
           "tuning": {"$ref": "#/$defs/packPath"},
-          "production": {"$ref": "#/$defs/packPath"}
+          "production": {"$ref": "#/$defs/packPath"},
+          "economy": {"$ref": "#/$defs/economy"}
         },
         "additionalProperties": false
       }
@@ -50,7 +52,11 @@
     },
     "buildings": {"$ref": "#/$defs/packPath"},
     "personas": {"$ref": "#/$defs/packPath"},
-    "resources": {"$ref": "#/$defs/reserved"},
+    "resources": {
+      "description": "Resource catalogue documents, each a keyed map of resource.<name> to its record. Paths, resolved and embedded like every other referenced document; the runtime merges them in order and refuses a duplicate ID.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/packPath"}
+    },
     "items": {"$ref": "#/$defs/reserved"},
     "triggers": {"$ref": "#/$defs/reserved"},
     "quests": {"$ref": "#/$defs/reserved"}
@@ -73,6 +79,22 @@
         "cooldown_ticks": {"type": "integer", "minimum": 1}
       },
       "additionalProperties": false
+    },
+    "economy": {
+      "description": "An authored opening economy: what the faction starts holding, what it earns each tick, and how much of each resource it can store. Every key must be declared by a catalogue this pack references.",
+      "type": "object",
+      "required": ["stockpile", "incomePerTick", "storageCaps"],
+      "properties": {
+        "stockpile": {"$ref": "#/$defs/resourceAmounts"},
+        "incomePerTick": {"$ref": "#/$defs/resourceAmounts"},
+        "storageCaps": {"$ref": "#/$defs/resourceAmounts"}
+      },
+      "additionalProperties": false
+    },
+    "resourceAmounts": {
+      "type": "object",
+      "propertyNames": {"pattern": "^resource\\.[a-z0-9_]+$"},
+      "additionalProperties": {"type": "integer", "minimum": 0}
     },
     "reserved": {
       "description": "Reserved for a later contract; schema version 1 requires an empty array.",

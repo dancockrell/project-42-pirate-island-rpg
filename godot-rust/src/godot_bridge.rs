@@ -240,12 +240,22 @@ impl Project42SimulationBridge {
                 .unwrap_or("");
             party_names.push(&name.to_variant());
         }
-        let salvage = world
-            .factions
-            .get("faction.michael")
-            .and_then(|f| f.resources.get("resource.salvage"))
-            .copied()
-            .unwrap_or(0);
+        // The player faction's whole stockpile, with the catalogue's display
+        // names beside it; `salvage` stays the scalar the scene already reads,
+        // now keyed by the resource the pack says salvage is paid in.
+        const PLAYER_FACTION: &str = "faction.michael";
+        let salvage_resource = world.salvage_resource();
+        let salvage = world.stored_resource(PLAYER_FACTION, salvage_resource);
+        let mut stockpile = VarDictionary::new();
+        if let Some(faction) = world.factions.get(PLAYER_FACTION) {
+            for (id, amount) in &faction.resources {
+                stockpile.set(id.as_str(), *amount);
+            }
+        }
+        let mut resource_names = VarDictionary::new();
+        for (id, resource) in &world.rules.resources {
+            resource_names.set(id.as_str(), resource.display_name.as_str());
+        }
         let mut salvage_caches = VarArray::new();
         let nearby_salvage = world.nearby_salvage_id();
         for (id, cache) in &world.salvage_caches {
@@ -279,6 +289,9 @@ impl Project42SimulationBridge {
                 "confrontation_day" => world.confrontation.map(|record| record.day as i64).unwrap_or(0)
             },
         );
+        snapshot.set("salvage_resource", salvage_resource);
+        snapshot.set("stockpile", &stockpile);
+        snapshot.set("resource_names", &resource_names);
         snapshot.set("workshop_repair_cost", world.foothold_repair_cost());
         let (machine_cost, machine_ticks, machine_capacity) = world.machine_foothold_costs();
         snapshot.set("machine_cost", machine_cost);

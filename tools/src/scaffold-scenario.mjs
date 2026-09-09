@@ -42,9 +42,14 @@ for (const [index, faction] of template.manifest.factions.slice(0, 2).entries())
     id: faction.id,
     seed: faction.seed,
     tuning: `factions/${factionName}.tuning.json`,
-    production: packRelative(documentFile(`factions[${index}].production`))
+    production: packRelative(documentFile(`factions[${index}].production`)),
+    economy: structuredClone(faction.economy)
   });
 }
+
+// The catalogue every copied economy, cost and rule names is referenced rather
+// than copied: one owner declares each resource, and the skeleton validates.
+const resources = template.manifest.resources.map((_, index) => packRelative(documentFile(`resources[${index}]`)));
 
 const rules = {};
 for (const key of Object.keys(template.manifest.rules)) rules[key] = packRelative(documentFile(`rules.${key}`));
@@ -63,7 +68,7 @@ const manifest = {
   rules,
   buildings: packRelative(documentFile("buildings")),
   personas: packRelative(documentFile("personas")),
-  resources: [],
+  resources,
   items: [],
   triggers: [],
   quests: []
@@ -72,5 +77,5 @@ const manifest = {
 await mkdir(resolve(packDirectory, "factions"), { recursive: true });
 for (const [path, value] of tuningFiles) await writeFile(resolve(packDirectory, path), `${JSON.stringify(value, null, 2)}\n`, "utf8");
 await writeFile(resolve(packDirectory, "scenario.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-console.log(`Scaffolded ${scenarioId} into ${packDirectory} with ${factions.length} factions and every reserved array empty.`);
+console.log(`Scaffolded ${scenarioId} into ${packDirectory} with ${factions.length} factions, ${resources.length} resource catalogue(s) referenced and every reserved array empty.`);
 console.log(`Validate it with: node tools/src/validate.mjs --scenario-root ${resolve(packDirectory, "..")}`);
