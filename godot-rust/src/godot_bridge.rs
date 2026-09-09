@@ -5,7 +5,7 @@ use crate::battle::{
     RecoveryOpening, StatusInstance, StatusKind,
 };
 use crate::protocol::{CommandEnvelope, CommandKind, PROTOCOL_VERSION};
-use crate::world::{FactionWorld, FactionWorldEvent, IslandPoint};
+use crate::world::{FactionWorld, FactionWorldEvent, IslandPoint, ScenarioDefinition};
 
 const BATTLE_ID: &str = "battle.prototype.returning_names";
 
@@ -18,6 +18,9 @@ struct Project42SimulationBridge {
     sequence: u64,
     #[init(val = None)]
     island: Option<FactionWorld>,
+    /// Land rasterised by the port and waiting for the scenario that uses it.
+    #[init(val = None)]
+    land: Option<(std::collections::BTreeSet<IslandPoint>, IslandPoint)>,
 }
 
 #[godot_api]
@@ -27,19 +30,6 @@ impl Project42SimulationBridge {
         self.island
             .as_mut()
             .is_some_and(|world| world.aim_carbine(&target.to_string()))
-    }
-    #[func]
-    fn install_preview_factions(&mut self) -> bool {
-        let Some(world) = self.island.as_mut() else {
-            return false;
-        };
-        match world.install_preview_factions() {
-            Ok(()) => true,
-            Err(reason) => {
-                godot_error!("Island placement failed: {reason}");
-                false
-            }
-        }
     }
     #[func]
     fn save_island(&self) -> GString {
@@ -53,19 +43,20 @@ impl Project42SimulationBridge {
 
     #[func]
     fn load_island(&mut self, payload: GString) -> bool {
-        let mut world = match FactionWorld::load_json(&payload.to_string()) {
-            Ok(world) => world,
-            Err(reason) => {
-                // The reason is a stable token from the loader. A rejected save
-                // is a refusal the caller must be able to read, not a silent
-                // false: the scene's own log says why nothing changed.
-                godot_warn!("Island save rejected: {reason}");
-                return false;
-            }
-        };
         let Some(current) = self.island.as_ref() else {
             return false;
         };
+        let mut world =
+            match FactionWorld::load_json_for_scenario(&payload.to_string(), &current.rules) {
+                Ok(world) => world,
+                Err(reason) => {
+                    // The reason is a stable token from the loader. A rejected save
+                    // is a refusal the caller must be able to read, not a silent
+                    // false: the scene's own log says why nothing changed.
+                    godot_warn!("Island save rejected: {reason}");
+                    return false;
+                }
+            };
         if world.navigation.walkable != current.navigation.walkable {
             // One exact additive map correction, not arbitrary save-map coercion.
             // Old island positions and buildings remain where they really were.
@@ -105,15 +96,43 @@ impl Project42SimulationBridge {
 
     #[func]
     fn valid_island_save(&self, payload: GString) -> bool {
-        FactionWorld::load_json(&payload.to_string()).is_ok()
+        self.island.as_ref().is_some_and(|island| {
+            FactionWorld::load_json_for_scenario(&payload.to_string(), &island.rules).is_ok()
+        })
     }
 
+    /// Build the island one scenario document describes. The land must already
+    /// be rasterised through `configure_island_land`; polygon-to-cell work
+    /// stays in GDScript until a later contract moves it into Rust.
     #[func]
-    fn create_island(&mut self) -> VarDictionary {
-        self.island = Some(FactionWorld::prototype_island());
-        self.island_snapshot()
+    fn create_island_from_scenario(&mut self, payload: GString) -> VarDictionary {
+        let mut definition = match ScenarioDefinition::from_document(&payload.to_string()) {
+            Ok(definition) => definition,
+            Err(reason) => {
+                godot_error!("Scenario rejected: {reason}");
+                return vdict! { "error" => reason.as_str() };
+            }
+        };
+        let Some((cells, start)) = self.land.clone() else {
+            return vdict! { "error" => "island_land_not_configured" };
+        };
+        if !definition.set_land(cells, start) {
+            return vdict! { "error" => "island_land_not_configured" };
+        }
+        match FactionWorld::from_scenario(&definition) {
+            Ok(world) => {
+                self.island = Some(world);
+                self.island_snapshot()
+            }
+            Err(reason) => {
+                godot_error!("Island placement failed: {reason}");
+                vdict! { "error" => reason.as_str() }
+            }
+        }
     }
 
+    /// The rasterised land and the captain's start cell for the next scenario.
+    /// Initial map setup only: it never touches a world already running.
     #[func]
     fn configure_island_land(&mut self, cells: Array<Vector2i>, start: Vector2i) -> bool {
         if cells.is_empty() || cells.len() > 16384 {
@@ -133,17 +152,7 @@ impl Project42SimulationBridge {
         if !land.contains(&start) {
             return false;
         }
-        let Some(world) = self.island.as_mut() else {
-            return false;
-        };
-        // Initial map setup only. Never teleport a running campaign on reload.
-        if world.tick != 0 || !world.travel_orders.is_empty() {
-            return false;
-        }
-        world.navigation.walkable = land;
-        world
-            .positions
-            .insert("character.protagonist.captain".into(), start);
+        self.land = Some((land, start));
         true
     }
 
