@@ -1,0 +1,8 @@
+{
+  "weapon.captain.handsome_jack_steam_carbine": {
+    "display_name": "Handsome Jack steam carbine",
+    "stack": "unique",
+    "effect": {"kind": "combat_bonus", "health": 0, "damage": 2, "range": 2},
+    "provisional": "Michael's signature weapon, named in docs/CHARACTER_AND_HAREMLIT_AUTHORING.md and referenced by content/characters/captain.json signatureWeaponId. The record and its ID are authored; the two bonus magnitudes are new numbers and remain provisional until a balance pass owns them."
+  }
+}

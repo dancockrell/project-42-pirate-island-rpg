@@ -172,6 +172,18 @@ impl Project42SimulationBridge {
                     crate::world::PersonSex::Unknown => "unknown",
                 })
                 .unwrap_or("unknown");
+            // What she carries, so an inspection panel can show her equipment
+            // without keeping a second table of it. Ordered as it was granted.
+            let mut inventory = VarArray::new();
+            for item_id in world.actor_inventory(id) {
+                let name = world
+                    .rules
+                    .items
+                    .get(&item_id)
+                    .map(|item| item.display_name.as_str())
+                    .unwrap_or("");
+                inventory.push(&vdict! { "id" => item_id.as_str(), "name" => name }.to_variant());
+            }
             actors.push(
                 &vdict! {
                     "id" => id.as_str(), "x" => position.x, "y" => position.y,
@@ -190,7 +202,8 @@ impl Project42SimulationBridge {
                     "news" => world.island_person_news(id),
                     "age" => person.and_then(|p| p.age).map(i64::from).unwrap_or(-1),
                     "health" => world.unit_combat.get(id).map(|v| v.health).unwrap_or(0),
-                    "max_health" => world.combat_profiles.get(&world.actors[id].definition_id).map(|v| v.health).unwrap_or(0),
+                    "max_health" => world.actor_combat_profile(id).map(|v| v.health).unwrap_or(0),
+                    "inventory" => &inventory,
                     "moving" => world.travel_orders.contains_key(id)
                 }
                 .to_variant(),

@@ -41,10 +41,13 @@ async function readJsonDirectory(name) {
 }
 
 const characterDir = resolve(repo, "content/characters");
+/** Character records by stable ID, so a scenario can resolve the ones it names. */
+const characterRecords = new Map();
 for (const name of (await readdir(characterDir)).filter(name => name.endsWith(".json"))) {
   const file = resolve(characterDir, name);
   const value = JSON.parse(await readFile(file, "utf8"));
   registerId(value.id, file);
+  if (typeof value.id === "string") characterRecords.set(value.id, { file, value });
   requireString(value, "displayName", file);
   requireString(value, "implementationOwner", file);
   requireString(value, "presentationOwner", file);
@@ -597,11 +600,17 @@ for (const pack of scenarioPacks) {
   for (const field of ["health", "damage", "range", "cooldown_ticks"]) {
     if (!Number.isInteger(profile?.[field]) || profile[field] < 0) fail(file, `${name} start.combatProfile.${field} must be a non-negative integer`);
   }
-  for (const field of ["items", "triggers", "quests"]) {
+  for (const field of ["triggers", "quests"]) {
     if (!Array.isArray(manifest[field])) fail(file, `${name} reserved array ${field} must be an array`);
     else if (manifest[field].length !== 0) fail(file, `${name} reserved array ${field} must be empty in schema version 1; the simulation does not run ${field} yet`);
   }
   if (!Array.isArray(manifest.resources)) fail(file, `${name} resources must be an array of resource catalogue document paths`);
+  // Items: either the contract's empty array, or a path to this pack's catalogue.
+  if (Array.isArray(manifest.items)) {
+    if (manifest.items.length !== 0) fail(file, `${name} items must name a catalogue document, or be an empty array when the pack has none`);
+  } else if (typeof manifest.items !== "string") {
+    fail(file, `${name} items must be a catalogue document path or an empty array`);
+  }
   for (const key of ["cthulhuMadness", "colonialExpansion", "holdingRepairs", "holdingSalvage", "holdingDevelopment", "michaelFoothold", "michaelMachinery", "michaelMachineProduction", "survivalDiplomacy", "initialDiplomacy", "campaignClock"]) {
     if (typeof manifest.rules?.[key] !== "string") fail(file, `${name} rules.${key} must name a rule document`);
   }
@@ -613,6 +622,53 @@ for (const pack of scenarioPacks) {
   const navigation = resolved.get("geography.navigation");
   const buildings = resolved.get("buildings");
   const personas = resolved.get("personas");
+  // The item catalogue: keyed records whose effects are the closed set
+  // godot-rust/src/world.rs implements. Bounds match ScenarioRules::valid().
+  const itemCatalogue = resolved.get("items");
+  const catalogueIds = new Set();
+  if (itemCatalogue !== undefined) {
+    if (typeof itemCatalogue !== "object" || itemCatalogue === null || Array.isArray(itemCatalogue)) fail(file, `${name} items must be a keyed item catalogue document`);
+    else {
+      const entries = Object.entries(itemCatalogue);
+      if (entries.length === 0 || entries.length > 256) fail(file, `${name} item catalogue must define between one and 256 records`);
+      for (const [itemId, record] of entries) {
+        const field = `items[${itemId}]`;
+        // The prefix names the domain (docs/ARCHITECTURE.md, "Stable identifiers").
+        if (!/^[a-z][a-z0-9_]*\.[a-z0-9_.]+$/.test(itemId)) fail(file, `${name} ${field} must be a stable ID whose prefix names its domain`);
+        else { registerId(itemId, file); catalogueIds.add(itemId); }
+        if (typeof record !== "object" || record === null || Array.isArray(record)) { fail(file, `${name} ${field} must be an item record`); continue; }
+        if (typeof record.display_name !== "string" || record.display_name.trim() === "") fail(file, `${name} ${field}.display_name must be a non-empty string`);
+        const stack = record.stack;
+        const boundedStack = typeof stack === "object" && stack !== null && !Array.isArray(stack)
+          && Object.keys(stack).length === 1 && Number.isInteger(stack.stackable) && stack.stackable >= 1 && stack.stackable <= 64;
+        if (stack !== "unique" && !boundedStack) fail(file, `${name} ${field}.stack must be "unique" or {"stackable": 1-64}`);
+        const effect = record.effect;
+        if (effect?.kind === "grant_resource") {
+          if (typeof effect.resource !== "string" || !effect.resource.startsWith("resource.")) fail(file, `${name} ${field}.effect.resource must name a resource`);
+          if (!Number.isInteger(effect.amount) || effect.amount < 1 || effect.amount > 100000) fail(file, `${name} ${field}.effect.amount must be 1 to 100000`);
+          if (Object.keys(effect).length !== 3) fail(file, `${name} ${field}.effect carries fields grant_resource does not define`);
+        } else if (effect?.kind === "combat_bonus") {
+          for (const key of ["health", "damage", "range"]) {
+            if (!Number.isInteger(effect[key]) || effect[key] < 0 || effect[key] > (key === "range" ? 16 : 10000)) fail(file, `${name} ${field}.effect.${key} is outside the bounds the simulation accepts`);
+          }
+          if (Object.keys(effect).length !== 4) fail(file, `${name} ${field}.effect carries fields combat_bonus does not define`);
+        } else {
+          fail(file, `${name} ${field}.effect.kind must be grant_resource or combat_bonus; the simulation implements no other item effect`);
+        }
+      }
+    }
+  }
+  // A character the scenario starts must have its signature weapon defined in
+  // that scenario's catalogue, so signatureWeaponId cannot dangle unnoticed.
+  const captain = characterRecords.get(manifest.start?.captainId);
+  if (captain) {
+    const signatureWeaponId = captain.value.signatureWeaponId;
+    if (typeof signatureWeaponId !== "string" || signatureWeaponId.trim() === "") {
+      fail(captain.file, `${captain.value.id} is started by ${name} and must declare a signatureWeaponId`);
+    } else if (!catalogueIds.has(signatureWeaponId)) {
+      fail(file, `${name} start.captainId ${captain.value.id} declares signatureWeaponId ${signatureWeaponId}, which this scenario's item catalogue does not define`);
+    }
+  }
   let columns = null;
   let rows = null;
   if (navigation) {
