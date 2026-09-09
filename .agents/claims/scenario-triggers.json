@@ -34,26 +34,69 @@
     "MAX_TRIGGER_HISTORY"
   ],
   "coordination": {
-    "depends_on": ["scenario-resources", "scenario-items", "campaign-clock"],
+    "depends_on": [
+      "scenario-resources",
+      "scenario-items",
+      "campaign-clock"
+    ],
     "conflicts_with": [],
     "notes": "Implemented. Conditions and effects are closed enums over state that already exists, so no condition can read and no effect can write something the simulation does not own. Evaluated at the settled tail of advance_island_tick, immediately before the campaign clock's own arbitration, so a trigger's effect (a recorded heat event, a faction turned hostile) is visible to the clock in the same tick; a pre-tick pass would re-fire on load. A trigger is a transaction: trigger_effects_applicable checks every effect before advance_triggers applies any of them, so a partially-refused firing cannot leave the world half-changed and the trigger stays pending for a tick where it can fully apply. fired_triggers (trigger ID to firing tick) and flags (a BTreeSet<String> a trigger's set_flag writes) are play state, saved, capped, and refused by name if a save claims a trigger the rule set no longer declares or a firing tick past the world's own. grant_item gets its first declared source, closing the noodle the items lane recorded: it was reachable only from a test. set_hostility(true) ends any survival truce between the pair as part of the same effect, preserving the load-time invariant that a truce pair is never hostile. No journal: the snapshot's flags entry is the only thing a trigger's effect exposes, read like any other board fact, never a line of narrated text."
   },
   "completion": {
-    "commit": null,
+    "commit": "6d54e37",
     "checks": [
-      {"command": "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check", "result": "pass"},
-      {"command": "cargo test --manifest-path godot-rust/Cargo.toml", "result": "pass: 123 passed, 0 failed (11 new)"},
-      {"command": "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext", "result": "pass"},
-      {"command": "node tools/src/validate.mjs", "result": "pass"},
-      {"command": "node tools/src/build-content-bundle.mjs then git diff game/generated/", "result": "pass: regenerated document committed"},
-      {"command": "python3 tools/test_sprite_source.py", "result": "pass: 12 tests"},
-      {"command": "bash tools/build-native-bridge.sh debug", "result": "pass"},
-      {"command": "bash tools/verify-godot.sh 60", "result": "pass: all three suites, no ERROR line, 'Current 2D Godot verification passed'"},
-      {"command": "bite: condition kind set to ship_sighted", "result": "validate.mjs failed by name: 'kind ship_sighted is not a condition the simulation implements'"},
-      {"command": "bite: faction_id set to faction.does_not_exist", "result": "validate.mjs failed by name: 'names faction faction.does_not_exist, which this scenario neither places nor starts'"},
-      {"command": "bite: a flag_set condition reading a flag no effect sets", "result": "validate.mjs failed by name: 'reads flag flag.never_set_anywhere, which no trigger effect in this pack sets'"},
-      {"command": "bite: the trigger_effects_applicable pre-check removed from advance_triggers", "result": "a_trigger_with_an_inapplicable_effect_changes_nothing FAILED, restored green"},
-      {"command": "first run of the new set_hostility test", "result": "FAILED: the fixture pushed a truce without suspending the pair's existing hostility (colonial and pirates start at war in content/diplomacy/initial_relationships.prototype.json), so the trigger's effect was correctly judged inapplicable and never fired; fixed the test to model a genuinely suspended truce, not the implementation"}
+      {
+        "command": "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check",
+        "result": "pass"
+      },
+      {
+        "command": "cargo test --manifest-path godot-rust/Cargo.toml",
+        "result": "pass: 123 passed, 0 failed (11 new)"
+      },
+      {
+        "command": "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext",
+        "result": "pass"
+      },
+      {
+        "command": "node tools/src/validate.mjs",
+        "result": "pass"
+      },
+      {
+        "command": "node tools/src/build-content-bundle.mjs then git diff game/generated/",
+        "result": "pass: regenerated document committed"
+      },
+      {
+        "command": "python3 tools/test_sprite_source.py",
+        "result": "pass: 12 tests"
+      },
+      {
+        "command": "bash tools/build-native-bridge.sh debug",
+        "result": "pass"
+      },
+      {
+        "command": "bash tools/verify-godot.sh 60",
+        "result": "pass: all three suites, no ERROR line, 'Current 2D Godot verification passed'"
+      },
+      {
+        "command": "bite: condition kind set to ship_sighted",
+        "result": "validate.mjs failed by name: 'kind ship_sighted is not a condition the simulation implements'"
+      },
+      {
+        "command": "bite: faction_id set to faction.does_not_exist",
+        "result": "validate.mjs failed by name: 'names faction faction.does_not_exist, which this scenario neither places nor starts'"
+      },
+      {
+        "command": "bite: a flag_set condition reading a flag no effect sets",
+        "result": "validate.mjs failed by name: 'reads flag flag.never_set_anywhere, which no trigger effect in this pack sets'"
+      },
+      {
+        "command": "bite: the trigger_effects_applicable pre-check removed from advance_triggers",
+        "result": "a_trigger_with_an_inapplicable_effect_changes_nothing FAILED, restored green"
+      },
+      {
+        "command": "first run of the new set_hostility test",
+        "result": "FAILED: the fixture pushed a truce without suspending the pair's existing hostility (colonial and pirates start at war in content/diplomacy/initial_relationships.prototype.json), so the trigger's effect was correctly judged inapplicable and never fired; fixed the test to model a genuinely suspended truce, not the implementation"
+      }
     ]
   }
 }
