@@ -5,7 +5,7 @@
   "summary": "FactionWorld builds from a scenario document at runtime; the hard-coded island and its include_str! tuning leave the simulation",
   "status": "completed",
   "claimed_at": "2026-09-09T00:30:00Z",
-  "updated_at": "2026-09-09T12:00:00Z",
+  "updated_at": "2026-09-09T11:40:00Z",
   "paths": [
     "godot-rust/src/world.rs",
     "godot-rust/src/godot_bridge.rs",
@@ -32,7 +32,7 @@
     "notes": "Contract: docs/SCENARIO_PACKS.md. Two things scenario-pack-tooling must supply before the game runs: the generated document at game/generated/scenarios/scenario.pirate_island.json (the port reads it), and one extra rules key, michaelMachineProduction -> ../../production/michael_field_workshop_mechanical_dogs.json, because Michael's workshop production rule is read every tick and the contract's manifest reserves no slot for it. Until then godot-rust/src/scenario_fixture.rs assembles the same document from the same source files; assembled_fixture_matches_the_generated_scenario_document compares the two whenever the generated file is present, and the fixture module is deleted on integration."
   },
   "completion": {
-    "commit": "430b03f4351523d4b0b894a5b148641d82126168",
+    "commit": "430b03f",
     "checks": [
       "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
       "cargo test --manifest-path godot-rust/Cargo.toml: passed (94 tests)",
@@ -44,7 +44,12 @@
       "GODOT=... bash tools/verify-godot.sh 60: passed, with scenario-pack-tooling's generated scenario document copied in locally (plus the michaelMachineProduction key); it cannot pass on this branch alone until that lane lands the file",
       "godot --headless --path game --script tests/island_bridge_test.gd: passed (proves create_island_from_scenario through the port)",
       "godot --headless --path game --script tests/native_simulation_port_test.gd: passed",
-      "bite: income_per_tick 1 -> 2 in from_scenario; scenario_world_equals_the_deleted_hard_coded_island FAILED by name; restored; passed"
+      "bite: income_per_tick 1 -> 2 in from_scenario; scenario_world_equals_the_deleted_hard_coded_island FAILED by name; restored; passed",
+      "integrated onto claude/scenario-packs; the provisional scenario_fixture assembly deleted, so the Rust proofs read game/generated/scenarios/scenario.pirate_island.json (the fixture keeps only the deterministic land, which GDScript rasterises for the shipped island): passed",
+      "the tautological assembled_fixture_matches_the_generated_scenario_document deleted with the assembly it compared; 93 Rust tests pass: passed",
+      "rules.michaelMachineProduction added to the pack manifest, the validator's required key list and the contract; the generated document carries 23 embedded documents: passed",
+      "island_bridge_test.gd added to both gate twins' check lists; it existed and proved the scenario verb but the gate never ran it. Gate now 19 PASS lines: passed",
+      "the committed Windows DLLs under game/bin/windows/ are stale: they export create_island/install_preview_factions, which this lane deleted. A Windows rebuild by that artifact's owner is required before the game runs there: failed"
     ]
   }
 }

@@ -582,7 +582,7 @@ for (const pack of scenarioPacks) {
     if (!Array.isArray(manifest[field])) fail(file, `${name} reserved array ${field} must be an array`);
     else if (manifest[field].length !== 0) fail(file, `${name} reserved array ${field} must be empty in schema version 1; the simulation does not run ${field} yet`);
   }
-  for (const key of ["cthulhuMadness", "colonialExpansion", "holdingRepairs", "holdingSalvage", "holdingDevelopment", "michaelFoothold", "michaelMachinery", "survivalDiplomacy", "initialDiplomacy"]) {
+  for (const key of ["cthulhuMadness", "colonialExpansion", "holdingRepairs", "holdingSalvage", "holdingDevelopment", "michaelFoothold", "michaelMachinery", "michaelMachineProduction", "survivalDiplomacy", "initialDiplomacy"]) {
     if (typeof manifest.rules?.[key] !== "string") fail(file, `${name} rules.${key} must name a rule document`);
   }
   const resolved = new Map();

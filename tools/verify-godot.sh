@@ -65,6 +65,7 @@ fi
 checks=(
     "res://tests/directional_sprite_test.gd|PASS: four facings, alpha-source identity, frame regions, nearest sampling, idle retention, no simulation movement"
     "res://tests/island_scene_test.gd|PASS: island scene suite complete"
+    "res://tests/island_bridge_test.gd|PASS: actual Rust island bridge, scenario document, solo start, movement, ocean rejection, pause and arrival"
 )
 error_pattern='^(SCRIPT ERROR:|ERROR:|USER ERROR:)'
 

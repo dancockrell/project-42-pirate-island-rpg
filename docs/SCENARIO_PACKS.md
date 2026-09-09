@@ -62,6 +62,7 @@ content/scenarios/<scenario-id>/
     "holdingDevelopment": "../../island/holding_development.json",
     "michaelFoothold": "../../island/michael_foothold.json",
     "michaelMachinery": "../../island/michael_machinery.json",
+    "michaelMachineProduction": "../../production/michael_field_workshop_mechanical_dogs.json",
     "survivalDiplomacy": "../../island/survival_diplomacy.json",
     "initialDiplomacy": "../../diplomacy/initial_relationships.prototype.json"
   },

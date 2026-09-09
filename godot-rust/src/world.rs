@@ -5378,21 +5378,6 @@ mod tests {
     /// Until the pack tooling lands, the fixture stands in for the generated
     /// document. When the real one is present they must be the same document.
     #[test]
-    fn assembled_fixture_matches_the_generated_scenario_document() {
-        let path = format!(
-            "{}/../game/generated/scenarios/scenario.pirate_island.json",
-            env!("CARGO_MANIFEST_DIR")
-        );
-        let Ok(generated) = std::fs::read_to_string(&path) else {
-            return;
-        };
-        let generated: serde_json::Value = serde_json::from_str(&generated).unwrap();
-        let assembled: serde_json::Value =
-            serde_json::from_str(&crate::scenario_fixture::main_scenario_document()).unwrap();
-        assert_eq!(generated["scenario"], assembled["scenario"]);
-    }
-
-    #[test]
     fn saved_world_rejects_version_and_dangling_actor() {
         let world = main_scenario_world();
         let mut data: serde_json::Value =
