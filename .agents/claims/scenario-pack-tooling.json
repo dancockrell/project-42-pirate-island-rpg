@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "task_id": "scenario-pack-tooling",
+  "agent": "claude-code (lane scenario-tooling)",
+  "summary": "The main island as a scenario pack; the validator, the bundle output per scenario, and the scaffold CLI",
+  "status": "active",
+  "claimed_at": "2026-09-09T00:30:00Z",
+  "updated_at": "2026-09-09T00:30:00Z",
+  "paths": [
+    "content/scenarios/",
+    "content/schemas/scenario.json",
+    "tools/src/validate.mjs",
+    "tools/src/build-content-bundle.mjs",
+    "tools/src/scaffold-scenario.mjs",
+    "tools/package.json",
+    "game/generated/scenarios/",
+    "docs/SCENARIO_PACKS.md",
+    "docs/RUNBOOK.md"
+  ],
+  "symbols": [],
+  "coordination": {
+    "depends_on": [],
+    "conflicts_with": [],
+    "notes": "Contract: docs/SCENARIO_PACKS.md. The main scenario references the existing rule, production, diplomacy, buildings, personas and navigation files by path; nothing is copied. The island rule files stay in content/island/ this round and the pack references them by relative path; moving them under the pack is a follow-up after scenario-runtime-loading has deleted the Rust include_str! sites that still read them, so the two lanes never fight over one path."
+  },
+  "completion": {
+    "commit": null,
+    "checks": []
+  }
+}
