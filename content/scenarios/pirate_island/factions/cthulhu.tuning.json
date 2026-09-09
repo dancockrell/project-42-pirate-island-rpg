@@ -1,0 +1,11 @@
+{
+  "population_capacity": 6,
+  "holding_level": 1,
+  "holding_health": 80,
+  "combat": {
+    "health": 9,
+    "damage": 2,
+    "range": 3,
+    "cooldown_ticks": 4
+  }
+}

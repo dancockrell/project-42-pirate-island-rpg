@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.project42.scenario",
+  "title": "Scenario pack manifest",
+  "description": "content/scenarios/<scenario-id>/scenario.json. Every path value is relative to the pack directory and names a document embedded verbatim by tools/src/build-content-bundle.mjs. See docs/SCENARIO_PACKS.md.",
+  "type": "object",
+  "required": ["schemaVersion", "id", "title", "summary", "geography", "start", "factions", "rules", "buildings", "personas", "resources", "items", "triggers", "quests"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "id": {"type": "string", "pattern": "^scenario\\.[a-z0-9_]+$"},
+    "title": {"type": "string", "minLength": 1},
+    "summary": {"type": "string", "minLength": 1},
+    "geography": {
+      "type": "object",
+      "required": ["terrainTexture", "navigation"],
+      "properties": {
+        "terrainTexture": {"type": "string", "pattern": "^res://"},
+        "navigation": {"$ref": "#/$defs/packPath"}
+      },
+      "additionalProperties": false
+    },
+    "start": {
+      "type": "object",
+      "required": ["captainId", "combatProfile"],
+      "properties": {
+        "captainId": {"type": "string", "pattern": "^character\\."},
+        "combatProfile": {"$ref": "#/$defs/combatProfile"}
+      },
+      "additionalProperties": false
+    },
+    "factions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "seed", "tuning", "production"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^faction\\."},
+          "seed": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}},
+          "tuning": {"$ref": "#/$defs/packPath"},
+          "production": {"$ref": "#/$defs/packPath"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "rules": {
+      "type": "object",
+      "required": ["cthulhuMadness", "colonialExpansion", "holdingRepairs", "holdingSalvage", "holdingDevelopment", "michaelFoothold", "michaelMachinery", "survivalDiplomacy", "initialDiplomacy"],
+      "additionalProperties": {"$ref": "#/$defs/packPath"}
+    },
+    "buildings": {"$ref": "#/$defs/packPath"},
+    "personas": {"$ref": "#/$defs/packPath"},
+    "resources": {"$ref": "#/$defs/reserved"},
+    "items": {"$ref": "#/$defs/reserved"},
+    "triggers": {"$ref": "#/$defs/reserved"},
+    "quests": {"$ref": "#/$defs/reserved"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "packPath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A relative path from the pack directory; absolute paths and res:// URIs are refused.",
+      "pattern": "^(?!/)(?!res://).+\\.json$"
+    },
+    "combatProfile": {
+      "type": "object",
+      "required": ["health", "damage", "range", "cooldown_ticks"],
+      "properties": {
+        "health": {"type": "integer", "minimum": 1},
+        "damage": {"type": "integer", "minimum": 0},
+        "range": {"type": "integer", "minimum": 0},
+        "cooldown_ticks": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "reserved": {
+      "description": "Reserved for a later contract; schema version 1 requires an empty array.",
+      "type": "array",
+      "maxItems": 0
+    }
+  }
+}

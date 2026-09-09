@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "id": "scenario.pirate_island",
+  "title": "Pirate Island",
+  "summary": "The main scenario: five factions on one tropical island, Michael alone on the beach.",
+  "geography": {
+    "terrainTexture": "res://assets/island/terrain.png",
+    "navigation": "../../../game/assets/island/navigation.json"
+  },
+  "start": {
+    "captainId": "character.protagonist.captain",
+    "combatProfile": {"health": 30, "damage": 4, "range": 4, "cooldown_ticks": 5}
+  },
+  "factions": [
+    {
+      "id": "faction.colonial_powers.prototype",
+      "seed": [12, 11],
+      "tuning": "factions/colonial_powers.tuning.json",
+      "production": "../../production/colonial_fort_soldiers.json"
+    },
+    {
+      "id": "faction.pirates.prototype",
+      "seed": [35, 15],
+      "tuning": "factions/pirates.tuning.json",
+      "production": "../../production/tide_quay_deckhands.json"
+    },
+    {
+      "id": "faction.cthulhu.prototype",
+      "seed": [28, 23],
+      "tuning": "factions/cthulhu.tuning.json",
+      "production": "../../production/drowned_shrine_cultists.json"
+    },
+    {
+      "id": "faction.eastern_fox_people.prototype",
+      "seed": [33, 9],
+      "tuning": "factions/eastern_fox_people.tuning.json",
+      "production": "../../production/eastern_fox_people_river_market_skirmishers.json"
+    },
+    {
+      "id": "faction.elves.prototype",
+      "seed": [13, 17],
+      "tuning": "factions/elves.tuning.json",
+      "production": "../../production/elven_heart_grove_bow_wardens.json"
+    }
+  ],
+  "rules": {
+    "cthulhuMadness": "../../island/cthulhu_madness.json",
+    "colonialExpansion": "../../island/colonial_expansion.json",
+    "holdingRepairs": "../../island/holding_repairs.json",
+    "holdingSalvage": "../../island/holding_salvage.json",
+    "holdingDevelopment": "../../island/holding_development.json",
+    "michaelFoothold": "../../island/michael_foothold.json",
+    "michaelMachinery": "../../island/michael_machinery.json",
+    "survivalDiplomacy": "../../island/survival_diplomacy.json",
+    "initialDiplomacy": "../../diplomacy/initial_relationships.prototype.json"
+  },
+  "buildings": "../../../game/assets/island/buildings.json",
+  "personas": "../../../game/assets/island/personas.json",
+  "resources": [],
+  "items": [],
+  "triggers": [],
+  "quests": []
+}

@@ -3,28 +3,52 @@
   "task_id": "scenario-pack-tooling",
   "agent": "claude-code (lane scenario-tooling)",
   "summary": "The main island as a scenario pack; the validator, the bundle output per scenario, and the scaffold CLI",
-  "status": "active",
+  "status": "completed",
   "claimed_at": "2026-09-09T00:30:00Z",
-  "updated_at": "2026-09-09T00:30:00Z",
+  "updated_at": "2026-09-09T02:40:00Z",
   "paths": [
-    "content/scenarios/",
+    "content/scenarios/pirate_island/scenario.json",
+    "content/scenarios/pirate_island/factions/",
     "content/schemas/scenario.json",
+    "tools/src/scenario-pack.mjs",
     "tools/src/validate.mjs",
     "tools/src/build-content-bundle.mjs",
     "tools/src/scaffold-scenario.mjs",
     "tools/package.json",
-    "game/generated/scenarios/",
-    "docs/SCENARIO_PACKS.md",
+    "game/generated/scenarios/scenario.pirate_island.json",
     "docs/RUNBOOK.md"
   ],
-  "symbols": [],
+  "symbols": [
+    "loadScenarioPack",
+    "loadScenarioPacks",
+    "listScenarioPackDirectories",
+    "declaredPaths",
+    "resolveScenarioManifest",
+    "scenarioRootsFromArgv",
+    "packLabel"
+  ],
   "coordination": {
     "depends_on": [],
     "conflicts_with": [],
-    "notes": "Contract: docs/SCENARIO_PACKS.md. The main scenario references the existing rule, production, diplomacy, buildings, personas and navigation files by path; nothing is copied. The island rule files stay in content/island/ this round and the pack references them by relative path; moving them under the pack is a follow-up after scenario-runtime-loading has deleted the Rust include_str! sites that still read them, so the two lanes never fight over one path."
+    "notes": "Contract: docs/SCENARIO_PACKS.md. The main scenario references the existing rule, production, diplomacy, buildings, personas and navigation files by path; nothing is copied. content/island/faction_roster.json is now redundant - each faction's entry is its own content/scenarios/pirate_island/factions/<name>.tuning.json - but the file is deliberately left in place this round because godot-rust/src/world.rs still include_str!s it from install_preview_factions; the scenario-runtime-loading lane deletes both together. Pack resolution (finding packs, resolving declared paths, embedding) has one owner, tools/src/scenario-pack.mjs, used by both the validator's scenario block and the extended bundle builder, rather than the same loader written twice. start.combatProfile is copied verbatim from prototype_island() in godot-rust/src/world.rs (health 30, damage 4, range 4, cooldown_ticks 5); the five seeds and production paths are copied verbatim from install_preview_factions() in the same file; JSON carries no comments, so this claim is the provenance record. 'Seed inside the navigation size' is read as navigation.size divided by navigation.cellSize, i.e. the 48-by-32 cell grid, since seeds are cell coordinates and size is pixels."
   },
   "completion": {
     "commit": null,
-    "checks": []
+    "checks": [
+      "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check: passed",
+      "cargo test --manifest-path godot-rust/Cargo.toml: passed (91 tests)",
+      "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext: passed",
+      "node tools/src/validate.mjs: passed (145 stable IDs, 1 scenario pack resolved)",
+      "node tools/src/build-content-bundle.mjs then git diff --quiet game/generated/: passed (game/generated/scenarios/scenario.pirate_island.json committed)",
+      "python3 tools/test_sprite_source.py: passed (12 tests)",
+      "bash tools/build-native-bridge.sh debug: passed",
+      "GODOT=<local 4.7.2> bash tools/verify-godot.sh 60: passed ('Current 2D Godot verification passed', no ERROR line). A fresh worktree has no game/.godot, so the first attempt failed on an unresolved global class cache; one headless --import pass built the cache and the gate then passed unchanged.",
+      "node tools/src/scaffold-scenario.mjs scenario.smoke_test --out <scratch> then node tools/src/validate.mjs --scenario-root <scratch>: passed (2 scenario packs resolved; the scaffolded pack was not committed)",
+      "bite - production rule producerArchetypeId site_archetype.pirates.ghost_dock absent from the pack buildings document: failed by name ('faction.pirates.prototype production rule spawn_rule.tide_quay.deckhands names producerArchetypeId site_archetype.pirates.ghost_dock which the scenario buildings document does not define'); restored; green",
+      "bite - reserved array items set to one entry: failed by name ('reserved array items must be empty in schema version 1'); restored; green",
+      "bite - elves seed set to the pirates seed 35,15: failed by name ('faction.elves.prototype shares seed 35,15 with faction.pirates.prototype'); restored; green",
+      "bite - elves seed set to 99,17: failed by name ('seed 99,17 is outside the navigation size (48 by 32 cells)'); restored; green",
+      "bite - an empty content/scenarios/broken_pack directory: failed by name ('content/scenarios/broken_pack scenario.json is not a readable JSON manifest (ENOENT)'); removed; green"
+    ]
   }
 }
