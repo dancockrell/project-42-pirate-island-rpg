@@ -639,7 +639,19 @@ func refresh_snapshot() -> void:
 	status.text = "PIRATE ISLAND · %s · Michael HP %s/%s · %s\nClick land to travel. Right-click to fire. Shift-click to inspect.\nDevelopment slice · standing sprites. %s" % [world_clock_text(), person.health, person.max_health, "PAUSED" if paused else "Exploring", save_notice]
 	if missing_appearance_count > 0:
 		status.text += "\nMissing character art: %d" % missing_appearance_count
-	status.text += "\nSalvage · %d" % int(snapshot.get("salvage", 0))
+	status.text += "\n" + treasury_text()
+
+func treasury_text() -> String:
+	# The scenario names its own resources. The salvage scalar keeps the front
+	# of the line, so the main island reads exactly as it did before.
+	var names: Dictionary = snapshot.get("resource_names", {})
+	var stockpile: Dictionary = snapshot.get("stockpile", {})
+	var salvage_id: String = snapshot.get("salvage_resource", "")
+	var parts: Array[String] = ["%s · %d" % [names.get(salvage_id, "Salvage"), int(snapshot.get("salvage", 0))]]
+	for id in stockpile:
+		if id != salvage_id:
+			parts.append("%s · %d" % [names.get(id, id), int(stockpile[id])])
+	return " · ".join(parts)
 
 func world_clock_text() -> String:
 	# Native snapshot is authoritative; no wall-clock advance while paused.

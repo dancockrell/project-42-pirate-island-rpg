@@ -19,6 +19,9 @@ export function declaredPaths(manifest) {
     declared.push({ field: `factions[${index}].tuning`, path: faction?.tuning });
     declared.push({ field: `factions[${index}].production`, path: faction?.production });
   }
+  for (const [index, path] of (Array.isArray(manifest.resources) ? manifest.resources : []).entries()) {
+    declared.push({ field: `resources[${index}]`, path });
+  }
   for (const name of Object.keys(manifest.rules ?? {}).sort()) {
     declared.push({ field: `rules.${name}`, path: manifest.rules[name] });
   }

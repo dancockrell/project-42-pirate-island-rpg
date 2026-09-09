@@ -409,9 +409,70 @@ pub struct SalvageCache {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HoldingSalvageRule {
+    /// The catalogue resource a wreck, a razed holding and Michael's workshop
+    /// are all paid in. The simulation reads the key from the pack instead of
+    /// compiling one in, so a scenario may salvage something else entirely.
+    #[serde(rename = "resourceId")]
+    resource_id: String,
     base_yield: u32,
     per_completed_level: u32,
     workshop_yield: u32,
+}
+
+/// One catalogue record. A resource key is declared here or it does not exist:
+/// nothing in the simulation may invent one by writing to a stockpile.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ScenarioResource {
+    #[serde(rename = "displayName")]
+    pub display_name: String,
+}
+
+/// A faction's authored opening economy. What it holds, what it earns, and how
+/// much of each resource it can store; every key must be in the catalogue.
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ScenarioFactionEconomy {
+    #[serde(default)]
+    pub stockpile: BTreeMap<String, u32>,
+    #[serde(rename = "incomePerTick", default)]
+    pub income_per_tick: BTreeMap<String, u32>,
+    #[serde(rename = "storageCaps", default)]
+    pub storage_caps: BTreeMap<String, u32>,
+}
+
+impl ScenarioFactionEconomy {
+    /// An authored economy is legal only against a catalogue: every key
+    /// declared, every earned resource capped, nothing starting over its cap.
+    fn checked(&self, catalogue: &BTreeMap<String, ScenarioResource>) -> Result<(), String> {
+        let mut keys = self.stockpile.iter();
+        let named = self
+            .stockpile
+            .keys()
+            .chain(self.income_per_tick.keys())
+            .chain(self.storage_caps.keys());
+        if named.clone().any(|id| !catalogue.contains_key(id))
+            || named.count() > MAXIMUM_RESOURCES * 3
+            || self
+                .stockpile
+                .values()
+                .chain(self.income_per_tick.values())
+                .chain(self.storage_caps.values())
+                .any(|amount| *amount > 100000)
+            || self
+                .income_per_tick
+                .keys()
+                .any(|id| !self.storage_caps.contains_key(id))
+            || keys.any(|(id, stored)| {
+                self.storage_caps
+                    .get(id)
+                    .is_some_and(|capacity| stored > capacity)
+            })
+        {
+            return Err("invalid_scenario_economy".into());
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -441,6 +502,22 @@ impl FootholdConfig {
 /// Version 2 added the world's own `ScenarioRules`; version 1 saves migrate by
 /// adopting the rules of the scenario they are resumed into.
 const SAVE_VERSION: u32 = 2;
+
+/// A bound on an untrusted pack's or save's catalogue, in the shape of every
+/// other collection cap the loader applies.
+const MAXIMUM_RESOURCES: usize = 256;
+
+/// `resource.<name>`, the form the catalogue, the validator and the schema all
+/// agree on. One owner of the shape.
+fn valid_resource_id(id: &str) -> bool {
+    id.len() <= 256
+        && id.strip_prefix("resource.").is_some_and(|name| {
+            !name.is_empty()
+                && name
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+        })
+}
 
 fn default_building_health() -> u32 {
     80
@@ -631,6 +708,9 @@ pub enum FactionWorldError {
         required: u32,
         available: u32,
     },
+    /// A cost named something the scenario's catalogue does not declare. The
+    /// stockpile refuses it rather than quietly inventing the resource.
+    UnknownResource(String),
     NoDispatchCandidates,
     MissingIslandPosition(String),
     UnreachableDestination(String),
@@ -705,6 +785,9 @@ fn faction_label(id: &str) -> &str {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScenarioRules {
+    /// The pack's resource catalogue. It travels with the world and with its
+    /// save, like every other rule, so a mod's resources survive a reload.
+    pub resources: BTreeMap<String, ScenarioResource>,
     pub madness: CthulhuMadness,
     pub expansion: HoldingExpansion,
     pub repairs: BTreeMap<String, HoldingRepairRule>,
@@ -728,6 +811,13 @@ impl ScenarioRules {
             && !self.footprints.is_empty()
             && !self.personas.is_empty()
             && !self.repairs.is_empty()
+            && self.resources.contains_key(&self.salvage.resource_id)
+    }
+
+    /// The catalogue's answer, and the only one: an undeclared key is not a
+    /// resource, however plausible it looks.
+    fn knows(&self, resource_id: &str) -> bool {
+        self.resources.contains_key(resource_id)
     }
 }
 
@@ -744,8 +834,9 @@ pub struct ScenarioDefinition {
     pub rules: ScenarioRuleSet,
     pub buildings: BTreeMap<String, IslandBuildingFootprint>,
     pub personas: BTreeMap<String, Vec<PersonaPool>>,
+    /// One or more catalogue documents, merged in order into one catalogue.
     #[serde(default)]
-    pub resources: Vec<serde_json::Value>,
+    pub resources: Vec<BTreeMap<String, ScenarioResource>>,
     #[serde(default)]
     pub items: Vec<serde_json::Value>,
     #[serde(default)]
@@ -772,6 +863,10 @@ pub struct ScenarioStart {
     pub captain_id: String,
     #[serde(rename = "combatProfile")]
     pub combat_profile: IslandCombatProfile,
+    /// The captain's own faction opens with this. Optional, and empty in the
+    /// main pack, because Michael starts the island with nothing but a wreck.
+    #[serde(default)]
+    pub economy: ScenarioFactionEconomy,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -780,6 +875,7 @@ pub struct ScenarioFaction {
     pub seed: [i32; 2],
     pub tuning: IslandFactionTuning,
     pub production: ProductionRule,
+    pub economy: ScenarioFactionEconomy,
 }
 
 /// The manifest's `rules` block. Keys are the contract's; the runtime splits
@@ -831,13 +927,13 @@ impl ScenarioDefinition {
             .map_err(|_| "invalid_scenario_manifest".to_string())?;
         if definition.schema_version != 1
             || !definition.id.starts_with("scenario.")
-            || !definition.resources.is_empty()
             || !definition.items.is_empty()
             || !definition.triggers.is_empty()
             || !definition.quests.is_empty()
         {
             return Err("invalid_scenario_manifest".into());
         }
+        definition.resource_catalogue()?;
         Ok(definition)
     }
 
@@ -850,8 +946,30 @@ impl ScenarioDefinition {
         true
     }
 
+    /// Every catalogue document merged into one catalogue. A key declared twice
+    /// is a pack error, not a silent overwrite.
+    pub fn resource_catalogue(&self) -> Result<BTreeMap<String, ScenarioResource>, String> {
+        let mut catalogue: BTreeMap<String, ScenarioResource> = BTreeMap::new();
+        for document in &self.resources {
+            for (id, record) in document {
+                if !valid_resource_id(id)
+                    || record.display_name.trim().is_empty()
+                    || record.display_name.len() > 128
+                    || catalogue.insert(id.clone(), record.clone()).is_some()
+                {
+                    return Err("invalid_scenario_resources".into());
+                }
+            }
+        }
+        if catalogue.len() > MAXIMUM_RESOURCES {
+            return Err("invalid_scenario_resources".into());
+        }
+        Ok(catalogue)
+    }
+
     pub fn scenario_rules(&self) -> ScenarioRules {
         ScenarioRules {
+            resources: self.resource_catalogue().unwrap_or_default(),
             madness: self.rules.madness.clone(),
             expansion: self.rules.expansion.clone(),
             repairs: self.rules.repairs.clone(),
@@ -1480,6 +1598,83 @@ impl FactionWorld {
             })
     }
 
+    /// The resource the scenario pays salvage in. One owner of the key, read
+    /// from the pack's rules, so no faction stockpile is addressed by literal.
+    pub fn salvage_resource(&self) -> &str {
+        &self.rules.salvage.resource_id
+    }
+
+    /// What a faction holds of one resource. Reading an undeclared key is
+    /// simply nothing; only writing one is an error.
+    pub fn stored_resource(&self, faction_id: &str, resource_id: &str) -> u32 {
+        self.factions
+            .get(faction_id)
+            .and_then(|faction| faction.resources.get(resource_id))
+            .copied()
+            .unwrap_or(0)
+    }
+
+    /// Whether a faction can pay a cost in full. Every affordability test in
+    /// the simulation asks this, so none of them can drift from the spend.
+    fn can_afford(&self, faction_id: &str, costs: &BTreeMap<String, u32>) -> bool {
+        costs
+            .iter()
+            .all(|(resource, cost)| self.stored_resource(faction_id, resource) >= *cost)
+    }
+
+    /// The one way a stockpile grows. An undeclared key is refused rather than
+    /// created, and the gain is clamped to the faction's storage cap wherever
+    /// one is declared - income is not the only way resources arrive.
+    fn gain_resource(
+        &mut self,
+        faction_id: &str,
+        resource_id: &str,
+        amount: u32,
+    ) -> Result<(), String> {
+        if !self.rules.knows(resource_id) {
+            return Err(format!("unknown_resource:{resource_id}"));
+        }
+        let cap = self
+            .policies
+            .get(faction_id)
+            .and_then(|policy| policy.storage_caps.get(resource_id))
+            .copied();
+        let faction = self
+            .factions
+            .get_mut(faction_id)
+            .ok_or_else(|| format!("unknown_faction:{faction_id}"))?;
+        let stored = faction.resources.entry(resource_id.to_owned()).or_default();
+        let gained = stored.saturating_add(amount);
+        *stored = cap.map_or(gained, |cap| gained.min(cap));
+        Ok(())
+    }
+
+    /// The one way a stockpile shrinks. Every key is checked and every cost is
+    /// affordable before anything is subtracted, so a spend is all or nothing.
+    fn spend_resources(
+        &mut self,
+        faction_id: &str,
+        costs: &BTreeMap<String, u32>,
+    ) -> Result<(), String> {
+        for resource in costs.keys() {
+            if !self.rules.knows(resource) {
+                return Err(format!("unknown_resource:{resource}"));
+            }
+        }
+        if !self.can_afford(faction_id, costs) {
+            return Err("insufficient_resources".into());
+        }
+        let faction = self
+            .factions
+            .get_mut(faction_id)
+            .ok_or_else(|| format!("unknown_faction:{faction_id}"))?;
+        for (resource, cost) in costs {
+            let stored = faction.resources.entry(resource.clone()).or_default();
+            *stored = stored.saturating_sub(*cost);
+        }
+        Ok(())
+    }
+
     fn begin_holding_repair(
         &mut self,
         faction_id: &str,
@@ -1519,17 +1714,10 @@ impl FactionWorld {
         {
             return Err("A free builder must be beside the holding.".into());
         }
+        let costs = rule.costs.clone();
+        self.spend_resources(faction_id, &costs)
+            .map_err(|_| "Not enough repair materials.".to_string())?;
         let faction = self.factions.get_mut(faction_id).unwrap();
-        if rule
-            .costs
-            .iter()
-            .any(|(r, c)| faction.resources.get(r).copied().unwrap_or(0) < *c)
-        {
-            return Err("Not enough repair materials.".into());
-        }
-        for (resource, cost) in &rule.costs {
-            *faction.resources.get_mut(resource).unwrap() -= cost;
-        }
         faction.buildings.get_mut(building_id).unwrap().repair = Some(job);
         self.cancel_actor_travel(builder);
         self.actors.get_mut(builder).unwrap().current_assignment_id = Some(action);
@@ -1548,7 +1736,7 @@ impl FactionWorld {
         self.rules
             .repairs
             .get("site_archetype.michael.field_workshop")
-            .and_then(|r| r.costs.get("resource.salvage"))
+            .and_then(|r| r.costs.get(self.salvage_resource()))
             .copied()
             .unwrap_or(0)
     }
@@ -1556,7 +1744,10 @@ impl FactionWorld {
     pub fn machine_foothold_costs(&self) -> (u32, u32, u32) {
         let rule = &self.rules.machine_production;
         (
-            rule.costs.get("resource.salvage").copied().unwrap_or(0),
+            rule.costs
+                .get(self.salvage_resource())
+                .copied()
+                .unwrap_or(0),
             rule.production_ticks,
             self.rules.machinery.capacity as u32,
         )
@@ -1921,19 +2112,15 @@ impl FactionWorld {
             .nearby_salvage_id()
             .ok_or("Bring Michael within reach of uncollected salvage.")?
             .to_owned();
-        let cache = &self.salvage_caches[&id];
-        let faction = self
-            .factions
-            .get_mut("faction.michael")
-            .ok_or("Michael's faction is unavailable.")?;
-        let stored = faction
-            .resources
-            .get("resource.salvage")
-            .copied()
-            .unwrap_or(0)
-            .checked_add(cache.remaining)
-            .ok_or("Salvage storage is full.")?;
-        faction.resources.insert("resource.salvage".into(), stored);
+        if !self.factions.contains_key("faction.michael") {
+            return Err("Michael's faction is unavailable.".into());
+        }
+        let recovered = self.salvage_caches[&id].remaining;
+        let salvage = self.salvage_resource().to_owned();
+        // A pickup is a gain like any other: checked against the catalogue and
+        // clamped by whatever cap the faction declares.
+        self.gain_resource("faction.michael", &salvage, recovered)
+            .map_err(|_| "Salvage is not a resource this scenario declares.".to_string())?;
         self.salvage_caches.get_mut(&id).unwrap().remaining = 0;
         Ok(())
     }
@@ -2013,12 +2200,8 @@ impl FactionWorld {
         if faction.buildings.contains_key(BUILDING) {
             return Err("Michael already has a workshop site.".into());
         }
-        let stored = faction
-            .resources
-            .get("resource.salvage")
-            .copied()
-            .unwrap_or(0);
-        if stored < config.build_salvage {
+        let salvage = self.salvage_resource().to_owned();
+        if self.stored_resource("faction.michael", &salvage) < config.build_salvage {
             return Err(format!(
                 "Need {} salvage to build the workshop.",
                 config.build_salvage
@@ -2042,7 +2225,7 @@ impl FactionWorld {
                 construction: Some(BuildingWork {
                     builder_id: CAPTAIN.into(),
                     remaining_ticks: config.construction_ticks,
-                    reserved_costs: [("resource.salvage".into(), config.build_salvage)]
+                    reserved_costs: [(salvage.clone(), config.build_salvage)]
                         .into_iter()
                         .collect(),
                 }),
@@ -2095,14 +2278,7 @@ impl FactionWorld {
             || self.factions[&faction_id]
                 .buildings
                 .contains_key(&building_id)
-            || costs.iter().any(|(r, c)| {
-                self.factions[&faction_id]
-                    .resources
-                    .get(r)
-                    .copied()
-                    .unwrap_or(0)
-                    < *c
-            })
+            || !self.can_afford(&faction_id, &costs)
         {
             return Err("Builder, site, or resources are unavailable.".into());
         }
@@ -2155,15 +2331,9 @@ impl FactionWorld {
         {
             return Err("The site would block an island route.".into());
         }
-        for (resource, cost) in costs {
-            *staged
-                .factions
-                .get_mut(&faction_id)
-                .unwrap()
-                .resources
-                .get_mut(&resource)
-                .unwrap() -= cost;
-        }
+        staged
+            .spend_resources(&faction_id, &costs)
+            .map_err(|_| "Builder, site, or resources are unavailable.".to_string())?;
         *self = Self::load_json(&staged.save_json()?)?;
         Ok(())
     }
@@ -2201,21 +2371,10 @@ impl FactionWorld {
             .get(&actor.definition_id)
             .ok_or("Her health profile is unavailable.")?
             .health;
-        let faction = self.factions.get_mut("faction.michael").unwrap();
-        let stored = faction
-            .resources
-            .get("resource.salvage")
-            .copied()
-            .unwrap_or(0);
-        if stored < config.restore_salvage {
-            return Err(format!(
-                "Need {} salvage for restoration.",
-                config.restore_salvage
-            ));
-        }
-        faction
-            .resources
-            .insert("resource.salvage".into(), stored - config.restore_salvage);
+        let costs: BTreeMap<String, u32> =
+            [(self.salvage_resource().to_owned(), config.restore_salvage)].into();
+        self.spend_resources("faction.michael", &costs)
+            .map_err(|_| format!("Need {} salvage for restoration.", config.restore_salvage))?;
         self.actors.get_mut(id).unwrap().undead = false;
         self.unit_combat.get_mut(id).unwrap().health = health;
         Ok(())
@@ -2641,17 +2800,35 @@ impl FactionWorld {
             },
         );
         let michael = "faction.michael".to_owned();
+        // The captain's faction opens on what `start.economy` authors. The main
+        // pack authors nothing, because Michael reaches the island with nothing.
+        let start_economy = &definition.start.economy;
+        start_economy.checked(&staged.rules.resources)?;
         staged.factions.insert(
             michael.clone(),
             FactionState {
                 id: michael.clone(),
-                resources: BTreeMap::new(),
+                resources: start_economy.stockpile.clone(),
                 population_used: 1,
                 population_capacity: 1,
                 wobble_limit: 0,
                 buildings: BTreeMap::new(),
             },
         );
+        // A faction with nothing to earn and nothing to store needs no economic
+        // policy, and the main pack's captain has neither.
+        if !(start_economy.income_per_tick.is_empty() && start_economy.storage_caps.is_empty()) {
+            staged
+                .set_policy(
+                    &michael,
+                    FactionPolicy {
+                        income_per_tick: start_economy.income_per_tick.clone(),
+                        storage_caps: start_economy.storage_caps.clone(),
+                        ..Default::default()
+                    },
+                )
+                .map_err(|_| "invalid_scenario_economy")?;
+        }
         staged.actors.insert(
             captain.clone(),
             ProducedActor {
@@ -2753,15 +2930,21 @@ impl FactionWorld {
                 queue_capacity: 1,
                 production_queue: Vec::new(),
             };
+            // The economy is authored, not inferred from the production rule:
+            // a second scenario may open its factions on anything it declares.
+            entry.economy.checked(&staged.rules.resources)?;
+            if rule
+                .costs
+                .keys()
+                .any(|resource| !staged.rules.knows(resource))
+            {
+                return Err("invalid_scenario_economy".into());
+            }
             staged.factions.insert(
                 id.into(),
                 FactionState {
                     id: id.into(),
-                    resources: rule
-                        .costs
-                        .iter()
-                        .map(|(id, cost)| (id.clone(), cost.saturating_mul(2)))
-                        .collect(),
+                    resources: entry.economy.stockpile.clone(),
                     population_used: 0,
                     population_capacity: tuning.population_capacity,
                     wobble_limit: 0,
@@ -2782,8 +2965,8 @@ impl FactionWorld {
                             .collect()
                     })
                     .unwrap_or_default(),
-                income_per_tick: rule.costs.keys().map(|id| (id.clone(), 1)).collect(),
-                storage_caps: rule.costs.keys().map(|id| (id.clone(), 20)).collect(),
+                income_per_tick: entry.economy.income_per_tick.clone(),
+                storage_caps: entry.economy.storage_caps.clone(),
                 production: [(building_id, rule)].into_iter().collect(),
                 objectives: vec![DispatchCandidate {
                     action_id: format!("preview.{id}.advance"),
@@ -2937,6 +3120,11 @@ impl FactionWorld {
             .income_per_tick
             .keys()
             .any(|resource| !policy.storage_caps.contains_key(resource))
+            || policy
+                .income_per_tick
+                .keys()
+                .chain(policy.storage_caps.keys())
+                .any(|resource| !self.rules.knows(resource))
             || policy.production.len() > 4096
             || policy.development.len() > 4096
             || policy.objectives.len() > 256
@@ -3055,10 +3243,8 @@ impl FactionWorld {
                 continue;
             }
             for (resource, income) in &policy.income_per_tick {
-                if let Some(cap) = policy.storage_caps.get(resource) {
-                    let stored = faction.resources.entry(resource.clone()).or_default();
-                    *stored = stored.saturating_add(*income).min(*cap);
-                }
+                // The helper knows the caps; income is one gain among several.
+                let _ = self.gain_resource(&id, resource, *income);
             }
             for (building_id, rule) in &policy.production {
                 // One active cycle per producer. Queue capacity is not free parallel throughput.
@@ -3078,10 +3264,10 @@ impl FactionWorld {
             }
             // Build out a staffed, undamaged holding. Production has priority
             // while replacing losses; development occupies the same producer.
-            let faction = self.factions.get_mut(&id).unwrap();
+            let faction = &self.factions[&id];
             if faction.population_used >= faction.population_capacity {
                 for (building_id, rule) in &policy.development {
-                    let Some(building) = faction.buildings.get_mut(building_id) else {
+                    let Some(building) = self.factions[&id].buildings.get(building_id) else {
                         continue;
                     };
                     if !building.operational
@@ -3100,15 +3286,16 @@ impl FactionWorld {
                             (resource.clone(), cost.saturating_mul(building.level))
                         })
                         .collect();
-                    if costs.iter().any(|(resource, cost)| {
-                        faction.resources.get(resource).copied().unwrap_or(0) < *cost
-                    }) {
+                    if self.spend_resources(&id, &costs).is_err() {
                         continue;
                     }
-                    for (resource, cost) in &costs {
-                        *faction.resources.get_mut(resource).unwrap() -= cost;
-                    }
-                    building.development = Some(BuildingDevelopment {
+                    self.factions
+                        .get_mut(&id)
+                        .unwrap()
+                        .buildings
+                        .get_mut(building_id)
+                        .unwrap()
+                        .development = Some(BuildingDevelopment {
                         rule: rule.clone(),
                         remaining_ticks: rule.ticks,
                         reserved_costs: costs,
@@ -3424,6 +3611,47 @@ impl FactionWorld {
         if !world.rules.valid() {
             return Err("invalid_saved_scenario_rules".into());
         }
+        // Every key a save carries must be one the scenario's catalogue
+        // declares: a save may not smuggle in a resource the pack never had.
+        if world.rules.resources.len() > MAXIMUM_RESOURCES
+            || world.rules.resources.iter().any(|(id, resource)| {
+                !valid_resource_id(id)
+                    || resource.display_name.trim().is_empty()
+                    || resource.display_name.len() > 128
+            })
+            || world.factions.values().any(|faction| {
+                faction.resources.keys().any(|id| !world.rules.knows(id))
+                    || faction.buildings.values().any(|building| {
+                        building
+                            .construction
+                            .iter()
+                            .chain(building.repair.iter())
+                            .flat_map(|job| job.reserved_costs.keys())
+                            .chain(
+                                building
+                                    .development
+                                    .iter()
+                                    .flat_map(|work| work.reserved_costs.keys()),
+                            )
+                            .chain(
+                                building
+                                    .production_queue
+                                    .iter()
+                                    .flat_map(|order| order.reserved_costs.keys()),
+                            )
+                            .any(|id| !world.rules.knows(id))
+                    })
+            })
+            || world.policies.values().any(|policy| {
+                policy
+                    .income_per_tick
+                    .keys()
+                    .chain(policy.storage_caps.keys())
+                    .any(|id| !world.rules.knows(id))
+            })
+        {
+            return Err("invalid_saved_resources".into());
+        }
         let mut treaty_pairs = BTreeSet::new();
         if world.survival_truces.len() > 6
             || world.diplomacy_notices.len() > 16
@@ -3541,7 +3769,8 @@ impl FactionWorld {
                             let c = &world.rules.foothold;
                             job.remaining_ticks <= c.construction_ticks
                                 && job.reserved_costs
-                                    == [("resource.salvage".into(), c.build_salvage)].into()
+                                    == [(world.salvage_resource().to_owned(), c.build_salvage)]
+                                        .into()
                         };
                     let expansion = {
                         let r = &world.rules.expansion;
@@ -4325,7 +4554,7 @@ impl FactionWorld {
         }
         let faction = self
             .factions
-            .get_mut(faction_id)
+            .get(faction_id)
             .ok_or_else(|| FactionWorldError::UnknownFaction(faction_id.to_owned()))?;
         let building = faction
             .buildings
@@ -4352,6 +4581,9 @@ impl FactionWorld {
             return Err(FactionWorldError::InsufficientPopulation);
         }
         for (resource_id, required) in &rule.costs {
+            if !self.rules.knows(resource_id) {
+                return Err(FactionWorldError::UnknownResource(resource_id.clone()));
+            }
             let available = faction.resources.get(resource_id).copied().unwrap_or(0);
             if available < *required {
                 return Err(FactionWorldError::InsufficientResource {
@@ -4361,10 +4593,9 @@ impl FactionWorld {
                 });
             }
         }
-
-        for (resource_id, required) in &rule.costs {
-            *faction.resources.entry(resource_id.clone()).or_default() -= *required;
-        }
+        self.spend_resources(faction_id, &rule.costs)
+            .map_err(|_| FactionWorldError::InvalidPolicy(faction_id.to_owned()))?;
+        let faction = self.factions.get_mut(faction_id).unwrap();
         faction.population_used += rule.population_use;
         self.next_order_serial += 1;
         let order_id = format!("production_order.{faction_id}.{}", self.next_order_serial);
@@ -5331,6 +5562,195 @@ mod tests {
             canonical(&world.save_json().unwrap()),
             canonical(&fixture("hard_coded_island_tick_1440.json")),
         );
+    }
+
+    /// The economy is the pack's, not the simulation's: every opening number
+    /// comes from `factions[].economy`, and nothing is inferred from costs.
+    #[test]
+    fn faction_economies_are_authored_by_the_pack() {
+        let definition = main_scenario();
+        let world = main_scenario_world();
+        for entry in &definition.factions {
+            let faction = &world.factions[&entry.id];
+            let policy = &world.policies[&entry.id];
+            assert_eq!(faction.resources, entry.economy.stockpile);
+            assert_eq!(policy.income_per_tick, entry.economy.income_per_tick);
+            assert_eq!(policy.storage_caps, entry.economy.storage_caps);
+            assert!(!entry.economy.stockpile.is_empty());
+        }
+        // The captain's own faction opens on `start.economy`, which the main
+        // pack authors empty because Michael reaches the island with nothing.
+        assert!(definition.start.economy.stockpile.is_empty());
+        assert!(world.factions["faction.michael"].resources.is_empty());
+        assert!(!world.policies.contains_key("faction.michael"));
+    }
+
+    /// A captain who starts with supplies is expressible: `start.economy` is
+    /// the hero faction's authored opening, in a faction economy's own shape.
+    #[test]
+    fn the_captain_can_start_with_an_authored_stockpile() {
+        let mut definition = main_scenario();
+        let salvage = definition.rules.salvage.resource_id.clone();
+        definition.start.economy = ScenarioFactionEconomy {
+            stockpile: [(salvage.clone(), 6)].into(),
+            income_per_tick: [(salvage.clone(), 1)].into(),
+            storage_caps: [(salvage.clone(), 8)].into(),
+        };
+        let world = FactionWorld::from_scenario(&definition).expect("authored captain economy");
+        assert_eq!(world.stored_resource("faction.michael", &salvage), 6);
+        assert_eq!(world.policies["faction.michael"].storage_caps[&salvage], 8);
+        // An opening stockpile above its own cap is a pack error, not a clamp.
+        definition.start.economy.stockpile.insert(salvage, 99);
+        assert_eq!(
+            FactionWorld::from_scenario(&definition).unwrap_err(),
+            "invalid_scenario_economy"
+        );
+    }
+
+    /// An undeclared key is not a resource. A gain refuses it rather than
+    /// creating it, which is what `entry(..).or_default()` used to do.
+    #[test]
+    fn an_uncatalogued_resource_is_refused_rather_than_created() {
+        let mut world = main_scenario_world();
+        let faction = "faction.pirates.prototype";
+        assert!(world.rules.knows("resource.coin"));
+        assert!(!world.rules.knows("resource.gunpowder"));
+        assert_eq!(
+            world.gain_resource(faction, "resource.gunpowder", 5),
+            Err("unknown_resource:resource.gunpowder".into())
+        );
+        assert_eq!(
+            world.spend_resources(faction, &[("resource.gunpowder".to_owned(), 1)].into()),
+            Err("unknown_resource:resource.gunpowder".into())
+        );
+        assert!(
+            !world.factions[faction]
+                .resources
+                .contains_key("resource.gunpowder")
+        );
+        // A production rule naming one is refused by name, not by underflow.
+        let mut rule = scenario_production(faction);
+        rule.costs = [("resource.gunpowder".to_owned(), 1)].into();
+        let building_id = world.factions[faction]
+            .buildings
+            .keys()
+            .next()
+            .unwrap()
+            .clone();
+        assert_eq!(
+            world.enqueue_production(faction, &building_id, rule),
+            Err(FactionWorldError::UnknownResource(
+                "resource.gunpowder".into()
+            ))
+        );
+    }
+
+    /// Storage caps bind every gain, not only income: a salvage pickup used to
+    /// walk straight past them.
+    #[test]
+    fn every_gain_is_clamped_to_the_storage_cap() {
+        let mut world = main_scenario_world();
+        let salvage = world.salvage_resource().to_owned();
+        let michael = "faction.michael";
+        world
+            .set_policy(
+                michael,
+                FactionPolicy {
+                    storage_caps: [(salvage.clone(), 9)].into(),
+                    ..Default::default()
+                },
+            )
+            .expect("a cap on Michael's salvage");
+        world.gain_resource(michael, &salvage, 4).unwrap();
+        assert_eq!(world.stored_resource(michael, &salvage), 4);
+        world.gain_resource(michael, &salvage, 100).unwrap();
+        assert_eq!(world.stored_resource(michael, &salvage), 9);
+        // A cache pickup is a gain like any other and obeys the same cap.
+        let cache = world.salvage_caches.keys().next().unwrap().clone();
+        world.salvage_caches.get_mut(&cache).unwrap().remaining = 50;
+        let position = world.salvage_caches[&cache].position;
+        world
+            .positions
+            .insert("character.protagonist.captain".into(), position);
+        world.salvage_foothold().expect("collect the cache");
+        assert_eq!(world.stored_resource(michael, &salvage), 9);
+    }
+
+    /// The salvage key is the pack's, read from `rules.holdingSalvage`, so no
+    /// stockpile in the simulation is addressed by a compiled-in literal.
+    #[test]
+    fn the_salvage_resource_is_named_by_the_pack() {
+        let world = main_scenario_world();
+        assert_eq!(world.salvage_resource(), "resource.salvage");
+        assert!(world.rules.resources.contains_key(world.salvage_resource()));
+        // A pack whose salvage key is not in its catalogue is refused.
+        let mut definition = main_scenario();
+        definition.rules.salvage.resource_id = "resource.driftwood".into();
+        assert_eq!(
+            FactionWorld::from_scenario(&definition).unwrap_err(),
+            "invalid_scenario_rules"
+        );
+    }
+
+    /// The catalogue is data, and untrusted data is bounded and checked like
+    /// every other collection the loader admits.
+    #[test]
+    fn a_save_may_not_smuggle_in_an_uncatalogued_resource() {
+        let world = main_scenario_world();
+        let save = world.save_json().unwrap();
+        let mut value: serde_json::Value = serde_json::from_str(&save).unwrap();
+        value["world"]["factions"]["faction.pirates.prototype"]["resources"]["resource.gunpowder"] =
+            serde_json::json!(7);
+        assert_eq!(
+            FactionWorld::load_json(&serde_json::to_string(&value).unwrap()).unwrap_err(),
+            "invalid_saved_resources"
+        );
+        let mut value: serde_json::Value = serde_json::from_str(&save).unwrap();
+        value["world"]["rules"]["resources"]["resource.gunpowder"] =
+            serde_json::json!({"displayName": ""});
+        assert_eq!(
+            FactionWorld::load_json(&serde_json::to_string(&value).unwrap()).unwrap_err(),
+            "invalid_saved_resources"
+        );
+        let mut value: serde_json::Value = serde_json::from_str(&save).unwrap();
+        let catalogue = value["world"]["rules"]["resources"]
+            .as_object_mut()
+            .unwrap();
+        for index in 0..=MAXIMUM_RESOURCES {
+            catalogue.insert(
+                format!("resource.filler_{index}"),
+                serde_json::json!({"displayName": "Filler"}),
+            );
+        }
+        assert_eq!(
+            FactionWorld::load_json(&serde_json::to_string(&value).unwrap()).unwrap_err(),
+            "invalid_saved_resources"
+        );
+    }
+
+    /// The catalogue travels with the world, so a workshop begun in one session
+    /// survives the save round trip `begin_building_construction` performs.
+    #[test]
+    fn the_catalogue_survives_the_construction_save_round_trip() {
+        let mut world = main_scenario_world();
+        let salvage = world.salvage_resource().to_owned();
+        let before = world.rules.resources.clone();
+        world
+            .gain_resource("faction.michael", &salvage, 40)
+            .unwrap();
+        // The reviewed workshop cell, as every other foothold proof uses it.
+        let entrance = IslandPoint { x: 19, y: 17 };
+        world
+            .positions
+            .insert("character.protagonist.captain".into(), entrance);
+        world.build_foothold(entrance).expect("workshop begun");
+        assert_eq!(world.rules.resources, before);
+        let job = &world.factions["faction.michael"].buildings["site.michael.field_workshop"]
+            .construction
+            .as_ref()
+            .expect("construction job")
+            .reserved_costs;
+        assert_eq!(job.keys().collect::<Vec<_>>(), vec![&salvage]);
     }
 
     /// A version-1 save predates the world carrying its rules. It resumes into

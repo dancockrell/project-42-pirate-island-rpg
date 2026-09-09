@@ -9,38 +9,64 @@
   },
   "start": {
     "captainId": "character.protagonist.captain",
-    "combatProfile": {"health": 30, "damage": 4, "range": 4, "cooldown_ticks": 5}
+    "combatProfile": {"health": 30, "damage": 4, "range": 4, "cooldown_ticks": 5},
+    "economy": {"stockpile": {}, "incomePerTick": {}, "storageCaps": {}}
   },
   "factions": [
     {
       "id": "faction.colonial_powers.prototype",
       "seed": [12, 11],
       "tuning": "factions/colonial_powers.tuning.json",
-      "production": "../../production/colonial_fort_soldiers.json"
+      "production": "../../production/colonial_fort_soldiers.json",
+      "economy": {
+        "stockpile": {"resource.provisions": 4, "resource.iron": 2},
+        "incomePerTick": {"resource.provisions": 1, "resource.iron": 1},
+        "storageCaps": {"resource.provisions": 20, "resource.iron": 20}
+      }
     },
     {
       "id": "faction.pirates.prototype",
       "seed": [35, 15],
       "tuning": "factions/pirates.tuning.json",
-      "production": "../../production/tide_quay_deckhands.json"
+      "production": "../../production/tide_quay_deckhands.json",
+      "economy": {
+        "stockpile": {"resource.provisions": 2, "resource.coin": 2},
+        "incomePerTick": {"resource.provisions": 1, "resource.coin": 1},
+        "storageCaps": {"resource.provisions": 20, "resource.coin": 20}
+      }
     },
     {
       "id": "faction.cthulhu.prototype",
       "seed": [28, 23],
       "tuning": "factions/cthulhu.tuning.json",
-      "production": "../../production/drowned_shrine_cultists.json"
+      "production": "../../production/drowned_shrine_cultists.json",
+      "economy": {
+        "stockpile": {"resource.ritual_control": 4, "resource.dreams": 2},
+        "incomePerTick": {"resource.ritual_control": 1, "resource.dreams": 1},
+        "storageCaps": {"resource.ritual_control": 20, "resource.dreams": 20}
+      }
     },
     {
       "id": "faction.eastern_fox_people.prototype",
       "seed": [33, 9],
       "tuning": "factions/eastern_fox_people.tuning.json",
-      "production": "../../production/eastern_fox_people_river_market_skirmishers.json"
+      "production": "../../production/eastern_fox_people_river_market_skirmishers.json",
+      "economy": {
+        "stockpile": {"resource.rice": 4, "resource.silk": 2},
+        "incomePerTick": {"resource.rice": 1, "resource.silk": 1},
+        "storageCaps": {"resource.rice": 20, "resource.silk": 20}
+      }
     },
     {
       "id": "faction.elves.prototype",
       "seed": [13, 17],
       "tuning": "factions/elves.tuning.json",
-      "production": "../../production/elven_heart_grove_bow_wardens.json"
+      "production": "../../production/elven_heart_grove_bow_wardens.json",
+      "economy": {
+        "stockpile": {"resource.living_wood": 8, "resource.memory": 4},
+        "incomePerTick": {"resource.living_wood": 1, "resource.memory": 1},
+        "storageCaps": {"resource.living_wood": 20, "resource.memory": 20}
+      }
     }
   ],
   "rules": {
@@ -57,7 +83,7 @@
   },
   "buildings": "../../../game/assets/island/buildings.json",
   "personas": "../../../game/assets/island/personas.json",
-  "resources": [],
+  "resources": ["resources.json"],
   "items": [],
   "triggers": [],
   "quests": []
