@@ -46,7 +46,7 @@
     "notes": "Implemented. rules.campaignClock names content/campaign/cthulhu_clocks.json, which no code had ever read. The record gained the three things it needed to be executable: heat.terminalSeverity, heat.sources (on is a closed set the simulation emits: madness_conversion, midnight_return, faction_eliminated), and confrontation.deliberateDiscoveryFactionId. The clock is a rule on ScenarioRules, so it travels with a mod's save; the ledger and the recorded confrontation are play state on FactionWorld, serde(default) so a version-2 save written before this contract still parses and is then refused by name (invalid_saved_scenario_rules) rather than played with no deadline. Arbitration happens at one point, the settled tail of advance_island_tick after the midnight return, and never re-runs on a recorded confrontation. Heat is never exposed as a number through the bridge: the snapshot's campaign entry carries deadline_day, days_remaining, the signalling channels, and the recorded cause. This lane touched neither the economy (scenario-resources) nor ProducedActor and inventories (scenario-items); the shared file is world.rs and the two equality proofs, whose canonicalisation now strips heat and confrontation alongside rules, with the reason stated in the test."
   },
   "completion": {
-    "commit": "17a12c5",
+    "commit": "b631079",
     "checks": [
       {
         "command": "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check",
