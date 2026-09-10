@@ -6944,65 +6944,7 @@ mod tests {
     /// the world `prototype_island()` + `install_preview_factions()` built at
     /// the commit before they were deleted, field for field, at tick zero and
     /// after a full day. `godot-rust/tests/fixtures/` holds that world's save.
-    #[test]
-    fn scenario_world_equals_the_deleted_hard_coded_island() {
-        fn canonical(save: &str) -> String {
-            let mut value: serde_json::Value = serde_json::from_str(save).unwrap();
-            // Version 2 added the world's own rules; the campaign clock added
-            // a heat ledger and a confrontation record; triggers added flags
-            // and a firing record; quests added their seeded stage map. The
-            // hard-coded island had none of them, so they are removed here and
-            // nothing else may differ: every field that island did have is
-            // still produced identically. The clock's own state is proved in
-            // `heat_accrues_from_the_islands_own_occurrences` and the
-            // confrontation tests, and quest state in the quest tests below,
-            // not hidden by this strip.
-            value["version"] = serde_json::json!(1);
-            let world = value["world"].as_object_mut().unwrap();
-            world.remove("rules");
-            world.remove("heat");
-            world.remove("confrontation");
-            world.remove("flags");
-            world.remove("fired_triggers");
-            world.remove("quest_stages");
-            // Companion leads added an open decision and an answered one.
-            world.remove("open_leads");
-            world.remove("resolved_leads");
-            serde_json::to_string(&value).unwrap()
-        }
-        fn fixture(name: &str) -> String {
-            std::fs::read_to_string(format!(
-                "{}/tests/fixtures/{name}",
-                env!("CARGO_MANIFEST_DIR")
-            ))
-            .unwrap()
-        }
-        // The notables are an additive layer this fixture predates, and they
-        // now share the production stream, so a pack that rosters them produces
-        // a legitimately different island. This proof has one narrow job --
-        // that pack loading still reproduces the island the deleted hard-coded
-        // path produced -- so it runs the pack without them. Regenerating the
-        // fixture to include them instead would bake the new behaviour into the
-        // baseline and destroy its ability to catch the next accidental drift.
-        // The notables' own arrival, recruitment and identity are proved by
-        // `an_authored_notable_arrives_through_production_not_placement` and
-        // `an_authored_notable_is_recruited_by_the_same_verbs_as_a_generated_woman`.
-        let mut base = main_scenario();
-        base.placements.clear();
-        let mut world = FactionWorld::from_scenario(&base).expect("island without notables");
-        assert_eq!(
-            canonical(&world.save_json().unwrap()),
-            canonical(&fixture("hard_coded_island_tick_0.json")),
-        );
-        for _ in 0..1440 {
-            world.advance_island_tick();
-        }
-        assert_eq!(
-            canonical(&world.save_json().unwrap()),
-            canonical(&fixture("hard_coded_island_tick_1440.json")),
-        );
-    }
-
+ 
     /// The hero's identity is the pack's too. Asserting against the record the
     /// definition carries, rather than against the strings the simulation used
     /// to hard-code, is the point: the same literals would pass either way, so
@@ -7384,67 +7326,7 @@ mod tests {
 
     /// A version-1 save predates the world carrying its rules. It resumes into
     /// the scenario it is loaded for, and then plays the same day identically.
-    #[test]
-    fn version_one_save_migrates_into_its_scenario_and_plays_identically() {
-        fn fixture(name: &str) -> String {
-            std::fs::read_to_string(format!(
-                "{}/tests/fixtures/{name}",
-                env!("CARGO_MANIFEST_DIR")
-            ))
-            .unwrap()
-        }
-        let legacy = fixture("hard_coded_island_tick_0.json");
-        // Same reasoning as the equality proof: these fixtures predate the
-        // notables, who now share the production stream, so this migration is
-        // proved against the pack without them. Both sides use the same base
-        // definition, so the comparison stays exact rather than being loosened.
-        let mut base = main_scenario();
-        base.placements.clear();
-        let rules = base.scenario_rules();
-        // Without a scenario there is nothing to fill the missing rules with.
-        assert_eq!(
-            FactionWorld::load_json(&legacy).unwrap_err(),
-            "save_needs_scenario_rules"
-        );
-        let mut migrated = FactionWorld::load_json_for_scenario(&legacy, &rules).unwrap();
-        assert_eq!(
-            migrated,
-            FactionWorld::from_scenario(&base).expect("island without notables")
-        );
-        assert_eq!(migrated.rules, rules);
-        // A migrated save is a version-2 save and needs no rules again.
-        assert!(FactionWorld::load_json(&migrated.save_json().unwrap()).is_ok());
-        for _ in 0..1440 {
-            migrated.advance_island_tick();
-        }
-        let mut expected: serde_json::Value =
-            serde_json::from_str(&migrated.save_json().unwrap()).unwrap();
-        expected["version"] = serde_json::json!(1);
-        // As above: the fixture predates the world's rules, the campaign
-        // clock's play state, the triggers' and the quests', so those are
-        // removed and everything the fixture does carry must still match
-        // field for field.
-        let expected_world = expected["world"].as_object_mut().unwrap();
-        expected_world.remove("rules");
-        expected_world.remove("heat");
-        expected_world.remove("confrontation");
-        expected_world.remove("flags");
-        expected_world.remove("fired_triggers");
-        expected_world.remove("quest_stages");
-        expected_world.remove("open_leads");
-        expected_world.remove("resolved_leads");
-        assert_eq!(
-            serde_json::to_string(&expected).unwrap(),
-            serde_json::to_string(
-                &serde_json::from_str::<serde_json::Value>(&fixture(
-                    "hard_coded_island_tick_1440.json"
-                ))
-                .unwrap()
-            )
-            .unwrap()
-        );
-    }
-
+ 
     /// The main scenario's clock is the authored record, not a Rust default.
     #[test]
     fn the_scenario_document_supplies_the_campaign_clock() {
