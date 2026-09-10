@@ -182,6 +182,87 @@ def check_save_round_trip(game: "Game", day: int) -> list[dict]:
     return []
 
 
+
+def check_determinism(game: "Game", day: int, ticks: int = 120) -> list[dict]:
+    """Save, run, reload, run the same again. A deterministic simulation must
+    land in exactly the same place both times. This is the strongest test the
+    harness has: it exercises every system at once and needs no knowledge of
+    what any of them do."""
+    saved = game.send(cmd="save")
+    if not saved.get("ok"):
+        return [{"day": day, "what": "saving failed", "detail": str(saved)[:200]}]
+    payload = saved["save"]
+
+    game.send(cmd="tick", count=ticks)
+    first = json.dumps(game.state, sort_keys=True)
+
+    if not game.send(cmd="load", save=payload).get("ok"):
+        return [{"day": day, "what": "a save the game just wrote would not load back",
+                 "detail": "save/load round trip refused its own output"}]
+    game.send(cmd="tick", count=ticks)
+    second = json.dumps(game.state, sort_keys=True)
+
+    if first != second:
+        a, b = json.loads(first), json.loads(second)
+        differing = [k for k in a if a.get(k) != b.get(k)]
+        return [{"day": day, "what": "the simulation is not deterministic across a save",
+                 "detail": f"after reloading and running the same {ticks} ticks, these "
+                           f"differ: {differing[:6]}"}]
+    return []
+
+
+def check_refusals_are_pure(game: "Game", day: int) -> list[dict]:
+    """A refused command must change nothing. A refusal with a side effect is
+    worse than a crash, because the game keeps running and quietly lies."""
+    bugs = []
+    probes = [
+        ("recruit", {"cmd": "recruit", "id": "actor.does.not.exist"}),
+        ("assign", {"cmd": "assign", "id": "actor.does.not.exist", "slot": 0}),
+        ("approach", {"cmd": "approach", "id": ""}),
+        ("build_foothold", {"cmd": "build_foothold", "at": {"x": -5, "y": -5}}),
+        ("resolve_lead", {"cmd": "resolve_lead", "lead": "lead.nope",
+                          "interpretation": "interpretation.nope"}),
+        ("move_captain", {"cmd": "move_captain", "to": {"x": 9999, "y": 9999}}),
+    ]
+    for label, probe in probes:
+        before = json.dumps(game.state, sort_keys=True)
+        reply = game.send(**probe)
+        after = json.dumps(game.state, sort_keys=True)
+        if reply.get("ok"):
+            bugs.append({"day": day, "what": f"the game accepted a nonsense {label}",
+                         "detail": json.dumps(probe)})
+        elif before != after:
+            bugs.append({"day": day, "what": f"a refused {label} still changed the game",
+                         "detail": json.dumps(probe)})
+    return bugs
+
+
+def check_idempotency(game: "Game", day: int, state: dict) -> list[dict]:
+    """Doing a done thing twice must be refused, not applied twice. Answering
+    the same lead or recruiting the same woman again are the cases a real
+    player hits by double-clicking."""
+    bugs = []
+    loyal = [p for p in state.get("people", []) if p["loyal"] and p["alive"]]
+    if loyal:
+        target = loyal[0]
+        if game.send(cmd="recruit", id=target["id"]).get("ok"):
+            bugs.append({"day": day, "what": "recruited someone who had already joined",
+                         "detail": f"{target['name']} was recruited a second time"})
+        before = state.get("party_size", 0)
+        game.send(cmd="assign", id=target["id"], slot=0)
+        game.send(cmd="assign", id=target["id"], slot=1)
+        after = game.state.get("party_size", 0)
+        holders = [i for i, occupant in enumerate(game.state.get("party", []))
+                   if occupant == target["id"]]
+        if len(holders) > 1:
+            bugs.append({"day": day, "what": "one person occupies two party slots",
+                         "detail": f"{target['name']} is in slots {holders}"})
+        if after > 4:
+            bugs.append({"day": day, "what": "party grew past four slots",
+                         "detail": f"party_size {before} -> {after}"})
+    return bugs
+
+
 @dataclass
 class Journal:
     style: str = "?"
@@ -217,6 +298,8 @@ class Player:
         self.talked_to: set[str] = set()
         self.recruited: list[str] = []
         self.lead_answers: list[dict] = []
+        self.built = False
+        self.idle_because_nothing_to_do = 0
 
     state = property(lambda self: self.game.state)
     day = property(lambda self: self.game.state.get("day", 0))
@@ -311,6 +394,7 @@ class Player:
         self.journal.act("build foothold", built.get("ok", False), self.day,
                          note=built.get("refused", ""))
         if built.get("ok"):
+            self.built = True
             self.journal.note(self.day, "built a foothold")
 
     def answer_leads(self, prefer: int = 0):
@@ -331,30 +415,86 @@ class Player:
 
     # -- a day ----------------------------------------------------------------
 
+    def goals(self) -> list[tuple[int, str]]:
+        """What is worth doing right now, best first.
+
+        Scored rather than scripted, so the bot spends its day on whatever the
+        game has actually made available -- which is also how it notices when
+        the game has made nothing available.
+        """
+        state = self.state
+        wants: list[tuple[int, str]] = []
+
+        if state.get("leads"):
+            wants.append((100, "answer"))
+
+        if len(self.recruited) < 4 and self.women_nearby():
+            # Wanting company more when he has none is what a person would do.
+            wants.append((80 - 12 * len(self.recruited), "recruit"))
+
+        caches = [c for c in state.get("salvage_caches", []) if c["remaining"] > 0]
+        if caches and self.style != "drifter":
+            # Salvage matters until there is enough to build with.
+            wants.append((70 if state.get("salvage", 0) < 8 else 30, "salvage"))
+
+        if self.style == "builder" and state.get("salvage", 0) >= 4 and not self.built:
+            wants.append((90, "build"))
+
+        if self.style == "drifter":
+            wants.append((40, "wander"))
+
+        wants.sort(reverse=True)
+        return wants
+
+    def wander(self):
+        """Walk somewhere the player has not been. A game that only rewards
+        standing still is worth knowing about."""
+        buildings = self.state.get("buildings", [])
+        if not buildings:
+            return
+        target = buildings[self.day % len(buildings)]
+        spot = next((p for p in self.state.get("people", [])
+                     if p["faction"] == target["faction"]), None)
+        if spot:
+            self.walk_to(spot, tries=4)
+
     def play_day(self):
         before_world = world_facts(self.state)
         before_player = player_facts(self.state)
 
-        self.answer_leads(prefer=1 if self.style == "contrarian" else 0)
-
-        if self.style != "drifter":
-            self.work_the_wreck()
-        if self.style == "builder":
-            self.build()
-        if self.style in ("recruiter", "builder", "contrarian") and len(self.recruited) < 4:
-            for person in self.women_nearby()[:2]:
-                if person["id"] in self.talked_to:
-                    continue
-                if self.try_recruit(person):
-                    break
+        # Two actions a day: enough to make progress, few enough that a day
+        # with nothing worth doing is visible as exactly that.
+        for _, goal in self.goals()[:2]:
+            if goal == "answer":
+                self.answer_leads(prefer=1 if self.style == "contrarian" else 0)
+            elif goal == "recruit":
+                for person in self.women_nearby()[:3]:
+                    if person["id"] in self.talked_to:
+                        continue
+                    if self.try_recruit(person):
+                        break
+            elif goal == "salvage":
+                self.work_the_wreck()
+            elif goal == "build":
+                self.build()
+            elif goal == "wander":
+                self.wander()
+        else:
+            if not self.goals():
+                self.idle_because_nothing_to_do += 1
 
         remaining = TICKS_PER_DAY - (self.state["tick"] % TICKS_PER_DAY)
         self.game.send(cmd="tick", count=max(1, remaining))
         self.answer_leads(prefer=1 if self.style == "contrarian" else 0)
 
         self.journal.bugs.extend(find_bugs(self.state, self.game, self.day))
-        if self.day % 5 == 0:
+        if self.day % 4 == 0:
             self.journal.bugs.extend(check_save_round_trip(self.game, self.day))
+            self.journal.bugs.extend(check_refusals_are_pure(self.game, self.day))
+        if self.day % 7 == 0:
+            self.journal.bugs.extend(check_idempotency(self.game, self.day, self.state))
+        if self.day % 9 == 0:
+            self.journal.bugs.extend(check_determinism(self.game, self.day))
 
         self.journal.days.append({
             "day": self.day,
@@ -385,6 +525,14 @@ def evaluate(player: Player, journal: Journal, days: int):
             "medium",
             f"{len(truly_still)} of {days} days changed nothing anywhere, not even "
             "faction population or buildings.",
+        )
+
+    if player.idle_because_nothing_to_do >= max(3, days // 4):
+        journal.complain(
+            "The game regularly offers the player nothing to do", "high",
+            f"On {player.idle_because_nothing_to_do} of {days} days there was no lead to "
+            "answer, nobody reachable to recruit, no salvage left and nothing to build. "
+            "Not 'the player chose to wait' -- the game had no available action.",
         )
 
     if not player.recruited:
@@ -479,6 +627,7 @@ def run_style(style: str, days: int) -> dict:
         "commands": game.calls,
         "recruited": player.recruited,
         "leads_answered": player.lead_answers,
+        "days_with_nothing_worth_doing": player.idle_because_nothing_to_do,
         "final_player_view": player_facts(player.state),
         "final_world": world_facts(player.state),
         "days": journal.days,

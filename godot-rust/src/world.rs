@@ -3159,6 +3159,17 @@ impl FactionWorld {
             else {
                 continue;
             };
+            // The dead wait their turn like everyone else. Resurrection used to
+            // raise the cap to fit whoever returned, which made every death
+            // feed Cthulhu permanently: a bigger cap produced more units, which
+            // died and returned and raised the cap again. The island reached
+            // 309 people in a faction authored to hold 6, every other faction
+            // was gone by day two, and the simulation sat frozen from day four
+            // to the Day 100 deadline. She is still eligible -- she returns on
+            // a night when there is room for her.
+            if population > self.factions[CTHULHU].population_capacity {
+                continue;
+            }
             let corpse = casualty.position;
             let mut candidates = Vec::new();
             for dx in -4_i32..=4 {
@@ -3195,11 +3206,10 @@ impl FactionWorld {
                 person.return_at_midnight();
             }
             // This is an explicit supernatural transfer, not another production
-            // order: provenance and serials stay unchanged, capacity admits only
-            // the population that actually returned.
+            // order: provenance and serials stay unchanged, and the faction's
+            // authored capacity is the bound it was always meant to be.
             let faction = self.factions.get_mut(CTHULHU).unwrap();
             faction.population_used = population;
-            faction.population_capacity = faction.population_capacity.max(population);
             self.unit_combat.insert(
                 id.clone(),
                 IslandCombatState {
@@ -5699,10 +5709,19 @@ impl FactionWorld {
         }
         completed.sort_by(|left, right| left.4.id.cmp(&right.4.id));
         let mut events = Vec::with_capacity(completed.len());
+        // The dead keep their names. Cthulhu returns eligible casualties at
+        // midnight as the same people, so a name freed by a death is not free
+        // at all -- reusing it produces two Samuel Prices the moment the first
+        // one walks back. Count the casualty record as taken.
         let mut names_in_use: BTreeSet<String> = self
             .actors
             .values()
             .filter_map(|actor| actor.person.as_ref())
+            .chain(
+                self.casualties
+                    .values()
+                    .filter_map(|casualty| casualty.actor.person.as_ref()),
+            )
             .map(|person| person.display_name.clone())
             .collect();
         for (faction_id, building_id, node_id, rally_point_id, order) in completed {

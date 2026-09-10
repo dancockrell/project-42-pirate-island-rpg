@@ -247,6 +247,20 @@ fn main() {
             "resolve_lead" => Ok(json!({
                 "ok": w.resolve_lead(&text(&request, "lead"), &text(&request, "interpretation"))
             })),
+            // Reloading is how the bot checks the simulation is really
+            // deterministic: save, reload, run the same ticks, compare. A
+            // deterministic sim that diverges after a round trip is a serious
+            // bug and nothing else in the harness would catch it.
+            "load" => {
+                let payload = text(&request, "save");
+                match FactionWorld::load_json(&payload) {
+                    Ok(restored) => {
+                        *w = restored;
+                        Ok(json!({"ok": true}))
+                    }
+                    Err(error) => Ok(json!({"ok": false, "refused": error})),
+                }
+            }
             "save" => match w.save_json() {
                 Ok(payload) => Ok(json!({"ok": true, "save": payload})),
                 Err(error) => Err(error),
