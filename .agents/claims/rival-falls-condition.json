@@ -29,7 +29,7 @@
     "notes": "Zero new Rust: TriggerCondition::FactionEliminated{faction_id} and its match arm (self.eliminated_factions.contains(faction_id)) already existed and were already validator-supported; grep confirmed the main pack's triggers.json never used it. Added quest.the_island_grows_quiet (two stages) and trigger.michael.a_rival_falls, keyed to faction.colonial_powers.prototype, proven end to end through the same real siege path the pre-existing siege_destroys_last_producer_and_elimination_survives_load test drives (strip actors to one pirate, disable the target faction's buildings, let advance_island_tick's own combat/siege resolution eliminate it), not a synthetic eliminated_factions.insert(). Found something worth recording, not just assuming: the colonials already fall to the pirates within the unmanipulated main scenario's first day (tick 1440), with zero player action -- the equality-proof test (scenario_world_equals_the_deleted_hard_coded_island) caught this for real, since it's the first trigger whose condition can go true from ordinary autonomous play. Fixed by adding the trigger's exact granted amount (resource.provisions: 3 on faction.michael) to the tick_1440 fixture, verified by a full field-by-field diff of both canonicalized JSON documents showing that grant was the only difference -- not a fixture hack to hide a real bug."
   },
   "completion": {
-    "commit": null,
+    "commit": "4942ded",
     "checks": [
       {
         "command": "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check",
