@@ -134,6 +134,18 @@ Order is by dependency, not by appetite.
   way: four separate produced women, actually recruited and actually
   assigned, not four flags set by hand. Still not the lead system the
   authority describes; still no Betty, no geography, no invented identity.
+- **A rival faction falling gets its first consequence.** `faction_eliminated`
+  was already implemented and validator-checked — the elimination path itself
+  predates this session — but unused by the main pack's triggers. The new
+  `quest.the_island_grows_quiet` reacts to `faction.colonial_powers.prototype`
+  falling with a small provisions grant and a flag, proven through the same
+  siege path `siege_destroys_last_producer_and_elimination_survives_load`
+  already exercises, not a synthetic `eliminated_factions.insert()`. This
+  found something worth recording: the colonials already fall to the pirates
+  within the unmanipulated main scenario's first day (tick 1440) with no
+  player action at all, which the equality-proof fixture now reflects — this
+  is the first trigger whose condition can go true from ordinary autonomous
+  play rather than only from something the player did.
 
 ### Next, in order
 

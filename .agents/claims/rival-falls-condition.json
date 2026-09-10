@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "task_id": "rival-falls-condition",
+  "agent": "claude-code (lane rival-falls-condition)",
+  "summary": "Content authoring only: put the already-implemented, already-validated faction_eliminated trigger condition to use for the first time, with a small quest and trigger reacting to the colonials falling",
+  "status": "completed",
+  "claimed_at": "2026-09-10T18:00:00Z",
+  "updated_at": "2026-09-10T18:50:00Z",
+  "paths": [
+    "content/scenarios/pirate_island/quests.json",
+    "content/scenarios/pirate_island/triggers.json",
+    "game/generated/scenarios/scenario.pirate_island.json",
+    "game/tests/island_bridge_test.gd",
+    "godot-rust/src/world.rs",
+    "godot-rust/tests/fixtures/hard_coded_island_tick_1440.json",
+    "docs/BUILD_OUT_PLAN.md"
+  ],
+  "symbols": [
+    "TriggerCondition::FactionEliminated"
+  ],
+  "coordination": {
+    "depends_on": [
+      "scenario-triggers",
+      "scenario-quests",
+      "companion-recruited-condition",
+      "party-size-condition"
+    ],
+    "conflicts_with": [],
+    "notes": "Zero new Rust: TriggerCondition::FactionEliminated{faction_id} and its match arm (self.eliminated_factions.contains(faction_id)) already existed and were already validator-supported; grep confirmed the main pack's triggers.json never used it. Added quest.the_island_grows_quiet (two stages) and trigger.michael.a_rival_falls, keyed to faction.colonial_powers.prototype, proven end to end through the same real siege path the pre-existing siege_destroys_last_producer_and_elimination_survives_load test drives (strip actors to one pirate, disable the target faction's buildings, let advance_island_tick's own combat/siege resolution eliminate it), not a synthetic eliminated_factions.insert(). Found something worth recording, not just assuming: the colonials already fall to the pirates within the unmanipulated main scenario's first day (tick 1440), with zero player action -- the equality-proof test (scenario_world_equals_the_deleted_hard_coded_island) caught this for real, since it's the first trigger whose condition can go true from ordinary autonomous play. Fixed by adding the trigger's exact granted amount (resource.provisions: 3 on faction.michael) to the tick_1440 fixture, verified by a full field-by-field diff of both canonicalized JSON documents showing that grant was the only difference -- not a fixture hack to hide a real bug."
+  },
+  "completion": {
+    "commit": null,
+    "checks": [
+      {
+        "command": "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check",
+        "result": "pass"
+      },
+      {
+        "command": "cargo test --manifest-path godot-rust/Cargo.toml (new test in isolation)",
+        "result": "pass: a_rival_falling_fires_the_a_rival_falls_trigger"
+      },
+      {
+        "command": "cargo test --manifest-path godot-rust/Cargo.toml (full suite)",
+        "result": "pass: 131 passed, 0 failed (1 new)"
+      },
+      {
+        "command": "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext",
+        "result": "pass"
+      },
+      {
+        "command": "node tools/src/validate.mjs",
+        "result": "pass: 150 stable IDs (1 new: quest.the_island_grows_quiet)"
+      },
+      {
+        "command": "node tools/src/build-content-bundle.mjs then git diff game/generated/",
+        "result": "pass: regenerated document, hashes stable across bite/restore round trip"
+      },
+      {
+        "command": "python3 tools/test_sprite_source.py",
+        "result": "pass: 12 tests"
+      },
+      {
+        "command": "bash tools/build-native-bridge.sh debug",
+        "result": "pass"
+      },
+      {
+        "command": "bash tools/verify-godot.sh 60",
+        "result": "pass: all three suites, no ERROR line, 'Current 2D Godot verification passed'"
+      },
+      {
+        "command": "bite: grant_resource amount set to 0 in trigger.michael.a_rival_falls",
+        "result": "validate.mjs failed by name: 'amount must be a positive integer'; restored, revalidated 150 IDs, bundle hash unchanged"
+      },
+      {
+        "command": "bite: TriggerCondition::FactionEliminated match arm hard-coded to false",
+        "result": "a_rival_falling_fires_the_a_rival_falls_trigger FAILED, restored green"
+      },
+      {
+        "command": "first full-suite run after adding the trigger",
+        "result": "FAILED: scenario_world_equals_the_deleted_hard_coded_island and version_one_save_migrates_into_its_scenario_and_plays_identically both failed -- the trigger fires for real by tick 1440 in the unmanipulated main scenario, diverging from a fixture that predates it. Root-caused with a full JSON diff (not assumed): the only difference was the trigger's own granted resource. Fixed by updating the fixture, not by weakening the trigger or the test."
+      },
+      {
+        "command": "first Godot gate run after the change",
+        "result": "FAILED: island_bridge_test.gd's quest-count assertion still hard-coded 3; fixed to 4 and added the new quest's initial-stage assertions"
+      }
+    ]
+  }
+}

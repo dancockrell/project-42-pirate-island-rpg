@@ -1,7 +1,12 @@
 [
   {
     "id": "trigger.michael.first_companion",
-    "when": [{ "kind": "loyal_companion_count", "at_least": 1 }],
+    "when": [
+      {
+        "kind": "loyal_companion_count",
+        "at_least": 1
+      }
+    ],
     "then": [
       {
         "kind": "grant_resource",
@@ -9,7 +14,10 @@
         "resource_id": "resource.provisions",
         "amount": 2
       },
-      { "kind": "set_flag", "flag": "flag.michael.not_alone" },
+      {
+        "kind": "set_flag",
+        "flag": "flag.michael.not_alone"
+      },
       {
         "kind": "set_quest_stage",
         "quest_id": "quest.not_alone_anymore",
@@ -19,7 +27,12 @@
   },
   {
     "id": "trigger.michael.full_household",
-    "when": [{ "kind": "party_size", "at_least": 4 }],
+    "when": [
+      {
+        "kind": "party_size",
+        "at_least": 4
+      }
+    ],
     "then": [
       {
         "kind": "grant_resource",
@@ -27,7 +40,10 @@
         "resource_id": "resource.provisions",
         "amount": 4
       },
-      { "kind": "set_flag", "flag": "flag.michael.household_complete" },
+      {
+        "kind": "set_flag",
+        "flag": "flag.michael.household_complete"
+      },
       {
         "kind": "set_quest_stage",
         "quest_id": "quest.the_household_forms",
@@ -46,7 +62,10 @@
       }
     ],
     "then": [
-      { "kind": "set_flag", "flag": "flag.cthulhu.shrine_grown" },
+      {
+        "kind": "set_flag",
+        "flag": "flag.cthulhu.shrine_grown"
+      },
       {
         "kind": "record_heat",
         "id": "heat.cthulhu.shrine_grown",
@@ -76,14 +95,49 @@
         "actor_id": "character.protagonist.captain",
         "item_id": "weapon.captain.handsome_jack_steam_carbine"
       },
-      { "kind": "set_flag", "flag": "flag.michael.armed" }
+      {
+        "kind": "set_flag",
+        "flag": "flag.michael.armed"
+      }
+    ]
+  },
+  {
+    "id": "trigger.michael.a_rival_falls",
+    "when": [
+      {
+        "kind": "faction_eliminated",
+        "faction_id": "faction.colonial_powers.prototype"
+      }
+    ],
+    "then": [
+      {
+        "kind": "grant_resource",
+        "faction_id": "faction.michael",
+        "resource_id": "resource.provisions",
+        "amount": 3
+      },
+      {
+        "kind": "set_flag",
+        "flag": "flag.michael.a_rival_falls"
+      },
+      {
+        "kind": "set_quest_stage",
+        "quest_id": "quest.the_island_grows_quiet",
+        "stage_id": "stage.first_fall"
+      }
     ]
   },
   {
     "id": "trigger.colonial.answer_the_dreams",
     "when": [
-      { "kind": "heat_signalled", "signal": "dreams" },
-      { "kind": "day_at_least", "day": 10 }
+      {
+        "kind": "heat_signalled",
+        "signal": "dreams"
+      },
+      {
+        "kind": "day_at_least",
+        "day": 10
+      }
     ],
     "then": [
       {
@@ -92,7 +146,10 @@
         "b": "faction.cthulhu.prototype",
         "hostile": true
       },
-      { "kind": "set_flag", "flag": "flag.colonial.answered_the_dreams" },
+      {
+        "kind": "set_flag",
+        "flag": "flag.colonial.answered_the_dreams"
+      },
       {
         "kind": "set_quest_stage",
         "quest_id": "quest.the_cult_beneath_the_water",

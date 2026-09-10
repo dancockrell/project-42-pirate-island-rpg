@@ -69,7 +69,7 @@ func _initialize() -> void:
 	# The main scenario's quests are active from the first snapshot: their
 	# stage and objective text are authored data Godot shows, not composes.
 	var quests: Array = port.island_snapshot().quests
-	assert(quests.size() == 3)
+	assert(quests.size() == 4)
 	var by_id := {}
 	for quest in quests:
 		by_id[quest.id] = quest
@@ -88,5 +88,12 @@ func _initialize() -> void:
 	assert(household_quest.stage == "stage.recruiting")
 	assert(not household_quest.objective.is_empty())
 	assert(companion_quest.terminal == "")
+	# No faction has fallen yet at the first snapshot either, so this quest
+	# is still on its own initial stage -- the same real-state proof as the
+	# two companion quests above.
+	var rival_quest: Dictionary = by_id["quest.the_island_grows_quiet"]
+	assert(rival_quest.stage == "stage.five_factions")
+	assert(not rival_quest.objective.is_empty())
+	assert(rival_quest.terminal == "")
 	print("PASS: actual Rust island bridge, scenario document, solo start, movement, ocean rejection, pause, arrival, the campaign clock, triggers and quests")
 	quit()

@@ -40,5 +40,18 @@
         "terminal": "success"
       }
     }
+  },
+  "quest.the_island_grows_quiet": {
+    "displayName": "The Island Grows Quiet",
+    "initialStage": "stage.five_factions",
+    "stages": {
+      "stage.five_factions": {
+        "objective": "Five factions bleed this island dry. Michael counts himself lucky no one has found the wreck yet."
+      },
+      "stage.first_fall": {
+        "objective": "The colonial banner came down over the fort. One less flag flying, one less patrol to dodge.",
+        "terminal": "success"
+      }
+    }
   }
 }

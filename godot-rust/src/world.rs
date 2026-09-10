@@ -7078,7 +7078,7 @@ mod tests {
     #[test]
     fn the_scenario_document_supplies_its_triggers() {
         let triggers = main_scenario_world().rules.triggers;
-        assert_eq!(triggers.len(), 5);
+        assert_eq!(triggers.len(), 6);
         assert!(
             triggers
                 .iter()
@@ -7471,6 +7471,79 @@ mod tests {
             Some(&"stage.complete".to_string())
         );
         assert!(world.flags.contains("flag.michael.household_complete"));
+    }
+
+    /// Eliminating a rival faction is real simulation behavior, driven through
+    /// the same siege path `siege_destroys_last_producer_and_elimination_survives_load`
+    /// proves, not a synthetic `eliminated_factions.insert()`. The trigger
+    /// reads `eliminated_factions`, the same set that path populates.
+    #[test]
+    fn a_rival_falling_fires_the_a_rival_falls_trigger() {
+        let mut world = main_scenario_world();
+        for _ in 0..4 {
+            world.advance_island_tick();
+        }
+        let pirate = world
+            .actors
+            .values()
+            .find(|a| a.definition_id == "actor_def.pirates.deckhand")
+            .unwrap()
+            .instance_id
+            .clone();
+        world.actors.retain(|id, _| id == &pirate);
+        world.positions.retain(|id, _| id == &pirate);
+        world.unit_combat.retain(|id, _| id == &pirate);
+        world.travel_orders.clear();
+        world.hostilities = [(
+            "faction.pirates.prototype".into(),
+            "faction.colonial_powers.prototype".into(),
+        )]
+        .into_iter()
+        .collect();
+        let fort = world.factions["faction.colonial_powers.prototype"]
+            .buildings
+            .values()
+            .next()
+            .unwrap();
+        let entrance = world.navigation.destinations[&fort.node_id];
+        world.positions.insert(pirate.clone(), entrance);
+        let onward = world.navigation.destinations["island.contested_clearing"];
+        world.order_move(&pirate, onward).unwrap();
+        for faction in world.factions.values_mut() {
+            for building in faction.buildings.values_mut() {
+                building.operational = false;
+            }
+        }
+        let mut saw_elimination = false;
+        for _ in 0..104 {
+            saw_elimination |= world.advance_island_tick().iter().any(|e| {
+                matches!(e, FactionWorldEvent::FactionEliminated { faction_id } if faction_id == "faction.colonial_powers.prototype")
+            });
+            if saw_elimination {
+                break;
+            }
+        }
+        assert!(saw_elimination);
+        assert!(
+            world
+                .eliminated_factions
+                .contains("faction.colonial_powers.prototype")
+        );
+        world.advance_island_tick();
+        assert!(
+            world
+                .fired_triggers
+                .contains_key("trigger.michael.a_rival_falls")
+        );
+        assert_eq!(
+            world.quest_stages.get("quest.the_island_grows_quiet"),
+            Some(&"stage.first_fall".to_string())
+        );
+        assert!(world.flags.contains("flag.michael.a_rival_falls"));
+        assert_eq!(
+            world.stored_resource("faction.michael", "resource.provisions"),
+            3
+        );
     }
 
     fn test_quest(initial_stage: &str) -> ScenarioQuest {
@@ -10871,3 +10944,4 @@ mod tests {
         );
     }
 }
+
