@@ -234,6 +234,14 @@ func run() -> void:
 	scene.inspect_actor(inspected_unit.id)
 	assert(scene.inspection.text.contains(inspected_unit.name))
 	assert(scene.inspection.text.contains(inspected_unit.biography))
+	# The inspection panel is read-only board information, not a menu that
+	# stops the war: it is an RTS under the hood, and opening it must never
+	# pause the clock the way Approach deliberately does for a conversation.
+	assert(not scene.paused)
+	var tick_before_inspection: int = scene.snapshot.tick
+	scene.advance_tick()
+	assert(scene.snapshot.tick == tick_before_inspection + 1)
+	assert(not scene.paused)
 	var payload: String = scene.port.save_island()
 	# Ownership never determines costume, even when a sprite must be recreated.
 	var appearance_before: Dictionary = scene.appearance_for(inspected_unit)
