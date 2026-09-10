@@ -35,25 +35,63 @@
     "MAX_NETWORK_TETHERS"
   ],
   "coordination": {
-    "depends_on": ["scenario-triggers"],
+    "depends_on": [
+      "scenario-triggers"
+    ],
     "conflicts_with": [],
     "notes": "docs/BUILD_OUT_PLAN.md item 1, first slice. content/world/island_network.prototype.json declared six nodes and eight tethers since the design authority landed; nothing had ever read it. Adopted verbatim as the main pack's rules.islandNetwork -- an optional rule, not one of the four schema-version-1 reserved keys, so no other lane's assumptions about resources/items/triggers/quests move. Nodes are pure membership (roles are descriptive, unread, same treatment as the record's own topology/knowledgePolicy per the campaign-clock precedent). A tether is traversable when its *effective* state -- an authored default, overridable by FactionWorld.tether_overrides play state -- is open or conditional; blocked, hidden and corrupted are not. network_reachable is a real breadth-first search honouring one-way tethers. Two new closed trigger clauses, NetworkReachable (condition) and SetTetherState (effect, refusing an undeclared tether and a no-op), let the already-shipped trigger contract read and change the graph: the concrete form of 'tether state changing reachability without moving geography.' Explicitly NOT in this slice, and recorded as such rather than implied finished: faction dispatch and player movement still route through from_scenario's invented runtime destinations (preview.<faction>.holding, island.contested_clearing), not through these named nodes, and no walkable cell is assigned to any node's region. Weather (the next contract) needs only the graph and its reachability to move fronts along tethers, which this slice provides in full."
   },
   "completion": {
-    "commit": null,
+    "commit": "f963c36",
     "checks": [
-      {"command": "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check", "result": "pass"},
-      {"command": "cargo test --manifest-path godot-rust/Cargo.toml", "result": "pass: 135 passed, 0 failed (8 new)"},
-      {"command": "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext", "result": "pass"},
-      {"command": "node tools/src/validate.mjs", "result": "pass: 161 stable IDs (14 new: 6 nodes, 8 tethers)"},
-      {"command": "node tools/src/build-content-bundle.mjs then git diff game/generated/", "result": "pass: regenerated document committed, 29 embedded documents"},
-      {"command": "python3 tools/test_sprite_source.py", "result": "pass: 12 tests"},
-      {"command": "bash tools/build-native-bridge.sh debug", "result": "pass"},
-      {"command": "bash tools/verify-godot.sh 60", "result": "pass: all three suites, no ERROR line, 'Current 2D Godot verification passed'"},
-      {"command": "bite: a tether's `to` renamed to an undeclared node", "result": "validate.mjs failed by name (twice over): the pre-existing generic schema check plus the new one, 'to network_node.does_not_exist is not a node this network declares'"},
-      {"command": "bite: a tether's `type` set to submarine_cable", "result": "validate.mjs failed by name: 'type submarine_cable is not a tether type the simulation implements'"},
-      {"command": "bite: the traversable-state filter removed from network_reachable's BFS (replaced with a bare existence check)", "result": "network_reachable_respects_tether_state_and_directionality FAILED, restored green"},
-      {"command": "first run of the equality proof after the network field landed", "result": "FAILED: the main pack now authors a network, and the canonicalisation that strips rules/heat/confrontation/flags/fired_triggers/quest_stages from both sides of the hard-coded-island comparison had never needed to know about tether_overrides; added its removal to both sites, the same fix pattern as every prior lane's play-state field"}
+      {
+        "command": "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check",
+        "result": "pass"
+      },
+      {
+        "command": "cargo test --manifest-path godot-rust/Cargo.toml",
+        "result": "pass: 135 passed, 0 failed (8 new)"
+      },
+      {
+        "command": "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext",
+        "result": "pass"
+      },
+      {
+        "command": "node tools/src/validate.mjs",
+        "result": "pass: 161 stable IDs (14 new: 6 nodes, 8 tethers)"
+      },
+      {
+        "command": "node tools/src/build-content-bundle.mjs then git diff game/generated/",
+        "result": "pass: regenerated document committed, 29 embedded documents"
+      },
+      {
+        "command": "python3 tools/test_sprite_source.py",
+        "result": "pass: 12 tests"
+      },
+      {
+        "command": "bash tools/build-native-bridge.sh debug",
+        "result": "pass"
+      },
+      {
+        "command": "bash tools/verify-godot.sh 60",
+        "result": "pass: all three suites, no ERROR line, 'Current 2D Godot verification passed'"
+      },
+      {
+        "command": "bite: a tether's `to` renamed to an undeclared node",
+        "result": "validate.mjs failed by name (twice over): the pre-existing generic schema check plus the new one, 'to network_node.does_not_exist is not a node this network declares'"
+      },
+      {
+        "command": "bite: a tether's `type` set to submarine_cable",
+        "result": "validate.mjs failed by name: 'type submarine_cable is not a tether type the simulation implements'"
+      },
+      {
+        "command": "bite: the traversable-state filter removed from network_reachable's BFS (replaced with a bare existence check)",
+        "result": "network_reachable_respects_tether_state_and_directionality FAILED, restored green"
+      },
+      {
+        "command": "first run of the equality proof after the network field landed",
+        "result": "FAILED: the main pack now authors a network, and the canonicalisation that strips rules/heat/confrontation/flags/fired_triggers/quest_stages from both sides of the hard-coded-island comparison had never needed to know about tether_overrides; added its removal to both sites, the same fix pattern as every prior lane's play-state field"
+      }
     ]
   }
 }
