@@ -29,12 +29,14 @@
     "FactionWorld::advance_production_tick"
   ],
   "coordination": {
-    "depends_on": ["authored-character-identity"],
+    "depends_on": [
+      "authored-character-identity"
+    ],
     "conflicts_with": [],
     "notes": "The character authority settled this design rather than me inventing one: 'Notables and generated ordinary women use the same population and membership rules; there is no separate protected heroine caste', and 'Ordinary women are named generated workers or fighters produced by buildings. Notables use the same person record with authored identity.' So a notable is not a caste, a placement or a spawn -- she is the person a faction's building produces when its turn comes, with a written identity substituted for a rolled one at exactly one line. She takes the definition's sprite and combat profile, so she is not stronger for being written, and the recruitment proof drives approach/talk/recruit/assign through the same verbs a generated woman uses. Scale was the point of the task: the heroine/named-person split is what makes a roster of dozens affordable, because the validator requires the seven-skill kit (four powers, an ultimate, a party passive, a strategic passive) only for kind heroine. Betty keeps her kit; Marisol, Neriah and Su-zhen are notables with authored identity, competence domains and recruitment content, promotable later by authoring kits. Adding another is one record, two placeholder entries and two manifest lines -- no code."
   },
   "completion": {
-    "commit": null,
+    "commit": "786ec99",
     "checks": [
       {
         "command": "cargo test --manifest-path godot-rust/Cargo.toml (full suite)",
