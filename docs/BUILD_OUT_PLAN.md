@@ -116,6 +116,17 @@ Order is by dependency, not by appetite.
   and objective text, so Godot shows state it does not invent. Every reserved
   key from schema version 1 (`resources`, `items`, `triggers`, `quests`) is now
   implemented.
+- **Recruitment gets its first campaign consequence.** `loyal_companion_count`,
+  a new trigger condition, reads `person.loyal_to_michael` — the field
+  `recruit_island_person` already writes — so a pack can react to Michael no
+  longer being alone. The main pack's `quest.not_alone_anymore` does exactly
+  that: a small provisions grant and a flag once anyone is recruited, proven
+  end to end through the real production, approach, talk and recruit path, not
+  a synthetic flag flip. This is not the companion-and-lead system the
+  authority describes — it is the smallest real step toward it, deliberately
+  small after two mistakes this session (the reverted island network; a false
+  claim about a nonexistent "Ayla") from building or documenting past what was
+  actually verified.
 
 ### Next, in order
 

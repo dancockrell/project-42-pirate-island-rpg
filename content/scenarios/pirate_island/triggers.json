@@ -1,5 +1,23 @@
 [
   {
+    "id": "trigger.michael.first_companion",
+    "when": [{ "kind": "loyal_companion_count", "at_least": 1 }],
+    "then": [
+      {
+        "kind": "grant_resource",
+        "faction_id": "faction.michael",
+        "resource_id": "resource.provisions",
+        "amount": 2
+      },
+      { "kind": "set_flag", "flag": "flag.michael.not_alone" },
+      {
+        "kind": "set_quest_stage",
+        "quest_id": "quest.not_alone_anymore",
+        "stage_id": "stage.supported"
+      }
+    ]
+  },
+  {
     "id": "trigger.cthulhu.shrine_grown",
     "when": [
       {

@@ -1,4 +1,17 @@
 {
+  "quest.not_alone_anymore": {
+    "displayName": "Not Alone Anymore",
+    "initialStage": "stage.shipwrecked",
+    "stages": {
+      "stage.shipwrecked": {
+        "objective": "Michael has the wreck, a workshop of ideas, and no one to share them with."
+      },
+      "stage.supported": {
+        "objective": "Someone chose to stand with him. The island is a little less enormous now.",
+        "terminal": "success"
+      }
+    }
+  },
   "quest.the_cult_beneath_the_water": {
     "displayName": "The Cult Beneath the Water",
     "initialStage": "stage.rumors",

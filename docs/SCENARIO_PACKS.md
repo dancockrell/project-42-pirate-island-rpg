@@ -339,12 +339,15 @@ is authored order.
 so a trigger can neither read nor change anything the simulation does not
 already own. Conditions: `day_at_least`, `faction_eliminated`,
 `resource_at_least`, `holding_level_at_least`, `actor_at_cell`, `flag_set`,
-`heat_signalled`, `confrontation_begun`. Effects: `set_flag`, `grant_resource`,
-`grant_item`, `record_heat`, `set_hostility`. `grant_item` is the item
-catalogue's first declared source — before this contract `grant_item` was
-reachable only from a test. `set_hostility(true)` ends any survival truce
-between the pair as part of the same change, so the load-time invariant that a
-truce pair is never hostile still holds.
+`heat_signalled`, `confrontation_begun`, `loyal_companion_count` (how many
+actors have `person.loyal_to_michael` set — the field `recruit_island_person`
+itself writes, read directly rather than through a second count that could
+drift out of sync with it). Effects: `set_flag`, `grant_resource`,
+`grant_item`, `record_heat`, `set_hostility`, `set_quest_stage`. `grant_item`
+is the item catalogue's first declared source — before this contract
+`grant_item` was reachable only from a test. `set_hostility(true)` ends any
+survival truce between the pair as part of the same change, so the load-time
+invariant that a truce pair is never hostile still holds.
 
 **Deliberately absent: anything about regions.** `IslandNavigation` has
 `walkable`, `destinations` and `building_obstacles` and no region type, so "a

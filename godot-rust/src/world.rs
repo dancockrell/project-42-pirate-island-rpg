@@ -1029,6 +1029,11 @@ pub enum TriggerCondition {
         signal: String,
     },
     ConfrontationBegun,
+    /// How many actors have `person.loyal_to_michael` set -- the real state
+    /// `recruit_island_person` writes, not a proxy for it.
+    LoyalCompanionCount {
+        at_least: u32,
+    },
 }
 
 /// Every effect is something the simulation already does, reached through the
@@ -5731,6 +5736,9 @@ impl FactionWorld {
                 self.heat.iter().any(|event| event.signal == *signal)
             }
             TriggerCondition::ConfrontationBegun => self.confrontation.is_some(),
+            TriggerCondition::LoyalCompanionCount { at_least } => {
+                self.loyal_companion_count() >= *at_least
+            }
         }
     }
 
@@ -5839,6 +5847,21 @@ impl FactionWorld {
                 self.quest_stages.insert(quest_id.clone(), stage_id.clone());
             }
         }
+    }
+
+    /// How many actors `recruit_island_person` has actually marked loyal.
+    /// Reads the same field that verb writes; invents no second count to
+    /// drift out of sync with it.
+    pub fn loyal_companion_count(&self) -> u32 {
+        self.actors
+            .values()
+            .filter(|actor| {
+                actor
+                    .person
+                    .as_ref()
+                    .is_some_and(|person| person.loyal_to_michael)
+            })
+            .count() as u32
     }
 
     /// Append one entry to the heat ledger. Refuses a duplicate ID, an
@@ -7043,7 +7066,7 @@ mod tests {
     #[test]
     fn the_scenario_document_supplies_its_triggers() {
         let triggers = main_scenario_world().rules.triggers;
-        assert_eq!(triggers.len(), 3);
+        assert_eq!(triggers.len(), 4);
         assert!(
             triggers
                 .iter()
@@ -7294,6 +7317,79 @@ mod tests {
         for (id, quest) in &world.rules.quests {
             assert_eq!(world.quest_stages.get(id), Some(&quest.initial_stage));
         }
+    }
+
+    /// `LoyalCompanionCount` and the trigger that reads it, exercised through
+    /// the real production, approach, talk and recruit path -- not a
+    /// synthetic loyal_to_michael flip -- because a mechanism proven only
+    /// against a hand-built fixture is exactly what went wrong with the
+    /// island network this session: real code serving nothing real.
+    #[test]
+    fn recruiting_a_real_produced_woman_fires_the_not_alone_trigger() {
+        let mut world = main_scenario_world();
+        // Peace isolates the authored production and voluntary recruitment
+        // loop; no actor, identity, population or position is fabricated.
+        world.hostilities.clear();
+        assert_eq!(world.loyal_companion_count(), 0);
+        let mut recruited_id = None;
+        'outer: for _ in 0..2000 {
+            world.advance_island_tick();
+            let candidates: Vec<String> = world
+                .actors
+                .iter()
+                .filter(|(_, actor)| {
+                    actor.faction_id != "faction.michael"
+                        && actor.person.as_ref().is_some_and(|person| {
+                            person.sex == PersonSex::Female
+                                && person.age.is_some_and(|age| age >= 18)
+                        })
+                })
+                .map(|(id, _)| id.clone())
+                .collect();
+            for id in candidates {
+                if !world.approach_island_person(&id) {
+                    continue;
+                }
+                for _ in 0..128 {
+                    if world.can_talk_island_person(&id) {
+                        break;
+                    }
+                    world.advance_island_tick();
+                }
+                if world.can_talk_island_person(&id) {
+                    world.talk_island_person(&id);
+                    if world.recruit_island_person(&id) {
+                        recruited_id = Some(id);
+                        break 'outer;
+                    }
+                }
+            }
+        }
+        let recruited_id =
+            recruited_id.expect("a producible woman must be recruitable within the tick bound");
+        assert!(
+            world.actors[&recruited_id]
+                .person
+                .as_ref()
+                .unwrap()
+                .loyal_to_michael
+        );
+        assert_eq!(world.loyal_companion_count(), 1);
+        world.advance_island_tick();
+        assert!(
+            world
+                .fired_triggers
+                .contains_key("trigger.michael.first_companion")
+        );
+        assert_eq!(
+            world.quest_stages.get("quest.not_alone_anymore"),
+            Some(&"stage.supported".to_string())
+        );
+        assert_eq!(
+            world.stored_resource("faction.michael", "resource.provisions"),
+            2
+        );
+        assert!(world.flags.contains("flag.michael.not_alone"));
     }
 
     fn test_quest(initial_stage: &str) -> ScenarioQuest {

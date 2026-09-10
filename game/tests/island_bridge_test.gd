@@ -66,14 +66,24 @@ func _initialize() -> void:
 	# Triggers change the world, not a feed: what Godot reads is the flag
 	# array, the same shape as any other board fact in the snapshot.
 	assert(port.island_snapshot().flags is Array)
-	# The main scenario's one quest is active from the first snapshot: its
+	# The main scenario's quests are active from the first snapshot: their
 	# stage and objective text are authored data Godot shows, not composes.
 	var quests: Array = port.island_snapshot().quests
-	assert(quests.size() == 1)
-	var quest: Dictionary = quests[0]
-	assert(quest.id == "quest.the_cult_beneath_the_water")
-	assert(quest.stage == "stage.rumors")
-	assert(not quest.objective.is_empty())
-	assert(quest.terminal == "")
+	assert(quests.size() == 2)
+	var by_id := {}
+	for quest in quests:
+		by_id[quest.id] = quest
+	var cult_quest: Dictionary = by_id["quest.the_cult_beneath_the_water"]
+	assert(cult_quest.stage == "stage.rumors")
+	assert(not cult_quest.objective.is_empty())
+	assert(cult_quest.terminal == "")
+	# Recruiting a companion is not yet possible in this bare start-of-day
+	# snapshot (no one has been produced or recruited), so this quest is
+	# still on its initial stage -- proving the snapshot shows real state,
+	# not a hard-coded "already supported" answer.
+	var companion_quest: Dictionary = by_id["quest.not_alone_anymore"]
+	assert(companion_quest.stage == "stage.shipwrecked")
+	assert(not companion_quest.objective.is_empty())
+	assert(companion_quest.terminal == "")
 	print("PASS: actual Rust island bridge, scenario document, solo start, movement, ocean rejection, pause, arrival, the campaign clock, triggers and quests")
 	quit()

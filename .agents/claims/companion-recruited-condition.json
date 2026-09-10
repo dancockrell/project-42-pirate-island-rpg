@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "task_id": "companion-recruited-condition",
+  "agent": "claude-code (lane companion-recruited-condition)",
+  "summary": "A trigger condition reading real recruitment state (loyal_to_michael), and a small quest giving recruitment its first campaign consequence",
+  "status": "completed",
+  "claimed_at": "2026-09-10T15:30:00Z",
+  "updated_at": "2026-09-10T16:20:00Z",
+  "paths": [
+    "content/scenarios/pirate_island/quests.json",
+    "content/scenarios/pirate_island/triggers.json",
+    "game/generated/scenarios/scenario.pirate_island.json",
+    "game/tests/island_bridge_test.gd",
+    "godot-rust/src/world.rs",
+    "tools/src/validate.mjs",
+    "docs/SCENARIO_PACKS.md",
+    "docs/BUILD_OUT_PLAN.md"
+  ],
+  "symbols": [
+    "TriggerCondition::LoyalCompanionCount",
+    "FactionWorld::loyal_companion_count"
+  ],
+  "coordination": {
+    "depends_on": ["scenario-triggers", "scenario-quests"],
+    "conflicts_with": [],
+    "notes": "A deliberately small, low-risk contract chosen after two missteps this session (the island-network commit built on ungrounded content; a doc claimed a nonexistent 'Ayla'). Reads only state that already exists and is already tested (NamedPerson.loyal_to_michael, set by the real recruit_island_person verb), invents no geography, no character identity, and no new numbers beyond one resource grant using an already-declared resource (resource.provisions). Gives recruiting a companion its first campaign-level consequence: before this, recruit_island_person changed nothing but a boolean. Proven end to end through the real production and recruitment path (main_scenario_world, advance_island_tick until a woman is produced, approach_island_person, talk_island_person, recruit_island_person), not a synthetic fixture standing in for it, specifically because the island-network mistake was partly a failure to prove a mechanism against anything real. Does not touch Betty, the island network, sites, or factions doctrine -- those remain separate, larger decisions the owner has not resolved. No new saved state was introduced (the condition reads an existing field), so no new invalid_saved_* refusal was needed."
+  },
+  "completion": {
+    "commit": null,
+    "checks": [
+      {"command": "cargo fmt --manifest-path godot-rust/Cargo.toml -- --check", "result": "pass"},
+      {"command": "cargo test --manifest-path godot-rust/Cargo.toml", "result": "pass: 129 passed, 0 failed (1 new)"},
+      {"command": "cargo check --manifest-path godot-rust/Cargo.toml --features godot-ext", "result": "pass"},
+      {"command": "node tools/src/validate.mjs", "result": "pass: 148 stable IDs (1 new: quest.not_alone_anymore)"},
+      {"command": "node tools/src/build-content-bundle.mjs then git diff game/generated/", "result": "pass: regenerated document committed"},
+      {"command": "python3 tools/test_sprite_source.py", "result": "pass: 12 tests"},
+      {"command": "bash tools/build-native-bridge.sh debug", "result": "pass"},
+      {"command": "bash tools/verify-godot.sh 60", "result": "pass: all three suites, no ERROR line, 'Current 2D Godot verification passed'"},
+      {"command": "bite: at_least set to 0", "result": "validate.mjs failed by name: 'at_least must be a positive integer'"},
+      {"command": "bite: LoyalCompanionCount condition hard-coded to false", "result": "recruiting_a_real_produced_woman_fires_the_not_alone_trigger FAILED, restored green"},
+      {"command": "first Godot gate run after the change", "result": "FAILED: island_bridge_test.gd's quest-count assertion still hard-coded 1, and the main pack now authors two quests; the pre-existing count assertion for triggers (3) also needed updating to 4; both fixed to assert on the actual authored content by ID rather than position"}
+    ]
+  }
+}
