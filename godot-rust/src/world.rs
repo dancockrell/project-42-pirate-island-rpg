@@ -2405,6 +2405,26 @@ impl FactionWorld {
             return String::new();
         }
         let faction = &self.actors[id].faction_id;
+        // What she has actually heard lately.
+        //
+        // The diplomacy record has always been written and never read once:
+        // wars opened, truces were struck and holdings fell, and every person
+        // on the island went on saying the same standing sentence about who
+        // they were at war with. A companion repeats anything recent, because
+        // she walks with Michael and hears everything; anyone else only
+        // repeats what touched their own people. Nothing new is invented here
+        // and there is no feed -- it is the same record, finally spoken by
+        // somebody.
+        let loyal = self
+            .living_person(id)
+            .is_some_and(|person| person.loyal_to_michael);
+        let horizon = self.clock.ticks_per_day.max(1);
+        if let Some(notice) = self.diplomacy_notices.iter().rev().find(|notice| {
+            self.tick.saturating_sub(notice.tick) <= horizon
+                && (loyal || notice.factions.iter().any(|other| other == faction))
+        }) {
+            return notice.text.clone();
+        }
         if let Some(truce) = self
             .survival_truces
             .iter()
@@ -4374,6 +4394,15 @@ impl FactionWorld {
             self.navigation.destinations.remove(&format!("move.{id}"));
         }
         self.eliminated_factions.insert(faction_id.into());
+        // A faction ending is the loudest thing that happens on this island.
+        // It belongs in the record every person reads from.
+        self.record_diplomacy(
+            vec![faction_id.to_string()],
+            format!("{} are finished. Their holdings are gone.", {
+                let label = faction_label(faction_id);
+                label.to_string()
+            }),
+        );
         if self
             .approach_target
             .as_ref()
@@ -10394,6 +10423,74 @@ mod tests {
     /// answered "Michael already has a workshop site." for the rest of the
     /// campaign. Building it out costs salvage, takes real time, and buys a
     /// berth -- the only way the player's own force can grow at all.
+    /// The island's own record of its wars, finally spoken by somebody.
+    ///
+    /// Every war opened, truce struck and faction ended has always been
+    /// written to `diplomacy_notices` and read by nothing, so the war moved
+    /// constantly and every person on the island went on saying the same
+    /// standing sentence. A local repeats what touched their own people; a
+    /// companion repeats anything, because she walks with Michael; and once a
+    /// notice is a day old, everyone is back to the standing line.
+    #[test]
+    fn people_repeat_the_war_news_that_touches_them_and_companions_repeat_all_of_it() {
+        let (mut world, ids) = recruitment_fixture();
+        let local = ids[0].clone();
+        world.talk_island_person(&local);
+        let local_faction = world.actors[&local].faction_id.clone();
+        world.positions.insert(
+            "character.protagonist.captain".into(),
+            world.positions[&local],
+        );
+        let standing = world.island_person_news(&local);
+        assert!(!standing.is_empty());
+
+        // News about somebody else's war is not this person's to repeat.
+        world.record_diplomacy(
+            vec!["faction.elves.prototype".into()],
+            "The elves have come to open war with the fox people.".into(),
+        );
+        assert_eq!(world.island_person_news(&local), standing);
+
+        // News about their own people is.
+        world.record_diplomacy(
+            vec![local_faction.clone()],
+            "Our own people have made a truce.".into(),
+        );
+        assert_eq!(
+            world.island_person_news(&local),
+            "Our own people have made a truce."
+        );
+
+        // A day later it is old news and they are back to the standing line.
+        world.tick += world.clock.ticks_per_day + 1;
+        assert_eq!(world.island_person_news(&local), standing);
+
+        // A companion hears everything, whoever it was about.
+        let companion = ids
+            .iter()
+            .find(|id| {
+                world.living_person(id).is_some_and(|person| {
+                    person.sex == PersonSex::Female && !person.recruitment_offer.is_empty()
+                })
+            })
+            .cloned()
+            .expect("a recruitable woman");
+        world.positions.insert(
+            "character.protagonist.captain".into(),
+            world.positions[&companion],
+        );
+        world.talk_island_person(&companion);
+        assert!(world.recruit_island_person(&companion));
+        world.record_diplomacy(
+            vec!["faction.elves.prototype".into()],
+            "The elves are finished. Their holdings are gone.".into(),
+        );
+        assert_eq!(
+            world.island_person_news(&companion),
+            "The elves are finished. Their holdings are gone."
+        );
+    }
+
     #[test]
     fn the_workshop_can_be_built_out_and_each_level_buys_a_berth() {
         let mut world = mechanical_workshop_fixture();
