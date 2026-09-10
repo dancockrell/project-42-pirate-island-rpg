@@ -603,6 +603,7 @@ for (const pack of scenarioPacks) {
   for (const field of ["health", "damage", "range", "cooldown_ticks"]) {
     if (!Number.isInteger(profile?.[field]) || profile[field] < 0) fail(file, `${name} start.combatProfile.${field} must be a non-negative integer`);
   }
+  if (!Array.isArray(manifest.characters)) fail(file, `${name} characters must be an array of character record paths`);
   if (!Array.isArray(manifest.resources)) fail(file, `${name} resources must be an array of resource catalogue document paths`);
   if (!Array.isArray(manifest.triggers)) fail(file, `${name} triggers must be an array of trigger document paths`);
   if (!Array.isArray(manifest.quests)) fail(file, `${name} quests must be an array of quest catalogue document paths`);
@@ -669,6 +670,33 @@ for (const pack of scenarioPacks) {
     } else if (!catalogueIds.has(signatureWeaponId)) {
       fail(file, `${name} start.captainId ${captain.value.id} declares signatureWeaponId ${signatureWeaponId}, which this scenario's item catalogue does not define`);
     }
+  }
+  // The pack must carry the record for every character it places, because the
+  // simulation reads a character's identity from the document the pack embeds
+  // and from nowhere else. A captain the pack starts but does not carry would
+  // leave the island with no name to show.
+  const packCharacters = new Map();
+  for (const [index] of (Array.isArray(manifest.characters) ? manifest.characters : []).entries()) {
+    const record = resolved.get(`characters[${index}]`);
+    if (record === undefined) continue;
+    if (typeof record !== "object" || record === null || Array.isArray(record) || typeof record.id !== "string") {
+      fail(file, `${name} characters[${index}] must be a character record with an id`);
+      continue;
+    }
+    if (packCharacters.has(record.id)) fail(file, `${name} carries ${record.id} more than once`);
+    packCharacters.set(record.id, record);
+    const island = record.island;
+    if (typeof island !== "object" || island === null || Array.isArray(island)) {
+      fail(file, `${name} characters[${index}] ${record.id} must declare an island block, because the simulation places it as a person on the board`);
+      continue;
+    }
+    if (typeof island.boardName !== "string" || island.boardName.trim() === "") fail(file, `${name} ${record.id} island.boardName must be the name the board shows`);
+    if (!["male", "female"].includes(island.sex)) fail(file, `${name} ${record.id} island.sex must be male or female`);
+    if (!Number.isInteger(island.age) || island.age < 1 || island.age > 120) fail(file, `${name} ${record.id} island.age must be an integer between 1 and 120`);
+    if (typeof island.backstory !== "string" || island.backstory.trim() === "") fail(file, `${name} ${record.id} island.backstory must say who this person is`);
+  }
+  if (typeof manifest.start?.captainId === "string" && !packCharacters.has(manifest.start.captainId)) {
+    fail(file, `${name} starts ${manifest.start.captainId} but its characters do not carry that record, so the simulation would have no authored identity to place`);
   }
   let columns = null;
   let rows = null;

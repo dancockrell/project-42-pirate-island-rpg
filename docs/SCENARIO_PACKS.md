@@ -74,6 +74,7 @@ content/scenarios/<scenario-id>/
   },
   "buildings": "../../../game/assets/island/buildings.json",
   "personas": "../../../game/assets/island/personas.json",
+  "characters": ["../../characters/captain.json"],
   "resources": ["resources.json"],
   "items": "items.json",
   "triggers": ["triggers.json"],
@@ -82,8 +83,8 @@ content/scenarios/<scenario-id>/
 ```
 
 Every string value under `geography.navigation`, `factions[].tuning`,
-`factions[].production`, `rules.*`, `resources[]`, `triggers[]`, `quests[]`,
-`buildings` and `personas` is a path relative to the pack directory; the
+`factions[].production`, `rules.*`, `resources[]`, `characters[]`, `triggers[]`,
+`quests[]`, `buildings` and `personas` is a path relative to the pack directory; the
 referenced document is **embedded verbatim** by the bundle builder. The
 manifest never restates a rule file: one owner per document, referenced, not
 copied. `resources` carries the pack's resource catalogue, `items` its item
@@ -93,6 +94,25 @@ concatenated in authored order ([Resources](#resources), [Items](#items),
 [Triggers](#triggers) and [Quests](#quests) below). Every reserved key from
 schema version 1 is now implemented; the validator's job from here is proving
 each pack's content against the rules, not refusing an unimplemented shape.
+
+## Characters
+
+`characters` carries the authored record for every character the pack places.
+A character's `island` block — `boardName`, `sex`, `age`, `backstory` — is
+**the only source of that person's identity**. Before this key existed the
+simulation hard-coded the captain's name, sex, age and history in Rust while
+`content/characters/captain.json` described the same person separately, and
+the two had already diverged: the record's `displayName` was "Michael
+Corrigan" and the board said "Michael". One fact, two owners, is exactly what
+the repository standard forbids, so the literals are gone and the record wins.
+
+A pack that names a `start.captainId` whose record it does not carry is
+**refused** (`scenario_captain_record_missing`) rather than given a default
+name, and the validator fails the same case by name before the simulation ever
+sees it. The record carries more than the island reads — art, skills,
+provenance — and the simulation deliberately deserialises only the `island`
+block: those other fields belong to the presentation and battle owners, and
+copying them here would create a second copy to rot.
 
 ## The bundle
 

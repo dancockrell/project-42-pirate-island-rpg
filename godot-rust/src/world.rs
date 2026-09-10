@@ -1272,6 +1272,11 @@ pub struct ScenarioDefinition {
     pub rules: ScenarioRuleSet,
     pub buildings: BTreeMap<String, IslandBuildingFootprint>,
     pub personas: BTreeMap<String, Vec<PersonaPool>>,
+    /// The authored records for every character this pack places. A character's
+    /// name, sex, age and history come from here and from nowhere else, so the
+    /// simulation never carries a second copy of an identity to drift from.
+    #[serde(default)]
+    pub characters: Vec<ScenarioCharacter>,
     /// One or more catalogue documents, merged in order into one catalogue.
     #[serde(default)]
     pub resources: Vec<BTreeMap<String, ScenarioResource>>,
@@ -1288,6 +1293,27 @@ pub struct ScenarioDefinition {
     /// definition is not playable until its land is set.
     #[serde(skip)]
     pub land: Option<(BTreeSet<IslandPoint>, IslandPoint)>,
+}
+
+/// One authored character record, as much of it as the island reads. The
+/// record carries far more (art, skills, provenance); those belong to the
+/// presentation and battle owners, so they are deliberately not deserialised
+/// here rather than copied into the simulation and left to rot.
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct ScenarioCharacter {
+    pub id: String,
+    pub island: ScenarioCharacterIdentity,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct ScenarioCharacterIdentity {
+    #[serde(rename = "boardName")]
+    pub board_name: String,
+    pub sex: PersonSex,
+    /// `NamedPerson` keeps an age as a `u16`; the record is read into the same
+    /// width so no conversion can quietly reinterpret an authored age.
+    pub age: u16,
+    pub backstory: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -3394,6 +3420,24 @@ impl FactionWorld {
         if captain.is_empty() || definition.factions.is_empty() {
             return Err("invalid_scenario_start".into());
         }
+        // The pack must carry the record for the character it starts. Refusing
+        // here rather than substituting a default keeps one owner for a hero's
+        // identity: a pack that names a captain it does not carry is wrong, and
+        // saying so is better than inventing a name to cover it.
+        let Some(captain_record) = definition
+            .characters
+            .iter()
+            .find(|character| character.id == captain)
+        else {
+            return Err("scenario_captain_record_missing".into());
+        };
+        let captain_identity = captain_record.island.clone();
+        if captain_identity.board_name.is_empty()
+            || captain_identity.backstory.is_empty()
+            || captain_identity.age == 0
+        {
+            return Err("invalid_scenario_captain_identity".into());
+        }
         let mut staged = Self {
             rules,
             ..Default::default()
@@ -3452,16 +3496,16 @@ impl FactionWorld {
             ProducedActor {
                 madness: 0,
                 undead: false,
-                // Provisional: the manifest reserves no field for the captain's
-                // name or history, so the scenario's hero identity stays here.
+                // The hero's identity is the authored record's, read from the
+                // document the pack carries. The simulation keeps no second
+                // copy of it to drift from.
                 person: Some(NamedPerson {
                     id: captain.clone(),
-                    display_name: "Michael".into(),
+                    display_name: captain_identity.board_name.clone(),
                     alive_today: true,
-                    sex: PersonSex::Male,
-                    age: Some(20),
-                    backstory: "Captain of the Handsome Jack. Shipwreck survivor and inventor."
-                        .into(),
+                    sex: captain_identity.sex,
+                    age: Some(captain_identity.age),
+                    backstory: captain_identity.backstory.clone(),
                     ..Default::default()
                 }),
                 instance_id: captain.clone(),
@@ -6614,6 +6658,57 @@ mod tests {
         assert_eq!(
             canonical(&world.save_json().unwrap()),
             canonical(&fixture("hard_coded_island_tick_1440.json")),
+        );
+    }
+
+    /// The hero's identity is the pack's too. Asserting against the record the
+    /// definition carries, rather than against the strings the simulation used
+    /// to hard-code, is the point: the same literals would pass either way, so
+    /// the test also changes the record and proves the board changes with it.
+    #[test]
+    fn the_captains_identity_is_the_authored_records() {
+        let definition = main_scenario();
+        let world = main_scenario_world();
+        let record = definition
+            .characters
+            .iter()
+            .find(|character| character.id == definition.start.captain_id)
+            .expect("the pack carries the record for the captain it starts");
+        let person = world.actors[&definition.start.captain_id]
+            .person
+            .as_ref()
+            .expect("the captain is a named person");
+        assert_eq!(person.display_name, record.island.board_name);
+        assert_eq!(person.sex, record.island.sex);
+        assert_eq!(person.age, Some(record.island.age));
+        assert_eq!(person.backstory, record.island.backstory);
+
+        // Change the authored record and the island must follow it. Without
+        // this the assertions above would still pass against a Rust literal
+        // that happened to match the content.
+        let mut renamed = main_scenario();
+        let captain_id = renamed.start.captain_id.clone();
+        for character in &mut renamed.characters {
+            if character.id == captain_id {
+                character.island.board_name = "Someone Else Entirely".into();
+                character.island.age = 41;
+            }
+        }
+        let other = FactionWorld::from_scenario(&renamed).expect("renamed captain world");
+        let renamed_person = other.actors[&captain_id].person.as_ref().unwrap();
+        assert_eq!(renamed_person.display_name, "Someone Else Entirely");
+        assert_eq!(renamed_person.age, Some(41));
+    }
+
+    /// A pack that starts a character whose record it does not carry is refused
+    /// rather than quietly given a default name.
+    #[test]
+    fn a_pack_that_does_not_carry_its_captains_record_is_refused() {
+        let mut definition = main_scenario();
+        definition.characters.clear();
+        assert_eq!(
+            FactionWorld::from_scenario(&definition).unwrap_err(),
+            "scenario_captain_record_missing"
         );
     }
 

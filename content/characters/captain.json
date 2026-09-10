@@ -8,6 +8,12 @@
   "tags": ["adult", "human", "protagonist", "echo-bearer", "harem-leader", "prototype"],
   "signatureWeaponId": "weapon.captain.handsome_jack_steam_carbine",
   "skillIds": [],
+  "island": {
+    "boardName": "Michael",
+    "sex": "male",
+    "age": 20,
+    "backstory": "Captain of the Handsome Jack. Shipwreck survivor and inventor."
+  },
   "art": {
     "activeActorAssetId": "art.placeholder.captain.active_actor",
     "cardPortraitAssetId": "art.placeholder.captain.card_portrait",

@@ -163,6 +163,21 @@ Order is by dependency, not by appetite.
   not a distant war zone — a quest about "finally going to look at the
   clearing" would have contradicted the board on tick one. This is a cell,
   not a region: regions still wait on the island-network contract.
+- **Authored characters, one owner.** The pack gains a `characters` key and the
+  simulation reads the captain's name, sex, age and history from the record it
+  carries. This closed a real two-owner defect the code itself had flagged
+  provisional: `world.rs` hard-coded Michael's identity while
+  `content/characters/captain.json` described the same person separately, and
+  they had **already diverged** — the record said "Michael Corrigan", the board
+  said "Michael". The validator had been resolving `start.captainId` to that
+  record (and even checking its signature weapon) all along; only the
+  simulation ignored it. The equality proof shows the island is byte-identical
+  after the change, and a pack that starts a captain whose record it does not
+  carry is now refused rather than handed a default name. This is the
+  precondition for Betty: she is a named individual, and `personas.json` is a
+  *procedural* pool (name lists and histories per actor definition), so adding
+  her there would have generated a random woman called Betty instead of the
+  authored one.
 
 ### Next, in order
 

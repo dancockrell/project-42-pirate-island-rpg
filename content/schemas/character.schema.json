@@ -13,6 +13,18 @@
     "tags": {"type": "array", "minItems": 3, "uniqueItems": true, "items": {"type": "string"}},
     "signatureWeaponId": {"type": "string", "pattern": "^weapon\\."},
     "skillIds": {"type": "array", "minItems": 0, "uniqueItems": true, "items": {"type": "string", "pattern": "^skill\\."}},
+    "island": {
+      "description": "What the island simulation needs to place this character as a person on the board. Present only for characters a scenario pack may place; the simulation reads this and nothing else about identity, so a name or history lives here once rather than being repeated in Rust.",
+      "type": "object",
+      "required": ["boardName", "sex", "age", "backstory"],
+      "properties": {
+        "boardName": {"type": "string", "minLength": 1},
+        "sex": {"enum": ["male", "female"]},
+        "age": {"type": "integer", "minimum": 1, "maximum": 120},
+        "backstory": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
     "art": {
       "type": "object",
       "required": ["activeActorAssetId", "cardPortraitAssetId", "status", "accessibilityDescription"],

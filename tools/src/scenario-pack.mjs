@@ -33,6 +33,9 @@ export function declaredPaths(manifest) {
   for (const [index, path] of (Array.isArray(manifest.resources) ? manifest.resources : []).entries()) {
     declared.push({ field: `resources[${index}]`, path });
   }
+  for (const [index, path] of (Array.isArray(manifest.characters) ? manifest.characters : []).entries()) {
+    declared.push({ field: `characters[${index}]`, path });
+  }
   for (const [index, path] of (Array.isArray(manifest.triggers) ? manifest.triggers : []).entries()) {
     declared.push({ field: `triggers[${index}]`, path });
   }
