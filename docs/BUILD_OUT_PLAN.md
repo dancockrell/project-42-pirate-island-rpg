@@ -127,6 +127,13 @@ Order is by dependency, not by appetite.
   small after two mistakes this session (the reverted island network; a false
   claim about a nonexistent "Ayla") from building or documenting past what was
   actually verified.
+- **A full household gets a second consequence.** `party_size`, a second new
+  condition in the same shape, reads how many of the four `party` slots
+  `assign_island_companion` has filled. The main pack's
+  `quest.the_household_forms` resolves once all four are, proven the same
+  way: four separate produced women, actually recruited and actually
+  assigned, not four flags set by hand. Still not the lead system the
+  authority describes; still no Betty, no geography, no invented identity.
 
 ### Next, in order
 

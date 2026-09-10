@@ -342,7 +342,8 @@ already own. Conditions: `day_at_least`, `faction_eliminated`,
 `heat_signalled`, `confrontation_begun`, `loyal_companion_count` (how many
 actors have `person.loyal_to_michael` set — the field `recruit_island_person`
 itself writes, read directly rather than through a second count that could
-drift out of sync with it). Effects: `set_flag`, `grant_resource`,
+drift out of sync with it), `party_size` (how many of the four `party` slots
+`assign_island_companion` has actually filled). Effects: `set_flag`, `grant_resource`,
 `grant_item`, `record_heat`, `set_hostility`, `set_quest_stage`. `grant_item`
 is the item catalogue's first declared source — before this contract
 `grant_item` was reachable only from a test. `set_hostility(true)` ends any

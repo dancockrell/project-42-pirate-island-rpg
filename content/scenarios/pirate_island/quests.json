@@ -12,6 +12,19 @@
       }
     }
   },
+  "quest.the_household_forms": {
+    "displayName": "The Household Forms",
+    "initialStage": "stage.recruiting",
+    "stages": {
+      "stage.recruiting": {
+        "objective": "Michael can stand beside up to four women. He has room to spare."
+      },
+      "stage.complete": {
+        "objective": "Four women stand with him now, whatever that will come to mean.",
+        "terminal": "success"
+      }
+    }
+  },
   "quest.the_cult_beneath_the_water": {
     "displayName": "The Cult Beneath the Water",
     "initialStage": "stage.rumors",

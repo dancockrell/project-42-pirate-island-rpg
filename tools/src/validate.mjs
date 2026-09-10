@@ -850,7 +850,8 @@ for (const pack of scenarioPacks) {
     flag_set: ["flag"],
     heat_signalled: ["signal"],
     confrontation_begun: [],
-    loyal_companion_count: ["at_least"]
+    loyal_companion_count: ["at_least"],
+    party_size: ["at_least"]
   };
   const triggerEffectFields = {
     set_flag: ["flag"],
@@ -931,6 +932,7 @@ for (const pack of scenarioPacks) {
         if (condition.kind === "flag_set" && typeof condition.flag === "string") readFlags.set(condition.flag, at);
         if (condition.kind === "heat_signalled" && !heatChannels.has(condition.signal)) fail(file, `${name} ${at} signal ${condition.signal} is not one of this scenario's campaign-clock signalChannels`);
         if (condition.kind === "loyal_companion_count" && (!Number.isInteger(condition.at_least) || condition.at_least < 1)) fail(file, `${name} ${at} at_least must be a positive integer`);
+        if (condition.kind === "party_size" && (!Number.isInteger(condition.at_least) || condition.at_least < 1 || condition.at_least > 4)) fail(file, `${name} ${at} at_least must be between 1 and 4 -- the party has exactly four slots, so anything higher can never be true`);
       }
       if (!Array.isArray(trigger.then) || trigger.then.length === 0 || trigger.then.length > 16) fail(file, `${name} ${where} needs between one and sixteen effects`);
       else for (const [effectIndex, raw] of trigger.then.entries()) {

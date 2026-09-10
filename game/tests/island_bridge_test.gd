@@ -69,7 +69,7 @@ func _initialize() -> void:
 	# The main scenario's quests are active from the first snapshot: their
 	# stage and objective text are authored data Godot shows, not composes.
 	var quests: Array = port.island_snapshot().quests
-	assert(quests.size() == 2)
+	assert(quests.size() == 3)
 	var by_id := {}
 	for quest in quests:
 		by_id[quest.id] = quest
@@ -78,12 +78,15 @@ func _initialize() -> void:
 	assert(not cult_quest.objective.is_empty())
 	assert(cult_quest.terminal == "")
 	# Recruiting a companion is not yet possible in this bare start-of-day
-	# snapshot (no one has been produced or recruited), so this quest is
-	# still on its initial stage -- proving the snapshot shows real state,
-	# not a hard-coded "already supported" answer.
+	# snapshot (no one has been produced or recruited), so both companion
+	# quests are still on their initial stage -- proving the snapshot shows
+	# real state, not a hard-coded "already supported" answer.
 	var companion_quest: Dictionary = by_id["quest.not_alone_anymore"]
 	assert(companion_quest.stage == "stage.shipwrecked")
 	assert(not companion_quest.objective.is_empty())
+	var household_quest: Dictionary = by_id["quest.the_household_forms"]
+	assert(household_quest.stage == "stage.recruiting")
+	assert(not household_quest.objective.is_empty())
 	assert(companion_quest.terminal == "")
 	print("PASS: actual Rust island bridge, scenario document, solo start, movement, ocean rejection, pause, arrival, the campaign clock, triggers and quests")
 	quit()

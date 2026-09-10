@@ -18,6 +18,24 @@
     ]
   },
   {
+    "id": "trigger.michael.full_household",
+    "when": [{ "kind": "party_size", "at_least": 4 }],
+    "then": [
+      {
+        "kind": "grant_resource",
+        "faction_id": "faction.michael",
+        "resource_id": "resource.provisions",
+        "amount": 4
+      },
+      { "kind": "set_flag", "flag": "flag.michael.household_complete" },
+      {
+        "kind": "set_quest_stage",
+        "quest_id": "quest.the_household_forms",
+        "stage_id": "stage.complete"
+      }
+    ]
+  },
+  {
     "id": "trigger.cthulhu.shrine_grown",
     "when": [
       {

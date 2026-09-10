@@ -1034,6 +1034,11 @@ pub enum TriggerCondition {
     LoyalCompanionCount {
         at_least: u32,
     },
+    /// How many of the four `party` slots `assign_island_companion` has
+    /// actually filled -- the real array, not a proxy for it.
+    PartySize {
+        at_least: u32,
+    },
 }
 
 /// Every effect is something the simulation already does, reached through the
@@ -5739,6 +5744,7 @@ impl FactionWorld {
             TriggerCondition::LoyalCompanionCount { at_least } => {
                 self.loyal_companion_count() >= *at_least
             }
+            TriggerCondition::PartySize { at_least } => self.party_size() >= *at_least,
         }
     }
 
@@ -5862,6 +5868,12 @@ impl FactionWorld {
                     .is_some_and(|person| person.loyal_to_michael)
             })
             .count() as u32
+    }
+
+    /// How many of the four `party` slots are actually filled. Reads the
+    /// same array `assign_island_companion` writes.
+    pub fn party_size(&self) -> u32 {
+        self.party.iter().filter(|slot| !slot.is_empty()).count() as u32
     }
 
     /// Append one entry to the heat ledger. Refuses a duplicate ID, an
@@ -7066,7 +7078,7 @@ mod tests {
     #[test]
     fn the_scenario_document_supplies_its_triggers() {
         let triggers = main_scenario_world().rules.triggers;
-        assert_eq!(triggers.len(), 4);
+        assert_eq!(triggers.len(), 5);
         assert!(
             triggers
                 .iter()
@@ -7390,6 +7402,75 @@ mod tests {
             2
         );
         assert!(world.flags.contains("flag.michael.not_alone"));
+    }
+
+    /// `PartySize` and the trigger that reads it, exercised the same way:
+    /// through real production and recruitment for four separate women,
+    /// each actually assigned to a party slot, not four flags flipped by
+    /// hand.
+    #[test]
+    fn filling_all_four_party_slots_fires_the_household_trigger() {
+        let mut world = main_scenario_world();
+        world.hostilities.clear();
+        assert_eq!(world.party_size(), 0);
+        let mut recruited: Vec<String> = Vec::new();
+        for _ in 0..8000 {
+            if recruited.len() >= 4 {
+                break;
+            }
+            world.advance_island_tick();
+            let candidates: Vec<String> = world
+                .actors
+                .iter()
+                .filter(|(id, actor)| {
+                    !recruited.contains(id)
+                        && actor.faction_id != "faction.michael"
+                        && actor.person.as_ref().is_some_and(|person| {
+                            person.sex == PersonSex::Female
+                                && person.age.is_some_and(|age| age >= 18)
+                        })
+                })
+                .map(|(id, _)| id.clone())
+                .collect();
+            for id in candidates {
+                if recruited.len() >= 4 {
+                    break;
+                }
+                if !world.approach_island_person(&id) {
+                    continue;
+                }
+                for _ in 0..128 {
+                    if world.can_talk_island_person(&id) {
+                        break;
+                    }
+                    world.advance_island_tick();
+                }
+                if world.can_talk_island_person(&id) {
+                    world.talk_island_person(&id);
+                    if world.recruit_island_person(&id) {
+                        assert!(world.assign_island_companion(&id, recruited.len()));
+                        recruited.push(id);
+                    }
+                }
+            }
+        }
+        assert_eq!(
+            recruited.len(),
+            4,
+            "four producible women must be recruitable and assignable within the tick bound"
+        );
+        assert_eq!(world.party_size(), 4);
+        world.advance_island_tick();
+        assert!(
+            world
+                .fired_triggers
+                .contains_key("trigger.michael.full_household")
+        );
+        assert_eq!(
+            world.quest_stages.get("quest.the_household_forms"),
+            Some(&"stage.complete".to_string())
+        );
+        assert!(world.flags.contains("flag.michael.household_complete"));
     }
 
     fn test_quest(initial_stage: &str) -> ScenarioQuest {
