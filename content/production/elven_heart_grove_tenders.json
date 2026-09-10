@@ -1,1 +1,19 @@
-{"id":"spawn_rule.heart_grove.tenders","kind":"production_rule","producerArchetypeId":"site_archetype.elven.heart_grove","actorKind":"worker","outputDefinitionId":"actor_def.elven.grove_tender","costs":{"resource.water":1,"resource.sunlight":1},"productionTicks":3,"populationUse":1,"provenanceRequired":true,"initialAssignment":"await_faction_ai_dispatch","requirements":["producer_operational","living_ground_connected"]}
+{
+  "id": "spawn_rule.heart_grove.tenders",
+  "kind": "production_rule",
+  "producerArchetypeId": "site_archetype.elven.heart_grove",
+  "actorKind": "worker",
+  "outputDefinitionId": "actor_def.elven.grove_tender",
+  "costs": {
+    "resource.water": 1,
+    "resource.sunlight": 1
+  },
+  "productionTicks": 360,
+  "populationUse": 1,
+  "provenanceRequired": true,
+  "initialAssignment": "await_faction_ai_dispatch",
+  "requirements": [
+    "producer_operational",
+    "living_ground_connected"
+  ]
+}

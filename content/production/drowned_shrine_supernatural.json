@@ -1,1 +1,19 @@
-{"id":"spawn_rule.drowned_shrine.supernatural","kind":"production_rule","producerArchetypeId":"site_archetype.cthulhu.drowned_shrine","actorKind":"supernatural","outputDefinitionId":"actor_def.cthulhu.brine_wraith","costs":{"resource.ritual_control":4,"resource.corruption":3},"productionTicks":6,"populationUse":2,"provenanceRequired":true,"initialAssignment":"await_faction_ai_dispatch","requirements":["producer_level_3","ritual_tether_active"]}
+{
+  "id": "spawn_rule.drowned_shrine.supernatural",
+  "kind": "production_rule",
+  "producerArchetypeId": "site_archetype.cthulhu.drowned_shrine",
+  "actorKind": "supernatural",
+  "outputDefinitionId": "actor_def.cthulhu.brine_wraith",
+  "costs": {
+    "resource.ritual_control": 4,
+    "resource.corruption": 3
+  },
+  "productionTicks": 1800,
+  "populationUse": 2,
+  "provenanceRequired": true,
+  "initialAssignment": "await_faction_ai_dispatch",
+  "requirements": [
+    "producer_level_3",
+    "ritual_tether_active"
+  ]
+}

@@ -1,1 +1,20 @@
-{"id":"spawn_rule.river_market.vendors","kind":"production_rule","producerArchetypeId":"site_archetype.eastern_fox_people.river_market","actorKind":"vendor","outputDefinitionId":"actor_def.eastern_fox_people.silk_broker","costs":{"resource.rice":1,"resource.silk":1,"resource.prestige":1},"productionTicks":4,"populationUse":1,"provenanceRequired":true,"initialAssignment":"await_faction_ai_dispatch","requirements":["producer_level_2","trade_tether_open"]}
+{
+  "id": "spawn_rule.river_market.vendors",
+  "kind": "production_rule",
+  "producerArchetypeId": "site_archetype.eastern_fox_people.river_market",
+  "actorKind": "vendor",
+  "outputDefinitionId": "actor_def.eastern_fox_people.silk_broker",
+  "costs": {
+    "resource.rice": 1,
+    "resource.silk": 1,
+    "resource.prestige": 1
+  },
+  "productionTicks": 720,
+  "populationUse": 1,
+  "provenanceRequired": true,
+  "initialAssignment": "await_faction_ai_dispatch",
+  "requirements": [
+    "producer_level_2",
+    "trade_tether_open"
+  ]
+}

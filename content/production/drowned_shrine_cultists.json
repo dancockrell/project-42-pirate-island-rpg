@@ -1,1 +1,18 @@
-{"id":"spawn_rule.drowned_shrine.cultists","kind":"production_rule","producerArchetypeId":"site_archetype.cthulhu.drowned_shrine","actorKind":"soldier","outputDefinitionId":"actor_def.cthulhu.drowned_cultist","costs":{"resource.ritual_control":2,"resource.dreams":1},"productionTicks":3,"populationUse":1,"provenanceRequired":true,"initialAssignment":"await_faction_ai_dispatch","requirements":["producer_operational"]}
+{
+  "id": "spawn_rule.drowned_shrine.cultists",
+  "kind": "production_rule",
+  "producerArchetypeId": "site_archetype.cthulhu.drowned_shrine",
+  "actorKind": "soldier",
+  "outputDefinitionId": "actor_def.cthulhu.drowned_cultist",
+  "costs": {
+    "resource.ritual_control": 2,
+    "resource.dreams": 1
+  },
+  "productionTicks": 540,
+  "populationUse": 1,
+  "provenanceRequired": true,
+  "initialAssignment": "await_faction_ai_dispatch",
+  "requirements": [
+    "producer_operational"
+  ]
+}

@@ -4,10 +4,15 @@
   "producerArchetypeId": "site_archetype.eastern_fox_people.river_market",
   "actorKind": "soldier",
   "outputDefinitionId": "actor_def.eastern_fox_people.spear_skirmisher",
-  "costs": {"resource.rice": 2, "resource.silk": 1},
-  "productionTicks": 2,
+  "costs": {
+    "resource.rice": 2,
+    "resource.silk": 1
+  },
+  "productionTicks": 480,
   "populationUse": 1,
   "provenanceRequired": true,
   "initialAssignment": "await_faction_ai_dispatch",
-  "requirements": ["producer_operational"]
+  "requirements": [
+    "producer_operational"
+  ]
 }

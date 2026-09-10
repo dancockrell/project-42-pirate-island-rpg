@@ -4,10 +4,15 @@
   "producerArchetypeId": "site_archetype.elven.heart_grove",
   "actorKind": "soldier",
   "outputDefinitionId": "actor_def.elven.bow_warden",
-  "costs": {"resource.living_wood": 4, "resource.memory": 2},
-  "productionTicks": 8,
+  "costs": {
+    "resource.living_wood": 4,
+    "resource.memory": 2
+  },
+  "productionTicks": 1620,
   "populationUse": 1,
   "provenanceRequired": true,
   "initialAssignment": "await_faction_ai_dispatch",
-  "requirements": ["producer_operational"]
+  "requirements": [
+    "producer_operational"
+  ]
 }

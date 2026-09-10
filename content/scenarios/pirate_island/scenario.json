@@ -13,7 +13,7 @@
       "health": 30,
       "damage": 4,
       "range": 4,
-      "cooldown_ticks": 5
+      "cooldown_ticks": 100
     },
     "economy": {
       "stockpile": {},

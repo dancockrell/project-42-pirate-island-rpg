@@ -785,6 +785,25 @@ pub struct SurvivalTruce {
     pub resume_ba: bool,
 }
 
+/// How much one faction can stand another, on the same scale the authored
+/// relationship matrix already uses. Until now that matrix's `standing` was
+/// read once and thrown away, and the only rule that could start a war was
+/// "Cthulhu has grown too strong" -- so once the opening war burned out, the
+/// survivors stood in the same clearing for the rest of the campaign with no
+/// rule anywhere that could make them fight again. This is that number kept
+/// alive: it drifts every decision tick, and crossing a threshold opens or
+/// closes a war.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FactionStanding {
+    pub a: String,
+    pub b: String,
+    /// What the matrix authored. Quiet years pull the living value back to it,
+    /// so peace restores the relationship the setting describes rather than
+    /// leaving every pair permanently at the worst it ever was.
+    pub baseline: i32,
+    pub value: i32,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DiplomacyNotice {
     pub tick: u64,
@@ -804,6 +823,9 @@ pub struct InitialRelationship {
     b: String,
     #[serde(rename = "atWar")]
     at_war: bool,
+    /// The matrix has always carried this. Nothing read it until standings.
+    #[serde(default)]
+    standing: i32,
 }
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SurvivalRules {
@@ -811,6 +833,51 @@ pub struct SurvivalRules {
     truce_ticks: u64,
     dominance_percent: u64,
     strength_horizon_ticks: u64,
+    /// Standing at or below this opens a war; at or above `peace_standing` an
+    /// open war stops. Defaulted so a version-2 save written before standings
+    /// existed still loads and starts drifting from its authored baselines.
+    #[serde(default = "default_war_standing")]
+    war_standing: i32,
+    #[serde(default = "default_peace_standing")]
+    peace_standing: i32,
+    /// How fast being overshadowed by a neighbour spends the relationship.
+    #[serde(default = "default_fear_step")]
+    fear_step: i32,
+    /// How fast an open war spends itself. Wars end because both sides are
+    /// tired, which is the only way a war between two survivors can end
+    /// without one of them ceasing to exist.
+    #[serde(default = "default_war_weariness_step")]
+    war_weariness_step: i32,
+    /// How fast quiet time repairs a relationship toward its baseline.
+    #[serde(default = "default_recovery_step")]
+    recovery_step: i32,
+    /// How much slower a shot is when the target is a holding rather than a
+    /// person. Muskets and spears are made for people; battering a fort is
+    /// slow, deliberate work. Without this a walk-up army levels a faction's
+    /// only holding in an afternoon, which is why the opening war used to end
+    /// the campaign on day one.
+    #[serde(default = "default_siege_cooldown_multiplier")]
+    siege_cooldown_multiplier: u32,
+}
+
+fn default_siege_cooldown_multiplier() -> u32 {
+    4
+}
+
+fn default_war_standing() -> i32 {
+    -50
+}
+fn default_peace_standing() -> i32 {
+    -20
+}
+fn default_fear_step() -> i32 {
+    2
+}
+fn default_war_weariness_step() -> i32 {
+    1
+}
+fn default_recovery_step() -> i32 {
+    1
 }
 
 impl SurvivalRules {
@@ -819,6 +886,13 @@ impl SurvivalRules {
             && (1..=100000).contains(&self.truce_ticks)
             && (101..=1000).contains(&self.dominance_percent)
             && (1..=1024).contains(&self.strength_horizon_ticks)
+            && (-100..=100).contains(&self.war_standing)
+            && (-100..=100).contains(&self.peace_standing)
+            && self.war_standing < self.peace_standing
+            && (1..=50).contains(&self.fear_step)
+            && (1..=50).contains(&self.war_weariness_step)
+            && (1..=50).contains(&self.recovery_step)
+            && (1..=64).contains(&self.siege_cooldown_multiplier)
     }
 }
 
@@ -1690,6 +1764,9 @@ pub struct FactionWorld {
     pub rules: ScenarioRules,
     #[serde(default)]
     pub survival_truces: Vec<SurvivalTruce>,
+    /// One entry per authored pair, seeded from the relationship matrix.
+    #[serde(default)]
+    pub standings: Vec<FactionStanding>,
     #[serde(default)]
     pub diplomacy_notices: Vec<DiplomacyNotice>,
     #[serde(default)]
@@ -2119,6 +2196,7 @@ impl FactionWorld {
                 }
             }
         }
+        self.advance_standings(&rules);
         let mut retained = Vec::new();
         for mut truce in std::mem::take(&mut self.survival_truces) {
             if !self.diplomacy_viable(&truce.a) || !self.diplomacy_viable(&truce.b) {
@@ -2216,6 +2294,95 @@ impl FactionWorld {
         for id in obsolete {
             self.cancel_actor_travel(&id);
             self.actors.get_mut(&id).unwrap().current_assignment_id = None;
+        }
+    }
+
+    /// Fear, weariness and quiet time, applied to every authored pair.
+    ///
+    /// Three forces, and only three. A faction overshadowed by a neighbour
+    /// spends the relationship down; an open war spends itself out, so a war
+    /// can end in exhaustion rather than only in somebody's extinction; and a
+    /// pair left alone drifts back toward the standing the setting authored.
+    /// Crossing `war_standing` opens a war and crossing `peace_standing` ends
+    /// one, which is what keeps the island moving after the opening war.
+    fn advance_standings(&mut self, rules: &SurvivalRules) {
+        let viable: BTreeSet<String> = self
+            .factions
+            .keys()
+            .filter(|id| self.diplomacy_viable(id) && self.policies.contains_key(*id))
+            .cloned()
+            .collect();
+        let strengths: BTreeMap<String, u64> = viable
+            .iter()
+            .map(|id| (id.clone(), self.military_strength(id)))
+            .collect();
+        let mut declared = Vec::new();
+        let mut settled = Vec::new();
+        for standing in &mut self.standings {
+            if !viable.contains(&standing.a) || !viable.contains(&standing.b) {
+                continue;
+            }
+            let at_war = self
+                .hostilities
+                .contains(&(standing.a.clone(), standing.b.clone()))
+                || self
+                    .hostilities
+                    .contains(&(standing.b.clone(), standing.a.clone()));
+            let (a_strength, b_strength) = (strengths[&standing.a], strengths[&standing.b]);
+            let overshadowed = a_strength.max(b_strength).saturating_mul(100)
+                > a_strength
+                    .min(b_strength)
+                    .max(1)
+                    .saturating_mul(rules.dominance_percent);
+            if at_war {
+                standing.value = standing.value.saturating_add(rules.war_weariness_step);
+            } else if overshadowed {
+                standing.value = standing.value.saturating_sub(rules.fear_step);
+            } else if standing.value < standing.baseline {
+                standing.value = standing
+                    .value
+                    .saturating_add(rules.recovery_step)
+                    .min(standing.baseline);
+            }
+            standing.value = standing.value.clamp(-100, 100);
+            if !at_war && standing.value <= rules.war_standing {
+                declared.push((standing.a.clone(), standing.b.clone()));
+            } else if at_war && standing.value >= rules.peace_standing {
+                settled.push((standing.a.clone(), standing.b.clone()));
+            }
+        }
+        for (a, b) in declared {
+            // A pair already holding together against a larger threat does not
+            // fall out over standing; the truce is the island's one brake here.
+            if self
+                .survival_truces
+                .iter()
+                .any(|t| (t.a == a && t.b == b) || (t.a == b && t.b == a))
+            {
+                continue;
+            }
+            self.hostilities.insert((a.clone(), b.clone()));
+            self.hostilities.insert((b.clone(), a.clone()));
+            self.record_diplomacy(
+                vec![a.clone(), b.clone()],
+                format!(
+                    "{} and {} have come to open war.",
+                    faction_label(&a),
+                    faction_label(&b)
+                ),
+            );
+        }
+        for (a, b) in settled {
+            self.hostilities.remove(&(a.clone(), b.clone()));
+            self.hostilities.remove(&(b.clone(), a.clone()));
+            self.record_diplomacy(
+                vec![a.clone(), b.clone()],
+                format!(
+                    "{} and {} have stopped fighting.",
+                    faction_label(&a),
+                    faction_label(&b)
+                ),
+            );
         }
     }
 
@@ -3491,7 +3658,11 @@ impl FactionWorld {
             self.unit_combat
                 .get_mut(&attacker)
                 .unwrap()
-                .next_attack_tick = self.tick.saturating_add(u64::from(cooldown.max(1)));
+                .next_attack_tick = self.tick.saturating_add(u64::from(
+                cooldown
+                    .max(1)
+                    .saturating_mul(self.rules.survival.siege_cooldown_multiplier.max(1)),
+            ));
             let total = building_damage
                 .entry((faction, building.clone()))
                 .or_default();
@@ -3846,6 +4017,19 @@ impl FactionWorld {
                 staged.hostilities.insert((row.a.clone(), row.b.clone()));
                 staged.hostilities.insert((row.b.clone(), row.a.clone()));
             }
+            let standing = row.standing.clamp(-100, 100);
+            // Sorted, so a pair has exactly one row however the matrix wrote it.
+            let (a, b) = if row.a <= row.b {
+                (row.a.clone(), row.b.clone())
+            } else {
+                (row.b.clone(), row.a.clone())
+            };
+            staged.standings.push(FactionStanding {
+                a,
+                b,
+                baseline: standing,
+                value: standing,
+            });
         }
         staged.navigation.building_obstacles = staged.authored_building_obstacles()?;
         if staged
@@ -4533,6 +4717,19 @@ impl FactionWorld {
             })
         {
             return Err("invalid_saved_resources".into());
+        }
+        let mut standing_pairs = BTreeSet::new();
+        if world.standings.len() > 64
+            || world.standings.iter().any(|s| {
+                s.a >= s.b
+                    || !world.factions.contains_key(&s.a)
+                    || !world.factions.contains_key(&s.b)
+                    || !(-100..=100).contains(&s.value)
+                    || !(-100..=100).contains(&s.baseline)
+                    || !standing_pairs.insert((s.a.clone(), s.b.clone()))
+            })
+        {
+            return Err("invalid_saved_standings".into());
         }
         let mut treaty_pairs = BTreeSet::new();
         if world.survival_truces.len() > 6
@@ -6503,7 +6700,7 @@ mod tests {
         assert!(world.factions.contains_key("faction.elves.prototype"));
         assert_eq!(world.factions[fox].population_capacity, 8);
         assert_eq!(world.combat_profiles[definition].health, 8);
-        assert_eq!(world.combat_profiles[definition].cooldown_ticks, 2);
+        assert_eq!(world.combat_profiles[definition].cooldown_ticks, 40);
         let building = world.factions[fox].buildings.values().next().unwrap();
         let holding = world.navigation.destinations[&building.node_id];
         assert_eq!(
@@ -6513,7 +6710,16 @@ mod tests {
         // Peaceful observation isolates production and deployment from losses.
         world.hostilities.clear();
         let mut moved = false;
-        for _ in 0..20 {
+        for _ in 0..20_000 {
+            if world
+                .actors
+                .values()
+                .filter(|a| a.faction_id == fox)
+                .count()
+                == 8
+            {
+                break;
+            }
             world.advance_island_tick();
             moved |= world
                 .actors
@@ -6568,6 +6774,39 @@ mod tests {
     fn main_scenario_world() -> FactionWorld {
         FactionWorld::from_scenario(&crate::scenario_fixture::main_scenario())
             .expect("main scenario world")
+    }
+
+    /// Run the island until something is true, or give up.
+    ///
+    /// Fixtures used to count ticks by hand -- "two ticks and a deckhand
+    /// exists" -- which baked the authored production timings into every test.
+    /// What those tests mean is "once a deckhand exists", so that is what they
+    /// now wait for, and retiming the island does not falsify them.
+    fn advance_until(
+        world: &mut FactionWorld,
+        limit: u32,
+        ready: impl Fn(&FactionWorld) -> bool,
+    ) -> bool {
+        for _ in 0..limit {
+            if ready(world) {
+                return true;
+            }
+            world.advance_island_tick();
+        }
+        ready(world)
+    }
+
+    /// Wait for the island to actually raise one of each named unit. Tests that
+    /// used to tick four times and then pick a marine off the board were
+    /// relying on production being all but instantaneous; what they mean is
+    /// "once these people exist".
+    fn advance_until_raised(world: &mut FactionWorld, definitions: &[&str]) {
+        let raised = advance_until(world, 20_000, |w| {
+            definitions
+                .iter()
+                .all(|definition| w.actors.values().any(|a| &a.definition_id == definition))
+        });
+        assert!(raised, "the island raises {definitions:?}");
     }
 
     fn production_world() -> FactionWorld {
@@ -7404,7 +7643,7 @@ mod tests {
     fn the_scenario_document_supplies_the_campaign_clock() {
         let clock = main_scenario_world().rules.campaign_clock;
         assert_eq!(clock.world_deadline_day, 100);
-        assert_eq!(clock.terminal_severity, 24);
+        assert_eq!(clock.terminal_severity, 120);
         assert_eq!(
             clock.priority,
             vec![
@@ -7515,10 +7754,11 @@ mod tests {
     fn causes_landing_together_are_settled_by_the_authored_priority() {
         let mut world = main_scenario_world();
         world.tick = world.clock.ticks_per_day * 99;
-        for index in 0..8 {
+        let mut index = 0;
+        while world.heat_severity() < world.rules.campaign_clock.terminal_severity {
             assert!(world.record_heat_event(&format!("heat.test:{index}"), "dreams", 3));
+            index += 1;
         }
-        assert!(world.heat_severity() >= world.rules.campaign_clock.terminal_severity);
         world
             .eliminated_factions
             .insert("faction.cthulhu.prototype".into());
@@ -7531,8 +7771,10 @@ mod tests {
         // With deliberate discovery absent, terminal heat outranks the deadline.
         let mut heated = main_scenario_world();
         heated.tick = heated.clock.ticks_per_day * 99;
-        for index in 0..8 {
+        let mut index = 0;
+        while heated.heat_severity() < heated.rules.campaign_clock.terminal_severity {
             assert!(heated.record_heat_event(&format!("heat.test:{index}"), "dreams", 3));
+            index += 1;
         }
         heated.advance_campaign_clock(&[]);
         assert_eq!(
@@ -8091,9 +8333,7 @@ mod tests {
     #[test]
     fn a_rival_falling_fires_the_a_rival_falls_trigger() {
         let mut world = main_scenario_world();
-        for _ in 0..4 {
-            world.advance_island_tick();
-        }
+        advance_until_raised(&mut world, &["actor_def.pirates.deckhand"]);
         let pirate = world
             .actors
             .values()
@@ -8125,8 +8365,18 @@ mod tests {
                 building.operational = false;
             }
         }
+        // As above: one raider stands in for the army the trigger is about.
+        for building in world
+            .factions
+            .get_mut("faction.colonial_powers.prototype")
+            .unwrap()
+            .buildings
+            .values_mut()
+        {
+            building.health = 8;
+        }
         let mut saw_elimination = false;
-        for _ in 0..104 {
+        for _ in 0..40_000 {
             saw_elimination |= world.advance_island_tick().iter().any(|e| {
                 matches!(e, FactionWorldEvent::FactionEliminated { faction_id } if faction_id == "faction.colonial_powers.prototype")
             });
@@ -8730,10 +8980,10 @@ mod tests {
         let mut world = main_scenario_world();
         let mut siege_assigned = false;
         let mut building_struck = false;
-        for step in 0..600 {
+        for step in 0..60_000 {
             // Finite-supply scenario: existing troops and queued cycles stay,
             // but endless replacement income must not mask siege reachability.
-            if step == 60 {
+            if step == 10_000 {
                 for policy in world.policies.values_mut() {
                     policy.income_per_tick.clear();
                 }
@@ -8784,7 +9034,7 @@ mod tests {
     fn preview_factions_fight_and_preserve_casualties_without_attacking_michael() {
         let mut world = main_scenario_world();
         let mut history = Vec::new();
-        for _ in 0..100 {
+        for _ in 0..6000 {
             history.extend(world.advance_island_tick());
         }
         assert!(
@@ -8903,9 +9153,13 @@ mod tests {
     #[test]
     fn autonomous_ranged_holds_while_melee_closes_and_resumes_when_target_is_lost() {
         let mut world = main_scenario_world();
-        for _ in 0..4 {
-            world.advance_island_tick();
-        }
+        advance_until_raised(
+            &mut world,
+            &[
+                "actor_def.colonial.line_marine",
+                "actor_def.pirates.deckhand",
+            ],
+        );
         let marine = world
             .actors
             .values()
@@ -8957,9 +9211,7 @@ mod tests {
     #[test]
     fn player_carbine_is_queued_paused_and_provokes_retaliation_on_hit() {
         let mut world = main_scenario_world();
-        for _ in 0..4 {
-            world.advance_island_tick();
-        }
+        advance_until_raised(&mut world, &["actor_def.pirates.deckhand"]);
         let target = world
             .actors
             .values()
@@ -9040,9 +9292,13 @@ mod tests {
             .is_none()
         );
         let mut world = main_scenario_world();
-        for _ in 0..4 {
-            world.advance_island_tick();
-        }
+        advance_until_raised(
+            &mut world,
+            &[
+                "actor_def.pirates.deckhand",
+                "actor_def.colonial.line_marine",
+            ],
+        );
         let originals: BTreeMap<_, _> = world
             .actors
             .iter()
@@ -9054,7 +9310,7 @@ mod tests {
         }
         let mut restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
         assert_eq!(world, restored);
-        for _ in 0..100 {
+        for _ in 0..6000 {
             assert_eq!(world.advance_island_tick(), restored.advance_island_tick());
         }
         assert_eq!(world, restored);
@@ -9098,9 +9354,7 @@ mod tests {
     #[test]
     fn queued_carbine_cancels_when_target_changes_to_michaels_faction() {
         let mut world = main_scenario_world();
-        for _ in 0..4 {
-            world.advance_island_tick();
-        }
+        advance_until_raised(&mut world, &["actor_def.pirates.deckhand"]);
         let target = world
             .actors
             .values()
@@ -9133,9 +9387,7 @@ mod tests {
     #[test]
     fn siege_destroys_last_producer_and_elimination_survives_load() {
         let mut world = main_scenario_world();
-        for _ in 0..4 {
-            world.advance_island_tick();
-        }
+        advance_until_raised(&mut world, &["actor_def.pirates.deckhand"]);
         let pirate = world
             .actors
             .values()
@@ -9169,12 +9421,24 @@ mod tests {
                 building.operational = false;
             }
         }
+        // A lone raider is not an army. What is under test is that a real
+        // strike destroys a real producer and that the elimination survives a
+        // load -- not how long six hundred points of masonry takes.
+        for building in world
+            .factions
+            .get_mut("faction.colonial_powers.prototype")
+            .unwrap()
+            .buildings
+            .values_mut()
+        {
+            building.health = 8;
+        }
         let mut saw_elimination = false;
         let before = world.positions[&pirate];
         world.advance_island_tick();
         assert_eq!(world.positions[&pirate], before);
         assert!(world.travel_orders.contains_key(&pirate));
-        for _ in 0..100 {
+        for _ in 0..40_000 {
             saw_elimination |= world.advance_island_tick().iter().any(|e|
                 matches!(e, FactionWorldEvent::FactionEliminated {faction_id} if faction_id == "faction.colonial_powers.prototype"));
         }
@@ -9321,12 +9585,18 @@ mod tests {
             // New factions change shared production serials. Observe actual
             // bounded development/replacement output, not an assumed sex split
             // in the first six seeded births.
-            for _ in 0..300 {
+            for _ in 0..20_000 {
+                world.hostilities.clear();
                 world.advance_island_tick();
+                // The same living-and-standing filter the assertions below
+                // use, so the loop stops on a state those assertions can read
+                // rather than on one where the male was killed two ticks ago.
                 let produced = || {
                     world.actors.values().filter(|a| {
                         a.definition_id == definition
                             && a.instance_id.starts_with("actor_instance.")
+                            && !a.undead
+                            && a.person.as_ref().is_some_and(|p| p.alive_today)
                     })
                 };
                 if produced().any(|a| a.person.as_ref().is_some_and(|p| p.sex == PersonSex::Male))
@@ -9344,11 +9614,19 @@ mod tests {
             // identity and her authored age is not the pool's range, so this
             // test looks only at the rolled ones -- which the instance id
             // already distinguishes.
+            // Over a stretch this long some of the rolled units have since
+            // been killed and, if they belonged to the shrine, walked back at
+            // midnight. That is the midnight rule doing its job, not
+            // production emitting corpses, so the roll is read off the ones
+            // still standing.
             let produced: Vec<_> = world
                 .actors
                 .values()
                 .filter(|a| {
-                    a.definition_id == definition && a.instance_id.starts_with("actor_instance.")
+                    a.definition_id == definition
+                        && a.instance_id.starts_with("actor_instance.")
+                        && !a.undead
+                        && a.person.as_ref().is_some_and(|p| p.alive_today)
                 })
                 .collect();
             let male = produced
@@ -9359,11 +9637,7 @@ mod tests {
                 .iter()
                 .find(|a| a.person.as_ref().unwrap().sex == PersonSex::Female)
                 .expect("ordinary production includes female units");
-            assert!(
-                produced
-                    .iter()
-                    .all(|actor| !actor.undead && actor.person.as_ref().unwrap().alive_today)
-            );
+
             let id = female.instance_id.clone();
             let original = (*female).clone();
             let profile = world.combat_profiles[definition].clone();
@@ -9457,13 +9731,23 @@ mod tests {
         let definition = "actor_def.elven.bow_warden";
         let building = world.factions[elves].buildings.values().next().unwrap();
         let home = world.navigation.destinations[&building.node_id];
-        assert_eq!((building.level, building.health), (1, 100));
+        assert_eq!((building.level, building.health), (1, 750));
         assert_eq!(world.factions[elves].population_capacity, 3);
-        for _ in 0..7 {
+        assert!(!world.actors.values().any(|a| a.faction_id == elves));
+        // Peace has to hold for the whole observation, or diplomacy re-arms
+        // the war and the wardens are killed as fast as the grove raises them.
+        let elves_alive =
+            |w: &FactionWorld| w.actors.values().filter(|a| a.faction_id == elves).count();
+        let mut raised = false;
+        for _ in 0..20_000 {
+            if elves_alive(&world) >= 1 {
+                raised = true;
+                break;
+            }
+            world.hostilities.clear();
             world.advance_island_tick();
         }
-        assert!(!world.actors.values().any(|a| a.faction_id == elves));
-        world.advance_island_tick();
+        assert!(raised, "the heart grove raises its first warden");
         assert_eq!(
             world
                 .actors
@@ -9472,9 +9756,16 @@ mod tests {
                 .count(),
             1
         );
-        for _ in 0..24 {
+        let mut filled = false;
+        for _ in 0..20_000 {
+            if elves_alive(&world) == 3 {
+                filled = true;
+                break;
+            }
+            world.hostilities.clear();
             world.advance_island_tick();
         }
+        assert!(filled, "the grove fills its three slots");
         let wardens: Vec<_> = world
             .actors
             .values()
@@ -9510,7 +9801,7 @@ mod tests {
                 profile.range,
                 profile.cooldown_ticks
             ),
-            (20, 4, 5, 4)
+            (20, 4, 5, 80)
         );
         world.policies.clear();
         for faction in world.factions.values_mut() {
@@ -9544,7 +9835,12 @@ mod tests {
         world.hostilities.clear(); // Controlled survival, no gifted resources or teleported builder.
         let rule = world.rules.expansion.clone();
         let mut started = None;
-        for _ in 0..500 {
+        for _ in 0..40_000 {
+            // Peace has to hold for the whole observation. A single clear at
+            // the top is not enough now that the settlement is authored to
+            // wait days: diplomacy re-arms the war and the colonials are
+            // eliminated long before they lay a foundation.
+            world.hostilities.clear();
             world.advance_island_tick();
             if let Some(b) = world.factions[&rule.faction_id]
                 .buildings
@@ -9588,7 +9884,8 @@ mod tests {
         world.advance_island_tick();
         assert_eq!(world, before);
         world.paused = false;
-        for _ in 0..160 {
+        for _ in 0..20_000 {
+            world.hostilities.clear();
             world.advance_island_tick();
             if world.factions[&rule.faction_id]
                 .buildings
@@ -9609,7 +9906,8 @@ mod tests {
             6 + level_gains * 2,
             "only normal holding upgrades grant capacity"
         );
-        for _ in 0..220 {
+        for _ in 0..20_000 {
+            world.hostilities.clear();
             world.advance_island_tick();
             if world
                 .actors
@@ -9648,9 +9946,9 @@ mod tests {
             colonial.into(),
             "faction.eastern_fox_people.prototype".into()
         )));
-        for _ in 0..8 {
-            world.advance_island_tick();
-        }
+        // The shrine has to have raised somebody before its army can be the
+        // stronger one; eight ticks predates the first cultist by hours.
+        advance_until_raised(&mut world, &["actor_def.cthulhu.drowned_cultist"]);
         // Isolate the pressure threshold with a stronger existing cult army,
         // not free actors or a separate war state. Production identity remains.
         world
@@ -9658,7 +9956,17 @@ mod tests {
             .get_mut("actor_def.cthulhu.drowned_cultist")
             .unwrap()
             .damage = 100;
-        world.tick = 32;
+        // Run on to the pack's next diplomacy decision rather than winding the
+        // clock back to a tick that predates the world's own history.
+        let cadence = world.rules.survival.decision_ticks;
+        for _ in 0..=cadence {
+            world.advance_island_tick();
+            if world.tick % cadence == 0 {
+                break;
+            }
+        }
+        // Diplomacy reads the tick it is entering, and `tick` only advances
+        // part-way through the step, so the decision is made by the next one.
         world.advance_island_tick();
         assert!(
             world
@@ -9681,7 +9989,10 @@ mod tests {
             .find(|t| t.a == colonial && t.b == pirates)
             .unwrap()
             .clone();
-        assert_eq!(treaty.expires_tick, 224);
+        // The truce runs for the span the pack authors, from whenever it was
+        // struck -- not from a tick number that was only true of one cadence.
+        assert!(treaty.expires_tick > world.tick);
+        assert!(treaty.expires_tick <= world.tick + world.rules.survival.truce_ticks);
         assert!(
             world
                 .hostilities
@@ -9708,20 +10019,24 @@ mod tests {
                 .hostilities,
             world.hostilities
         );
-        world.tick = 224;
+        // The truce is renewed for another authored span while the threat
+        // that caused it is still the greater one.
+        let span = world.rules.survival.truce_ticks;
+        let renewed = treaty.expires_tick + span;
+        world.tick = treaty.expires_tick;
         world.advance_island_tick();
         assert!(
             world
                 .survival_truces
                 .iter()
-                .any(|t| t.a == colonial && t.b == pirates && t.expires_tick == 416)
+                .any(|t| t.a == colonial && t.b == pirates && t.expires_tick == renewed)
         );
         world
             .combat_profiles
             .get_mut("actor_def.cthulhu.drowned_cultist")
             .unwrap()
             .damage = 0;
-        world.tick = 416;
+        world.tick = renewed;
         world.advance_island_tick();
         assert!(
             world
@@ -9783,9 +10098,13 @@ mod tests {
 
     fn recruitment_fixture() -> (FactionWorld, Vec<String>) {
         let mut world = main_scenario_world();
-        for _ in 0..2 {
-            world.advance_island_tick();
-        }
+        assert!(
+            advance_until(&mut world, 4000, |w| w
+                .actors
+                .values()
+                .any(|a| a.definition_id == "actor_def.pirates.deckhand")),
+            "the tide quay raises a deckhand"
+        );
         let template_id = world
             .actors
             .values()
@@ -9841,7 +10160,7 @@ mod tests {
             world.salvage_caches["salvage.wreck"].position,
         );
         world.salvage_foothold().unwrap();
-        for _ in 0..200 {
+        for _ in 0..60_000 {
             world.advance_island_tick();
             if world.salvage_caches.len() > 1 {
                 break;
@@ -9948,16 +10267,20 @@ mod tests {
         let entrance = IslandPoint { x: 19, y: 17 };
         world.positions.insert(captain.into(), entrance);
         world.build_foothold(entrance).unwrap();
-        for _ in 0..40 {
-            world.advance_island_tick();
-        }
+        assert!(
+            advance_until(&mut world, 8000, |w| w.factions["faction.michael"]
+                .buildings
+                .get("site.michael.field_workshop")
+                .is_some_and(|b| b.operational)),
+            "the workshop finishes"
+        );
         world
     }
 
     #[test]
     fn mechanical_dog_production_is_paid_persistent_and_equipment_bounded() {
         let mut world = mechanical_workshop_fixture();
-        assert_eq!(world.machine_foothold_costs(), (4, 24, 3));
+        assert_eq!(world.machine_foothold_costs(), (4, 720, 3));
         world.queue_foothold_machine().unwrap();
         let paid = world.clone();
         assert!(world.queue_foothold_machine().is_err());
@@ -9968,7 +10291,7 @@ mod tests {
         world.advance_island_tick();
         assert_eq!(world, paused);
         world.paused = false;
-        for _ in 0..24 {
+        for _ in 0..800 {
             assert_eq!(world.advance_island_tick(), resumed.advance_island_tick());
         }
         assert_eq!(world, resumed);
@@ -9979,10 +10302,10 @@ mod tests {
         assert_eq!(world.factions["faction.michael"].population_used, 1);
         assert!(!world.assign_island_companion(&dog, 0));
         world.queue_foothold_machine().unwrap();
-        for _ in 0..24 {
-            world.advance_island_tick();
-        }
-        assert_eq!(world.mechanical_followers().len(), 2);
+        assert!(
+            advance_until(&mut world, 8000, |w| w.mechanical_followers().len() == 2),
+            "the workshop turns out a second dog"
+        );
         assert_eq!(
             world.factions["faction.michael"].resources["resource.salvage"],
             0
@@ -9998,9 +10321,10 @@ mod tests {
             .resources
             .insert("resource.salvage".into(), 20);
         world.queue_foothold_machine().unwrap();
-        for _ in 0..24 {
-            world.advance_island_tick();
-        }
+        assert!(
+            advance_until(&mut world, 8000, |w| w.mechanical_followers().len() == 3),
+            "the workshop fills its three slots"
+        );
         let full = world.clone();
         assert!(world.queue_foothold_machine().is_err());
         assert_eq!(world, full);
@@ -10014,6 +10338,10 @@ mod tests {
         let captain = "character.protagonist.captain";
         let target = IslandPoint { x: 20, y: 20 };
         assert!(world.move_island_party(target));
+        assert!(
+            advance_until(&mut world, 8000, |w| !w.mechanical_followers().is_empty()),
+            "the workshop turns out a dog"
+        );
         for _ in 0..45 {
             world.advance_island_tick();
         }
@@ -10037,16 +10365,17 @@ mod tests {
     fn mechanical_dog_is_neither_madness_recruit_nor_midnight_corpse() {
         let mut world = mechanical_workshop_fixture();
         world.queue_foothold_machine().unwrap();
-        for _ in 0..24 {
-            world.advance_island_tick();
-        }
+        assert!(
+            advance_until(&mut world, 8000, |w| !w.mechanical_followers().is_empty()),
+            "the workshop turns out a dog"
+        );
         let dog = world.mechanical_followers().pop().unwrap();
         let cult = "faction.cthulhu.prototype";
         let shrine = world.factions[cult].buildings.values().next().unwrap();
         world
             .positions
             .insert(dog.clone(), world.navigation.destinations[&shrine.node_id]);
-        for _ in 0..80 {
+        for _ in 0..2000 {
             world.tick += 1;
             world.advance_madness();
         }
@@ -10060,8 +10389,11 @@ mod tests {
             .clone();
         let rule = scenario_production(pirates);
         world.enqueue_production(pirates, &site, rule).unwrap();
-        for _ in 0..2 {
+        for _ in 0..8000 {
             world.advance_production_tick();
+            if world.actors.values().any(|a| a.faction_id == pirates) {
+                break;
+            }
         }
         let enemy = world
             .actors
@@ -10082,7 +10414,8 @@ mod tests {
         world.resolve_island_skirmish();
         assert_eq!(world.unit_combat[&enemy].health, enemy_health - 2);
         assert!(world.casualties.contains_key(&dog));
-        world.tick = world.clock.ticks_per_day;
+        world.tick =
+            world.tick - world.tick % world.clock.ticks_per_day + world.clock.ticks_per_day;
         assert!(!world.return_midnight_casualties().iter().any(
             |e| matches!(e,FactionWorldEvent::MidnightReturned{actor_id,..} if actor_id == &dog)
         ));
@@ -10126,7 +10459,7 @@ mod tests {
         assert!(building.operational);
         assert!(building.development.is_none());
         assert_eq!(building.level, 1);
-        assert_eq!(building.max_health, 80);
+        assert_eq!(building.max_health, 600);
         assert_eq!(world.factions[pirates].population_capacity, 20);
         assert_eq!(world.factions[pirates].resources["resource.coin"], 8);
         assert!(world.actively_repairing(&job.builder_id));
@@ -10147,13 +10480,15 @@ mod tests {
                 .remaining_ticks,
             job.remaining_ticks
         );
-        for _ in 0..100 {
+        for _ in 0..4000 {
             world.advance_island_tick();
             if world.factions[pirates].buildings[&site].health > 20 {
                 break;
             }
         }
-        assert_eq!(world.factions[pirates].buildings[&site].health, 32);
+        // One completed repair cycle, whatever the pack authors it to be worth.
+        let gain = world.rules.repairs["site_archetype.pirates.tide_quay"].health_gain;
+        assert_eq!(world.factions[pirates].buildings[&site].health, 20 + gain);
         assert!(world.factions[pirates].buildings[&site].repair.is_none());
         assert_eq!(world.factions[pirates].resources["resource.coin"], 8);
         FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
@@ -10174,9 +10509,11 @@ mod tests {
         world.salvage_foothold().unwrap();
         world.positions.insert(captain.into(), entrance);
         world.build_foothold(entrance).unwrap();
-        for _ in 0..40 {
-            world.advance_island_tick();
-        }
+        assert!(
+            advance_until(&mut world, 8000, |w| w.factions[faction].buildings[site]
+                .operational),
+            "the workshop finishes"
+        );
         world
             .factions
             .get_mut(faction)
@@ -10185,6 +10522,17 @@ mod tests {
             .get_mut(site)
             .unwrap()
             .health = 75;
+        let gain = world.rules.repairs["site_archetype.michael.field_workshop"].health_gain;
+        world
+            .factions
+            .get_mut(faction)
+            .unwrap()
+            .buildings
+            .get_mut(site)
+            .unwrap()
+            // One cycle short of whole, so the cap is what stops the second
+            // repair rather than an authored gain that happened to fit.
+            .health = world.rules.foothold.building_health - gain;
         world.repair_foothold().unwrap();
         assert_eq!(world.foothold_repair_cost(), 2);
         assert_eq!(world.factions[faction].resources["resource.salvage"], 6);
@@ -10195,20 +10543,26 @@ mod tests {
         for _ in 0..20 {
             world.advance_island_tick();
         }
+        // Work does not advance while Michael is away, whatever the pack
+        // authors a repair cycle to cost.
+        let cycle = world.rules.repairs["site_archetype.michael.field_workshop"].ticks;
         assert_eq!(
             world.factions[faction].buildings[site]
                 .repair
                 .as_ref()
                 .unwrap()
                 .remaining_ticks,
-            12
+            cycle
         );
         world = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
         world.positions.insert(captain.into(), entrance);
-        for _ in 0..12 {
+        for _ in 0..cycle {
             world.advance_island_tick();
         }
-        assert_eq!(world.factions[faction].buildings[site].health, 80);
+        assert_eq!(
+            world.factions[faction].buildings[site].health,
+            world.rules.foothold.building_health
+        );
         assert!(world.factions[faction].buildings[site].repair.is_none());
         assert!(world.repair_foothold().is_err());
         FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
@@ -10254,7 +10608,7 @@ mod tests {
         let old_population = world.factions[&original.faction_id].population_used;
         let cult_population = world.factions[cult].population_used;
         let mut converted = false;
-        for _ in 0..100 {
+        for _ in 0..4000 {
             let events = world.advance_island_tick();
             assert_eq!(events, restored.advance_island_tick());
             assert_eq!(world, restored);
@@ -10315,7 +10669,7 @@ mod tests {
         world
             .positions
             .insert("character.protagonist.captain".into(), entrance);
-        for _ in 0..80 {
+        for _ in 0..2000 {
             world.tick += 1;
             world.advance_madness();
         }
@@ -10332,12 +10686,15 @@ mod tests {
             .as_mut()
             .unwrap();
         person.loyal_to_michael = false;
-        world.actors.get_mut(escaped).unwrap().madness = 48;
+        // Haunted, on the pack's scale rather than a number that was only
+        // ever above the old warning threshold.
+        let warning = world.rules.madness.warning_threshold;
+        world.actors.get_mut(escaped).unwrap().madness = warning;
         assert_eq!(world.island_madness_stage(escaped), "whisper_haunted");
         world
             .positions
             .insert(escaped.clone(), IslandPoint { x: 20, y: 18 });
-        for _ in 0..12 {
+        for _ in 0..2000 {
             world.tick += 1;
             world.advance_madness();
         }
@@ -10353,7 +10710,7 @@ mod tests {
             .discussed = true;
         assert!(world.recruit_island_person(&ids[2]));
         assert_eq!(world.actors[&ids[2]].madness, 0);
-        for _ in 0..80 {
+        for _ in 0..2000 {
             world.tick += 1;
             world.advance_madness();
         }
@@ -10490,6 +10847,10 @@ mod tests {
         let (mut world, ids) = recruitment_fixture();
         let victim = ids[0].clone();
         world.clock.ticks_per_day = 4;
+        // The four-tick day only means anything from a known phase, and
+        // recruitment now costs as many ticks as the island's production
+        // actually needs rather than a hard-coded two.
+        world.tick += (6 - world.tick % 4) % 4;
         world.talk_island_person(&victim);
         assert!(world.recruit_island_person(&victim));
         assert!(world.assign_island_companion(&victim, 0));
@@ -10606,9 +10967,12 @@ mod tests {
         let mut restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
         assert!(world.move_island_party(entrance));
         assert!(restored.move_island_party(entrance));
-        for _ in 0..50 {
+        for _ in 0..8000 {
             assert_eq!(world.advance_island_tick(), restored.advance_island_tick());
             assert_eq!(world, restored);
+            if world.factions["faction.michael"].buildings[workshop].operational {
+                break;
+            }
         }
         assert!(world.factions["faction.michael"].buildings[workshop].operational);
         assert!(
@@ -10684,6 +11048,7 @@ mod tests {
         let (mut world, victim) = midnight_fixture();
         let dead = world.casualties[&victim].clone();
         let previous_population = world.factions["faction.cthulhu.prototype"].population_used;
+        let day_before = world.day();
         world.advance_island_tick();
         assert_eq!(world.minute_of_day(), 1080);
         let mut restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
@@ -10691,7 +11056,7 @@ mod tests {
         assert_eq!(events, restored.advance_island_tick());
         assert_eq!(world, restored);
         assert!(events.iter().any(|e| matches!(e, FactionWorldEvent::MidnightReturned {actor_id,..} if actor_id == &victim)));
-        assert_eq!(world.day(), 2);
+        assert_eq!(world.day(), day_before + 1);
         assert_eq!(world.minute_of_day(), 0);
         assert!(world.actors[&victim].undead);
         assert_eq!(world.actors[&victim].provenance, dead.actor.provenance);

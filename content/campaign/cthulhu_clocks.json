@@ -6,8 +6,16 @@
     "irreversible": true,
     "playerVisibleNumeric": false,
     "storedAsEventLedger": true,
-    "signalChannels": ["weather", "dialogue", "books", "npc_behavior", "patrol_changes", "dreams", "ambience"],
-    "terminalSeverity": 24,
+    "signalChannels": [
+      "weather",
+      "dialogue",
+      "books",
+      "npc_behavior",
+      "patrol_changes",
+      "dreams",
+      "ambience"
+    ],
+    "terminalSeverity": 120,
     "sources": [
       {
         "id": "heat.madness_conversion",
@@ -31,8 +39,16 @@
   },
   "confrontation": {
     "firstTriggerWins": true,
-    "causes": ["deliberate_discovery", "terminal_heat", "day_100"],
-    "sameTransactionPriority": ["deliberate_discovery", "terminal_heat", "day_100"],
+    "causes": [
+      "deliberate_discovery",
+      "terminal_heat",
+      "day_100"
+    ],
+    "sameTransactionPriority": [
+      "deliberate_discovery",
+      "terminal_heat",
+      "day_100"
+    ],
     "deliberateDiscoveryFactionId": "faction.cthulhu.prototype"
   }
 }

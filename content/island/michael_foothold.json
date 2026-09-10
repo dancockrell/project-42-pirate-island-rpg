@@ -1,8 +1,11 @@
 {
-  "cache_position": {"x":20,"y":19},
-  "cache_salvage":20,
-  "build_salvage":12,
-  "construction_ticks":40,
-  "restore_salvage":4,
-  "building_health":80
+  "cache_position": {
+    "x": 20,
+    "y": 19
+  },
+  "cache_salvage": 20,
+  "build_salvage": 12,
+  "construction_ticks": 2880,
+  "restore_salvage": 4,
+  "building_health": 600
 }

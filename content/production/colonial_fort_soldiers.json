@@ -1,1 +1,19 @@
-{"id":"spawn_rule.colonial_watch_fort.soldiers","kind":"production_rule","producerArchetypeId":"site_archetype.colonial.watch_fort","actorKind":"soldier","outputDefinitionId":"actor_def.colonial.line_marine","costs":{"resource.provisions":2,"resource.iron":1},"productionTicks":4,"populationUse":1,"provenanceRequired":true,"initialAssignment":"await_faction_ai_dispatch","requirements":["producer_operational","supply_connected"]}
+{
+  "id": "spawn_rule.colonial_watch_fort.soldiers",
+  "kind": "production_rule",
+  "producerArchetypeId": "site_archetype.colonial.watch_fort",
+  "actorKind": "soldier",
+  "outputDefinitionId": "actor_def.colonial.line_marine",
+  "costs": {
+    "resource.provisions": 2,
+    "resource.iron": 1
+  },
+  "productionTicks": 600,
+  "populationUse": 1,
+  "provenanceRequired": true,
+  "initialAssignment": "await_faction_ai_dispatch",
+  "requirements": [
+    "producer_operational",
+    "supply_connected"
+  ]
+}

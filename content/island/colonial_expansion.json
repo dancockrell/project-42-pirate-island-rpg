@@ -2,9 +2,15 @@
   "faction_id": "faction.colonial_powers.prototype",
   "building_id": "site.colonial.expansion_fort",
   "archetype_id": "site_archetype.colonial.watch_fort",
-  "entrance": [22, 10],
-  "minimum_tick": 20,
-  "costs": {"resource.provisions": 12, "resource.iron": 12},
-  "construction_ticks": 80,
-  "holding_health": 80
+  "entrance": [
+    22,
+    10
+  ],
+  "minimum_tick": 8640,
+  "costs": {
+    "resource.provisions": 12,
+    "resource.iron": 12
+  },
+  "construction_ticks": 5760,
+  "holding_health": 600
 }

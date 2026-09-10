@@ -1,1 +1,12 @@
-{"decision_ticks":32,"truce_ticks":192,"dominance_percent":125,"strength_horizon_ticks":16}
+{
+  "decision_ticks": 240,
+  "truce_ticks": 7200,
+  "dominance_percent": 125,
+  "strength_horizon_ticks": 120,
+  "war_standing": -50,
+  "peace_standing": -20,
+  "fear_step": 2,
+  "war_weariness_step": 1,
+  "recovery_step": 1,
+  "siege_cooldown_multiplier": 2
+}
