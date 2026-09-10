@@ -23,10 +23,35 @@ Counting `content/` against the code that loads it:
 | `campaign/` | 1 | **yes** | Three endgame triggers; Day 100; hidden heat (M3) |
 | `world/` (island network) | 3 | **no** | One island, one board; complex network, not three lanes |
 | `weather/` | 2 | **no** | Magical weather system |
-| `sites/` | 5 | **no** | Faction structures are also adventure sites |
-| `factions/` | 5 | **no** | RTS faction contract: doctrine, elimination policy |
+| `sites/` | 5 | **wrong shape** | Faction structures are also adventure sites |
+| `factions/` | 5 | **partly** | RTS faction contract: doctrine, elimination policy |
 | `ai_scenarios/` | 5 | **no** | Replayable, explainable faction decisions |
 | `characters/`, `skills/`, `encounters/` | 10 | **no** | Companions drive investigation (M2, M4) |
+
+**Two rows corrected after being checked, not assumed, against the owner's
+confirmed direction (2.5D, not 3D) and against the real dispatch code.**
+`content/sites/*.json`'s `footprint` is a 3D module system —
+`normalizedPosition`, volumetric bounds, `tetherSocketIds` — for a spatial
+model this game does not have and, per the owner, will not: the board is 2.5D
+pixel art on the flat `IslandPoint{x,y}` grid `world.rs` actually runs. The
+site records' non-spatial fields (`production.spawnRuleIds`, `loot`,
+`generation.seedInputs`) describe something real and still wanted; the
+`footprint`/`hooks` block does not and needs re-authoring for a 2D scene, not
+a 3D one, before anything reads it. `content/factions/*.json` is not uniformly
+unread: every faction's `doctrine.dispatchScoreTerms` names the real
+`DispatchScore` struct's nine fields exactly (plus one faction-specific extra
+— `trade_opportunity`, `ritual_opportunity`, `restoration_opportunity` — that
+has no field of its own yet), so that part is genuinely grounded. `doctrine.goal`,
+`elimination.*` and `buildCycle.*` are still unread, though several already
+have a bespoke, non-data-driven equivalent in `world.rs` (Cthulhu's undead
+recovery via midnight return and salvage-paid restoration is, in substance,
+an elimination recovery condition; it just isn't expressed as this record's
+`recoveryConditions` field for any faction generically). One more finding from
+the same pass: `ai_scenarios/*.json` fixtures target the same ungrounded
+`network_node.*` names the reverted island-network commit adopted — those
+IDs were never validated against real geography either, and nothing resolves
+`targetNodeId` today, so the dangling reference was silent before and remains
+silent now.
 
 Seven domains, thirty-two records. The pattern is one thing, not seven: **the
 island simulates its factions but not its campaign.** There is no clock counting
@@ -122,6 +147,13 @@ Order is by dependency, not by appetite.
 5. **Adventure sites.** A faction holding becomes enterable, its layout and
     defenders derived from the recorded composite seed the site records already
     describe, so a level-five cult shrine differs from a level-two fort.
+    **Confirmed by the owner: 2.5D, not 3D.** `content/sites/*.json`'s
+    `footprint` (modules, `normalizedPosition`, `tetherSocketIds`) is a 3D
+    system this game will not use; an entered site needs a 2D scene on the
+    same sprite and grid conventions the island board already uses, so this
+    contract re-authors `footprint`/`hooks` for that shape before any of it is
+    read. The record's non-spatial fields — `production.spawnRuleIds`,
+    `loot`, the seed inputs — describe something real and carry over.
 6. **Battle, reconnected.** `battle.rs` compiles, has 26 tests, and is wired to
     nothing: the island tick never calls it. Either the board resolves combat
     where it stands or a bounded tactical view opens; the authority marks that
