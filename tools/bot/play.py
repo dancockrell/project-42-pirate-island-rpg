@@ -5,15 +5,22 @@ Each bot drives the same verbs a player has, through `island_cli`. Several play
 styles run the same island differently, because a problem only one kind of
 player hits is still a problem.
 
-The measurement that matters most is the gap between two things:
+The measurement that matters most is the gap between what the island does and
+what any of it says to the man standing in it:
 
   world_delta   - what the simulation did that day (people born and killed,
                   buildings raised, damaged and destroyed, factions ending)
   player_delta  - what changed in anything the player can actually see
 
-A day where the world moved and the player's view did not is the game being
-busy at the player rather than with them. Counting both separately is the only
-way to tell "nothing happened" from "plenty happened and none of it reached me".
+  news          - what a companion or a local actually told him about the war,
+                  asked for with `news` and only ever heard standing beside
+                  someone he has already talked to
+
+A day where the world moved and neither the player's view nor anybody's mouth
+moved with it is the game being busy at the player rather than with them.
+Counting them separately is the only way to tell "nothing happened" from
+"plenty happened and none of it reached me". There is no narration feed and
+there is not going to be one, so `news` is the whole of the world's voice.
 
   python3 tools/bot/play.py --days 30
   python3 tools/bot/play.py --days 30 --style all
@@ -170,7 +177,9 @@ def find_bugs(state: dict, game: "Game", day: int) -> list[dict]:
 
 
 def check_save_round_trip(game: "Game", day: int) -> list[dict]:
-    """Saving must not change the game. A save that alters state is a real bug."""
+    """Saving must not change the game, and loading the save back must land on
+    exactly the game that was saved -- workshop, dogs, aimed carbine and all.
+    A field that survives play but not a save is a real bug."""
     before = json.dumps(game.state, sort_keys=True)
     reply = game.send(cmd="save")
     after = json.dumps(game.state, sort_keys=True)
@@ -179,6 +188,16 @@ def check_save_round_trip(game: "Game", day: int) -> list[dict]:
     if before != after:
         return [{"day": day, "what": "saving the game changed the game",
                  "detail": "state differed before and after a save"}]
+
+    if not game.send(cmd="load", save=reply["save"]).get("ok"):
+        return [{"day": day, "what": "a save the game just wrote would not load back",
+                 "detail": "the game refused its own save"}]
+    reloaded = json.dumps(game.state, sort_keys=True)
+    if reloaded != before:
+        was, now = json.loads(before), json.loads(reloaded)
+        differing = [k for k in was if was.get(k) != now.get(k)]
+        return [{"day": day, "what": "loading a save does not restore the game that was saved",
+                 "detail": f"these differ after an immediate save/load: {differing[:8]}"}]
     return []
 
 
@@ -193,14 +212,32 @@ def check_determinism(game: "Game", day: int, ticks: int = 120) -> list[dict]:
         return [{"day": day, "what": "saving failed", "detail": str(saved)[:200]}]
     payload = saved["save"]
 
-    game.send(cmd="tick", count=ticks)
-    first = json.dumps(game.state, sort_keys=True)
+    # The same script both times, workshop verbs and carbine included, so a
+    # divergence in the new systems is caught the same way as one in the old.
+    who = sorted(p["id"] for p in game.state.get("people", []) if p["alive"])
+    aimed = game.state.get("aimed_at")
+
+    def run_the_same_day() -> str:
+        game.send(cmd="tick", count=ticks // 2)
+        game.send(cmd="develop")
+        game.send(cmd="queue_machine")
+        game.send(cmd="repair")
+        if who:
+            game.send(cmd="news", id=who[0])
+        if aimed:
+            game.send(cmd="aim", id=aimed)
+        game.send(cmd="tick", count=ticks - ticks // 2)
+        return json.dumps(game.state, sort_keys=True)
+
+    first = run_the_same_day()
 
     if not game.send(cmd="load", save=payload).get("ok"):
         return [{"day": day, "what": "a save the game just wrote would not load back",
                  "detail": "save/load round trip refused its own output"}]
-    game.send(cmd="tick", count=ticks)
-    second = json.dumps(game.state, sort_keys=True)
+    second = run_the_same_day()
+    # Put the world back where the check found it: the probe is allowed to
+    # spend the player's salvage, but only inside the check.
+    game.send(cmd="load", save=payload)
 
     if first != second:
         a, b = json.loads(first), json.loads(second)
@@ -223,7 +260,32 @@ def check_refusals_are_pure(game: "Game", day: int) -> list[dict]:
         ("resolve_lead", {"cmd": "resolve_lead", "lead": "lead.nope",
                           "interpretation": "interpretation.nope"}),
         ("move_captain", {"cmd": "move_captain", "to": {"x": 9999, "y": 9999}}),
+        # The workshop verbs and the carbine. Each of these spends salvage or
+        # starts a war when it works, so a refusal that still changed something
+        # is the most expensive kind of lie the game can tell.
+        ("restore", {"cmd": "restore", "id": "actor.does.not.exist"}),
+        ("aim", {"cmd": "aim", "id": "actor.does.not.exist"}),
+        ("aim at himself", {"cmd": "aim", "id": CAPTAIN}),
+        ("dismiss", {"cmd": "dismiss", "slot": 99}),
+        ("dismiss", {"cmd": "dismiss", "slot": "nonsense"}),
     ]
+
+    # develop, repair and queue_machine are legitimate moves when the workshop
+    # is ready and paid for, so they are only probed in a state where the game
+    # has no honest way to accept them.
+    state = game.state
+    salvage = state.get("salvage", 0)
+    machine_cost = (list(state.get("machine_costs") or []) + [0, 0, 0])[0]
+    berths = (list(state.get("machine_costs") or []) + [0, 0, 0])[2]
+    mine = [b for b in state.get("buildings", []) if b["faction"] == "faction.michael"]
+    develop_cost = state.get("develop_cost", 0)
+    if not mine or not develop_cost or salvage < develop_cost:
+        probes.append(("develop", {"cmd": "develop"}))
+    if not mine or salvage < state.get("repair_cost", 0):
+        probes.append(("repair", {"cmd": "repair"}))
+    if not mine or salvage < machine_cost or len(state.get("dogs", [])) >= berths:
+        probes.append(("queue_machine", {"cmd": "queue_machine"}))
+
     for label, probe in probes:
         before = json.dumps(game.state, sort_keys=True)
         reply = game.send(**probe)
@@ -234,6 +296,20 @@ def check_refusals_are_pure(game: "Game", day: int) -> list[dict]:
         elif before != after:
             bugs.append({"day": day, "what": f"a refused {label} still changed the game",
                          "detail": json.dumps(probe)})
+
+    # Asking what someone says is a question, not a move: it must never change
+    # the island, and it must never invent an answer from a stranger.
+    living = sorted(p["id"] for p in state.get("people", []) if p["alive"])
+    for target in ["actor.does.not.exist"] + living[:1]:
+        before = json.dumps(game.state, sort_keys=True)
+        reply = game.send(cmd="news", id=target)
+        after = json.dumps(game.state, sort_keys=True)
+        if before != after:
+            bugs.append({"day": day, "what": "asking someone for news changed the game",
+                         "detail": f"news about {target!r} moved the world"})
+        if target == "actor.does.not.exist" and (reply.get("news") or ""):
+            bugs.append({"day": day, "what": "somebody who does not exist had news",
+                         "detail": str(reply.get("news"))[:160]})
     return bugs
 
 
@@ -260,6 +336,47 @@ def check_idempotency(game: "Game", day: int, state: dict) -> list[dict]:
         if after > 4:
             bugs.append({"day": day, "what": "party grew past four slots",
                          "detail": f"party_size {before} -> {after}"})
+
+        # Dismissing an empty slot is the double-click of walking away twice.
+        held = [i for i, occupant in enumerate(game.state.get("party", []))
+                if occupant == target["id"]]
+        if held:
+            slot = held[0]
+            if game.send(cmd="dismiss", slot=slot).get("ok"):
+                if game.send(cmd="dismiss", slot=slot).get("ok"):
+                    bugs.append({"day": day, "what": "dismissed an empty party slot",
+                                 "detail": f"slot {slot} was cleared twice"})
+                if game.state.get("party", [])[slot]:
+                    bugs.append({"day": day, "what": "a dismissed companion is still in her slot",
+                                 "detail": f"slot {slot} still holds {game.state['party'][slot]}"})
+                # Put her back: the check is not allowed to cost the run a
+                # companion.
+                game.send(cmd="assign", id=target["id"], slot=slot)
+
+    # Every workshop verb charges salvage or starts a job. Asking twice must
+    # buy one thing, not two: the second call has to be refused.
+    for what, command in (("develop the workshop", {"cmd": "develop"}),
+                          ("build a mechanical dog", {"cmd": "queue_machine"}),
+                          ("repair the workshop", {"cmd": "repair"})):
+        first = game.send(**command)
+        before = json.dumps(game.state, sort_keys=True)
+        second = game.send(**command)
+        after = json.dumps(game.state, sort_keys=True)
+        if first.get("ok") and second.get("ok"):
+            bugs.append({"day": day, "what": f"asked twice to {what} and the game did it twice",
+                         "detail": "both calls were accepted back to back"})
+        if not second.get("ok") and before != after:
+            bugs.append({"day": day, "what": f"a refused request to {what} still changed the game",
+                         "detail": json.dumps(command)})
+
+    # Re-aiming at the man already in the sights must be a no-op, not a second
+    # war. Only probed when the player has already started one.
+    aimed = state.get("aimed_at")
+    if aimed:
+        game.send(cmd="aim", id=aimed)
+        if game.state.get("aimed_at") != aimed:
+            bugs.append({"day": day, "what": "aiming again at the same target moved the aim",
+                         "detail": f"aimed_at went {aimed!r} -> {game.state.get('aimed_at')!r}"})
     return bugs
 
 
@@ -300,6 +417,23 @@ class Player:
         self.lead_answers: list[dict] = []
         self.built = False
         self.idle_because_nothing_to_do = 0
+        # Where he put the workshop. The observation carries no building
+        # positions, and a player would simply remember where he built it.
+        self.workshop_at: dict | None = None
+        # The best health each building has ever been seen at. There is no
+        # max_health in the observation, so "damaged" means "worse than it was".
+        self.building_peak: dict[str, int] = {}
+        # The last thing each person Michael has talked to said about the war.
+        self.news_heard: dict[str, str] = {}
+        self.news_today: list[dict] = []
+        self.days_the_world_spoke = 0
+        self.machines_ordered = 0
+        self.fights_started = 0
+        self.restored: list[str] = []
+        self.restore_refusals: dict[str, int] = {}
+        self.build_refusals = 0
+        self.machine_refusals = 0
+        self.dogs_seen = 0
 
     state = property(lambda self: self.game.state)
     day = property(lambda self: self.game.state.get("day", 0))
@@ -387,15 +521,237 @@ class Player:
             self.game.send(cmd="tick", count=30)
 
     def build(self):
+        """The shed wants clear ground, and where Michael happens to be
+        standing after a day of talking to people usually is not. So try where
+        he is, then the wreck he already knows, then a few steps off."""
         me = self.state.get("captain")
         if not me or self.state.get("salvage", 0) < 4:
             return
-        built = self.game.send(cmd="build_foothold", at=me)
-        self.journal.act("build foothold", built.get("ok", False), self.day,
-                         note=built.get("refused", ""))
-        if built.get("ok"):
-            self.built = True
-            self.journal.note(self.day, "built a foothold")
+        spots = [dict(me)]
+        for cache in sorted(self.state.get("salvage_caches", []), key=lambda c: c["id"]):
+            spots.append({"x": cache["x"], "y": cache["y"]})
+        spots += [{"x": me["x"] + dx, "y": me["y"] + dy}
+                  for dx, dy in ((4, 0), (-4, 0), (0, 4), (0, -4))]
+
+        for spot in spots[:4]:
+            if spot != self.here():
+                self.walk_to(spot, tries=3)
+            at = self.here()
+            built = self.game.send(cmd="build_foothold", at=at)
+            self.journal.act("build foothold", built.get("ok", False), self.day,
+                             at=at, note=built.get("refused", ""))
+            if built.get("ok"):
+                self.built = True
+                self.workshop_at = {"x": at["x"], "y": at["y"]}
+                self.journal.note(self.day, "built a foothold")
+                return
+        self.build_refusals += 1
+
+    # -- the workshop ---------------------------------------------------------
+
+    def workshop(self) -> dict | None:
+        """The one building Michael owns, as the player sees it."""
+        for building in self.state.get("buildings", []):
+            if building["faction"] == "faction.michael":
+                return building
+        return None
+
+    def remember_buildings(self):
+        for building in self.state.get("buildings", []):
+            self.building_peak[building["id"]] = max(
+                self.building_peak.get(building["id"], 0), building["health"])
+
+    def workshop_ready(self) -> bool:
+        shed = self.workshop()
+        return bool(shed) and shed["operational"]
+
+    def workshop_damaged(self) -> bool:
+        shed = self.workshop()
+        if not shed:
+            return False
+        return shed["health"] < self.building_peak.get(shed["id"], shed["health"])
+
+    def go_to_workshop(self) -> bool:
+        """Every workshop verb wants Michael standing beside it. Since
+        move_captain moves the household, this brings the companions and the
+        dogs along too, which is what restoring someone needs."""
+        if not self.workshop_at:
+            return False
+        return self.walk_to(dict(self.workshop_at), tries=6)
+
+    def workshop_command(self, what: str, **command):
+        self.go_to_workshop()
+        reply = self.game.send(**command)
+        self.journal.act(what, reply.get("ok", False), self.day,
+                         note=reply.get("refused", ""))
+        return reply
+
+    def mind_the_workshop(self):
+        """Raising the shed and repairing it only advance while Michael is
+        standing on the site, so 'finish the workshop' is a thing he spends a
+        day doing rather than a thing he orders and walks away from."""
+        if not self.go_to_workshop():
+            self.journal.act("mind the workshop", False, self.day,
+                             note="could not get back to the workshop site")
+            return
+        for _ in range(6):
+            self.game.send(cmd="tick", count=120)
+            shed = self.workshop()
+            self.remember_buildings()
+            if not shed or (shed["operational"] and not self.workshop_damaged()):
+                break
+            if not self.go_to_workshop():
+                break
+        self.journal.act("mind the workshop", self.workshop_ready(), self.day)
+
+    def blamed_salvage_he_had(self, what: str, reply: dict, cost: int):
+        """A refusal that names the wrong reason is worse than a refusal. If
+        the game says salvage while the player is looking at enough salvage,
+        the real reason is something it never told him."""
+        note = reply.get("refused") or ""
+        salvage = self.state.get("salvage", 0)
+        if not reply.get("ok") and cost and salvage >= cost and "salvage" in note.lower():
+            self.journal.bugs.append({
+                "day": self.day,
+                "what": f"a refusal to {what} blamed salvage the player had in hand",
+                "detail": f"{note!r} with {salvage} salvage stored and a cost of {cost}",
+            })
+
+    def develop_workshop(self):
+        reply = self.workshop_command("develop workshop", cmd="develop")
+        # The cost is read back out of the same reply that carried the refusal,
+        # so a price that moved while Michael walked over cannot be mistaken
+        # for the game lying about why it said no.
+        self.blamed_salvage_he_had("build the workshop out", reply,
+                                   self.state.get("develop_cost", 0))
+        if reply.get("ok"):
+            self.journal.note(self.day, "started building the workshop out")
+
+    def repair_workshop(self):
+        reply = self.workshop_command("repair workshop", cmd="repair")
+        self.blamed_salvage_he_had("repair the workshop", reply,
+                                   self.state.get("repair_cost", 0))
+        if reply.get("ok"):
+            self.journal.note(self.day, "started repairing the workshop")
+
+    def order_machine(self):
+        reply = self.workshop_command("build a mechanical dog", cmd="queue_machine")
+        cost, _ticks, berths = (list(self.state.get("machine_costs") or []) + [0, 0, 0])[:3]
+        dogs = len(self.state.get("dogs", []))
+        self.blamed_salvage_he_had("build a mechanical dog", reply, cost)
+        if not reply.get("ok") and dogs < berths and "berth" in (reply.get("refused") or "").lower():
+            self.journal.bugs.append({
+                "day": self.day,
+                "what": "the workshop reports a free dog berth and then refuses to use it",
+                "detail": f"{reply.get('refused')!r} with {dogs} dogs and {berths} berths",
+            })
+        if reply.get("ok"):
+            self.machine_refusals = 0
+            self.machines_ordered += 1
+            self.journal.note(self.day, "put a mechanical dog on the workshop bench")
+        else:
+            # Three identical noes in a row is the game saying no, whatever the
+            # observation advertises. Stop calling it an available action.
+            self.machine_refusals += 1
+
+    def drowned_companions(self) -> list[dict]:
+        """His own dead, still walking. Anyone the workshop has refused three
+        times is dropped, so one impossible case cannot swallow every day."""
+        return sorted(
+            (p for p in self.state.get("people", [])
+             if p.get("undead") and p["alive"] and p["faction"] == "faction.michael"
+             and self.restore_refusals.get(p["id"], 0) < 3),
+            key=lambda p: p["id"])
+
+    def restore_companion(self):
+        drowned = self.drowned_companions()
+        if not drowned:
+            return
+        self.go_to_workshop()
+        for person in drowned[:3]:
+            reply = self.game.send(cmd="restore", id=person["id"])
+            self.journal.act("restore a companion", reply.get("ok", False), self.day,
+                             who=person["name"], note=reply.get("refused", ""))
+            if reply.get("ok"):
+                self.restored.append(person["name"])
+                self.journal.note(self.day, f"brought {person['name']} back")
+                return
+            self.restore_refusals[person["id"]] = \
+                self.restore_refusals.get(person["id"], 0) + 1
+
+    # -- the carbine ----------------------------------------------------------
+
+    def strangers(self) -> list[dict]:
+        me = self.here()
+        others = [p for p in self.state.get("people", [])
+                  if p["alive"] and p["faction"] != "faction.michael"]
+        others.sort(key=lambda p: (abs(p["x"] - me["x"]) + abs(p["y"] - me["y"]), p["id"]))
+        return others
+
+    def pick_a_fight(self):
+        """Aiming the carbine is the only way the player starts anything, so a
+        style that never aims never sees the half of the game that shoots back."""
+        for person in self.strangers()[:2]:
+            self.walk_to(person, tries=4)
+            reply = self.game.send(cmd="aim", id=person["id"])
+            self.journal.act("aim the carbine", reply.get("ok", False), self.day,
+                             who=person["name"], faction=person["faction"])
+            if reply.get("ok"):
+                self.fights_started += 1
+                self.journal.note(self.day, f"aimed at {person['name']} of {person['faction']}")
+                return
+
+    def regroup(self):
+        """Clear a slot whose occupant is dead, gone or no longer his."""
+        by_id = {p["id"]: p for p in self.state.get("people", [])}
+        for slot, occupant in enumerate(self.state.get("party", [])):
+            if not occupant:
+                continue
+            who = by_id.get(occupant)
+            if who and who["alive"] and who["loyal"]:
+                continue
+            reply = self.game.send(cmd="dismiss", slot=slot)
+            self.journal.act("dismiss a party slot", reply.get("ok", False), self.day,
+                             slot=slot, who=(who or {}).get("name", occupant))
+            if reply.get("ok"):
+                self.journal.note(self.day, f"cleared party slot {slot}")
+                return
+
+    def stale_party_slot(self) -> bool:
+        by_id = {p["id"]: p for p in self.state.get("people", [])}
+        for occupant in self.state.get("party", []):
+            if not occupant:
+                continue
+            who = by_id.get(occupant)
+            if not who or not who["alive"] or not who["loyal"]:
+                return True
+        return False
+
+    # -- what the world tells him ---------------------------------------------
+
+    def ask_the_news(self):
+        """`news` is the game's only channel for what the war is doing, and it
+        only opens for someone Michael has talked to and is standing beside.
+        A day where somebody told him something new is a day the world reached
+        him, whether or not any number on his own sheet moved."""
+        self.news_today = []
+        for pid in sorted(self.talked_to):
+            person = next((p for p in self.state.get("people", [])
+                           if p["id"] == pid and p["alive"]), None)
+            if not person:
+                continue
+            if not self.game.send(cmd="can_talk", id=pid).get("ok"):
+                continue
+            reply = self.game.send(cmd="news", id=pid)
+            said = (reply.get("news") or "").strip()
+            if not said:
+                continue
+            if self.news_heard.get(pid) != said:
+                self.news_heard[pid] = said
+                self.news_today.append({"who": person["name"], "said": said[:200]})
+                self.journal.note(self.day, f"{person['name']}: {said[:120]}")
+        if self.news_today:
+            self.days_the_world_spoke += 1
 
     def answer_leads(self, prefer: int = 0):
         for lead in list(self.state.get("leads", [])):
@@ -437,8 +793,51 @@ class Player:
             # Salvage matters until there is enough to build with.
             wants.append((70 if state.get("salvage", 0) < 8 else 30, "salvage"))
 
-        if self.style == "builder" and state.get("salvage", 0) >= 4 and not self.built:
-            wants.append((90, "build"))
+        salvage = state.get("salvage", 0)
+        shed = self.workshop()
+        builder = self.style == "builder"
+
+        # The workshop and everything it makes possible. Michael cannot raise
+        # soldiers, so the shed is the only thing he can actually grow, and a
+        # bot that could not touch it reported an empty day whenever it had
+        # salvage in hand and a shed to spend it on.
+        if not shed and salvage >= 4 and self.style != "drifter" \
+                and self.build_refusals < 3:
+            wants.append((90 if builder else 65, "build"))
+
+        if shed and (not shed["operational"] or self.workshop_damaged()):
+            # Building work only advances with Michael standing on the site, so
+            # an unfinished shed is a day's work rather than an order.
+            wants.append((93 if builder else 60, "finish"))
+
+        if self.workshop_ready() and self.workshop_damaged() \
+                and salvage >= state.get("repair_cost", 0):
+            # A wrecked workshop stops everything else, whoever you are.
+            wants.append((95, "repair"))
+
+        develop_cost = state.get("develop_cost", 0)
+        if self.workshop_ready() and develop_cost and salvage >= develop_cost:
+            wants.append((92 if builder else 55, "develop"))
+
+        machine_cost, _ticks, berths = (list(state.get("machine_costs") or []) + [0, 0, 0])[:3]
+        if self.workshop_ready() and machine_cost and salvage >= machine_cost \
+                and len(state.get("dogs", [])) < berths and self.machine_refusals < 3:
+            wants.append((88 if builder else 50, "machine"))
+
+        if self.workshop_ready() and salvage > 0 and self.drowned_companions():
+            # Getting a drowned companion back beats almost anything else.
+            wants.append((94, "restore"))
+
+        if self.style == "contrarian" and not state.get("aimed_at") and self.strangers() \
+                and state.get("party_size", 0) >= 2:
+            # Only the contrarian starts fights, and the carbine is the only
+            # way anyone starts one at all. Scored below the day's honest work
+            # so he picks the fight when he has run out of better ideas and has
+            # somebody standing with him, rather than on the second morning.
+            wants.append((35, "fight"))
+
+        if self.stale_party_slot():
+            wants.append((45, "regroup"))
 
         if self.style == "drifter":
             wants.append((40, "wander"))
@@ -461,6 +860,12 @@ class Player:
     def play_day(self):
         before_world = world_facts(self.state)
         before_player = player_facts(self.state)
+        self.remember_buildings()
+        dogs = len(self.state.get("dogs", []))
+        if dogs != self.dogs_seen:
+            # The bench moved: whatever it refused last time is worth one more
+            # honest try.
+            self.dogs_seen, self.machine_refusals = dogs, 0
 
         # Two actions a day: enough to make progress, few enough that a day
         # with nothing worth doing is visible as exactly that.
@@ -477,6 +882,20 @@ class Player:
                 self.work_the_wreck()
             elif goal == "build":
                 self.build()
+            elif goal == "finish":
+                self.mind_the_workshop()
+            elif goal == "develop":
+                self.develop_workshop()
+            elif goal == "repair":
+                self.repair_workshop()
+            elif goal == "machine":
+                self.order_machine()
+            elif goal == "restore":
+                self.restore_companion()
+            elif goal == "fight":
+                self.pick_a_fight()
+            elif goal == "regroup":
+                self.regroup()
             elif goal == "wander":
                 self.wander()
         else:
@@ -486,6 +905,8 @@ class Player:
         remaining = TICKS_PER_DAY - (self.state["tick"] % TICKS_PER_DAY)
         self.game.send(cmd="tick", count=max(1, remaining))
         self.answer_leads(prefer=1 if self.style == "contrarian" else 0)
+        self.remember_buildings()
+        self.ask_the_news()
 
         self.journal.bugs.extend(find_bugs(self.state, self.game, self.day))
         if self.day % 4 == 0:
@@ -500,12 +921,17 @@ class Player:
             "day": self.day,
             "world_delta": changed(before_world, world_facts(self.state)),
             "player_delta": changed(before_player, player_facts(self.state)),
+            # What a companion or a local actually told him today. The owner
+            # has vetoed a narration feed, so this is the whole of the world's
+            # voice: a day with news in it is a day that reached the player.
+            "news": self.news_today,
         })
 
 
 def evaluate(player: Player, journal: Journal, days: int):
     state = player.state
-    busy_but_silent = [d for d in journal.days if d["world_delta"] and not d["player_delta"]]
+    busy_but_silent = [d for d in journal.days
+                       if d["world_delta"] and not d["player_delta"] and not d.get("news")]
     truly_still = [d for d in journal.days if not d["world_delta"] and not d["player_delta"]]
 
     if len(busy_but_silent) >= max(3, days // 3):
@@ -515,7 +941,8 @@ def evaluate(player: Player, journal: Journal, days: int):
             "The island changes constantly and the player is told none of it",
             "high",
             f"{len(busy_but_silent)} of {days} days moved the world without moving one "
-            f"thing the player can see. Day {sample['day']} for instance: {moved}. "
+            f"thing the player can see and without one person telling him anything new. "
+            f"Day {sample['day']} for instance: {moved}. "
             "A player watching this has no way to know any of it happened.",
         )
 
@@ -531,8 +958,18 @@ def evaluate(player: Player, journal: Journal, days: int):
         journal.complain(
             "The game regularly offers the player nothing to do", "high",
             f"On {player.idle_because_nothing_to_do} of {days} days there was no lead to "
-            "answer, nobody reachable to recruit, no salvage left and nothing to build. "
-            "Not 'the player chose to wait' -- the game had no available action.",
+            "answer, nobody left to recruit, no salvage to collect, nothing to build, "
+            "no workshop work he could pay for, nobody to bring back and no party slot "
+            "to sort out. Not 'the player chose to wait' -- the game had no available "
+            "action.",
+        )
+
+    spoke = [d for d in journal.days if d.get("news")]
+    if len(spoke) <= days // 10:
+        journal.complain(
+            "Nobody ever tells the player what the war is doing", "high",
+            f"On {len(spoke)} of {days} days did a companion or a local say anything new "
+            "about the fighting, and that is the game's only channel for it.",
         )
 
     if not player.recruited:
@@ -626,6 +1063,12 @@ def run_style(style: str, days: int) -> dict:
         "days_played": player.day,
         "commands": game.calls,
         "recruited": player.recruited,
+        "restored": player.restored,
+        "machines_ordered": player.machines_ordered,
+        "dogs": player.state.get("dogs", []),
+        "fights_started": player.fights_started,
+        "news_heard": player.news_heard,
+        "days_the_world_spoke": player.days_the_world_spoke,
         "leads_answered": player.lead_answers,
         "days_with_nothing_worth_doing": player.idle_because_nothing_to_do,
         "final_player_view": player_facts(player.state),
@@ -654,12 +1097,19 @@ def main():
     reports = [run_style(style, args.days) for style in styles]
 
     for report in reports:
-        busy_silent = sum(1 for d in report["days"] if d["world_delta"] and not d["player_delta"])
-        loud = sum(1 for d in report["days"] if d["player_delta"])
+        busy_silent = sum(1 for d in report["days"]
+                          if d["world_delta"] and not d["player_delta"] and not d.get("news"))
+        loud = sum(1 for d in report["days"] if d["player_delta"] or d.get("news"))
         print(f"\n=== {report['style']}: {report['days_played']} days, "
               f"{report['commands']} commands ===")
         print(f"  recruited        {report['recruited'] or 'nobody'}")
         print(f"  leads answered   {len(report['leads_answered'])}")
+        print(f"  workshop         {len(report['dogs'])} dog(s), "
+              f"{report['machines_ordered']} ordered, "
+              f"{len(report['restored'])} restored, "
+              f"{report['fights_started']} fight(s) started")
+        print(f"  days with nothing to do: {report['days_with_nothing_worth_doing']}")
+        print(f"  days somebody told them something new: {report['days_the_world_spoke']}")
         print(f"  days the player saw something happen: {loud}/{len(report['days'])}")
         print(f"  days the world moved and they saw none of it: {busy_silent}")
 

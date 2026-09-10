@@ -14,7 +14,20 @@ pub struct CthulhuMadness {
     decay_per_tick: u8,
     warning_threshold: u8,
     conversion_threshold: u8,
+    /// How many days the water keeps a body. Every corpse used to be kept for
+    /// the whole campaign so the shrine could raise it whenever there was
+    /// room, which meant a hundred-day island carried hundreds of the dead in
+    /// its save and never released their names -- so the persona pools ran dry
+    /// and two living women ended up with the same one. A body older than this
+    /// is gone. Michael's own dead are exempt: her party slot is deliberately
+    /// kept until he gives it up or the water gives her back.
+    #[serde(default = "default_corpse_persist_days")]
+    corpse_persist_days: u32,
     susceptible_definitions: BTreeSet<String>,
+}
+
+fn default_corpse_persist_days() -> u32 {
+    7
 }
 
 impl CthulhuMadness {
@@ -25,6 +38,7 @@ impl CthulhuMadness {
             && self.decay_per_tick > 0
             && self.warning_threshold > 0
             && self.warning_threshold < self.conversion_threshold
+            && (1..=1000).contains(&self.corpse_persist_days)
     }
 }
 
@@ -3418,6 +3432,29 @@ impl FactionWorld {
             as u16
     }
 
+    /// Bodies the island has finished with.
+    ///
+    /// The shrine may raise any corpse whenever it has room, so every death
+    /// used to be kept for the rest of the campaign: the save grew without
+    /// bound and the dead held their names forever, which drained the persona
+    /// pools until two living people shared one. A body older than the
+    /// authored span is gone -- except Michael's own dead, whose identity and
+    /// party slot the game deliberately keeps.
+    fn decay_casualties(&mut self) {
+        let span = u64::from(self.rules.madness.corpse_persist_days)
+            .saturating_mul(self.clock.ticks_per_day.max(1));
+        let now = self.tick;
+        self.casualties.retain(|_, casualty| {
+            casualty
+                .actor
+                .person
+                .as_ref()
+                .is_some_and(|person| person.loyal_to_michael)
+                || casualty.actor.faction_id == "faction.michael"
+                || now.saturating_sub(casualty.death_tick) <= span
+        });
+    }
+
     fn return_midnight_casualties(&mut self) -> Vec<FactionWorldEvent> {
         const CTHULHU: &str = "faction.cthulhu.prototype";
         if self.tick == 0
@@ -5875,7 +5912,11 @@ impl FactionWorld {
         if rule.actor_definition_id == self.rules.machinery.definition_id
             && (faction_id != "faction.michael"
                 || rule != self.rules.machine_production
-                || self.mechanical_dog_count() >= self.rules.machinery.capacity)
+                // The berths the workshop actually has, which grows with it.
+                // Reading the base capacity here made every level past the
+                // first advertise a berth the one gated door would refuse --
+                // and refuse it as "not enough salvage", which was a lie.
+                || self.mechanical_dog_count() >= self.machine_berths())
         {
             return Err(FactionWorldError::QueueFull(building_id.into()));
         }
@@ -6319,6 +6360,7 @@ impl FactionWorld {
         events.extend(self.resolve_island_skirmish());
         events.extend(self.advance_madness());
         events.extend(self.return_midnight_casualties());
+        self.decay_casualties();
         if self
             .approach_target
             .as_ref()
@@ -10488,6 +10530,110 @@ mod tests {
         assert_eq!(
             world.island_person_news(&companion),
             "The elves are finished. Their holdings are gone."
+        );
+    }
+
+    /// The berth a level buys is a berth the game will actually fill.
+    ///
+    /// `queue_foothold_machine` asked `machine_berths`, but the one gated door
+    /// underneath it -- `enqueue_production` -- asked the base capacity, so
+    /// every level past the first advertised a berth that was then refused,
+    /// and refused as "Not enough salvage to build a mechanical dog" while the
+    /// player was standing there with the salvage. A playtest bot caught it.
+    #[test]
+    fn a_level_of_workshop_buys_a_berth_the_gated_door_honours() {
+        let mut world = mechanical_workshop_fixture();
+        let site = "site.michael.field_workshop";
+        world
+            .factions
+            .get_mut("faction.michael")
+            .unwrap()
+            .buildings
+            .get_mut(site)
+            .unwrap()
+            .level = 2;
+        let berths = world.machine_berths();
+        assert_eq!(berths, world.rules.machinery.capacity + 1);
+        world
+            .factions
+            .get_mut("faction.michael")
+            .unwrap()
+            .resources
+            .insert("resource.salvage".into(), 1000);
+        for expected in 1..=berths {
+            world.queue_foothold_machine().unwrap();
+            assert!(
+                advance_until(&mut world, 20_000, |w| w.mechanical_followers().len()
+                    == expected),
+                "the workshop fills berth {expected} of {berths}"
+            );
+        }
+        // And stops at the berths it actually has.
+        assert!(world.queue_foothold_machine().is_err());
+    }
+
+    /// The island stops carrying every body it has ever made.
+    ///
+    /// The shrine may raise any corpse whenever it has room, so nothing ever
+    /// removed one: a hundred-day campaign carried hundreds of the dead in its
+    /// save and they held their names forever, which drained the persona pools
+    /// until two living women shared one. Michael's own dead are exempt --
+    /// her party slot is deliberately kept.
+    #[test]
+    fn corpses_decay_after_the_authored_span_and_michaels_dead_do_not() {
+        let (mut world, ids) = recruitment_fixture();
+        let companion = ids
+            .iter()
+            .find(|id| {
+                world.living_person(id).is_some_and(|person| {
+                    person.sex == PersonSex::Female && !person.recruitment_offer.is_empty()
+                })
+            })
+            .cloned()
+            .expect("a recruitable woman");
+        let stranger = ids
+            .iter()
+            .find(|id| *id != &companion)
+            .cloned()
+            .expect("somebody else on the island");
+        world.positions.insert(
+            "character.protagonist.captain".into(),
+            world.positions[&companion],
+        );
+        world.talk_island_person(&companion);
+        assert!(world.recruit_island_person(&companion));
+
+        for id in [&stranger, &companion] {
+            let position = world.positions[id];
+            let actor = world.actors.remove(id).unwrap();
+            let combat = world.unit_combat.remove(id).unwrap();
+            world.positions.remove(id);
+            world.casualties.insert(
+                id.clone(),
+                IslandCasualty {
+                    actor,
+                    position,
+                    death_tick: world.tick,
+                    population_use: combat.population_use,
+                },
+            );
+        }
+        // The shrine cannot raise anyone, so decay is the only thing acting.
+        for faction in world.factions.values_mut() {
+            for building in faction.buildings.values_mut() {
+                building.operational = false;
+            }
+        }
+        let span = u64::from(world.rules.madness.corpse_persist_days) * world.clock.ticks_per_day;
+        world.decay_casualties();
+        assert!(world.casualties.contains_key(&stranger));
+
+        world.tick += span + 1;
+        world.decay_casualties();
+        assert!(!world.casualties.contains_key(&stranger));
+        assert!(
+            world.casualties.contains_key(&companion),
+            "his own dead are kept"
         );
     }
 

@@ -86,6 +86,27 @@ fn observe(world: &FactionWorld) -> Value {
         })
         .collect();
 
+    // The dead Michael still has a claim on: a companion killed today is a
+    // casualty, not gone, and her party slot is deliberately kept until he
+    // gives it up or the water gives her back. A harness that only listed the
+    // living reported those slots as pointing at nobody.
+    let casualties: Vec<Value> = world
+        .casualties
+        .iter()
+        .filter_map(|(id, casualty)| {
+            let person = casualty.actor.person.as_ref()?;
+            Some(json!({
+                "id": id,
+                "name": person.display_name,
+                "faction": casualty.actor.faction_id,
+                "loyal": person.loyal_to_michael,
+                "died_tick": casualty.death_tick,
+                "x": casualty.position.x,
+                "y": casualty.position.y,
+            }))
+        })
+        .collect();
+
     let buildings: Vec<Value> = world
         .factions
         .values()
@@ -165,6 +186,7 @@ fn observe(world: &FactionWorld) -> Value {
         "party_size": world.party_size(),
         "loyal_companions": world.loyal_companion_count(),
         "people": people,
+        "casualties": casualties,
         "buildings": buildings,
         "leads": leads,
         "quests": quests,
