@@ -28,7 +28,7 @@
     "notes": "Zero new Rust, the third such contract in a row: TriggerCondition::ResourceAtLeast reads self.stored_resource(faction, resource), which is the same stockpile salvage_foothold credits -- no second pickup counter that could drift from it. quest.what_the_sea_gave_back resolves at 20 salvage because 20 is what content/scenarios/pirate_island's salvage.wreck cache actually holds (initial_amount 20), read from the world rather than picked as a round number. Unlike rival-falls, this condition cannot go true from autonomous play: salvage_foothold is Michael's own verb, so the tick-1440 equality fixture is untouched (checked -- faction.michael's salvage stays 0 across the baseline day). Deliberately no grant_resource effect here: a resource trigger that grants resources can re-arm itself, and this quest wants a finish line, not a loop."
   },
   "completion": {
-    "commit": null,
+    "commit": "ed1fa90",
     "checks": [
       {
         "command": "cargo fmt --manifest-path godot-rust/Cargo.toml",
