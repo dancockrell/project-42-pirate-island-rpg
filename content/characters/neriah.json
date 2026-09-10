@@ -1,0 +1,45 @@
+{
+  "$schema": "../schemas/character.schema.json",
+  "id": "character.heroine.neriah",
+  "displayName": "Neriah of the Low Channels",
+  "kind": "named-person",
+  "implementationOwner": "rust-simulation",
+  "presentationOwner": "godot-gdscript",
+  "tags": [
+    "adult",
+    "elven",
+    "water-warden",
+    "island-ecology",
+    "harem-committed",
+    "prototype"
+  ],
+  "signatureWeaponId": "weapon.neriah.channel_bow",
+  "skillIds": [],
+  "island": {
+    "boardName": "Neriah",
+    "sex": "female",
+    "age": 26,
+    "backstory": "A warden of the island's water channels who can name which spring feeds which grove and remembers when every one of them ran clear. Several no longer do, and she knows exactly how far the wrongness has spread inland.",
+    "recruitmentOffer": "I can tell you which ground is going bad and how fast, and you are the first person here who has asked instead of arguing. Make room beside you, Michael, and I will show you the whole map of it.",
+    "companionResponse": "The water tastes different this far east. Do not drink from the low channels until I have looked at them."
+  },
+  "art": {
+    "activeActorAssetId": "art.placeholder.neriah.active_actor",
+    "cardPortraitAssetId": "art.placeholder.neriah.card_portrait",
+    "status": "placeholder",
+    "accessibilityDescription": "An adult elven water warden, tall and long-limbed, with river-grey eyes, dark braided hair threaded with reed cord, bare forearms marked by sun and water, a slim recurved bow and a belt of stoppered sampling vials."
+  },
+  "metadata": {
+    "source": "session-2026-09-10-core-roster",
+    "maturity": "prototype",
+    "releaseLegal": false,
+    "titleCardName": "Neriah",
+    "competenceDomain": "Island ecology and hydrology. She reads the spread of the cult's corruption through water and growing things, turning a vague dread into a mapped, dated front Michael can act on.",
+    "notes": [
+      "Canonical competence: she teaches Michael to read the island itself as evidence, which is the backbone of her investigation lane.",
+      "Her stake is concrete and local: named channels she can prove are changing, not a prophecy.",
+      "Placed with the elves so her knowledge arrives attached to a faction with its own opinion about the water.",
+      "Authored notable, not yet a full heroine: she carries identity, competence and recruitment content, and the seven-skill hero kit is the declared gate for promoting her to kind heroine. The authority allows this explicitly -- historical seven-rank skill prototypes are not a universal NPC requirement -- and it is what keeps a roster of dozens affordable."
+    ]
+  }
+}

@@ -154,7 +154,33 @@
   "buildings": "../../../game/assets/island/buildings.json",
   "personas": "../../../game/assets/island/personas.json",
   "characters": [
-    "../../characters/captain.json"
+    "../../characters/captain.json",
+    "../../characters/betty.json",
+    "../../characters/marisol.json",
+    "../../characters/neriah.json",
+    "../../characters/suzhen.json"
+  ],
+  "placements": [
+    {
+      "characterId": "character.heroine.betty",
+      "factionId": "faction.pirates.prototype",
+      "definitionId": "actor_def.pirates.deckhand"
+    },
+    {
+      "characterId": "character.heroine.marisol",
+      "factionId": "faction.colonial_powers.prototype",
+      "definitionId": "actor_def.colonial.line_marine"
+    },
+    {
+      "characterId": "character.heroine.neriah",
+      "factionId": "faction.elves.prototype",
+      "definitionId": "actor_def.elven.bow_warden"
+    },
+    {
+      "characterId": "character.heroine.suzhen",
+      "factionId": "faction.eastern_fox_people.prototype",
+      "definitionId": "actor_def.eastern_fox_people.spear_skirmisher"
+    }
   ],
   "resources": [
     "resources.json"

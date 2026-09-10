@@ -902,6 +902,13 @@ pub struct ScenarioRules {
     /// none; a save made before items existed loads with an empty catalogue.
     #[serde(default)]
     pub items: BTreeMap<String, ScenarioItem>,
+    /// The authored women this scenario's factions will produce, in authored
+    /// order. A notable is never placed on the board: she is the person a
+    /// building produces when its turn comes, carrying a written identity
+    /// where an ordinary worker carries a rolled one. Kept on the rules so she
+    /// still arrives after a save and reload.
+    #[serde(default)]
+    pub notables: Vec<ScenarioNotable>,
     /// The pack's triggers, in authored order, which is also firing order. A
     /// pack may carry none; a save made before triggers existed loads with an
     /// empty list and the tick's trigger pass does nothing.
@@ -1277,6 +1284,11 @@ pub struct ScenarioDefinition {
     /// simulation never carries a second copy of an identity to drift from.
     #[serde(default)]
     pub characters: Vec<ScenarioCharacter>,
+    /// Where the pack puts the characters it carries. Identity belongs to the
+    /// record; allegiance and standing place belong to the scenario, so the
+    /// same woman can be a pirate in one pack and a colonial in another.
+    #[serde(default)]
+    pub placements: Vec<ScenarioPlacement>,
     /// One or more catalogue documents, merged in order into one catalogue.
     #[serde(default)]
     pub resources: Vec<BTreeMap<String, ScenarioResource>>,
@@ -1305,7 +1317,33 @@ pub struct ScenarioCharacter {
     pub island: ScenarioCharacterIdentity,
 }
 
+/// Where an authored woman comes from. She is produced into the island's
+/// ordinary population, not placed above it: the faction that raises her and
+/// the actor definition she is raised as give her the same sprite, combat
+/// profile and provenance any other worker of that definition gets, so every
+/// verb that works on a generated woman works on her.
 #[derive(Clone, Debug, Default, Deserialize)]
+pub struct ScenarioPlacement {
+    #[serde(rename = "characterId")]
+    pub character_id: String,
+    #[serde(rename = "factionId")]
+    pub faction_id: String,
+    #[serde(rename = "definitionId")]
+    pub definition_id: String,
+}
+
+/// A notable resolved against the record the pack carries, ready for the
+/// faction that raises her. Identity is copied in here so it travels with the
+/// save exactly as triggers and quests do.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScenarioNotable {
+    pub character_id: String,
+    pub faction_id: String,
+    pub definition_id: String,
+    pub identity: ScenarioCharacterIdentity,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScenarioCharacterIdentity {
     #[serde(rename = "boardName")]
     pub board_name: String,
@@ -1314,6 +1352,14 @@ pub struct ScenarioCharacterIdentity {
     /// width so no conversion can quietly reinterpret an authored age.
     pub age: u16,
     pub backstory: String,
+    /// The persona pools fill these for a generated woman, and
+    /// `recruit_island_person` reads the offer for everyone. An authored
+    /// notable therefore has to author her own, or she could be talked to and
+    /// never asked -- the exact trap this field exists to close.
+    #[serde(rename = "recruitmentOffer", default)]
+    pub recruitment_offer: String,
+    #[serde(rename = "companionResponse", default)]
+    pub companion_response: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -1520,6 +1566,27 @@ impl ScenarioDefinition {
             personas: self.personas.clone(),
             campaign_clock: self.rules.campaign_clock.resolve(),
             items: self.items.catalogue(),
+            // Every path that builds rules from a definition carries the
+            // roster, including a legacy save migrated into this scenario --
+            // otherwise a migrated campaign would quietly never raise anyone.
+            // A placement whose record is missing is dropped here and refused
+            // by `from_scenario`, which is where saying no belongs.
+            notables: self
+                .placements
+                .iter()
+                .filter_map(|placement| {
+                    let record = self
+                        .characters
+                        .iter()
+                        .find(|character| character.id == placement.character_id)?;
+                    Some(ScenarioNotable {
+                        character_id: placement.character_id.clone(),
+                        faction_id: placement.faction_id.clone(),
+                        definition_id: placement.definition_id.clone(),
+                        identity: record.island.clone(),
+                    })
+                })
+                .collect(),
             triggers: self.triggers.iter().flatten().cloned().collect(),
             quests: self.quest_catalogue().unwrap_or_default(),
         }
@@ -3702,6 +3769,36 @@ impl FactionWorld {
         {
             return Err("Wreck salvage is unreachable.".into());
         }
+        // Authored notables are not placed on the board. The island starts with
+        // Michael alone and every other person arrives through production, so a
+        // notable only joins the roster her faction will raise. The roster
+        // itself is resolved by `scenario_rules`; this refuses the packs that
+        // roster is not allowed to have come from.
+        let mut rostered: BTreeSet<&str> = BTreeSet::new();
+        for placement in &definition.placements {
+            if !definition
+                .characters
+                .iter()
+                .any(|character| character.id == placement.character_id)
+            {
+                return Err("scenario_placement_record_missing".into());
+            }
+            if !rostered.insert(placement.character_id.as_str()) {
+                return Err("duplicate_scenario_placement".into());
+            }
+            if placement.character_id == definition.start.captain_id {
+                return Err("duplicate_scenario_placement".into());
+            }
+            if !staged.factions.contains_key(&placement.faction_id) {
+                return Err("scenario_placement_faction_unknown".into());
+            }
+            if !staged
+                .combat_profiles
+                .contains_key(&placement.definition_id)
+            {
+                return Err("scenario_placement_definition_unknown".into());
+            }
+        }
         staged.salvage_caches.insert(
             "salvage.wreck".into(),
             SalvageCache {
@@ -5480,20 +5577,54 @@ impl FactionWorld {
         let mut events = Vec::with_capacity(completed.len());
         for (faction_id, building_id, node_id, rally_point_id, order) in completed {
             self.next_actor_serial += 1;
+            // The one place a written identity stands in for a rolled one: this
+            // faction's next unraised notable for this definition. Nothing else
+            // about her production differs -- same rule, same costs, same
+            // provenance, same rally point as the worker she arrives instead of.
+            let notable = if order.rule.actor_kind == "machine" {
+                None
+            } else {
+                self.rules
+                    .notables
+                    .iter()
+                    .find(|notable| {
+                        notable.faction_id == faction_id
+                            && notable.definition_id == order.rule.actor_definition_id
+                            && !self.actors.contains_key(&notable.character_id)
+                            && !self.casualties.contains_key(&notable.character_id)
+                    })
+                    .cloned()
+            };
+            let instance_id = match &notable {
+                Some(notable) => notable.character_id.clone(),
+                None => format!("actor_instance.{faction_id}.{}", self.next_actor_serial),
+            };
             let actor = ProducedActor {
                 madness: 0,
                 undead: false,
                 person: if order.rule.actor_kind == "machine" {
                     None
+                } else if let Some(notable) = &notable {
+                    Some(NamedPerson {
+                        id: instance_id.clone(),
+                        display_name: notable.identity.board_name.clone(),
+                        alive_today: true,
+                        sex: notable.identity.sex,
+                        age: Some(notable.identity.age),
+                        backstory: notable.identity.backstory.clone(),
+                        recruitment_offer: notable.identity.recruitment_offer.clone(),
+                        companion_response: notable.identity.companion_response.clone(),
+                        ..Default::default()
+                    })
                 } else {
                     produced_person(
                         &self.rules.personas,
                         &order.rule.actor_definition_id,
-                        &format!("actor_instance.{faction_id}.{}", self.next_actor_serial),
+                        &instance_id,
                         self.next_actor_serial,
                     )
                 },
-                instance_id: format!("actor_instance.{faction_id}.{}", self.next_actor_serial),
+                instance_id,
                 definition_id: order.rule.actor_definition_id,
                 actor_kind: order.rule.actor_kind,
                 faction_id: faction_id.clone(),
@@ -6647,7 +6778,19 @@ mod tests {
             ))
             .unwrap()
         }
-        let mut world = main_scenario_world();
+        // The notables are an additive layer this fixture predates, and they
+        // now share the production stream, so a pack that rosters them produces
+        // a legitimately different island. This proof has one narrow job --
+        // that pack loading still reproduces the island the deleted hard-coded
+        // path produced -- so it runs the pack without them. Regenerating the
+        // fixture to include them instead would bake the new behaviour into the
+        // baseline and destroy its ability to catch the next accidental drift.
+        // The notables' own arrival, recruitment and identity are proved by
+        // `an_authored_notable_arrives_through_production_not_placement` and
+        // `an_authored_notable_is_recruited_by_the_same_verbs_as_a_generated_woman`.
+        let mut base = main_scenario();
+        base.placements.clear();
+        let mut world = FactionWorld::from_scenario(&base).expect("island without notables");
         assert_eq!(
             canonical(&world.save_json().unwrap()),
             canonical(&fixture("hard_coded_island_tick_0.json")),
@@ -6710,6 +6853,145 @@ mod tests {
             FactionWorld::from_scenario(&definition).unwrap_err(),
             "scenario_captain_record_missing"
         );
+    }
+
+    /// The island still starts with Michael alone. A notable is not standing on
+    /// the board at tick 0; she is produced by her faction like anyone else,
+    /// and arrives carrying a written identity instead of a rolled one.
+    #[test]
+    fn an_authored_notable_arrives_through_production_not_placement() {
+        let definition = main_scenario();
+        let mut world = main_scenario_world();
+        let notable = world
+            .rules
+            .notables
+            .first()
+            .cloned()
+            .expect("the main pack rosters a notable");
+        let record = definition
+            .characters
+            .iter()
+            .find(|character| character.id == notable.character_id)
+            .expect("the pack carries the record it rosters");
+        // The start-alone invariant the rest of the suite depends on.
+        assert_eq!(world.actors.len(), 1);
+        assert!(!world.actors.contains_key(&notable.character_id));
+
+        let mut arrived = false;
+        for _ in 0..4000 {
+            world.advance_island_tick();
+            if world.actors.contains_key(&notable.character_id) {
+                arrived = true;
+                break;
+            }
+        }
+        assert!(arrived, "her faction must actually raise her");
+        let actor = &world.actors[&notable.character_id];
+        assert_eq!(actor.faction_id, notable.faction_id);
+        assert_eq!(actor.definition_id, notable.definition_id);
+        let person = actor.person.as_ref().expect("a notable is a person");
+        assert_eq!(person.display_name, record.island.board_name);
+        assert_eq!(person.sex, record.island.sex);
+        assert_eq!(person.age, Some(record.island.age));
+        assert_eq!(person.recruitment_offer, record.island.recruitment_offer);
+        // She came out of a real production rule, with a real producing
+        // building behind her -- not a hand-placed provenance.
+        assert!(!actor.provenance.producer_building_id.is_empty());
+        assert_eq!(actor.provenance.faction_id, notable.faction_id);
+        // Her combat state is the definition's, the same one every produced
+        // deckhand gets. She is not stronger for being written.
+        assert_eq!(
+            world.unit_combat[&notable.character_id].health,
+            world.combat_profiles[&notable.definition_id].health
+        );
+        // One identity, one incarnation, however long the island runs. She may
+        // well be killed out there -- she is an ordinary deckhand in a real war
+        // -- but death moves her to the casualty record rather than erasing
+        // her, and a dead notable is never quietly produced a second time.
+        for _ in 0..600 {
+            world.advance_island_tick();
+            let living = world.actors.contains_key(&notable.character_id);
+            let dead = world.casualties.contains_key(&notable.character_id);
+            assert!(
+                living != dead,
+                "a notable is either standing or recorded dead, never both and never neither"
+            );
+        }
+    }
+
+    /// The point of the whole contract: a written woman is recruited by exactly
+    /// the verbs that recruit a rolled one. If this needed a Betty-shaped
+    /// branch anywhere, the authority's "no separate protected heroine caste"
+    /// would already be broken.
+    #[test]
+    fn an_authored_notable_is_recruited_by_the_same_verbs_as_a_generated_woman() {
+        let mut world = main_scenario_world();
+        let betty = "character.heroine.betty";
+        world.hostilities.clear();
+        // Wait for the pirates to raise her, exactly as a player would.
+        let mut raised = false;
+        for _ in 0..4000 {
+            world.advance_island_tick();
+            if world.actors.contains_key(betty) {
+                raised = true;
+                break;
+            }
+        }
+        assert!(raised, "the pirates must raise Betty");
+        assert_ne!(world.actors[betty].faction_id, "faction.michael");
+        assert!(
+            !world.actors[betty]
+                .person
+                .as_ref()
+                .unwrap()
+                .loyal_to_michael
+        );
+        // Walk Michael to her rather than teleporting either of them.
+        let captain = "character.protagonist.captain";
+        let her_ground = world.positions[betty];
+        world.order_move(captain, her_ground).unwrap();
+        let mut reached = false;
+        for _ in 0..4000 {
+            world.advance_island_tick();
+            if world.approach_island_person(betty) {
+                reached = true;
+                break;
+            }
+        }
+        assert!(reached, "Michael must be able to reach an authored notable");
+        for _ in 0..256 {
+            if world.can_talk_island_person(betty) {
+                break;
+            }
+            world.advance_island_tick();
+        }
+        assert!(world.can_talk_island_person(betty));
+        world.talk_island_person(betty);
+        assert!(world.recruit_island_person(betty));
+        assert!(
+            world.actors[betty]
+                .person
+                .as_ref()
+                .unwrap()
+                .loyal_to_michael
+        );
+        assert_eq!(world.actors[betty].faction_id, "faction.michael");
+        // Recruitment transfers the same person; it does not clone her, and it
+        // does not rewrite where she came from.
+        assert_eq!(
+            world.actors[betty].provenance.faction_id,
+            "faction.pirates.prototype"
+        );
+        assert_eq!(
+            world
+                .actors
+                .values()
+                .filter(|actor| actor.person.as_ref().is_some_and(|p| p.id == betty))
+                .count(),
+            1
+        );
+        assert!(world.assign_island_companion(betty, 0));
+        assert_eq!(world.party_size(), 1);
     }
 
     /// The economy is the pack's, not the simulation's: every opening number
@@ -6913,14 +7195,23 @@ mod tests {
             .unwrap()
         }
         let legacy = fixture("hard_coded_island_tick_0.json");
-        let rules = main_scenario().scenario_rules();
+        // Same reasoning as the equality proof: these fixtures predate the
+        // notables, who now share the production stream, so this migration is
+        // proved against the pack without them. Both sides use the same base
+        // definition, so the comparison stays exact rather than being loosened.
+        let mut base = main_scenario();
+        base.placements.clear();
+        let rules = base.scenario_rules();
         // Without a scenario there is nothing to fill the missing rules with.
         assert_eq!(
             FactionWorld::load_json(&legacy).unwrap_err(),
             "save_needs_scenario_rules"
         );
         let mut migrated = FactionWorld::load_json_for_scenario(&legacy, &rules).unwrap();
-        assert_eq!(migrated, main_scenario_world());
+        assert_eq!(
+            migrated,
+            FactionWorld::from_scenario(&base).expect("island without notables")
+        );
         assert_eq!(migrated.rules, rules);
         // A migrated save is a version-2 save and needs no rules again.
         assert!(FactionWorld::load_json(&migrated.save_json().unwrap()).is_ok());
@@ -8735,10 +9026,10 @@ mod tests {
             for _ in 0..300 {
                 world.advance_island_tick();
                 let produced = || {
-                    world
-                        .actors
-                        .values()
-                        .filter(|a| a.definition_id == definition)
+                    world.actors.values().filter(|a| {
+                        a.definition_id == definition
+                            && a.instance_id.starts_with("actor_instance.")
+                    })
                 };
                 if produced().any(|a| a.person.as_ref().is_some_and(|p| p.sex == PersonSex::Male))
                     && produced().any(|a| {
@@ -8750,10 +9041,17 @@ mod tests {
                     break;
                 }
             }
+            // Ordinary production means the persona pools. An authored notable
+            // shares this production stream by design, but she is not a rolled
+            // identity and her authored age is not the pool's range, so this
+            // test looks only at the rolled ones -- which the instance id
+            // already distinguishes.
             let produced: Vec<_> = world
                 .actors
                 .values()
-                .filter(|a| a.definition_id == definition)
+                .filter(|a| {
+                    a.definition_id == definition && a.instance_id.starts_with("actor_instance.")
+                })
                 .collect();
             let male = produced
                 .iter()

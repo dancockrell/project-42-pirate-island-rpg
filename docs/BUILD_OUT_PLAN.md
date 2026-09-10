@@ -178,6 +178,22 @@ Order is by dependency, not by appetite.
   *procedural* pool (name lists and histories per actor definition), so adding
   her there would have generated a random woman called Betty instead of the
   authored one.
+- **The characters themselves, and a roster that scales.** Betty is on the
+  island — and so are Marisol, Neriah and Su-zhen. A notable is not placed on
+  the board: her faction *produces* her, under its own rule and costs, and when
+  its turn comes to raise a worker of that definition its next unraised notable
+  arrives instead of a rolled one. That is the whole difference between them:
+  her name was written, the other's was rolled. Proven by walking Michael
+  across the board to Betty and recruiting her with the same
+  approach/talk/recruit/assign verbs a generated woman uses. The first cut
+  placed notables standing at holdings at tick 0 and **four existing
+  behavioural tests refused it** — the island starts with Michael alone and
+  everyone else arrives through production — so the design was rebuilt on the
+  suite's verdict, which is also what the character authority said to begin
+  with. Scale is the `heroine`/`named-person` split: the seven-skill kit is
+  required only of a heroine, so a notable costs one record, two placeholder
+  entries and two manifest lines, and is promoted later by authoring her kit.
+  Michael + four women is now the real core roster rather than a plan.
 
 ### Next, in order
 

@@ -698,6 +698,48 @@ for (const pack of scenarioPacks) {
   if (typeof manifest.start?.captainId === "string" && !packCharacters.has(manifest.start.captainId)) {
     fail(file, `${name} starts ${manifest.start.captainId} but its characters do not carry that record, so the simulation would have no authored identity to place`);
   }
+  // Placements put an authored character into the island's ordinary
+  // population, so each one must name a record the pack carries, a faction it
+  // declares, and a production rule's actor definition for her art and combat.
+  const packFactionIds = new Set((manifest.factions ?? []).map(faction => faction?.id));
+  const packDefinitionIds = new Set();
+  for (const [index] of (manifest.factions ?? []).entries()) {
+    const production = resolved.get(`factions[${index}].production`);
+    if (production && typeof production.outputDefinitionId === "string") packDefinitionIds.add(production.outputDefinitionId);
+  }
+  const placed = new Set();
+  if (manifest.placements !== undefined && !Array.isArray(manifest.placements)) {
+    fail(file, `${name} placements must be an array of character placements`);
+  }
+  for (const [index, placement] of (Array.isArray(manifest.placements) ? manifest.placements : []).entries()) {
+    const at = `placements[${index}]`;
+    if (typeof placement !== "object" || placement === null || Array.isArray(placement)) {
+      fail(file, `${name} ${at} must be a placement record`);
+      continue;
+    }
+    const record = packCharacters.get(placement.characterId);
+    if (!record) fail(file, `${name} ${at} places ${placement.characterId}, which its characters do not carry`);
+    if (placed.has(placement.characterId)) fail(file, `${name} ${at} places ${placement.characterId} twice; one identity has exactly one incarnation`);
+    placed.add(placement.characterId);
+    if (placement.characterId === manifest.start?.captainId) fail(file, `${name} ${at} places ${placement.characterId}, who is already placed as this scenario's captain`);
+    if (!packFactionIds.has(placement.factionId)) fail(file, `${name} ${at} names faction ${placement.factionId}, which this scenario does not declare`);
+    if (!packDefinitionIds.has(placement.definitionId)) fail(file, `${name} ${at} names actor definition ${placement.definitionId}, which no faction in this scenario produces`);
+    // The definition must be one THIS faction produces, or she would be queued
+    // behind a production rule that never runs and could never be met.
+    const producingFactions = (manifest.factions ?? []).filter((_, index) => resolved.get(`factions[${index}].production`)?.outputDefinitionId === placement.definitionId).map(faction => faction?.id);
+    if (producingFactions.length > 0 && !producingFactions.includes(placement.factionId)) {
+      fail(file, `${name} ${at} raises ${placement.characterId} as ${placement.definitionId}, which ${placement.factionId} does not produce (${producingFactions.join(", ")} does)`);
+    }
+    // The recruitment verb reads recruitment_offer for everyone. A placed
+    // adult woman without one can be walked to and talked to and never asked,
+    // which reads as a bug rather than as an authored refusal.
+    const island = record?.island;
+    if (island && island.sex === "female" && Number.isInteger(island.age) && island.age >= 18) {
+      if (typeof island.recruitmentOffer !== "string" || island.recruitmentOffer.trim() === "") {
+        fail(file, `${name} ${at} places adult woman ${placement.characterId}, whose record declares no island.recruitmentOffer, so recruit_island_person could never accept her`);
+      }
+    }
+  }
   let columns = null;
   let rows = null;
   if (navigation) {

@@ -1,0 +1,45 @@
+{
+  "$schema": "../schemas/character.schema.json",
+  "id": "character.heroine.suzhen",
+  "displayName": "Su-zhen",
+  "kind": "named-person",
+  "implementationOwner": "rust-simulation",
+  "presentationOwner": "godot-gdscript",
+  "tags": [
+    "adult",
+    "fox-people",
+    "wayfinder",
+    "star-reckoning",
+    "harem-committed",
+    "prototype"
+  ],
+  "signatureWeaponId": "weapon.suzhen.wayfinder_spear",
+  "skillIds": [],
+  "island": {
+    "boardName": "Su-zhen",
+    "sex": "female",
+    "age": 25,
+    "backstory": "A wayfinder who crossed to this island by star-reckoning and has been quietly correcting her own charts ever since, because the stars over the reef do not sit where her tradition says they should.",
+    "recruitmentOffer": "Something here is wrong with the sky, and I would rather be wrong about it beside someone who builds things than alone with my charts. Make room, Michael.",
+    "companionResponse": "I marked our route back before we set out. You would be astonished how few people think to."
+  },
+  "art": {
+    "activeActorAssetId": "art.placeholder.suzhen.active_actor",
+    "cardPortraitAssetId": "art.placeholder.suzhen.card_portrait",
+    "status": "placeholder",
+    "accessibilityDescription": "An adult fox-people wayfinder with russet ears and tail, a lean travelling build, dark eyes, a weathered travelling coat over eastern layered cloth, a slim spear used as a walking stave and a lacquered case of rolled charts."
+  },
+  "metadata": {
+    "source": "session-2026-09-10-core-roster",
+    "maturity": "prototype",
+    "releaseLegal": false,
+    "titleCardName": "Su-zhen",
+    "competenceDomain": "Navigation, cartography and star-reckoning. She turns the island's geography and the wrongness overhead into routes, bearings and a record of what has changed since she arrived.",
+    "notes": [
+      "Canonical competence: she teaches Michael to navigate and to notice that the sky itself is evidence, which links her lane to the campaign clock rather than to combat.",
+      "Her charts are a running record, so her contribution compounds over the campaign instead of being spent once.",
+      "Placed with the eastern fox people, whose spear skirmishers already carry the eastern art direction the visual authority approved.",
+      "Authored notable, not yet a full heroine: she carries identity, competence and recruitment content, and the seven-skill hero kit is the declared gate for promoting her to kind heroine. The authority allows this explicitly -- historical seven-rank skill prototypes are not a universal NPC requirement -- and it is what keeps a roster of dozens affordable."
+    ]
+  }
+}

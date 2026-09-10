@@ -21,7 +21,9 @@
         "boardName": {"type": "string", "minLength": 1},
         "sex": {"enum": ["male", "female"]},
         "age": {"type": "integer", "minimum": 1, "maximum": 120},
-        "backstory": {"type": "string", "minLength": 1}
+        "backstory": {"type": "string", "minLength": 1},
+        "recruitmentOffer": {"description": "What she says when she asks to come along. The persona pools supply this for generated women; an authored notable supplies her own, because the recruitment verb reads the same field for both and a woman without one can never be asked.", "type": "string", "minLength": 1},
+        "companionResponse": {"description": "What she says once she is standing with him, the authored counterpart of a persona pool's companion_responses.", "type": "string", "minLength": 1}
       },
       "additionalProperties": false
     },

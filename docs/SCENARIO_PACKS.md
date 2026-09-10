@@ -114,6 +114,75 @@ provenance — and the simulation deliberately deserialises only the `island`
 block: those other fields belong to the presentation and battle owners, and
 copying them here would create a second copy to rot.
 
+### Placements
+
+`characters` says who exists; `placements` says which faction raises them:
+
+```json
+"placements": [
+  {
+    "characterId": "character.heroine.betty",
+    "factionId": "faction.pirates.prototype",
+    "definitionId": "actor_def.pirates.deckhand"
+  }
+]
+```
+
+Identity belongs to the record, allegiance belongs to the scenario, so the same
+woman can be a pirate in one pack and a colonial in another without editing her.
+
+**A notable is never placed on the board.** She is *produced*, by her faction's
+own building, under its own production rule, paying its own costs — the island
+still starts with Michael alone and every other person still arrives through
+production. When a faction's turn comes to raise a worker of that definition,
+its next unraised notable arrives instead of a rolled one. That is the only
+difference between them: her name was written, the other's was rolled.
+
+This is the character authority made structural — *"Ordinary women are named
+generated workers or fighters produced by buildings. Notables use the same
+person record with authored identity"*, and *"there is no separate protected
+heroine caste."* She takes the definition's sprite and combat profile, so she
+is not stronger for being written; she can be approached, talked to, recruited
+and assigned by exactly the verbs that handle a generated woman. No code
+anywhere branches on whether a person's name was written or rolled.
+
+An earlier draft of this contract *did* place notables on the board at tick 0.
+Four existing tests failed and were right to: the island's start-alone
+invariant is real, and standing four grown women at faction holdings before the
+first tick broke it. The roster lives on `ScenarioRules`, so a notable still
+arrives after a save and reload, and a notable who dies becomes a casualty like
+anyone else and is never quietly produced a second time — one identity, one
+incarnation.
+
+Because `recruit_island_person` reads `recruitment_offer` for **everyone**, and
+the persona pools fill that field only for generated women, an authored notable
+must supply her own `island.recruitmentOffer`. Without it she can be walked to
+and talked to and never asked — which reads as a bug rather than an authored
+refusal — so the validator refuses a placed adult woman who lacks one. That
+rule exists because this contract hit exactly that trap: the first placement of
+Betty was silently unrecruitable.
+
+The validator also refuses a placement naming a character the pack does not
+carry, a faction the scenario does not declare, an actor definition no faction
+produces, the captain (already placed), or the same character twice — one
+identity has exactly one incarnation.
+
+### How many characters this scales to
+
+Three tiers, and the cost of each is deliberately different:
+
+| `kind` | Kit | Cost to add |
+|---|---|---|
+| `protagonist` | Michael | one, fixed |
+| `heroine` | exactly seven skills — four powers, an ultimate, a party passive, a strategic passive | expensive; the core hero roster grows slowly |
+| `named-person` | authored identity, competence, recruitment content; no bespoke skill kit | cheap; this is where a roster of dozens lives |
+
+A notable is promoted to `heroine` by authoring her seven-skill kit, which the
+validator then enforces. The character authority allows this split directly:
+*"Historical seven-rank skill prototypes are not a universal NPC requirement."*
+Adding a notable is a record, two placeholder entries, and two lines of pack
+manifest — no code.
+
 ## The bundle
 
 `node tools/src/build-content-bundle.mjs` (extended, not a second tool) reads

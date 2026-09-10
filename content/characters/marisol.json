@@ -1,0 +1,45 @@
+{
+  "$schema": "../schemas/character.schema.json",
+  "id": "character.heroine.marisol",
+  "displayName": "Marisol Vega",
+  "kind": "named-person",
+  "implementationOwner": "rust-simulation",
+  "presentationOwner": "godot-gdscript",
+  "tags": [
+    "adult",
+    "human",
+    "colonial-gunner",
+    "ballistics",
+    "harem-committed",
+    "prototype"
+  ],
+  "signatureWeaponId": "weapon.marisol.ranging_glass",
+  "skillIds": [],
+  "island": {
+    "boardName": "Marisol",
+    "sex": "female",
+    "age": 24,
+    "backstory": "A garrison gunner who kept the fort's ranging tables in her own hand because the issued ones were wrong and nobody above her wanted to hear it. She has been quietly right for three years.",
+    "recruitmentOffer": "Your carbine throws left at distance and you have been compensating by feel. I can give you the numbers instead, Michael. Take me with you and stop guessing.",
+    "companionResponse": "Measure it twice before you build it. I have watched what happens to men who trust a number they did not check."
+  },
+  "art": {
+    "activeActorAssetId": "art.placeholder.marisol.active_actor",
+    "cardPortraitAssetId": "art.placeholder.marisol.card_portrait",
+    "status": "placeholder",
+    "accessibilityDescription": "An adult colonial gunner with a compact, square-shouldered build, dark hair pinned back under a forage cap, powder-marked hands, a brass ranging glass on a lanyard and a practical uniform coat stripped of insignia."
+  },
+  "metadata": {
+    "source": "session-2026-09-10-core-roster",
+    "maturity": "prototype",
+    "releaseLegal": false,
+    "titleCardName": "Marisol",
+    "competenceDomain": "Ballistics, ranging and artillery survey. She turns Michael's guesswork about distance, drop and fortification into measured numbers he can build against.",
+    "notes": [
+      "Canonical competence: she teaches Michael measurement. His inventions gain accuracy he cannot reach by intuition.",
+      "She left no dramatic betrayal behind her; her grievance is bureaucratic and specific, which is why she is willing to be asked.",
+      "Placed with the colonial powers so the player meets her as an ordinary garrison soldier before learning she is the one who fixed the tables.",
+      "Authored notable, not yet a full heroine: she carries identity, competence and recruitment content, and the seven-skill hero kit is the declared gate for promoting her to kind heroine. The authority allows this explicitly -- historical seven-rank skill prototypes are not a universal NPC requirement -- and it is what keeps a roster of dozens affordable."
+    ]
+  }
+}

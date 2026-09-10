@@ -130,6 +130,126 @@
         "battle and exploration geography agree",
         "no enclosure imagery"
       ]
+    },
+    {
+      "id": "art.placeholder.marisol.active_actor",
+      "placeholder": true,
+      "consumer": "game/scenes/world/island_scene.tscn#IslandActors",
+      "visibleMark": "DUMMY FULL-BODY ACTOR",
+      "intendedFinal": "Complete adult Marisol sprite animation sheet for the island board: a powder-marked colonial gunner in a stripped uniform coat with a brass ranging glass. Coherent directional idle, movement, attack, hit and death frames, stable ground pivot, and a consistent face, costume and signature weapon across every direction.",
+      "requiredTags": [
+        "adult",
+        "full-body",
+        "sprite-sheet",
+        "consistent-directions",
+        "signature-weapon-visible",
+        "no-crop"
+      ],
+      "replacementGate": [
+        "approved identity and costume",
+        "coherent sequential animation frames",
+        "stable ground pivot and equipment handedness",
+        "actual in-game movement and combat review"
+      ]
+    },
+    {
+      "id": "art.placeholder.marisol.card_portrait",
+      "placeholder": true,
+      "consumer": "game/scripts/world/island_scene.gd#inspect_panel",
+      "visibleMark": "DUMMY PORTRAIT",
+      "intendedFinal": "Marisol card portrait with direct eye contact, measured, dry-humoured confidence and a warm brass identity accent. It must stay cute and sexy at card scale while preserving clear injury and readiness overlays.",
+      "requiredTags": [
+        "adult",
+        "portrait",
+        "cute-sexy-adult-anime",
+        "flirtatious-confidence",
+        "card-safe-crop"
+      ],
+      "replacementGate": [
+        "matches active actor face",
+        "readable at 280x150",
+        "expression set approved"
+      ]
+    },
+    {
+      "id": "art.placeholder.neriah.active_actor",
+      "placeholder": true,
+      "consumer": "game/scenes/world/island_scene.tscn#IslandActors",
+      "visibleMark": "DUMMY FULL-BODY ACTOR",
+      "intendedFinal": "Complete adult Neriah sprite animation sheet for the island board: a tall elven water warden with reed-corded braids, a slim recurved bow and sampling vials. Coherent directional idle, movement, attack, hit and death frames, stable ground pivot, and a consistent face, costume and signature weapon across every direction.",
+      "requiredTags": [
+        "adult",
+        "full-body",
+        "sprite-sheet",
+        "consistent-directions",
+        "signature-weapon-visible",
+        "no-crop"
+      ],
+      "replacementGate": [
+        "approved identity and costume",
+        "coherent sequential animation frames",
+        "stable ground pivot and equipment handedness",
+        "actual in-game movement and combat review"
+      ]
+    },
+    {
+      "id": "art.placeholder.neriah.card_portrait",
+      "placeholder": true,
+      "consumer": "game/scripts/world/island_scene.gd#inspect_panel",
+      "visibleMark": "DUMMY PORTRAIT",
+      "intendedFinal": "Neriah card portrait with direct eye contact, watchful calm and a river-grey identity accent. It must stay cute and sexy at card scale while preserving clear injury and readiness overlays.",
+      "requiredTags": [
+        "adult",
+        "portrait",
+        "cute-sexy-adult-anime",
+        "flirtatious-confidence",
+        "card-safe-crop"
+      ],
+      "replacementGate": [
+        "matches active actor face",
+        "readable at 280x150",
+        "expression set approved"
+      ]
+    },
+    {
+      "id": "art.placeholder.suzhen.active_actor",
+      "placeholder": true,
+      "consumer": "game/scenes/world/island_scene.tscn#IslandActors",
+      "visibleMark": "DUMMY FULL-BODY ACTOR",
+      "intendedFinal": "Complete adult Su-zhen sprite animation sheet for the island board: a fox-people wayfinder with russet ears and tail, a travelling coat and a lacquered chart case. Coherent directional idle, movement, attack, hit and death frames, stable ground pivot, and a consistent face, costume and signature weapon across every direction.",
+      "requiredTags": [
+        "adult",
+        "full-body",
+        "sprite-sheet",
+        "consistent-directions",
+        "signature-weapon-visible",
+        "no-crop"
+      ],
+      "replacementGate": [
+        "approved identity and costume",
+        "coherent sequential animation frames",
+        "stable ground pivot and equipment handedness",
+        "actual in-game movement and combat review"
+      ]
+    },
+    {
+      "id": "art.placeholder.suzhen.card_portrait",
+      "placeholder": true,
+      "consumer": "game/scripts/world/island_scene.gd#inspect_panel",
+      "visibleMark": "DUMMY PORTRAIT",
+      "intendedFinal": "Su-zhen card portrait with direct eye contact, wry, alert curiosity and a deep indigo identity accent. It must stay cute and sexy at card scale while preserving clear injury and readiness overlays.",
+      "requiredTags": [
+        "adult",
+        "portrait",
+        "cute-sexy-adult-anime",
+        "flirtatious-confidence",
+        "card-safe-crop"
+      ],
+      "replacementGate": [
+        "matches active actor face",
+        "readable at 280x150",
+        "expression set approved"
+      ]
     }
   ]
 }

@@ -8,6 +8,14 @@
   "tags": ["adult", "human", "field-medic", "boarding-fighter", "harem-committed", "prototype"],
   "signatureWeaponId": "weapon.betty.boarding_mace",
   "skillIds": ["skill.betty.guarded_strike", "skill.betty.condition_cleanse", "skill.betty.rescue_charge", "skill.betty.healing_impact", "skill.betty.fatal_intercept", "skill.betty.mobile_infirmary", "skill.betty.combat_revival"],
+  "island": {
+    "boardName": "Betty",
+    "sex": "female",
+    "age": 22,
+    "backstory": "A surgeon's mate who learned to fight because the wounded kept ending up on the wrong side of the boarding line. She would still rather stop a blow than land one.",
+    "recruitmentOffer": "I have patched up better men than the ones I sail with. Take me along, Michael, and I will keep you standing long enough to finish whatever you are building.",
+    "companionResponse": "Hold still. You have been favouring that shoulder since the reef and pretending you have not."
+  },
   "art": {
     "activeActorAssetId": "art.placeholder.betty.active_actor",
     "cardPortraitAssetId": "art.placeholder.betty.card_portrait",
