@@ -199,7 +199,11 @@ func run() -> void:
 	print("PASS: save/load restores native position and pause; corrupt primary falls back; invalid load preserves live state")
 	scene.set_paused(false)
 	var observed_strikes := 0
-	for step in range(60):
+	# The factions have to raise somebody and walk into each other first. On the
+	# island's own clock that is hours, not sixty ticks.
+	for step in range(6000):
+		if observed_strikes > 0 and scene.snapshot.casualties > 0:
+			break
 		scene.advance_tick()
 		assert(scene.hit_effects.size() == scene.last_strikes.size())
 		observed_strikes += scene.last_strikes.size()
@@ -378,13 +382,21 @@ func check_recruitment(scene: Node, fresh_campaign: String) -> bool:
 	scene.refresh_snapshot()
 	assert(scene.snapshot.party == ["", "", "", ""])
 	var woman: Dictionary = {}
-	for step in range(30):
+	# Production takes hours on the island's clock, so wait for a real recruit
+	# rather than assuming one exists thirty ticks in -- and for somebody else
+	# to be standing on the island with her, since the checks below need a
+	# hostile she can be killed by.
+	for step in range(6000):
 		scene.advance_tick()
+		woman = {}
+		var others := 0
 		for entry in scene.snapshot.actors:
-			if entry.sex == "female":
+			if entry.id == scene.MICHAEL:
+				continue
+			others += 1
+			if entry.sex == "female" and woman.is_empty():
 				woman = entry
-				break
-		if not woman.is_empty():
+		if not woman.is_empty() and others > 1:
 			break
 	assert(not woman.is_empty()) # actual production, not an invented companion
 	var woman_sprite: Sprite2D = scene.troop_sprites[woman.id]
@@ -558,7 +570,9 @@ func check_foothold(scene: Node, woman_id: String) -> bool:
 	scene.workshop_button.pressed.emit()
 	assert(scene.snapshot.salvage == 8)
 	var sites: Array = scene.snapshot.buildings.filter(func(b): return b.id == "site.michael.field_workshop")
-	assert(sites.size() == 1 and sites[0].construction_remaining == 40 and not sites[0].operational)
+	# However long the pack says the workshop takes.
+	assert(sites.size() == 1 and sites[0].construction_remaining > 0 and not sites[0].operational)
+	var build_ticks := int(sites[0].construction_remaining)
 	assert(scene.building_sprites.has(sites[0].id))
 	var paused_work: String = scene.port.save_island()
 	scene.advance_tick()
@@ -566,7 +580,7 @@ func check_foothold(scene: Node, woman_id: String) -> bool:
 	assert(scene.port.load_island(paused_work))
 	scene.refresh_snapshot()
 	scene.set_paused(false)
-	for step in range(40):
+	for step in range(build_ticks + 8):
 		scene.advance_tick()
 	sites = scene.snapshot.buildings.filter(func(b): return b.id == "site.michael.field_workshop")
 	assert(sites[0].operational and sites[0].construction_remaining == 0 and sites[0].level == 1)
@@ -593,7 +607,9 @@ func check_fresh_recruitment(scene: Node, fresh_campaign: String) -> bool:
 	scene.paused = false
 	scene.refresh_snapshot()
 	var woman: Dictionary = {}
-	for step in range(12):
+	# Wait for a real recruit; the island raises people in hours, not twelve
+	# ticks.
+	for step in range(6000):
 		scene.advance_tick()
 		for entry in scene.snapshot.actors:
 			if entry.sex == "female":
@@ -658,7 +674,10 @@ func check_holding_development(scene: Node, fresh_campaign: String) -> bool:
 	scene.refresh_snapshot()
 	var saw_work := false
 	var saw_completion := false
-	for step in range(240):
+	# A holding is built out over days now, so give the factions the days.
+	for step in range(40000):
+		if saw_work and saw_completion:
+			break
 		scene.advance_tick()
 		for building in scene.snapshot.buildings:
 			assert(building.level >= 1 and building.level <= 5)
@@ -671,7 +690,7 @@ func check_holding_development(scene: Node, fresh_campaign: String) -> bool:
 					assert(bar.value == building.development_ticks - building.development_remaining)
 			if building.level > 1:
 				saw_completion = true
-				assert(building.max_health > 80)
+				assert(building.max_health > 600)
 	assert(saw_work and saw_completion)
 	var saved: String = scene.port.save_island()
 	assert(scene.port.load_island(saved))

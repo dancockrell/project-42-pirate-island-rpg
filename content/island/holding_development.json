@@ -48,5 +48,14 @@
     "ticks": 12960,
     "health_gain": 150,
     "population_gain": 1
+  },
+  "site_archetype.michael.field_workshop": {
+    "max_level": 3,
+    "costs": {
+      "resource.salvage": 8
+    },
+    "ticks": 2880,
+    "health_gain": 200,
+    "population_gain": 0
   }
 }

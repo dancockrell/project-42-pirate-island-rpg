@@ -53,6 +53,7 @@ var workshop_button := Button.new()
 var restore_button := Button.new()
 var repair_button := Button.new()
 var machine_button := Button.new()
+var develop_button := Button.new()
 var salvage_markers := {}
 var salvage_texture: Texture2D
 
@@ -77,6 +78,11 @@ func restore_action() -> void:
 func repair_action() -> void:
 	var error: String = port.repair_island_foothold()
 	save_notice = "Workshop repairs started." if error.is_empty() else error
+	refresh_snapshot()
+
+func develop_action() -> void:
+	var error: String = port.develop_island_foothold()
+	save_notice = "Workshop expansion started." if error.is_empty() else error
 	refresh_snapshot()
 
 func machine_action() -> void:
@@ -109,6 +115,7 @@ func refresh_foothold_controls() -> void:
 
 	repair_button.visible = false
 	machine_button.visible = false
+	develop_button.visible = false
 	for building in snapshot.buildings:
 		if building.faction != "faction.michael":
 			continue
@@ -124,6 +131,14 @@ func refresh_foothold_controls() -> void:
 		repair_button.text = "Repairing workshop" if repairing else "Repair workshop · %d salvage" % int(snapshot.get("workshop_repair_cost", 0))
 		repair_button.disabled = repairing or not michael_alive or not building.operational or int(building.get("development_remaining", 0)) > 0 or int(building.health) >= int(building.max_health) or not snapshot.has("workshop_repair_cost") or treasury < int(snapshot.get("workshop_repair_cost", 0))
 		repair_button.tooltip_text = "Keep Michael beside the workshop while he repairs it."
+		# Building the workshop out is the only way Michael's own force grows:
+		# each level is another mechanical dog berth.
+		var developing := int(building.get("development_remaining", 0)) > 0
+		var develop_cost := int(snapshot.get("workshop_develop_cost", 0))
+		develop_button.visible = true
+		develop_button.text = "Expanding workshop" if developing else ("Workshop fully built" if develop_cost <= 0 else "Expand workshop · %d salvage" % develop_cost)
+		develop_button.tooltip_text = "Level %d workshop. Each level adds a mechanical dog berth." % int(snapshot.get("workshop_level", 1))
+		develop_button.disabled = developing or develop_cost <= 0 or not michael_alive or not building.operational or repairing or queued or int(building.health) < int(building.max_health) or treasury < develop_cost
 
 func refresh_salvage_markers() -> void:
 	var present := {}
@@ -313,7 +328,7 @@ func _ready() -> void:
 	overview_button.pressed.connect(show_island)
 	var foothold_actions := HFlowContainer.new()
 	stack.add_child(foothold_actions)
-	for button in [salvage_button, workshop_button, machine_button, repair_button, restore_button]:
+	for button in [salvage_button, workshop_button, machine_button, develop_button, repair_button, restore_button]:
 		button.custom_minimum_size = Vector2(110, 32)
 		button.mouse_filter = Control.MOUSE_FILTER_STOP
 		foothold_actions.add_child(button)
@@ -325,6 +340,7 @@ func _ready() -> void:
 	restore_button.pressed.connect(restore_action)
 	repair_button.pressed.connect(repair_action)
 	machine_button.pressed.connect(machine_action)
+	develop_button.pressed.connect(develop_action)
 	salvage_texture = ImageTexture.create_from_image(Image.load_from_file("res://assets/island/salvage_bale.png"))
 	inspection.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	inspection.mouse_filter = Control.MOUSE_FILTER_IGNORE

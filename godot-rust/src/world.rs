@@ -989,6 +989,14 @@ pub struct ScenarioRules {
     pub foothold: FootholdConfig,
     pub machinery: MichaelMachinery,
     pub machine_production: ProductionRule,
+    /// The workshop's own build-out rule, lifted out of the pack's development
+    /// catalogue. Every other faction carries its development rules inside its
+    /// policy; Michael has no policy, so his lives here beside the machine
+    /// rule, which is there for exactly the same reason. Defaulted, so a
+    /// version-2 save written before the workshop could be built out loads
+    /// with a workshop that simply cannot grow.
+    #[serde(default)]
+    pub foothold_development: Option<BuildingDevelopmentRule>,
     pub survival: SurvivalRules,
     pub footprints: BTreeMap<String, IslandBuildingFootprint>,
     pub personas: BTreeMap<String, Vec<PersonaPool>>,
@@ -1725,6 +1733,11 @@ impl ScenarioDefinition {
             foothold: self.rules.foothold.clone(),
             machinery: self.rules.machinery.clone(),
             machine_production: self.rules.machine_production.clone(),
+            foothold_development: self
+                .rules
+                .development
+                .get("site_archetype.michael.field_workshop")
+                .cloned(),
             survival: self.rules.survival.clone(),
             footprints: self.buildings.clone(),
             personas: self.personas.clone(),
@@ -2649,8 +2662,106 @@ impl FactionWorld {
                 .copied()
                 .unwrap_or(0),
             rule.production_ticks,
-            self.rules.machinery.capacity as u32,
+            self.machine_berths() as u32,
         )
+    }
+
+    /// How many dogs the workshop can hold. Building the workshop out adds a
+    /// berth per level, which is the whole point of building it out: Michael
+    /// cannot raise soldiers, so machines are the only force he can grow.
+    pub fn machine_berths(&self) -> usize {
+        let level = self
+            .factions
+            .get("faction.michael")
+            .and_then(|f| f.buildings.get("site.michael.field_workshop"))
+            .map_or(1, |b| b.level) as usize;
+        self.rules
+            .machinery
+            .capacity
+            .saturating_add(level.saturating_sub(1))
+    }
+
+    /// What the next level of the workshop costs, or nothing when it is
+    /// finished. The rule is the same one every faction's holding grows by.
+    pub fn foothold_development_cost(&self) -> u32 {
+        let Some(building) = self
+            .factions
+            .get("faction.michael")
+            .and_then(|f| f.buildings.get("site.michael.field_workshop"))
+        else {
+            return 0;
+        };
+        self.rules
+            .foothold_development
+            .as_ref()
+            .filter(|rule| building.level < rule.max_level)
+            .and_then(|rule| rule.costs.get(self.salvage_resource()))
+            .map_or(0, |cost| cost.saturating_mul(building.level))
+    }
+
+    /// Build the workshop out one level, by Michael's own hands.
+    ///
+    /// Every faction's holding grows through `policy.development`; Michael has
+    /// no policy and never will, so his one building had no way to become
+    /// anything, and `build_foothold` answered "Michael already has a workshop
+    /// site." for the rest of the campaign. This is the same authored rule,
+    /// paid and started by the player instead of by an AI.
+    pub fn develop_foothold(&mut self) -> Result<(), String> {
+        const FACTION: &str = "faction.michael";
+        const SITE: &str = "site.michael.field_workshop";
+        let building = self
+            .factions
+            .get(FACTION)
+            .and_then(|f| f.buildings.get(SITE))
+            .ok_or("Build the workshop first.")?;
+        let rule = self
+            .rules
+            .foothold_development
+            .clone()
+            .ok_or("The workshop cannot be built out.")?;
+        let entrance = *self
+            .navigation
+            .destinations
+            .get(&building.node_id)
+            .ok_or("The workshop is unavailable.")?;
+        if !self.within_work_range("character.protagonist.captain", entrance) {
+            return Err("Bring Michael beside the workshop.".into());
+        }
+        if !building.operational
+            || building.construction.is_some()
+            || building.development.is_some()
+            || building.repair.is_some()
+            || !building.production_queue.is_empty()
+        {
+            return Err("Finish the workshop first.".into());
+        }
+        if building.level >= rule.max_level {
+            return Err("The workshop is already built out.".into());
+        }
+        if building.health != building.max_health {
+            return Err("Repair the workshop first.".into());
+        }
+        let level = building.level;
+        let costs: BTreeMap<String, u32> = rule
+            .costs
+            .iter()
+            .map(|(resource, cost)| (resource.clone(), cost.saturating_mul(level)))
+            .collect();
+        self.spend_resources(FACTION, &costs)
+            .map_err(|_| "Not enough salvage to build the workshop out.".to_string())?;
+        let remaining_ticks = rule.ticks;
+        self.factions
+            .get_mut(FACTION)
+            .unwrap()
+            .buildings
+            .get_mut(SITE)
+            .unwrap()
+            .development = Some(BuildingDevelopment {
+            rule,
+            remaining_ticks,
+            reserved_costs: costs,
+        });
+        Ok(())
     }
 
     pub fn machine_display_name(&self) -> &str {
@@ -2698,7 +2809,7 @@ impl FactionWorld {
         if !building.production_queue.is_empty() {
             return Err("The workshop is already building a machine.".into());
         }
-        if self.mechanical_dog_count() >= self.rules.machinery.capacity {
+        if self.mechanical_dog_count() >= self.machine_berths() {
             return Err("All mechanical dog berths are occupied.".into());
         }
         let machine = self.rules.machine_production.clone();
@@ -5494,7 +5605,7 @@ impl FactionWorld {
         true
     }
 
-    fn mechanical_followers(&self) -> Vec<String> {
+    pub fn mechanical_followers(&self) -> Vec<String> {
         self.actors
             .iter()
             .filter(|(id, a)| {
@@ -10275,6 +10386,98 @@ mod tests {
             "the workshop finishes"
         );
         world
+    }
+
+    /// Michael's one building can become something. Every faction grows its
+    /// holdings through an AI policy; Michael has none, so before this the
+    /// workshop was finished the moment it was finished and `build_foothold`
+    /// answered "Michael already has a workshop site." for the rest of the
+    /// campaign. Building it out costs salvage, takes real time, and buys a
+    /// berth -- the only way the player's own force can grow at all.
+    #[test]
+    fn the_workshop_can_be_built_out_and_each_level_buys_a_berth() {
+        let mut world = mechanical_workshop_fixture();
+        let site = "site.michael.field_workshop";
+        let berths = world.machine_berths();
+        assert_eq!(world.factions["faction.michael"].buildings[site].level, 1);
+
+        // Not for free, and not from across the island.
+        let entrance = world.positions["character.protagonist.captain"];
+        world.positions.insert(
+            "character.protagonist.captain".into(),
+            IslandPoint { x: 24, y: 18 },
+        );
+        assert!(world.develop_foothold().is_err());
+        world
+            .positions
+            .insert("character.protagonist.captain".into(), entrance);
+
+        let cost = world.foothold_development_cost();
+        assert!(cost > 0);
+        let before = world.stored_resource("faction.michael", "resource.salvage");
+        let poor = {
+            let mut poor = world.clone();
+            poor.factions
+                .get_mut("faction.michael")
+                .unwrap()
+                .resources
+                .insert("resource.salvage".into(), cost - 1);
+            poor
+        };
+        let unchanged = poor.clone();
+        let mut poor = poor;
+        assert!(poor.develop_foothold().is_err());
+        assert_eq!(poor, unchanged);
+
+        world.develop_foothold().unwrap();
+        assert_eq!(
+            world.stored_resource("faction.michael", "resource.salvage"),
+            before - cost
+        );
+        // The work is real work, and it survives the save.
+        assert!(
+            world.factions["faction.michael"].buildings[site]
+                .development
+                .is_some()
+        );
+        assert_eq!(
+            FactionWorld::load_json(&world.save_json().unwrap()).unwrap(),
+            world
+        );
+        assert!(world.queue_foothold_machine().is_err());
+        assert!(
+            advance_until(&mut world, 20_000, |w| w.factions["faction.michael"]
+                .buildings[site]
+                .level
+                == 2),
+            "the workshop reaches its second level"
+        );
+        assert_eq!(world.machine_berths(), berths + 1);
+        assert_eq!(world.machine_foothold_costs().2 as usize, berths + 1);
+
+        // And it stops where the pack says it stops.
+        let max_level = world.rules.foothold_development.as_ref().unwrap().max_level;
+        for _ in 0..max_level {
+            world
+                .factions
+                .get_mut("faction.michael")
+                .unwrap()
+                .resources
+                .insert("resource.salvage".into(), 1000);
+            if world.develop_foothold().is_err() {
+                break;
+            }
+            assert!(advance_until(&mut world, 20_000, |w| {
+                w.factions["faction.michael"].buildings[site]
+                    .development
+                    .is_none()
+            }));
+        }
+        assert_eq!(
+            world.factions["faction.michael"].buildings[site].level,
+            max_level
+        );
+        assert!(world.develop_foothold().is_err());
     }
 
     #[test]

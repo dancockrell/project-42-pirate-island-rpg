@@ -107,6 +107,9 @@ func restore_island_foothold_person(actor_id: String) -> String:
 func repair_island_foothold() -> String:
 	return bridge.repair_island_foothold() if is_available() else "The island is unavailable."
 
+func develop_island_foothold() -> String:
+	return bridge.develop_island_foothold() if is_available() else "The island is unavailable."
+
 func queue_island_foothold_machine() -> String:
 	return bridge.queue_island_foothold_machine() if is_available() else "The island is unavailable."
 

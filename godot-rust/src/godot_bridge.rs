@@ -375,6 +375,17 @@ impl Project42SimulationBridge {
         snapshot.set("stockpile", &stockpile);
         snapshot.set("resource_names", &resource_names);
         snapshot.set("workshop_repair_cost", world.foothold_repair_cost());
+        // Zero once the workshop is built out, which is how the button knows
+        // there is nothing left to buy.
+        snapshot.set("workshop_develop_cost", world.foothold_development_cost());
+        snapshot.set(
+            "workshop_level",
+            world
+                .factions
+                .get("faction.michael")
+                .and_then(|f| f.buildings.get("site.michael.field_workshop"))
+                .map_or(0, |b| b.level),
+        );
         let (machine_cost, machine_ticks, machine_capacity) = world.machine_foothold_costs();
         snapshot.set("machine_cost", machine_cost);
         snapshot.set("machine_ticks", machine_ticks);
@@ -438,6 +449,18 @@ impl Project42SimulationBridge {
             .as_mut()
             .ok_or_else(|| "Island is unavailable.".to_owned())
             .and_then(|world| world.repair_foothold())
+            .err()
+            .unwrap_or_default()
+            .as_str()
+            .into()
+    }
+
+    #[func]
+    fn develop_island_foothold(&mut self) -> GString {
+        self.island
+            .as_mut()
+            .ok_or_else(|| "Island is unavailable.".to_owned())
+            .and_then(|world| world.develop_foothold())
             .err()
             .unwrap_or_default()
             .as_str()

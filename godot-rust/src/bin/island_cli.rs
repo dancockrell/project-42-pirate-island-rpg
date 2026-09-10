@@ -81,6 +81,7 @@ fn observe(world: &FactionWorld) -> Value {
                 "x": position.x,
                 "y": position.y,
                 "backstory": person.backstory,
+                "madness": world.island_madness_stage(&actor.instance_id),
             }))
         })
         .collect();
@@ -155,6 +156,12 @@ fn observe(world: &FactionWorld) -> Value {
         })).collect::<Vec<_>>(),
         "provisions": world.stored_resource("faction.michael", "resource.provisions"),
         "party": world.party,
+        "dogs": world.mechanical_followers(),
+        "nearby_salvage": world.nearby_salvage_id(),
+        "repair_cost": world.foothold_repair_cost(),
+        "develop_cost": world.foothold_development_cost(),
+        "machine_costs": world.machine_foothold_costs(),
+        "aimed_at": world.player_attack_target,
         "party_size": world.party_size(),
         "loyal_companions": world.loyal_companion_count(),
         "people": people,
@@ -249,11 +256,12 @@ fn main() {
                     Ok(json!({"ok": true}))
                 }
             },
+            // The UI moves the party, not the man. Ordering the captain alone
+            // left his companions and his dogs standing where he found them,
+            // which is not a move any player can make and made every playtest
+            // report describe a game nobody was playing.
             "move_captain" => match point(&request, "to") {
-                Some(target) => match w.order_move("character.protagonist.captain", target) {
-                    Ok(()) => Ok(json!({"ok": true})),
-                    Err(error) => Ok(json!({"ok": false, "refused": format!("{error:?}")})),
-                },
+                Some(target) => Ok(json!({"ok": w.move_island_party(target)})),
                 None => Err("move_captain needs to:{x,y}".into()),
             },
             "approach" => Ok(json!({"ok": w.approach_island_person(&text(&request, "id"))})),
@@ -284,6 +292,35 @@ fn main() {
                 },
                 None => Err("build_foothold needs at:{x,y}".into()),
             },
+            "dismiss" => match need_u64(&request, "slot").and_then(|slot| {
+                usize::try_from(slot).map_err(|_| "slot is out of range".to_string())
+            }) {
+                Err(reason) => return_refusal(reason),
+                Ok(slot) => Ok(json!({"ok": w.dismiss_island_companion(slot)})),
+            },
+            // The workshop verbs. A bot that cannot repair, cannot build a dog
+            // and cannot bring a companion back from the water is playing a
+            // strictly smaller game than the one in front of a player.
+            "repair" => match w.repair_foothold() {
+                Ok(()) => Ok(json!({"ok": true})),
+                Err(error) => Ok(json!({"ok": false, "refused": error})),
+            },
+            "develop" => match w.develop_foothold() {
+                Ok(()) => Ok(json!({"ok": true})),
+                Err(error) => Ok(json!({"ok": false, "refused": error})),
+            },
+            "queue_machine" => match w.queue_foothold_machine() {
+                Ok(()) => Ok(json!({"ok": true})),
+                Err(error) => Ok(json!({"ok": false, "refused": error})),
+            },
+            "restore" => match w.restore_foothold_person(&text(&request, "id")) {
+                Ok(()) => Ok(json!({"ok": true})),
+                Err(error) => Ok(json!({"ok": false, "refused": error})),
+            },
+            // Michael's carbine is the only way the player starts a fight, and
+            // the only way his companions ever fire a shot.
+            "aim" => Ok(json!({"ok": w.aim_carbine(&text(&request, "id"))})),
+            "news" => Ok(json!({"ok": true, "news": w.island_person_news(&text(&request, "id"))})),
             "resolve_lead" => Ok(json!({
                 "ok": w.resolve_lead(&text(&request, "lead"), &text(&request, "interpretation"))
             })),
