@@ -7078,7 +7078,7 @@ mod tests {
     #[test]
     fn the_scenario_document_supplies_its_triggers() {
         let triggers = main_scenario_world().rules.triggers;
-        assert_eq!(triggers.len(), 7);
+        assert_eq!(triggers.len(), 8);
         assert!(
             triggers
                 .iter()
@@ -7471,6 +7471,42 @@ mod tests {
             Some(&"stage.complete".to_string())
         );
         assert!(world.flags.contains("flag.michael.household_complete"));
+    }
+
+    /// Michael starts at `island.contested_clearing` and the cult's ground is
+    /// somewhere he has to actually walk to, so this is proved by ordering the
+    /// real move and letting the island's own pathing carry him there, not by
+    /// writing a position into the map.
+    #[test]
+    fn walking_onto_cult_ground_fires_the_shrine_trigger() {
+        let mut world = main_scenario_world();
+        let captain = "character.protagonist.captain";
+        // The walk is the subject here, not the war it crosses.
+        world.hostilities.clear();
+        let shrine = world.navigation.destinations["preview.faction.cthulhu.prototype.holding"];
+        assert_ne!(world.positions[captain], shrine);
+        assert!(!world.flags.contains("flag.michael.saw_the_shrine"));
+        world.order_move(captain, shrine).unwrap();
+        let mut arrived = false;
+        for _ in 0..2000 {
+            world.advance_island_tick();
+            if world.positions[captain] == shrine {
+                arrived = true;
+                break;
+            }
+        }
+        assert!(arrived, "the captain must be able to walk to the shrine");
+        world.advance_island_tick();
+        assert!(
+            world
+                .fired_triggers
+                .contains_key("trigger.michael.stands_on_cult_ground")
+        );
+        assert_eq!(
+            world.quest_stages.get("quest.what_he_saw_out_there"),
+            Some(&"stage.witnessed".to_string())
+        );
+        assert!(world.flags.contains("flag.michael.saw_the_shrine"));
     }
 
     /// Stripping the wreck is Michael's own verb, not something the island does

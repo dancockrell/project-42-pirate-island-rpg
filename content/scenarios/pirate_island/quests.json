@@ -66,5 +66,18 @@
         "terminal": "success"
       }
     }
+  },
+  "quest.what_he_saw_out_there": {
+    "displayName": "What He Saw Out There",
+    "initialStage": "stage.hearsay",
+    "stages": {
+      "stage.hearsay": {
+        "objective": "Michael knows the cult's ground only from what frightened people have said about it."
+      },
+      "stage.witnessed": {
+        "objective": "He stood on it and looked at it himself. Some things are worse for being confirmed.",
+        "terminal": "success"
+      }
+    }
   }
 }

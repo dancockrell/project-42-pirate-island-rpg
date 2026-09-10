@@ -153,6 +153,16 @@ Order is by dependency, not by appetite.
   `salvage_foothold` — the same verb the scene's salvage button calls — so
   the quest tracks the stockpile that verb credits rather than counting
   pickups in a second ledger of its own.
+- **The first location trigger, on real geography.** `actor_at_cell` was the
+  last of the simple unused conditions. `quest.what_he_saw_out_there` fires
+  when any `faction.michael` actor stands on the cult holding's own cell
+  (27,16), proven by ordering the real move and letting the island's pathing
+  carry Michael there across the board, not by writing a position into the
+  map. Checking first prevented an invented-lore mistake worth recording:
+  `island.contested_clearing` (8,16) turns out to be Michael's *start* cell,
+  not a distant war zone — a quest about "finally going to look at the
+  clearing" would have contradicted the board on tick one. This is a cell,
+  not a region: regions still wait on the island-network contract.
 
 ### Next, in order
 

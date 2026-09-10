@@ -69,7 +69,7 @@ func _initialize() -> void:
 	# The main scenario's quests are active from the first snapshot: their
 	# stage and objective text are authored data Godot shows, not composes.
 	var quests: Array = port.island_snapshot().quests
-	assert(quests.size() == 5)
+	assert(quests.size() == 6)
 	var by_id := {}
 	for quest in quests:
 		by_id[quest.id] = quest
@@ -101,5 +101,11 @@ func _initialize() -> void:
 	assert(wreck_quest.stage == "stage.untouched")
 	assert(not wreck_quest.objective.is_empty())
 	assert(wreck_quest.terminal == "")
+	# Michael starts at the contested clearing, not on the cult's ground, so
+	# this quest proves the snapshot reports where he actually is.
+	var shrine_quest: Dictionary = by_id["quest.what_he_saw_out_there"]
+	assert(shrine_quest.stage == "stage.hearsay")
+	assert(not shrine_quest.objective.is_empty())
+	assert(shrine_quest.terminal == "")
 	print("PASS: actual Rust island bridge, scenario document, solo start, movement, ocean rejection, pause, arrival, the campaign clock, triggers and quests")
 	quit()

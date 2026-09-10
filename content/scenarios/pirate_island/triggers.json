@@ -124,6 +124,28 @@
     ]
   },
   {
+    "id": "trigger.michael.stands_on_cult_ground",
+    "when": [
+      {
+        "kind": "actor_at_cell",
+        "faction_id": "faction.michael",
+        "x": 27,
+        "y": 16
+      }
+    ],
+    "then": [
+      {
+        "kind": "set_flag",
+        "flag": "flag.michael.saw_the_shrine"
+      },
+      {
+        "kind": "set_quest_stage",
+        "quest_id": "quest.what_he_saw_out_there",
+        "stage_id": "stage.witnessed"
+      }
+    ]
+  },
+  {
     "id": "trigger.michael.a_rival_falls",
     "when": [
       {
