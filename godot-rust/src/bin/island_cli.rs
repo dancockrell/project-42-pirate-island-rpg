@@ -22,6 +22,32 @@ fn point(value: &Value, key: &str) -> Option<IslandPoint> {
     })
 }
 
+/// Strict readers. Coercing a bad value into a default makes the driver lie:
+/// a fuzzer found that `pause` with a non-boolean paused the game the caller
+/// asked to resume, `assign` with a nonsense slot silently wrote slot 0 and
+/// evicted whoever stood there, and `tick` with a bad count advanced one tick
+/// and called it success. A harness that guesses produces playtest reports
+/// about a game nobody is running, so these refuse instead.
+fn return_refusal(reason: String) -> Result<Value, String> {
+    Ok(json!({"ok": false, "refused": reason}))
+}
+
+fn need_bool(value: &Value, key: &str) -> Result<bool, String> {
+    value
+        .get(key)
+        .and_then(Value::as_bool)
+        .ok_or_else(|| format!("{key} must be true or false"))
+}
+
+fn need_u64(value: &Value, key: &str) -> Result<u64, String> {
+    match value.get(key) {
+        Some(found) => found
+            .as_u64()
+            .ok_or_else(|| format!("{key} must be a non-negative whole number")),
+        None => Err(format!("{key} is required")),
+    }
+}
+
 fn text(value: &Value, key: &str) -> String {
     value
         .get(key)
@@ -201,20 +227,28 @@ fn main() {
         let result: Result<Value, String> = match command.as_str() {
             "observe" => Ok(json!({"ok": true})),
             "tick" => {
-                let count = request.get("count").and_then(Value::as_u64).unwrap_or(1);
-                let mut events = 0usize;
-                for _ in 0..count.min(100_000) {
-                    events += w.advance_island_tick().len();
+                let count = match request.get("count") {
+                    None => Ok(1),
+                    Some(_) => need_u64(&request, "count"),
+                };
+                match count {
+                    Err(reason) => Ok(json!({"ok": false, "refused": reason})),
+                    Ok(count) => {
+                        let mut events = 0usize;
+                        for _ in 0..count.min(100_000) {
+                            events += w.advance_island_tick().len();
+                        }
+                        Ok(json!({"ok": true, "events": events}))
+                    }
                 }
-                Ok(json!({"ok": true, "events": events}))
             }
-            "pause" => {
-                w.paused = request
-                    .get("paused")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(true);
-                Ok(json!({"ok": true}))
-            }
+            "pause" => match need_bool(&request, "paused") {
+                Err(reason) => return_refusal(reason),
+                Ok(paused) => {
+                    w.paused = paused;
+                    Ok(json!({"ok": true}))
+                }
+            },
             "move_captain" => match point(&request, "to") {
                 Some(target) => match w.order_move("character.protagonist.captain", target) {
                     Ok(()) => Ok(json!({"ok": true})),
@@ -230,8 +264,14 @@ fn main() {
             }
             "recruit" => Ok(json!({"ok": w.recruit_island_person(&text(&request, "id"))})),
             "assign" => {
-                let slot = request.get("slot").and_then(Value::as_u64).unwrap_or(0) as usize;
-                Ok(json!({"ok": w.assign_island_companion(&text(&request, "id"), slot)}))
+                match need_u64(&request, "slot").and_then(|slot| {
+                    usize::try_from(slot).map_err(|_| "slot is out of range".to_string())
+                }) {
+                    Err(reason) => return_refusal(reason),
+                    Ok(slot) => Ok(json!({
+                        "ok": w.assign_island_companion(&text(&request, "id"), slot)
+                    })),
+                }
             }
             "salvage" => match w.salvage_foothold() {
                 Ok(()) => Ok(json!({"ok": true})),
