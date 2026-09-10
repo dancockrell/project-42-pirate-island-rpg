@@ -27,7 +27,7 @@
     "notes": "Zero new Rust, the fourth such contract: ActorAtCell already scanned self.positions for an actor of the named faction on the named cell. quest.what_he_saw_out_there fires when any faction.michael actor (the captain, or a recruited companion -- the condition does not care which, and should not) stands on 27,16, which is where the pack actually puts preview.faction.cthulhu.prototype.holding. Proven by ordering the real move and ticking until the island's own pathing delivers him, not by inserting a position. Checking the board first prevented an invented-lore mistake: island.contested_clearing (8,16) is Michael's START cell, not a distant contested war zone -- the obvious-sounding quest about finally walking to the clearing would have resolved on tick one and contradicted the board. Still a cell, not a region: the region contract remains deferred to the island network, exactly as the trigger contract's own comment says."
   },
   "completion": {
-    "commit": null,
+    "commit": "d307915",
     "checks": [
       {
         "command": "cargo fmt --manifest-path godot-rust/Cargo.toml",
