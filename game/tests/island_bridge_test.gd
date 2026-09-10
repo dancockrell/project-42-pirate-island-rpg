@@ -69,7 +69,7 @@ func _initialize() -> void:
 	# The main scenario's quests are active from the first snapshot: their
 	# stage and objective text are authored data Godot shows, not composes.
 	var quests: Array = port.island_snapshot().quests
-	assert(quests.size() == 4)
+	assert(quests.size() == 5)
 	var by_id := {}
 	for quest in quests:
 		by_id[quest.id] = quest
@@ -95,5 +95,11 @@ func _initialize() -> void:
 	assert(rival_quest.stage == "stage.five_factions")
 	assert(not rival_quest.objective.is_empty())
 	assert(rival_quest.terminal == "")
+	# Michael has not stripped the wreck at the first snapshot either: the
+	# salvage is still in the water, so this quest sits on its own start.
+	var wreck_quest: Dictionary = by_id["quest.what_the_sea_gave_back"]
+	assert(wreck_quest.stage == "stage.untouched")
+	assert(not wreck_quest.objective.is_empty())
+	assert(wreck_quest.terminal == "")
 	print("PASS: actual Rust island bridge, scenario document, solo start, movement, ocean rejection, pause, arrival, the campaign clock, triggers and quests")
 	quit()

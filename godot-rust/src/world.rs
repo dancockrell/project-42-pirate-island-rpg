@@ -7078,7 +7078,7 @@ mod tests {
     #[test]
     fn the_scenario_document_supplies_its_triggers() {
         let triggers = main_scenario_world().rules.triggers;
-        assert_eq!(triggers.len(), 6);
+        assert_eq!(triggers.len(), 7);
         assert!(
             triggers
                 .iter()
@@ -7471,6 +7471,40 @@ mod tests {
             Some(&"stage.complete".to_string())
         );
         assert!(world.flags.contains("flag.michael.household_complete"));
+    }
+
+    /// Stripping the wreck is Michael's own verb, not something the island does
+    /// for him: `salvage_foothold` is the same call the scene's salvage button
+    /// makes, and `resource_at_least` reads the stockpile it credits.
+    #[test]
+    fn stripping_the_wreck_fires_the_wreck_stripped_trigger() {
+        let mut world = main_scenario_world();
+        let captain = "character.protagonist.captain";
+        assert_eq!(
+            world.stored_resource("faction.michael", "resource.salvage"),
+            0
+        );
+        world.positions.insert(
+            captain.into(),
+            world.salvage_caches["salvage.wreck"].position,
+        );
+        world.salvage_foothold().unwrap();
+        assert_eq!(
+            world.stored_resource("faction.michael", "resource.salvage"),
+            20
+        );
+        assert!(!world.flags.contains("flag.michael.wreck_stripped"));
+        world.advance_island_tick();
+        assert!(
+            world
+                .fired_triggers
+                .contains_key("trigger.michael.wreck_stripped")
+        );
+        assert_eq!(
+            world.quest_stages.get("quest.what_the_sea_gave_back"),
+            Some(&"stage.stripped".to_string())
+        );
+        assert!(world.flags.contains("flag.michael.wreck_stripped"));
     }
 
     /// Eliminating a rival faction is real simulation behavior, driven through
@@ -10944,4 +10978,3 @@ mod tests {
         );
     }
 }
-

@@ -102,6 +102,28 @@
     ]
   },
   {
+    "id": "trigger.michael.wreck_stripped",
+    "when": [
+      {
+        "kind": "resource_at_least",
+        "faction_id": "faction.michael",
+        "resource_id": "resource.salvage",
+        "amount": 20
+      }
+    ],
+    "then": [
+      {
+        "kind": "set_flag",
+        "flag": "flag.michael.wreck_stripped"
+      },
+      {
+        "kind": "set_quest_stage",
+        "quest_id": "quest.what_the_sea_gave_back",
+        "stage_id": "stage.stripped"
+      }
+    ]
+  },
+  {
     "id": "trigger.michael.a_rival_falls",
     "when": [
       {

@@ -53,5 +53,18 @@
         "terminal": "success"
       }
     }
+  },
+  "quest.what_the_sea_gave_back": {
+    "displayName": "What the Sea Gave Back",
+    "initialStage": "stage.untouched",
+    "stages": {
+      "stage.untouched": {
+        "objective": "The wreck still holds everything Michael could not carry ashore the night it ran aground."
+      },
+      "stage.stripped": {
+        "objective": "He has stripped her to the ribs. Whatever he builds on this island, he builds out of the ship that failed him.",
+        "terminal": "success"
+      }
+    }
   }
 }

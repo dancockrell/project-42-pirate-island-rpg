@@ -146,6 +146,13 @@ Order is by dependency, not by appetite.
   player action at all, which the equality-proof fixture now reflects — this
   is the first trigger whose condition can go true from ordinary autonomous
   play rather than only from something the player did.
+- **The wreck becomes a thing you finish.** `resource_at_least` was the third
+  already-implemented, already-validated condition the main pack had never
+  used. `quest.what_the_sea_gave_back` resolves when Michael's salvage
+  stockpile reaches the twenty the wreck actually holds, driven by
+  `salvage_foothold` — the same verb the scene's salvage button calls — so
+  the quest tracks the stockpile that verb credits rather than counting
+  pickups in a second ledger of its own.
 
 ### Next, in order
 
