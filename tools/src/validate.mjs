@@ -838,6 +838,40 @@ for (const pack of scenarioPacks) {
       if (terminalCount === 0) fail(file, `${name} quest ${questId} needs at least one terminal stage, or it can never resolve`);
     }
   }
+  // The island network. Optional -- a pack need not author one. Nodes are
+  // membership only (roles are descriptive, unread by godot-rust/src/world.rs);
+  // every tether names two declared nodes and a closed type and state.
+  const networkTypes = new Set(["road", "waterway", "supply", "ritual", "influence", "sightline", "hidden_route"]);
+  const networkStates = new Set(["open", "blocked", "hidden", "conditional", "corrupted"]);
+  const networkNodeIds = new Set();
+  const networkTetherIds = new Set();
+  const networkRecord = resolved.get("rules.islandNetwork");
+  if (networkRecord !== undefined) {
+    if (networkRecord?.kind !== "island_network") fail(file, `${name} rules.islandNetwork must be a kind: island_network document`);
+    const nodes = Array.isArray(networkRecord?.nodes) ? networkRecord.nodes : [];
+    if (nodes.length === 0) fail(file, `${name} island network needs at least one node`);
+    for (const [index, node] of nodes.entries()) {
+      const at = `island network nodes[${index}]`;
+      if (typeof node?.id !== "string" || !/^network_node\.[a-z0-9_]+$/.test(node.id)) fail(file, `${name} ${at} id must be of the form network_node.<name>`);
+      else if (networkNodeIds.has(node.id)) fail(file, `${name} ${at} repeats node id ${node.id}`);
+      else { registerId(node.id, file); networkNodeIds.add(node.id); }
+    }
+    const tethers = Array.isArray(networkRecord?.tethers) ? networkRecord.tethers : [];
+    if (tethers.length === 0) fail(file, `${name} island network needs at least one tether`);
+    for (const [index, tether] of tethers.entries()) {
+      const at = `island network tethers[${index}]`;
+      if (typeof tether?.id !== "string" || !/^tether\.[a-z0-9_.]+$/.test(tether.id)) fail(file, `${name} ${at} id must be of the form tether.<name>`);
+      else if (networkTetherIds.has(tether.id)) fail(file, `${name} ${at} repeats tether id ${tether.id}`);
+      else { registerId(tether.id, file); networkTetherIds.add(tether.id); }
+      if (!networkNodeIds.has(tether?.from)) fail(file, `${name} ${at} from ${tether?.from} is not a node this network declares`);
+      if (!networkNodeIds.has(tether?.to)) fail(file, `${name} ${at} to ${tether?.to} is not a node this network declares`);
+      if (tether?.from === tether?.to) fail(file, `${name} ${at} cannot tether a node to itself`);
+      if (!networkTypes.has(tether?.type)) fail(file, `${name} ${at} type ${tether?.type} is not a tether type the simulation implements`);
+      if (!networkStates.has(tether?.state)) fail(file, `${name} ${at} state ${tether?.state} is not a tether state the simulation implements`);
+      if (!Number.isInteger(tether?.capacity) || tether.capacity < 0) fail(file, `${name} ${at} capacity must be a non-negative integer`);
+      if (typeof tether?.bidirectional !== "boolean") fail(file, `${name} ${at} bidirectional must be a boolean`);
+    }
+  }
   // Triggers. Conditions and effects are closed sets godot-rust/src/world.rs
   // implements; every ID one names must resolve inside this pack, so a trigger
   // cannot silently watch for or change something that does not exist.
@@ -849,7 +883,8 @@ for (const pack of scenarioPacks) {
     actor_at_cell: ["faction_id", "x", "y"],
     flag_set: ["flag"],
     heat_signalled: ["signal"],
-    confrontation_begun: []
+    confrontation_begun: [],
+    network_reachable: ["from", "to"]
   };
   const triggerEffectFields = {
     set_flag: ["flag"],
@@ -857,7 +892,8 @@ for (const pack of scenarioPacks) {
     grant_item: ["actor_id", "item_id"],
     record_heat: ["id", "signal", "severity"],
     set_hostility: ["a", "b", "hostile"],
-    set_quest_stage: ["quest_id", "stage_id"]
+    set_quest_stage: ["quest_id", "stage_id"],
+    set_tether_state: ["tether_id", "state"]
   };
   // A quest stage no trigger ever sets is unreachable; the initial stage is
   // reached by starting there, so only the other stages need a mover.
@@ -929,6 +965,10 @@ for (const pack of scenarioPacks) {
         }
         if (condition.kind === "flag_set" && typeof condition.flag === "string") readFlags.set(condition.flag, at);
         if (condition.kind === "heat_signalled" && !heatChannels.has(condition.signal)) fail(file, `${name} ${at} signal ${condition.signal} is not one of this scenario's campaign-clock signalChannels`);
+        if (condition.kind === "network_reachable") {
+          if (!networkNodeIds.has(condition.from)) fail(file, `${name} ${at} from ${condition.from} is not a node this scenario's island network declares`);
+          if (!networkNodeIds.has(condition.to)) fail(file, `${name} ${at} to ${condition.to} is not a node this scenario's island network declares`);
+        }
       }
       if (!Array.isArray(trigger.then) || trigger.then.length === 0 || trigger.then.length > 16) fail(file, `${name} ${where} needs between one and sixteen effects`);
       else for (const [effectIndex, raw] of trigger.then.entries()) {
@@ -962,6 +1002,10 @@ for (const pack of scenarioPacks) {
           } else {
             questStagesReached.get(effect.quest_id)?.add(effect.stage_id);
           }
+        }
+        if (effect.kind === "set_tether_state") {
+          if (!networkTetherIds.has(effect.tether_id)) fail(file, `${name} ${at} names tether ${effect.tether_id}, which this scenario's island network does not declare`);
+          if (!networkStates.has(effect.state)) fail(file, `${name} ${at} state ${effect.state} is not a tether state the simulation implements`);
         }
       }
     }

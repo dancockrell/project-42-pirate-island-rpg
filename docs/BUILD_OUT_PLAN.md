@@ -21,7 +21,7 @@ Counting `content/` against the code that loads it:
 | Domain | Files | Read by Rust | The authority section it serves |
 |---|---|---|---|
 | `campaign/` | 1 | **yes** | Three endgame triggers; Day 100; hidden heat (M3) |
-| `world/` (island network) | 3 | **no** | One island, one board; complex network, not three lanes |
+| `world/` (island network) | 3 | **first slice** | One island, one board; complex network, not three lanes |
 | `weather/` | 2 | **no** | Magical weather system |
 | `sites/` | 5 | **no** | Faction structures are also adventure sites |
 | `factions/` | 5 | **no** | RTS faction contract: doctrine, elimination policy |
@@ -79,15 +79,27 @@ Order is by dependency, not by appetite.
   and objective text, so Godot shows state it does not invent. Every reserved
   key from schema version 1 (`resources`, `items`, `triggers`, `quests`) is now
   implemented.
+- **The island network, first slice.** `content/world/island_network.prototype.json`
+  is read: its six nodes and eight tethers are the authored graph on
+  `ScenarioRules`, adopted verbatim. Reachability is a real breadth-first
+  search over tethers whose *effective* state — the authored default,
+  overridable by a new play-state map — is traversable; `blocked`, `hidden`
+  and `corrupted` are not, a one-way tether honours its direction, and two new
+  closed trigger clauses (`NetworkReachable`, `SetTetherState`) let a pack
+  already read and change it. **Not yet done, so not silently assumed
+  finished:** faction dispatch and player movement still run on
+  `from_scenario`'s invented runtime destinations, not on these named nodes,
+  and no walkable cell belongs to any node's region. Weather (next) needs only
+  the graph and its reachability, which this slice provides in full.
 
 ### Next, in order
 
-1. **The island network.** `content/world/island_network.prototype.json`
-   declares six nodes and eight tethers with a loop, a hub and a chokepoint; the
-   simulation has a flat walkable grid and named destinations. Give the world the
-   node/tether graph the authority requires, with tether state (blocked, hidden,
-   conditional) changing reachability without moving geography. Regions become
-   expressible, which is what location triggers were deferred for.
+1. **Tie the network to real geography.** Give each node a cell region (which
+   walkable cells belong to it) and move faction dispatch and player travel
+   destinations onto the network's node IDs instead of `from_scenario`'s
+   invented `preview.<faction>.holding` / `island.contested_clearing` names.
+   This is what makes "an actor entering a region" expressible for triggers,
+   deferred when triggers landed for exactly this reason.
 2. **Weather.** Two authored fronts with selection weights, movement across
    tethers, faction modifiers, terrain interactions and advance tells. Weather
    moves on the network from item 1 and modifies production, movement and sight

@@ -318,6 +318,37 @@ impl Project42SimulationBridge {
             );
         }
         snapshot.set("quests", &quests);
+        // The island network, when the pack authors one: nodes as plain IDs,
+        // tethers with their *effective* state (the play-state override if
+        // one is set, else the authored default) -- the only state
+        // reachability actually reads. Movement does not run on this graph
+        // yet; the entry exists so a future minimap or trigger-authored
+        // pack can already read it.
+        if let Some(network) = world.rules.network.as_ref() {
+            let mut nodes = VarArray::new();
+            for id in &network.nodes {
+                nodes.push(&id.to_variant());
+            }
+            let mut tethers = VarArray::new();
+            for (id, tether) in &network.tethers {
+                let state = world.effective_tether_state(id).unwrap_or(tether.state);
+                tethers.push(
+                    &vdict! {
+                        "id" => id.as_str(),
+                        "from" => tether.from.as_str(),
+                        "to" => tether.to.as_str(),
+                        "state" => state.as_str(),
+                        "capacity" => tether.capacity,
+                        "bidirectional" => tether.bidirectional
+                    }
+                    .to_variant(),
+                );
+            }
+            snapshot.set(
+                "network",
+                &vdict! { "nodes" => &nodes, "tethers" => &tethers },
+            );
+        }
         // The campaign clock, as much of it as the player is allowed to see.
         // The authored record says heat is never a number, so the snapshot
         // carries the channels the island has signalled on and no total.

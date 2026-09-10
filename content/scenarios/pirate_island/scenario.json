@@ -80,7 +80,8 @@
     "michaelMachineProduction": "../../production/michael_field_workshop_mechanical_dogs.json",
     "survivalDiplomacy": "../../island/survival_diplomacy.json",
     "initialDiplomacy": "../../diplomacy/initial_relationships.prototype.json",
-    "campaignClock": "../../campaign/cthulhu_clocks.json"
+    "campaignClock": "../../campaign/cthulhu_clocks.json",
+    "islandNetwork": "../../world/island_network.prototype.json"
   },
   "buildings": "../../../game/assets/island/buildings.json",
   "personas": "../../../game/assets/island/personas.json",

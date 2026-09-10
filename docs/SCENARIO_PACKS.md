@@ -438,6 +438,48 @@ and one of its declared stages; and **every stage is reachable** — a stage no
 initial stage, reached by starting there) fails by name, so a quest can never
 declare an ending nothing in the pack can produce.
 
+## The island network — first slice
+
+Optional, and not one of the four reserved keys: a pack need not author a
+network at all. `rules.islandNetwork` names one when a pack does (the main
+pack points at `content/world/island_network.prototype.json`, adopted
+verbatim — six nodes, eight tethers, unread by anything until now). It is a
+rule, so it lives on `ScenarioRules` and travels with a save.
+
+A node is a plain ID; roles are descriptive and unread, same as the record's
+own `topology` and `knowledgePolicy`. A tether names two declared nodes, a
+closed `type`, a closed `state`, a capacity and whether it is bidirectional.
+**State is what reachability reads:** `open` and `conditional` are
+traversable, `blocked`, `hidden` and `corrupted` are not.
+`FactionWorld::network_reachable(from, to)` is a real breadth-first search
+over the graph's currently traversable tethers, one-way tethers honoured in
+one direction only.
+
+**Tether state changes at runtime through play state, not by re-authoring the
+pack.** `FactionWorld.tether_overrides` (tether ID to a state) overrides a
+tether's authored default; `SetTetherState`, a new closed trigger effect, is
+the only writer, and refuses an undeclared tether or a state the tether is
+already effectively at. `NetworkReachable { from, to }`, a new closed trigger
+condition, lets a pack gate an effect on the graph's live shape — "tether
+state changing reachability without moving geography," concretely. Overrides
+are saved and refused by name (`invalid_saved_tether_overrides`) if a save
+names a tether the network no longer declares, or carries any override at all
+when the pack has no network.
+
+The snapshot's `network` entry (present only when the pack has one) carries
+every node ID and every tether's `id`, `from`, `to`, effective `state`,
+`capacity` and `bidirectional` — state Godot could render, not yet state
+anything reads to move a sprite.
+
+**What this slice does not do, so it is not silently assumed finished.**
+Faction production, dispatch and player travel still run on the runtime
+destinations `from_scenario` invents (`preview.<faction>.holding`,
+`island.contested_clearing`), not on these named nodes; no walkable cell is
+assigned to any node's region yet. Weather (the next contract) needs only the
+graph and its reachability to move fronts along tethers, which this slice
+provides in full. Tying real holdings and player movement onto the network,
+and giving each node its own cell region, is later work.
+
 ## The builder
 
 `node tools/src/scaffold-scenario.mjs <scenario-id>` writes a pack skeleton
