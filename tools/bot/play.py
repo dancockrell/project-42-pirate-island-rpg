@@ -138,13 +138,20 @@ def find_bugs(state: dict, game: "Game", day: int) -> list[dict]:
             f"reported {state.get('loyal_companions')}, actually {len(loyal)} living loyal")
 
     by_id = {p["id"]: p for p in people}
+    # A slot holding a companion who died today is the game working as
+    # authored: her identity and her place are kept until Michael gives them
+    # up or the water gives her back. Only a slot pointing at nobody at all --
+    # not living, not among the dead -- is a bug.
+    dead_ids = {c["id"] for c in state.get("casualties", [])}
     for slot, occupant in enumerate(state.get("party", [])):
         if not occupant:
             continue
         who = by_id.get(occupant)
-        if who is None:
-            bug("party slot holds someone who is not on the island",
+        if who is None and occupant not in dead_ids:
+            bug("party slot holds someone who is neither living nor dead",
                 f"slot {slot} holds {occupant!r}")
+        elif who is None:
+            continue
         elif not who["loyal"]:
             bug("party slot holds someone not loyal to Michael",
                 f"slot {slot} holds {who['name']}")
@@ -189,9 +196,10 @@ def check_save_round_trip(game: "Game", day: int) -> list[dict]:
         return [{"day": day, "what": "saving the game changed the game",
                  "detail": "state differed before and after a save"}]
 
-    if not game.send(cmd="load", save=reply["save"]).get("ok"):
+    loaded = game.send(cmd="load", save=reply["save"])
+    if not loaded.get("ok"):
         return [{"day": day, "what": "a save the game just wrote would not load back",
-                 "detail": "the game refused its own save"}]
+                 "detail": f"the game refused its own save: {loaded.get('refused', loaded)}"}]
     reloaded = json.dumps(game.state, sort_keys=True)
     if reloaded != before:
         was, now = json.loads(before), json.loads(reloaded)

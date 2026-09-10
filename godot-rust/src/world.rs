@@ -5202,7 +5202,12 @@ impl FactionWorld {
                 }
             }
         }
-        if world.mechanical_dog_count() > world.rules.machinery.capacity {
+        // The berths the workshop has, not the base capacity. This was the
+        // third place that knew the cap, and the last to be told the workshop
+        // can grow: a save with a fourth dog in it was refused by name, so
+        // building the workshop out and using the berth it bought corrupted
+        // the campaign at the next save.
+        if world.mechanical_dog_count() > world.machine_berths() {
             return Err("invalid_saved_machine_capacity".into());
         }
         for (id, actor) in &world.actors {
@@ -10570,6 +10575,13 @@ mod tests {
         }
         // And stops at the berths it actually has.
         assert!(world.queue_foothold_machine().is_err());
+        // A save carrying the berth the level bought has to load back. This
+        // was the third place that knew the cap, and refusing here corrupted
+        // the campaign one save after the player used what he had paid for.
+        assert_eq!(
+            FactionWorld::load_json(&world.save_json().unwrap()).unwrap(),
+            world
+        );
     }
 
     /// The island stops carrying every body it has ever made.
