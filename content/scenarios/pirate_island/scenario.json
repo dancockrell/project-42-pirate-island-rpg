@@ -191,5 +191,8 @@
   ],
   "quests": [
     "quests.json"
+  ],
+  "leads": [
+    "leads.json"
   ]
 }

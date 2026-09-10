@@ -513,6 +513,9 @@ const MAX_INVENTORY_ENTRIES: usize = 4096;
 pub const MAX_TRIGGERS: usize = 512;
 pub const MAX_FLAGS: usize = 512;
 pub const MAX_TRIGGER_HISTORY: usize = 512;
+/// A campaign can only owe the player so many unanswered judgments before the
+/// choice stops meaning anything.
+pub const MAX_OPEN_LEADS: usize = 32;
 pub const MAX_QUESTS: usize = 64;
 pub const MAX_QUEST_STAGES: usize = 32;
 
@@ -909,6 +912,9 @@ pub struct ScenarioRules {
     /// still arrives after a save and reload.
     #[serde(default)]
     pub notables: Vec<ScenarioNotable>,
+    /// The pack's companion leads, in authored order. A pack may carry none.
+    #[serde(default)]
+    pub leads: Vec<ScenarioLead>,
     /// The pack's triggers, in authored order, which is also firing order. A
     /// pack may carry none; a save made before triggers existed loads with an
     /// empty list and the tick's trigger pass does nothing.
@@ -984,6 +990,60 @@ pub struct ScenarioTrigger {
     pub repeat: bool,
     pub when: Vec<TriggerCondition>,
     pub then: Vec<TriggerEffect>,
+}
+
+/// A companion's lead: something she noticed in the simulated world, two
+/// readings of it she can defend, and a request for the player's judgment.
+///
+/// A lead is deliberately built from the two closed sets triggers already use.
+/// What opens it is a `TriggerCondition`, so she can only notice things the
+/// simulation actually keeps; what an answer does is `TriggerEffect`s, so her
+/// conclusion changes the same board everything else changes. She invents no
+/// evidence and gets no private mechanism.
+///
+/// The lead belongs to a companion and cannot open until she is standing with
+/// Michael, which is what makes the authority's third contract structural:
+/// "Michael cannot receive every objective and perform all intellectual work
+/// himself."
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScenarioLead {
+    pub id: String,
+    /// Whose lead this is. She must be loyal to Michael before she brings it.
+    pub companion_id: String,
+    pub opens_when: Vec<TriggerCondition>,
+    /// What she says she saw, in her own words.
+    pub observation: String,
+    /// What she is asking him to decide or support.
+    pub request: String,
+    /// Two readings she can defend. The authority says two, not one and not a
+    /// menu: a lead is a judgment call, not a quiz with a right answer.
+    pub interpretations: Vec<LeadInterpretation>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LeadInterpretation {
+    pub id: String,
+    /// What she thinks it means if the player backs this reading.
+    pub claim: String,
+    pub then: Vec<TriggerEffect>,
+}
+
+impl ScenarioLead {
+    fn valid(&self) -> bool {
+        !self.id.is_empty()
+            && self.id.len() <= 256
+            && !self.companion_id.is_empty()
+            && !self.observation.trim().is_empty()
+            && !self.request.trim().is_empty()
+            && !self.opens_when.is_empty()
+            && self.interpretations.len() == 2
+            && self.interpretations[0].id != self.interpretations[1].id
+            && self.interpretations.iter().all(|interpretation| {
+                !interpretation.id.is_empty()
+                    && !interpretation.claim.trim().is_empty()
+                    && !interpretation.then.is_empty()
+            })
+    }
 }
 
 impl ScenarioTrigger {
@@ -1103,6 +1163,12 @@ impl ScenarioRules {
             && self.resources.contains_key(&self.salvage.resource_id)
             && self.items.len() <= 256
             && self.items.values().all(ScenarioItem::valid)
+            && self.leads.len() <= MAX_TRIGGERS
+            && self.leads.iter().all(ScenarioLead::valid)
+            && {
+                let ids: BTreeSet<&String> = self.leads.iter().map(|lead| &lead.id).collect();
+                ids.len() == self.leads.len()
+            }
             && self.triggers.len() <= MAX_TRIGGERS
             && self.triggers.iter().all(ScenarioTrigger::valid)
             && {
@@ -1300,6 +1366,9 @@ pub struct ScenarioDefinition {
     /// One or more quest catalogue documents, merged in order into one catalogue.
     #[serde(default)]
     pub quests: Vec<BTreeMap<String, ScenarioQuest>>,
+    /// One or more lead documents, concatenated in order into one list.
+    #[serde(default)]
+    pub leads: Vec<Vec<ScenarioLead>>,
     /// Rasterised land, supplied by the caller. Polygon-to-cell rasterisation
     /// lives in GDScript until a later contract moves it into Rust, so a
     /// definition is not playable until its land is set.
@@ -1587,6 +1656,7 @@ impl ScenarioDefinition {
                     })
                 })
                 .collect(),
+            leads: self.leads.iter().flatten().cloned().collect(),
             triggers: self.triggers.iter().flatten().cloned().collect(),
             quests: self.quest_catalogue().unwrap_or_default(),
         }
@@ -1652,6 +1722,15 @@ pub struct FactionWorld {
     /// entry here never fires again, across a save and a load.
     #[serde(default)]
     pub fired_triggers: BTreeMap<String, u64>,
+    /// Lead ID to the tick its companion brought it to Michael. A lead sits
+    /// here until the player answers it; an unanswered lead is a decision the
+    /// campaign is still waiting on, which is why it survives a save.
+    #[serde(default)]
+    pub open_leads: BTreeMap<String, u64>,
+    /// Lead ID to the interpretation the player backed. A lead is answered
+    /// once: the record is what she believes now because he agreed to it.
+    #[serde(default)]
+    pub resolved_leads: BTreeMap<String, String>,
     /// Quest ID to its current stage ID. Seeded from each declared quest's
     /// `initialStage` when the world is created; only `SetQuestStage` moves it.
     #[serde(default)]
@@ -4517,6 +4596,30 @@ impl FactionWorld {
         {
             return Err("invalid_saved_trigger_history".into());
         }
+        // A lead the player has not answered yet is a decision the campaign
+        // still owes them, so it must name a lead this pack declares and cannot
+        // claim to have been raised in the future.
+        if world.open_leads.len() > MAX_OPEN_LEADS
+            || world.open_leads.iter().any(|(id, opened_tick)| {
+                *opened_tick > world.tick
+                    || world.resolved_leads.contains_key(id)
+                    || !world.rules.leads.iter().any(|lead| &lead.id == id)
+            })
+        {
+            return Err("invalid_saved_open_leads".into());
+        }
+        // An answered lead records a reading she actually offered.
+        if world.resolved_leads.iter().any(|(id, interpretation_id)| {
+            !world.rules.leads.iter().any(|lead| {
+                &lead.id == id
+                    && lead
+                        .interpretations
+                        .iter()
+                        .any(|interpretation| &interpretation.id == interpretation_id)
+            })
+        }) {
+            return Err("invalid_saved_resolved_leads".into());
+        }
         // Every declared quest is active on exactly one of its own stages:
         // no quest missing an entry, no entry for an undeclared quest, and no
         // stage that quest does not define.
@@ -5841,6 +5944,10 @@ impl FactionWorld {
         // faction turned hostile -- is visible to the arbitration in the very
         // tick it happens rather than a tick later.
         self.advance_triggers();
+        // Leads read the same settled world the triggers just left, so a
+        // companion notices what this tick actually did rather than a state
+        // half-way through it.
+        self.advance_leads();
         // One arbitration point, at the settled end of the tick: movement,
         // combat, elimination, madness and the midnight return have all
         // resolved and `self.tick` has already advanced, so a cause reads a
@@ -5879,6 +5986,95 @@ impl FactionWorld {
             }
             self.fired_triggers.insert(trigger.id.clone(), self.tick);
         }
+    }
+
+    /// A companion brings a lead when she is standing with Michael and the
+    /// thing she noticed is actually true of the world. She cannot raise one
+    /// before she is recruited: her judgment is the thing the player recruited
+    /// her for, and the authority is explicit that Michael does not do all the
+    /// intellectual work himself.
+    fn advance_leads(&mut self) {
+        let leads = self.rules.leads.clone();
+        for lead in &leads {
+            if self.open_leads.contains_key(&lead.id) || self.resolved_leads.contains_key(&lead.id)
+            {
+                continue;
+            }
+            if !self.companion_is_present(&lead.companion_id) {
+                continue;
+            }
+            if !lead
+                .opens_when
+                .iter()
+                .all(|condition| self.trigger_condition_met(condition))
+            {
+                continue;
+            }
+            if self.open_leads.len() >= MAX_OPEN_LEADS {
+                continue;
+            }
+            self.open_leads.insert(lead.id.clone(), self.tick);
+        }
+    }
+
+    /// She is with Michael, alive, and loyal. A dead or estranged companion
+    /// brings nothing, which is the cost of losing her.
+    fn companion_is_present(&self, companion_id: &str) -> bool {
+        self.actors.get(companion_id).is_some_and(|actor| {
+            actor.faction_id == "faction.michael"
+                && actor
+                    .person
+                    .as_ref()
+                    .is_some_and(|person| person.loyal_to_michael && person.alive_today)
+        })
+    }
+
+    /// Every lead waiting on the player's judgment, in authored order.
+    pub fn open_leads(&self) -> Vec<&ScenarioLead> {
+        self.rules
+            .leads
+            .iter()
+            .filter(|lead| self.open_leads.contains_key(&lead.id))
+            .collect()
+    }
+
+    /// The player backs one of her two readings. Like a trigger, this is a
+    /// transaction: either the whole answer lands or the lead stays open and
+    /// nothing changed. Answering is the player's verb, not the tick's, and it
+    /// is refused unless she is still there to be agreed with.
+    pub fn resolve_lead(&mut self, lead_id: &str, interpretation_id: &str) -> bool {
+        if !self.open_leads.contains_key(lead_id) {
+            return false;
+        }
+        let Some(lead) = self
+            .rules
+            .leads
+            .iter()
+            .find(|lead| lead.id == lead_id)
+            .cloned()
+        else {
+            return false;
+        };
+        if !self.companion_is_present(&lead.companion_id) {
+            return false;
+        }
+        let Some(interpretation) = lead
+            .interpretations
+            .iter()
+            .find(|interpretation| interpretation.id == interpretation_id)
+        else {
+            return false;
+        };
+        if !self.trigger_effects_applicable(&interpretation.then) {
+            return false;
+        }
+        for effect in &interpretation.then {
+            self.apply_trigger_effect(effect);
+        }
+        self.open_leads.remove(lead_id);
+        self.resolved_leads
+            .insert(lead_id.into(), interpretation_id.into());
+        true
     }
 
     fn trigger_condition_met(&self, condition: &TriggerCondition) -> bool {
@@ -6769,6 +6965,9 @@ mod tests {
             world.remove("flags");
             world.remove("fired_triggers");
             world.remove("quest_stages");
+            // Companion leads added an open decision and an answered one.
+            world.remove("open_leads");
+            world.remove("resolved_leads");
             serde_json::to_string(&value).unwrap()
         }
         fn fixture(name: &str) -> String {
@@ -7232,6 +7431,8 @@ mod tests {
         expected_world.remove("flags");
         expected_world.remove("fired_triggers");
         expected_world.remove("quest_stages");
+        expected_world.remove("open_leads");
+        expected_world.remove("resolved_leads");
         assert_eq!(
             serde_json::to_string(&expected).unwrap(),
             serde_json::to_string(
@@ -8000,6 +8201,132 @@ mod tests {
             world.stored_resource("faction.michael", "resource.provisions"),
             3
         );
+    }
+
+    /// The product's core loop, end to end and through real verbs: the island
+    /// runs, her faction raises her, Michael recruits her, the cult's shrine
+    /// actually grows, she brings him what she noticed, he backs one of her two
+    /// readings, and the board changes because he did.
+    #[test]
+    fn a_companion_raises_a_lead_and_the_players_answer_changes_the_board() {
+        let mut world = main_scenario_world();
+        let neriah = "character.heroine.neriah";
+        let lead = "lead.neriah.the_water_turns";
+        // Peace isolates the lead loop from the war. Diplomacy re-arms
+        // hostilities on its own, and an elven warden standing in an active
+        // front line is quite likely to be killed before Michael ever reaches
+        // her -- which is true to the game and useless for testing this.
+        macro_rules! peaceful_tick {
+            () => {{
+                world.hostilities.clear();
+                world.advance_island_tick();
+            }};
+        }
+        assert!(world.rules.leads.iter().any(|l| l.id == lead));
+        assert!(world.open_leads.is_empty());
+
+        // She has to exist before she can notice anything.
+        let mut raised = false;
+        for _ in 0..6000 {
+            peaceful_tick!();
+            if world.actors.contains_key(neriah) {
+                raised = true;
+                break;
+            }
+        }
+        assert!(raised, "the elves must raise Neriah");
+
+        // Her lead cannot open while she is still an elf: the judgment is the
+        // thing Michael recruited her for.
+        for _ in 0..200 {
+            peaceful_tick!();
+            assert!(
+                world.actors.contains_key(neriah),
+                "peace must keep her alive long enough to be recruited"
+            );
+            assert!(
+                world.open_leads.is_empty(),
+                "an unrecruited woman brings Michael nothing"
+            );
+        }
+
+        let captain = "character.protagonist.captain";
+        let her_ground = world.positions[neriah];
+        world.order_move(captain, her_ground).unwrap();
+        let mut reached = false;
+        for _ in 0..6000 {
+            peaceful_tick!();
+            if world.approach_island_person(neriah) {
+                reached = true;
+                break;
+            }
+        }
+        assert!(reached, "Michael must be able to reach her");
+        for _ in 0..256 {
+            if world.can_talk_island_person(neriah) {
+                break;
+            }
+            peaceful_tick!();
+        }
+        assert!(world.can_talk_island_person(neriah));
+        world.talk_island_person(neriah);
+        assert!(world.recruit_island_person(neriah));
+
+        // Now she is with him, and the lead waits on the evidence being real.
+        let mut opened = false;
+        for _ in 0..12000 {
+            peaceful_tick!();
+            if world.open_leads.contains_key(lead) {
+                opened = true;
+                break;
+            }
+        }
+        assert!(
+            opened,
+            "the shrine must actually grow and she must actually notice"
+        );
+        // She only raises it because the world really is that way.
+        assert!(
+            world.factions["faction.cthulhu.prototype"]
+                .buildings
+                .values()
+                .any(
+                    |building| building.archetype_id == "site_archetype.cthulhu.drowned_shrine"
+                        && building.level >= 2
+                )
+        );
+        assert_eq!(world.open_leads().len(), 1);
+        assert_eq!(world.open_leads()[0].interpretations.len(), 2);
+
+        // A reading she never offered is refused, and refusing changes nothing.
+        assert!(!world.resolve_lead(lead, "interpretation.invented"));
+        assert!(world.open_leads.contains_key(lead));
+        assert!(!world.flags.contains("flag.neriah.water_is_the_island"));
+
+        let before = world.stored_resource("faction.michael", "resource.provisions");
+        assert!(world.resolve_lead(lead, "interpretation.symptom"));
+        assert!(world.flags.contains("flag.neriah.water_is_the_island"));
+        assert_eq!(
+            world.stored_resource("faction.michael", "resource.provisions"),
+            before + 2
+        );
+        // The reading he did not back leaves no trace.
+        assert!(!world.flags.contains("flag.neriah.water_is_theirs"));
+        // A lead is answered once.
+        assert!(world.open_leads.is_empty());
+        assert_eq!(
+            world.resolved_leads.get(lead),
+            Some(&"interpretation.symptom".to_string())
+        );
+        assert!(!world.resolve_lead(lead, "interpretation.deliberate"));
+
+        // His decision survives the campaign being saved and resumed.
+        let restored = FactionWorld::load_json(&world.save_json().unwrap()).unwrap();
+        assert_eq!(
+            restored.resolved_leads.get(lead),
+            Some(&"interpretation.symptom".to_string())
+        );
+        assert!(restored.open_leads.is_empty());
     }
 
     fn test_quest(initial_stage: &str) -> ScenarioQuest {

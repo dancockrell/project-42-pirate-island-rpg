@@ -125,6 +125,10 @@ func recruit_island_person(actor_id: String) -> bool:
 func assign_island_companion(actor_id: String, slot: int) -> bool:
 	return is_available() and bridge.assign_island_companion(actor_id, slot)
 
+# The player backs one of a companion's two readings of her own lead.
+func resolve_island_lead(lead_id: String, interpretation_id: String) -> bool:
+	return is_available() and bridge.resolve_island_lead(lead_id, interpretation_id)
+
 func dismiss_island_companion(slot: int) -> bool:
 	return is_available() and bridge.dismiss_island_companion(slot)
 

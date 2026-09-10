@@ -318,6 +318,41 @@ impl Project42SimulationBridge {
             );
         }
         snapshot.set("quests", &quests);
+        // Every lead waiting on the player's judgment: what she says she saw,
+        // what she is asking for, and the two readings she can defend. Godot
+        // renders her words and sends back the id of the one he backs; it
+        // composes no prose and decides nothing itself.
+        let mut leads = VarArray::new();
+        for lead in world.open_leads() {
+            let mut interpretations = VarArray::new();
+            for interpretation in &lead.interpretations {
+                interpretations.push(
+                    &vdict! {
+                        "id" => interpretation.id.as_str(),
+                        "claim" => interpretation.claim.as_str()
+                    }
+                    .to_variant(),
+                );
+            }
+            let display_name = world
+                .actors
+                .get(&lead.companion_id)
+                .and_then(|actor| actor.person.as_ref())
+                .map(|person| person.display_name.as_str())
+                .unwrap_or_default();
+            leads.push(
+                &vdict! {
+                    "id" => lead.id.as_str(),
+                    "companion_id" => lead.companion_id.as_str(),
+                    "companion_name" => display_name,
+                    "observation" => lead.observation.as_str(),
+                    "request" => lead.request.as_str(),
+                    "interpretations" => &interpretations
+                }
+                .to_variant(),
+            );
+        }
+        snapshot.set("leads", &leads);
         // The campaign clock, as much of it as the player is allowed to see.
         // The authored record says heat is never a number, so the snapshot
         // carries the channels the island has signalled on and no total.
@@ -462,6 +497,16 @@ impl Project42SimulationBridge {
         self.island
             .as_mut()
             .is_some_and(|w| w.recruit_island_person(&id.to_string()))
+    }
+
+    /// The player backs one of a companion's two readings. Refused unless that
+    /// lead is genuinely open and the interpretation is one she actually
+    /// offered, so a stale panel cannot answer a question she never asked.
+    #[func]
+    fn resolve_island_lead(&mut self, lead_id: GString, interpretation_id: GString) -> bool {
+        self.island
+            .as_mut()
+            .is_some_and(|w| w.resolve_lead(&lead_id.to_string(), &interpretation_id.to_string()))
     }
 
     #[func]

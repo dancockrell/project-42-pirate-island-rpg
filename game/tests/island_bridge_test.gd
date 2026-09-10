@@ -107,5 +107,14 @@ func _initialize() -> void:
 	assert(shrine_quest.stage == "stage.hearsay")
 	assert(not shrine_quest.objective.is_empty())
 	assert(shrine_quest.terminal == "")
-	print("PASS: actual Rust island bridge, scenario document, solo start, movement, ocean rejection, pause, arrival, the campaign clock, triggers and quests")
+	# Leads reach Godot as the companion's own words plus the two readings she
+	# can defend. None is open at the first snapshot: nobody has been recruited,
+	# so nobody has brought Michael anything -- which is the contract, not an
+	# empty-array coincidence.
+	assert(port.island_snapshot().leads is Array)
+	assert(port.island_snapshot().leads.is_empty())
+	# Answering a lead that is not open is refused rather than silently ignored.
+	assert(not port.resolve_island_lead("lead.neriah.the_water_turns", "interpretation.symptom"))
+	assert(not port.resolve_island_lead("lead.does_not_exist", "interpretation.symptom"))
+	print("PASS: actual Rust island bridge, scenario document, solo start, movement, ocean rejection, pause, arrival, the campaign clock, triggers, quests and companion leads")
 	quit()

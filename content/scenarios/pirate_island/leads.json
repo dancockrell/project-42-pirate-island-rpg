@@ -1,0 +1,44 @@
+[
+  {
+    "id": "lead.neriah.the_water_turns",
+    "companion_id": "character.heroine.neriah",
+    "opens_when": [
+      {
+        "kind": "holding_level_at_least",
+        "faction_id": "faction.cthulhu.prototype",
+        "archetype_id": "site_archetype.cthulhu.drowned_shrine",
+        "level": 2
+      }
+    ],
+    "observation": "The low channels east of the shrine have gone brackish in eleven days. Not drying -- turning. I have the dates and I have the taste of it, and I would rather be wrong in front of you than quiet in front of them.",
+    "request": "I want to know whether we treat this as their doing or as the island's. Say which, and I will spend my time accordingly.",
+    "interpretations": [
+      {
+        "id": "interpretation.deliberate",
+        "claim": "They are doing it on purpose, and the water is the shape of how far they have got. If that is right, the spread is a map of their reach and we should be reading it as intelligence.",
+        "then": [
+          {
+            "kind": "record_heat",
+            "id": "heat.neriah.water_read_as_deliberate",
+            "signal": "dreams",
+            "severity": 4
+          },
+          { "kind": "set_flag", "flag": "flag.neriah.water_is_theirs" }
+        ]
+      },
+      {
+        "id": "interpretation.symptom",
+        "claim": "It is the island answering something, not a hand on a tap. If that is right, chasing the cult past the water wastes the little time we have, and I should be mapping the ground itself instead.",
+        "then": [
+          {
+            "kind": "grant_resource",
+            "faction_id": "faction.michael",
+            "resource_id": "resource.provisions",
+            "amount": 2
+          },
+          { "kind": "set_flag", "flag": "flag.neriah.water_is_the_island" }
+        ]
+      }
+    ]
+  }
+]

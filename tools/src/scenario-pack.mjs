@@ -42,6 +42,9 @@ export function declaredPaths(manifest) {
   for (const [index, path] of (Array.isArray(manifest.quests) ? manifest.quests : []).entries()) {
     declared.push({ field: `quests[${index}]`, path });
   }
+  for (const [index, path] of (Array.isArray(manifest.leads) ? manifest.leads : []).entries()) {
+    declared.push({ field: `leads[${index}]`, path });
+  }
   for (const name of Object.keys(manifest.rules ?? {}).sort()) {
     declared.push({ field: `rules.${name}`, path: manifest.rules[name] });
   }

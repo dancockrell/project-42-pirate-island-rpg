@@ -195,6 +195,17 @@ Order is by dependency, not by appetite.
   entries and two manifest lines, and is promoted later by authoring her kit.
   Michael + four women is now the real core roster rather than a plan.
 
+- **Companion leads: the core loop, running.** A companion notices something
+  the simulation really did, brings Michael two readings of it she can defend,
+  and asks him to choose; his answer changes the board and survives the save.
+  Proven end to end through real verbs -- the elves produce Neriah, Michael
+  walks to her and recruits her, the cult's shrine actually reaches level 2,
+  and only then does she raise it. A lead is deliberately made of the same
+  closed condition and effect sets triggers use, so she can neither invent
+  evidence nor act through a private mechanism, and it cannot open until she
+  is recruited and alive: 200 ticks with her standing there as an elf produce
+  nothing. That is milestone **M2**, and where M4 begins.
+
 ### Next, in order
 
 1. **The island network.** `content/world/island_network.prototype.json`

@@ -167,6 +167,55 @@ carry, a faction the scenario does not declare, an actor definition no faction
 produces, the captain (already placed), or the same character twice — one
 identity has exactly one incarnation.
 
+## Leads
+
+A lead is a companion's: something she noticed in the simulated world, two
+readings of it she can defend, and a request for the player's judgment.
+
+```json
+{
+  "id": "lead.neriah.the_water_turns",
+  "companion_id": "character.heroine.neriah",
+  "opens_when": [
+    { "kind": "holding_level_at_least", "faction_id": "faction.cthulhu.prototype",
+      "archetype_id": "site_archetype.cthulhu.drowned_shrine", "level": 2 }
+  ],
+  "observation": "...what she says she saw...",
+  "request": "...what she is asking him to decide...",
+  "interpretations": [
+    { "id": "interpretation.deliberate", "claim": "...", "then": [ ... ] },
+    { "id": "interpretation.symptom", "claim": "...", "then": [ ... ] }
+  ]
+}
+```
+
+**A lead is built from the two closed sets triggers already use, on purpose.**
+What opens it is a `TriggerCondition`, so she can only notice things the
+simulation actually keeps -- she cannot invent evidence. What backing a reading
+does is `TriggerEffect`s, so her conclusion changes the same board every other
+rule changes. She gets no private mechanism and no privileged knowledge.
+
+**A lead cannot open until its companion is standing with Michael, alive and
+loyal.** That is the authority's third contract made structural: *"Companions
+drive investigation... Michael cannot receive every objective and perform all
+intellectual work himself."* An unrecruited woman brings him nothing, and
+losing her costs him her judgment.
+
+**Exactly two interpretations**, which the validator enforces. A lead is a
+judgment call, not a quiz with one right answer, and not a menu.
+
+Answering is the player's verb (`resolve_lead`, `resolve_island_lead` across
+the bridge), never the tick's. Like a trigger it is a transaction: either the
+whole answer lands or the lead stays open and nothing changed. It is answered
+once, and both the open decision and the answered one survive a save -- an
+unanswered lead is a decision the campaign still owes the player.
+
+Because a lead's effects are the same closed set, the validator runs a lead's
+conditions and effects through **the same checkers as a trigger's**. That
+matters more than it sounds: an effect naming an uncatalogued resource would
+pass a laxer check and then be refused at runtime, leaving a decision the
+player can see and can never answer.
+
 ### How many characters this scales to
 
 Three tiers, and the cost of each is deliberately different:
