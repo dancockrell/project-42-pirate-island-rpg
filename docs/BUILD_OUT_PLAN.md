@@ -31,9 +31,21 @@ Counting `content/` against the code that loads it:
 Seven domains, thirty-two records. The pattern is one thing, not seven: **the
 island simulates its factions but not its campaign.** There is no clock counting
 toward anything, no weather, no network beneath the walkable grid, no site to
-enter, and — most consequential — **not one of the four women is on the island.**
-The authority's third non-negotiable contract is that companions drive every
-required mystery chain. Today the game has no mystery and no companion.
+enter, and — most consequential — **no companion investigates anything.**
+Correcting a claim this document previously made without checking: generic
+recruitable women already work — production spawns them, `talk`/`recruit`
+work, a save round-trips a four-slot party — proven by a passing suite
+(`island_scene_test.gd`'s recruitment test). What does not exist is Betty, the
+one authored companion this repository actually has: `content/characters/betty.json`
+and her seven skills are real, but every reference to her (`battle.rs`) is in
+the side-view battle prototype the authority's provisional list marks
+superseded, so she is in no `personas.json` pool and cannot be produced on the
+island at all. "Ayla" is not a second authored companion — the name occurs
+only as a bare, contentless actor ID inside that same dead prototype's test
+fixtures, and nothing under `content/characters/` or anywhere else in this
+repository defines her. The authority's third non-negotiable contract is that
+companions drive every required mystery chain; today the game has generic
+recruitment but no investigation, no lead, and no Betty on the board.
 
 ## The route
 
@@ -96,12 +108,17 @@ Order is by dependency, not by appetite.
    units and rituals, competing deterministically, changing movement cost, build
    legality and encounter grammar. Depends on the network.
 4. **Companions and leads.** The heart of the product and the largest piece:
-   Betty and Ayla exist as authored characters with skills and are not in the
-   game. Put a heroine on the island as a recruitable, directable hero with her
-   own competence domain; give her a lead that reads simulated evidence, offers
-   two interpretations and asks for support; let the player's answer change board
-   state, relationships and proof in one transaction. Milestone M2, and M4 begins
-   here.
+   Betty (`content/characters/betty.json`, seven real skills) is authored and
+   reachable only from the dead battle.rs prototype, not producible on the
+   island; the generic recruitment path already there gives a woman no
+   competence domain, lead, or investigation. Put Betty on the island as a
+   recruitable, directable hero with her own competence domain; give her a
+   lead that reads simulated evidence, offers two interpretations and asks
+   for support; let the player's answer change board state, relationships and
+   proof in one transaction. Her seven skills need a home in the *island*
+   simulation, not the side-view battle prototype the authority's provisional
+   list marks superseded — a decision, addressed by item 6 below, this item
+   depends on. Milestone M2, and M4 begins here.
 5. **Adventure sites.** A faction holding becomes enterable, its layout and
     defenders derived from the recorded composite seed the site records already
     describe, so a level-five cult shrine differs from a level-two fort.
