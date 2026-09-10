@@ -75,17 +75,5 @@ func _initialize() -> void:
 	assert(quest.stage == "stage.rumors")
 	assert(not quest.objective.is_empty())
 	assert(quest.terminal == "")
-	# The island network: six authored nodes, eight tethers, each carrying its
-	# effective state -- the corrupted one-way tether reads as corrupted, not
-	# silently defaulted to open.
-	var network: Dictionary = port.island_snapshot().network
-	assert(network.nodes.size() == 6)
-	assert(network.tethers.size() == 8)
-	var corrupted_tether: Dictionary = {}
-	for tether in network.tethers:
-		if tether.id == "tether.canopy.terrace_ritual":
-			corrupted_tether = tether
-	assert(corrupted_tether.state == "corrupted")
-	assert(not corrupted_tether.bidirectional)
-	print("PASS: actual Rust island bridge, scenario document, solo start, movement, ocean rejection, pause, arrival, the campaign clock, triggers, quests and the island network")
+	print("PASS: actual Rust island bridge, scenario document, solo start, movement, ocean rejection, pause, arrival, the campaign clock, triggers and quests")
 	quit()

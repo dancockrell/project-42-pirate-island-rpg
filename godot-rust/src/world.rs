@@ -515,8 +515,6 @@ pub const MAX_FLAGS: usize = 512;
 pub const MAX_TRIGGER_HISTORY: usize = 512;
 pub const MAX_QUESTS: usize = 64;
 pub const MAX_QUEST_STAGES: usize = 32;
-pub const MAX_NETWORK_NODES: usize = 256;
-pub const MAX_NETWORK_TETHERS: usize = 512;
 
 /// The heat ledger is append-only, so it needs a ceiling for the same reason
 /// every other saved collection has one: a save is untrusted input.
@@ -913,11 +911,6 @@ pub struct ScenarioRules {
     /// a save made before quests existed loads with an empty catalogue.
     #[serde(default)]
     pub quests: BTreeMap<String, ScenarioQuest>,
-    /// Absent for a pack that authors no network. `FactionWorld::network_reachable`
-    /// and the two trigger clauses that touch the network are simply inert
-    /// without one, rather than the world inventing a graph to run them on.
-    #[serde(default)]
-    pub network: Option<IslandNetwork>,
 }
 
 /// One quest: an authored stage machine. `SetQuestStage`, a trigger effect, is
@@ -1036,12 +1029,6 @@ pub enum TriggerCondition {
         signal: String,
     },
     ConfrontationBegun,
-    /// True when `to` is reachable from `from` over currently traversable
-    /// tethers. False (never an error) if the pack has no network.
-    NetworkReachable {
-        from: String,
-        to: String,
-    },
 }
 
 /// Every effect is something the simulation already does, reached through the
@@ -1082,12 +1069,6 @@ pub enum TriggerEffect {
         quest_id: String,
         stage_id: String,
     },
-    /// The network's only mover. Refused if the tether is undeclared or
-    /// already at the requested effective state.
-    SetTetherState {
-        tether_id: String,
-        state: TetherState,
-    },
 }
 
 impl ScenarioRules {
@@ -1113,7 +1094,6 @@ impl ScenarioRules {
             }
             && self.quests.len() <= MAX_QUESTS
             && self.quests.values().all(ScenarioQuest::valid)
-            && self.network.as_ref().is_none_or(IslandNetwork::valid)
     }
 
     /// The catalogue's answer, and the only one: an undeclared key is not a
@@ -1269,141 +1249,6 @@ pub struct Confrontation {
     pub day: u64,
 }
 
-/// A tether's kind. Descriptive today -- no rule reads it -- and kept as its
-/// own closed type rather than a free string because the schema names exactly
-/// these seven and a mistyped eighth should be a parse error, not a new one.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TetherType {
-    Road,
-    Waterway,
-    Supply,
-    Ritual,
-    Influence,
-    Sightline,
-    HiddenRoute,
-}
-
-/// A tether's state. This is what reachability actually reads: `Open` and
-/// `Conditional` are traversable, `Blocked`, `Hidden` and `Corrupted` are not.
-/// The state is authored, but `FactionWorld::tether_overrides` can move a
-/// tether to any of these five at runtime -- "tether state changing
-/// reachability without moving geography."
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TetherState {
-    Open,
-    Blocked,
-    Hidden,
-    Conditional,
-    Corrupted,
-}
-
-impl TetherState {
-    fn traversable(self) -> bool {
-        matches!(self, Self::Open | Self::Conditional)
-    }
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Open => "open",
-            Self::Blocked => "blocked",
-            Self::Hidden => "hidden",
-            Self::Conditional => "conditional",
-            Self::Corrupted => "corrupted",
-        }
-    }
-}
-
-/// One edge of the authored network graph.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NetworkTether {
-    pub from: String,
-    pub to: String,
-    #[serde(rename = "type")]
-    pub kind: TetherType,
-    pub state: TetherState,
-    pub capacity: u32,
-    pub bidirectional: bool,
-}
-
-/// The resolved island network: nodes are pure membership (roles are
-/// descriptive and unread, same as `topology`/`knowledgePolicy`), tethers keyed
-/// by ID. It is a rule -- `ScenarioRules.network` -- so it saves and travels
-/// with a mod's save; `FactionWorld.tether_overrides` is the play state that
-/// moves a tether off its authored default.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct IslandNetwork {
-    pub nodes: BTreeSet<String>,
-    pub tethers: BTreeMap<String, NetworkTether>,
-}
-
-impl IslandNetwork {
-    fn valid(&self) -> bool {
-        !self.nodes.is_empty()
-            && self.nodes.len() <= MAX_NETWORK_NODES
-            && !self.tethers.is_empty()
-            && self.tethers.len() <= MAX_NETWORK_TETHERS
-            && self.tethers.values().all(|tether| {
-                tether.from != tether.to
-                    && self.nodes.contains(&tether.from)
-                    && self.nodes.contains(&tether.to)
-            })
-    }
-}
-
-/// The manifest's raw `islandNetwork` record, embedded verbatim by the bundle
-/// builder. `id`, `kind`, `topology` and `knowledgePolicy` are the record's own
-/// contract (`content/schemas/island_network.schema.json` holds them); the
-/// runtime reads only `nodes` and `tethers`, the two fields it executes.
-#[derive(Clone, Debug, Deserialize)]
-pub struct ScenarioIslandNetwork {
-    pub nodes: Vec<ScenarioNetworkNode>,
-    pub tethers: Vec<ScenarioNetworkTether>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct ScenarioNetworkNode {
-    pub id: String,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct ScenarioNetworkTether {
-    pub id: String,
-    pub from: String,
-    pub to: String,
-    #[serde(rename = "type")]
-    pub kind: TetherType,
-    pub state: TetherState,
-    pub capacity: u32,
-    pub bidirectional: bool,
-}
-
-impl ScenarioIslandNetwork {
-    fn resolve(&self) -> IslandNetwork {
-        IslandNetwork {
-            nodes: self.nodes.iter().map(|node| node.id.clone()).collect(),
-            tethers: self
-                .tethers
-                .iter()
-                .map(|tether| {
-                    (
-                        tether.id.clone(),
-                        NetworkTether {
-                            from: tether.from.clone(),
-                            to: tether.to.clone(),
-                            kind: tether.kind,
-                            state: tether.state,
-                            capacity: tether.capacity,
-                            bidirectional: tether.bidirectional,
-                        },
-                    )
-                })
-                .collect(),
-        }
-    }
-}
-
 /// The scenario pack's resolved manifest, as the bundle builder writes it.
 /// Nothing here is executable: it is the data the one simulation runs on.
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -1491,11 +1336,6 @@ pub struct ScenarioRuleSet {
     pub initial_diplomacy: InitialDiplomacy,
     #[serde(rename = "campaignClock")]
     pub campaign_clock: ScenarioCampaignClock,
-    /// Optional: a pack need not author a network. `content/schemas/island_network.schema.json`
-    /// owns the descriptive fields (`id`, `kind`, `topology`, `knowledgePolicy`);
-    /// the runtime reads only what it executes, `nodes` and `tethers`.
-    #[serde(rename = "islandNetwork", default)]
-    pub island_network: Option<ScenarioIslandNetwork>,
 }
 
 /// The authored campaign-clock record, embedded verbatim by the bundle builder.
@@ -1646,11 +1486,6 @@ impl ScenarioDefinition {
             items: self.items.catalogue(),
             triggers: self.triggers.iter().flatten().cloned().collect(),
             quests: self.quest_catalogue().unwrap_or_default(),
-            network: self
-                .rules
-                .island_network
-                .as_ref()
-                .map(|network| network.resolve()),
         }
     }
 }
@@ -1718,10 +1553,6 @@ pub struct FactionWorld {
     /// `initialStage` when the world is created; only `SetQuestStage` moves it.
     #[serde(default)]
     pub quest_stages: BTreeMap<String, String>,
-    /// Tether ID to a state overriding its authored default. Absent means the
-    /// tether is exactly as authored; `SetTetherState` is the only writer.
-    #[serde(default)]
-    pub tether_overrides: BTreeMap<String, TetherState>,
     next_actor_serial: u64,
     next_order_serial: u64,
 }
@@ -4549,19 +4380,6 @@ impl FactionWorld {
         {
             return Err("invalid_saved_quest_stages".into());
         }
-        // Every override names a tether the network still declares; a pack
-        // with no network at all admits no overrides.
-        if world.tether_overrides.len() > MAX_NETWORK_TETHERS
-            || world.tether_overrides.keys().any(|tether_id| {
-                !world
-                    .rules
-                    .network
-                    .as_ref()
-                    .is_some_and(|network| network.tethers.contains_key(tether_id))
-            })
-        {
-            return Err("invalid_saved_tether_overrides".into());
-        }
         if world.confrontation.is_some_and(|record| {
             record.tick > world.tick
                 || record.day > world.day()
@@ -5913,7 +5731,6 @@ impl FactionWorld {
                 self.heat.iter().any(|event| event.signal == *signal)
             }
             TriggerCondition::ConfrontationBegun => self.confrontation.is_some(),
-            TriggerCondition::NetworkReachable { from, to } => self.network_reachable(from, to),
         }
     }
 
@@ -5977,9 +5794,6 @@ impl FactionWorld {
                                 .is_none()
                     })
             }
-            TriggerEffect::SetTetherState { tether_id, state } => self
-                .effective_tether_state(tether_id)
-                .is_some_and(|current| current != *state),
         })
     }
 
@@ -6024,85 +5838,7 @@ impl FactionWorld {
             TriggerEffect::SetQuestStage { quest_id, stage_id } => {
                 self.quest_stages.insert(quest_id.clone(), stage_id.clone());
             }
-            TriggerEffect::SetTetherState { tether_id, state } => {
-                self.set_tether_state(tether_id, *state);
-            }
         }
-    }
-
-    /// A tether's live state: the play-state override if one is set, else its
-    /// authored default. `None` if the pack has no network or the tether does
-    /// not exist in it.
-    pub fn effective_tether_state(&self, tether_id: &str) -> Option<TetherState> {
-        let tether = self.rules.network.as_ref()?.tethers.get(tether_id)?;
-        Some(
-            self.tether_overrides
-                .get(tether_id)
-                .copied()
-                .unwrap_or(tether.state),
-        )
-    }
-
-    /// Move a tether to a state. Refuses a tether the network does not
-    /// declare, an override already equal to the requested state, and any
-    /// call when the pack has no network. Returns whether it changed anything.
-    pub fn set_tether_state(&mut self, tether_id: &str, state: TetherState) -> bool {
-        if self.effective_tether_state(tether_id) == Some(state) {
-            return false;
-        }
-        if !self
-            .rules
-            .network
-            .as_ref()
-            .is_some_and(|network| network.tethers.contains_key(tether_id))
-        {
-            return false;
-        }
-        self.tether_overrides.insert(tether_id.into(), state);
-        true
-    }
-
-    /// Breadth-first reachability over every tether whose *effective* state is
-    /// traversable, honouring `bidirectional`. `false` if the pack has no
-    /// network, either node does not exist, or no traversable path connects
-    /// them (`from == to` is trivially reachable).
-    pub fn network_reachable(&self, from: &str, to: &str) -> bool {
-        let Some(network) = self.rules.network.as_ref() else {
-            return false;
-        };
-        if !network.nodes.contains(from) || !network.nodes.contains(to) {
-            return false;
-        }
-        if from == to {
-            return true;
-        }
-        let mut visited: BTreeSet<&str> = BTreeSet::from([from]);
-        let mut frontier: Vec<&str> = vec![from];
-        while let Some(node) = frontier.pop() {
-            for (tether_id, tether) in &network.tethers {
-                if !self
-                    .effective_tether_state(tether_id)
-                    .is_some_and(TetherState::traversable)
-                {
-                    continue;
-                }
-                let next = if tether.from == node {
-                    Some(tether.to.as_str())
-                } else if tether.bidirectional && tether.to == node {
-                    Some(tether.from.as_str())
-                } else {
-                    None
-                };
-                let Some(next) = next else { continue };
-                if next == to {
-                    return true;
-                }
-                if visited.insert(next) {
-                    frontier.push(next);
-                }
-            }
-        }
-        false
     }
 
     /// Append one entry to the heat ledger. Refuses a duplicate ID, an
@@ -6808,14 +6544,13 @@ mod tests {
             let mut value: serde_json::Value = serde_json::from_str(save).unwrap();
             // Version 2 added the world's own rules; the campaign clock added
             // a heat ledger and a confrontation record; triggers added flags
-            // and a firing record; quests added their seeded stage map; the
-            // island network added tether overrides. The hard-coded island had
-            // none of them, so they are removed here and nothing else may
-            // differ: every field that island did have is still produced
-            // identically. The clock's own state is proved in
-            // `heat_accrues_from_the_islands_own_occurrences`, the
-            // confrontation tests, quest state in the quest tests, and network
-            // state in the network tests below, not hidden by this strip.
+            // and a firing record; quests added their seeded stage map. The
+            // hard-coded island had none of them, so they are removed here and
+            // nothing else may differ: every field that island did have is
+            // still produced identically. The clock's own state is proved in
+            // `heat_accrues_from_the_islands_own_occurrences` and the
+            // confrontation tests, and quest state in the quest tests below,
+            // not hidden by this strip.
             value["version"] = serde_json::json!(1);
             let world = value["world"].as_object_mut().unwrap();
             world.remove("rules");
@@ -6824,7 +6559,6 @@ mod tests {
             world.remove("flags");
             world.remove("fired_triggers");
             world.remove("quest_stages");
-            world.remove("tether_overrides");
             serde_json::to_string(&value).unwrap()
         }
         fn fixture(name: &str) -> String {
@@ -7067,9 +6801,9 @@ mod tests {
             serde_json::from_str(&migrated.save_json().unwrap()).unwrap();
         expected["version"] = serde_json::json!(1);
         // As above: the fixture predates the world's rules, the campaign
-        // clock's play state, the triggers', the quests' and the network's,
-        // so those are removed and everything the fixture does carry must
-        // still match field for field.
+        // clock's play state, the triggers' and the quests', so those are
+        // removed and everything the fixture does carry must still match
+        // field for field.
         let expected_world = expected["world"].as_object_mut().unwrap();
         expected_world.remove("rules");
         expected_world.remove("heat");
@@ -7077,7 +6811,6 @@ mod tests {
         expected_world.remove("flags");
         expected_world.remove("fired_triggers");
         expected_world.remove("quest_stages");
-        expected_world.remove("tether_overrides");
         assert_eq!(
             serde_json::to_string(&expected).unwrap(),
             serde_json::to_string(
@@ -7723,172 +7456,6 @@ mod tests {
                     .insert("quest.test".into(), "stage.does_not_exist".into());
             }),
             "invalid_saved_quest_stages"
-        );
-    }
-
-    /// The main scenario's own network is the authored graph, not a Rust
-    /// default: six nodes and eight tethers, exactly what the content
-    /// declares (`content/world/island_network.prototype.json`).
-    #[test]
-    fn the_scenario_document_supplies_its_island_network() {
-        let network = main_scenario_world()
-            .rules
-            .network
-            .expect("authored network");
-        assert_eq!(network.nodes.len(), 6);
-        assert_eq!(network.tethers.len(), 8);
-        assert_eq!(
-            network.tethers["tether.canopy.terrace_ritual"].state,
-            TetherState::Corrupted
-        );
-    }
-
-    /// Reachability is a real graph search, not an adjacency check: a node
-    /// pair with no direct traversable tether is still reachable through a
-    /// detour the authored network actually provides.
-    #[test]
-    fn the_main_networks_detours_are_reachable() {
-        let world = main_scenario_world();
-        assert!(world.network_reachable("network_node.black_beach", "network_node.river_fork"));
-        // The direct tether (old_canopy_road -> reception_terrace) is
-        // corrupted and one-way; the route through river_fork is open both
-        // ways, so the pair is reachable despite that one edge being closed.
-        assert!(world.network_reachable(
-            "network_node.old_canopy_road",
-            "network_node.reception_terrace"
-        ));
-    }
-
-    fn test_network() -> IslandNetwork {
-        IslandNetwork {
-            nodes: BTreeSet::from([
-                "network_node.a".to_string(),
-                "network_node.b".to_string(),
-                "network_node.c".to_string(),
-            ]),
-            tethers: BTreeMap::from([
-                (
-                    "tether.a_b".to_string(),
-                    NetworkTether {
-                        from: "network_node.a".into(),
-                        to: "network_node.b".into(),
-                        kind: TetherType::Road,
-                        state: TetherState::Open,
-                        capacity: 2,
-                        bidirectional: true,
-                    },
-                ),
-                (
-                    "tether.b_c".to_string(),
-                    NetworkTether {
-                        from: "network_node.b".into(),
-                        to: "network_node.c".into(),
-                        kind: TetherType::HiddenRoute,
-                        state: TetherState::Hidden,
-                        capacity: 1,
-                        bidirectional: false,
-                    },
-                ),
-            ]),
-        }
-    }
-
-    /// A tether's effective state gates reachability, and a one-way tether
-    /// never permits travel against its declared direction, however open.
-    #[test]
-    fn network_reachable_respects_tether_state_and_directionality() {
-        let mut world = main_scenario_world();
-        world.rules.network = Some(test_network());
-        assert!(world.network_reachable("network_node.a", "network_node.b"));
-        assert!(!world.network_reachable("network_node.a", "network_node.c"));
-        assert!(!world.network_reachable("network_node.c", "network_node.a"));
-        assert!(world.set_tether_state("tether.b_c", TetherState::Open));
-        assert!(world.network_reachable("network_node.a", "network_node.c"));
-        // Still one-way: opening the tether does not make it bidirectional.
-        assert!(!world.network_reachable("network_node.c", "network_node.a"));
-        assert!(!world.network_reachable("network_node.c", "network_node.b"));
-    }
-
-    /// `set_tether_state` refuses an undeclared tether, refuses a call when
-    /// the pack has no network, and refuses a no-op (already at that state).
-    #[test]
-    fn set_tether_state_refuses_the_undeclared_and_the_unchanged() {
-        let mut world = main_scenario_world();
-        world.rules.network = Some(test_network());
-        assert!(!world.set_tether_state("tether.does_not_exist", TetherState::Open));
-        assert!(!world.set_tether_state("tether.a_b", TetherState::Open));
-        world.rules.network = None;
-        assert!(!world.set_tether_state("tether.a_b", TetherState::Open));
-    }
-
-    /// The network's own condition and effect, exercised through an actual
-    /// trigger: `NetworkReachable` gates it, `SetTetherState` is what it does.
-    #[test]
-    fn a_trigger_reads_and_changes_the_network() {
-        let mut world = main_scenario_world();
-        world.rules.network = Some(test_network());
-        world.rules.triggers = vec![ScenarioTrigger {
-            id: "trigger.test.open_the_hidden_route".into(),
-            repeat: false,
-            when: vec![TriggerCondition::NetworkReachable {
-                from: "network_node.a".into(),
-                to: "network_node.b".into(),
-            }],
-            then: vec![TriggerEffect::SetTetherState {
-                tether_id: "tether.b_c".into(),
-                state: TetherState::Open,
-            }],
-        }];
-        assert!(!world.network_reachable("network_node.a", "network_node.c"));
-        world.advance_island_tick();
-        assert!(
-            world
-                .fired_triggers
-                .contains_key("trigger.test.open_the_hidden_route")
-        );
-        assert!(world.network_reachable("network_node.a", "network_node.c"));
-    }
-
-    /// Tether overrides survive a save round trip.
-    #[test]
-    fn tether_overrides_survive_a_save_round_trip() {
-        let mut world = main_scenario_world();
-        world.rules.network = Some(test_network());
-        assert!(world.set_tether_state("tether.b_c", TetherState::Open));
-        let restored =
-            FactionWorld::load_json_for_scenario(&world.save_json().unwrap(), &world.rules.clone())
-                .unwrap();
-        assert_eq!(restored.tether_overrides, world.tether_overrides);
-        assert_eq!(restored, world);
-    }
-
-    /// A save is untrusted input: an override naming an undeclared tether, or
-    /// any override at all when the pack has no network, is refused by name.
-    #[test]
-    fn a_tampered_tether_override_is_refused_by_name() {
-        fn refusal(mutate: impl FnOnce(&mut FactionWorld)) -> String {
-            let mut world = main_scenario_world();
-            world.rules.network = Some(test_network());
-            mutate(&mut world);
-            FactionWorld::load_json_for_scenario(&world.save_json().unwrap(), &world.rules.clone())
-                .unwrap_err()
-        }
-        assert_eq!(
-            refusal(|world| {
-                world
-                    .tether_overrides
-                    .insert("tether.does_not_exist".into(), TetherState::Open);
-            }),
-            "invalid_saved_tether_overrides"
-        );
-        assert_eq!(
-            refusal(|world| {
-                world.rules.network = None;
-                world
-                    .tether_overrides
-                    .insert("tether.a_b".into(), TetherState::Blocked);
-            }),
-            "invalid_saved_tether_overrides"
         );
     }
 
