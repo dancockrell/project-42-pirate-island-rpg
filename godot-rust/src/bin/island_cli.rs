@@ -1,0 +1,267 @@
+//! Headless driver for the island simulation, so something other than a human
+//! in Godot can play the game.
+//!
+//! One JSON command per line on stdin, one JSON reply per line on stdout. Every
+//! command maps to a verb `FactionWorld` already has and the Godot bridge
+//! already exposes: this adds no game rules of its own, so a bot playing
+//! through it is playing the same game a player does.
+//!
+//! Land comes from `scenario_fixture`, the same deterministic island the Rust
+//! proofs use, because the shipped rasteriser lives in GDScript.
+
+use project42_sim::scenario_fixture::main_scenario;
+use project42_sim::world::{FactionWorld, IslandPoint};
+use serde_json::{Value, json};
+use std::io::{BufRead, Write};
+
+fn point(value: &Value, key: &str) -> Option<IslandPoint> {
+    let cell = value.get(key)?;
+    Some(IslandPoint {
+        x: cell.get("x")?.as_i64()? as i32,
+        y: cell.get("y")?.as_i64()? as i32,
+    })
+}
+
+fn text(value: &Value, key: &str) -> String {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string()
+}
+
+/// What the bot can see. Deliberately the same shape of information the Godot
+/// snapshot carries: the board, the people on it, the party, the campaign, the
+/// quests and any lead waiting on a decision. Nothing hidden is leaked here --
+/// no faction stockpiles, no undiscovered plans -- because a bot that can see
+/// what a player cannot would report on a game nobody is playing.
+fn observe(world: &FactionWorld) -> Value {
+    let people: Vec<Value> = world
+        .actors
+        .values()
+        .filter_map(|actor| {
+            let person = actor.person.as_ref()?;
+            let position = world.positions.get(&actor.instance_id)?;
+            Some(json!({
+                "id": actor.instance_id,
+                "name": person.display_name,
+                "faction": actor.faction_id,
+                "sex": match person.sex { project42_sim::world::PersonSex::Female => "female", _ => "male" },
+                "age": person.age,
+                "loyal": person.loyal_to_michael,
+                "discussed": person.discussed,
+                "alive": person.alive_today,
+                "undead": actor.undead,
+                "x": position.x,
+                "y": position.y,
+                "backstory": person.backstory,
+            }))
+        })
+        .collect();
+
+    let buildings: Vec<Value> = world
+        .factions
+        .values()
+        .flat_map(|faction| {
+            faction.buildings.values().map(move |building| {
+                json!({
+                    "id": building.id,
+                    "faction": faction.id,
+                    "archetype": building.archetype_id,
+                    "level": building.level,
+                    "health": building.health,
+                    "operational": building.operational,
+                })
+            })
+        })
+        .collect();
+
+    let leads: Vec<Value> = world
+        .open_leads()
+        .iter()
+        .map(|lead| {
+            json!({
+                "id": lead.id,
+                "companion": lead.companion_id,
+                "observation": lead.observation,
+                "request": lead.request,
+                "interpretations": lead.interpretations.iter().map(|i| json!({
+                    "id": i.id, "claim": i.claim
+                })).collect::<Vec<_>>(),
+            })
+        })
+        .collect();
+
+    let quests: Vec<Value> = world
+        .quest_stages
+        .iter()
+        .filter_map(|(quest_id, stage_id)| {
+            let quest = world.rules.quests.get(quest_id)?;
+            let stage = quest.stages.get(stage_id)?;
+            Some(json!({
+                "id": quest_id,
+                "name": quest.display_name,
+                "stage": stage_id,
+                "objective": stage.objective,
+                "done": stage.terminal.is_some(),
+            }))
+        })
+        .collect();
+
+    json!({
+        "tick": world.tick,
+        "day": world.day(),
+        "paused": world.paused,
+        "captain": world.positions.get("character.protagonist.captain")
+            .map(|p| json!({"x": p.x, "y": p.y})),
+        "captain_alive": world.actors.get("character.protagonist.captain")
+            .and_then(|a| a.person.as_ref()).is_some_and(|p| p.alive_today),
+        "salvage": world.stored_resource("faction.michael", "resource.salvage"),
+        // The Godot snapshot shows these, so the bot gets them too. A bot with
+        // less information than a player would report on a harder game than
+        // anyone is actually playing.
+        "salvage_caches": world.salvage_caches.iter().map(|(id, cache)| json!({
+            "id": id,
+            "x": cache.position.x,
+            "y": cache.position.y,
+            "remaining": cache.remaining,
+            "label": cache.label,
+        })).collect::<Vec<_>>(),
+        "provisions": world.stored_resource("faction.michael", "resource.provisions"),
+        "party": world.party,
+        "party_size": world.party_size(),
+        "loyal_companions": world.loyal_companion_count(),
+        "people": people,
+        "buildings": buildings,
+        "leads": leads,
+        "quests": quests,
+        "flags": world.flags,
+        "campaign": {
+            "deadline_day": world.rules.campaign_clock.world_deadline_day,
+            "confrontation": world.confrontation_cause().map(|c| format!("{c:?}")),
+            "heat_signals": world.heat_channels(),
+        },
+        "eliminated_factions": world.eliminated_factions,
+    })
+}
+
+fn main() {
+    let stdin = std::io::stdin();
+    let mut stdout = std::io::stdout();
+    let mut world: Option<FactionWorld> = None;
+
+    for line in stdin.lock().lines() {
+        let Ok(line) = line else { break };
+        if line.trim().is_empty() {
+            continue;
+        }
+        let request: Value = match serde_json::from_str(&line) {
+            Ok(value) => value,
+            Err(error) => {
+                let _ = writeln!(
+                    stdout,
+                    "{}",
+                    json!({"ok": false, "error": error.to_string()})
+                );
+                let _ = stdout.flush();
+                continue;
+            }
+        };
+        let command = text(&request, "cmd");
+
+        // `new` is the only command that works without a world.
+        if command == "new" {
+            match FactionWorld::from_scenario(&main_scenario()) {
+                Ok(built) => {
+                    let reply = json!({"ok": true, "state": observe(&built)});
+                    world = Some(built);
+                    let _ = writeln!(stdout, "{reply}");
+                }
+                Err(error) => {
+                    let _ = writeln!(stdout, "{}", json!({"ok": false, "error": error}));
+                }
+            }
+            let _ = stdout.flush();
+            continue;
+        }
+        if command == "quit" {
+            break;
+        }
+
+        let Some(w) = world.as_mut() else {
+            let _ = writeln!(
+                stdout,
+                "{}",
+                json!({"ok": false, "error": "no world; send {\"cmd\":\"new\"} first"})
+            );
+            let _ = stdout.flush();
+            continue;
+        };
+
+        let result: Result<Value, String> = match command.as_str() {
+            "observe" => Ok(json!({"ok": true})),
+            "tick" => {
+                let count = request.get("count").and_then(Value::as_u64).unwrap_or(1);
+                let mut events = 0usize;
+                for _ in 0..count.min(100_000) {
+                    events += w.advance_island_tick().len();
+                }
+                Ok(json!({"ok": true, "events": events}))
+            }
+            "pause" => {
+                w.paused = request
+                    .get("paused")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(true);
+                Ok(json!({"ok": true}))
+            }
+            "move_captain" => match point(&request, "to") {
+                Some(target) => match w.order_move("character.protagonist.captain", target) {
+                    Ok(()) => Ok(json!({"ok": true})),
+                    Err(error) => Ok(json!({"ok": false, "refused": format!("{error:?}")})),
+                },
+                None => Err("move_captain needs to:{x,y}".into()),
+            },
+            "approach" => Ok(json!({"ok": w.approach_island_person(&text(&request, "id"))})),
+            "can_talk" => Ok(json!({"ok": w.can_talk_island_person(&text(&request, "id"))})),
+            "talk" => {
+                let said = w.talk_island_person(&text(&request, "id"));
+                Ok(json!({"ok": !said.is_empty(), "said": said}))
+            }
+            "recruit" => Ok(json!({"ok": w.recruit_island_person(&text(&request, "id"))})),
+            "assign" => {
+                let slot = request.get("slot").and_then(Value::as_u64).unwrap_or(0) as usize;
+                Ok(json!({"ok": w.assign_island_companion(&text(&request, "id"), slot)}))
+            }
+            "salvage" => match w.salvage_foothold() {
+                Ok(()) => Ok(json!({"ok": true})),
+                Err(error) => Ok(json!({"ok": false, "refused": error})),
+            },
+            "build_foothold" => match point(&request, "at") {
+                Some(target) => match w.build_foothold(target) {
+                    Ok(()) => Ok(json!({"ok": true})),
+                    Err(error) => Ok(json!({"ok": false, "refused": error})),
+                },
+                None => Err("build_foothold needs at:{x,y}".into()),
+            },
+            "resolve_lead" => Ok(json!({
+                "ok": w.resolve_lead(&text(&request, "lead"), &text(&request, "interpretation"))
+            })),
+            "save" => match w.save_json() {
+                Ok(payload) => Ok(json!({"ok": true, "save": payload})),
+                Err(error) => Err(error),
+            },
+            other => Err(format!("unknown command {other}")),
+        };
+
+        let reply = match result {
+            Ok(mut value) => {
+                value["state"] = observe(w);
+                value
+            }
+            Err(error) => json!({"ok": false, "error": error}),
+        };
+        let _ = writeln!(stdout, "{reply}");
+        let _ = stdout.flush();
+    }
+}

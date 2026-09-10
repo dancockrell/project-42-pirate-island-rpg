@@ -1,5 +1,51 @@
 [
   {
+    "id": "lead.companion.the_fighting_is_closer",
+    "companion_id": "",
+    "opens_when": [
+      {
+        "kind": "loyal_companion_count",
+        "at_least": 1
+      }
+    ],
+    "observation": "I have been counting the dead we pass. It is not the same men doing the dying each week -- the factions are eating their own recruits faster than they can raise them. Whatever is out here, it is grinding them down, and nobody at the fort will say the word for it.",
+    "request": "You have one pair of hands and so do I. Tell me whether we spend the next stretch getting strong or getting clear, because we cannot do both.",
+    "interpretations": [
+      {
+        "id": "interpretation.dig_in",
+        "claim": "We dig in. Build here, take what the wreck still owes us, and be the thing that is still standing when they have finished each other off.",
+        "then": [
+          {
+            "kind": "grant_resource",
+            "faction_id": "faction.michael",
+            "resource_id": "resource.salvage",
+            "amount": 4
+          },
+          {
+            "kind": "set_flag",
+            "flag": "flag.michael.dug_in"
+          }
+        ]
+      },
+      {
+        "id": "interpretation.stay_light",
+        "claim": "We stay light and stay moving. Anything we build is something we have to defend, and I would rather be somewhere else when it comes for us.",
+        "then": [
+          {
+            "kind": "grant_resource",
+            "faction_id": "faction.michael",
+            "resource_id": "resource.provisions",
+            "amount": 4
+          },
+          {
+            "kind": "set_flag",
+            "flag": "flag.michael.stay_light"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "id": "lead.neriah.the_water_turns",
     "companion_id": "character.heroine.neriah",
     "opens_when": [
@@ -23,7 +69,10 @@
             "signal": "dreams",
             "severity": 4
           },
-          { "kind": "set_flag", "flag": "flag.neriah.water_is_theirs" }
+          {
+            "kind": "set_flag",
+            "flag": "flag.neriah.water_is_theirs"
+          }
         ]
       },
       {
@@ -36,7 +85,10 @@
             "resource_id": "resource.provisions",
             "amount": 2
           },
-          { "kind": "set_flag", "flag": "flag.neriah.water_is_the_island" }
+          {
+            "kind": "set_flag",
+            "flag": "flag.neriah.water_is_the_island"
+          }
         ]
       }
     ]

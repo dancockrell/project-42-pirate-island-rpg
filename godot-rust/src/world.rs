@@ -119,6 +119,7 @@ fn produced_person(
     definition: &str,
     id: &str,
     serial: u64,
+    taken: &BTreeSet<String>,
 ) -> Option<NamedPerson> {
     let seed = mix_seed(serial, 0, id, 0);
     let variants = pools.get(definition)?;
@@ -126,13 +127,34 @@ fn produced_person(
     let pick = |values: &[String], rotation: u32| {
         values[(seed.rotate_left(rotation) % values.len() as u64) as usize].clone()
     };
+    // The pools are small, so the same full name comes up often. Two living
+    // women called Alice Bell reads as a bug rather than a coincidence, so walk
+    // the family names (then the given names) until the island has a name it is
+    // not already using. Still deterministic: same seed, same world, same name.
+    let given = pick(&pool.given_names, 0);
+    let family = pick(&pool.family_names, 13);
+    let mut display_name = format!("{given} {family}");
+    if taken.contains(&display_name) {
+        let start = (seed.rotate_left(13) % pool.family_names.len() as u64) as usize;
+        'search: for given_step in 0..pool.given_names.len() {
+            let given_index = ((seed % pool.given_names.len() as u64) as usize + given_step)
+                % pool.given_names.len();
+            for family_step in 1..=pool.family_names.len() {
+                let candidate = format!(
+                    "{} {}",
+                    pool.given_names[given_index],
+                    pool.family_names[(start + family_step) % pool.family_names.len()]
+                );
+                if !taken.contains(&candidate) {
+                    display_name = candidate;
+                    break 'search;
+                }
+            }
+        }
+    }
     Some(NamedPerson {
         id: id.into(),
-        display_name: format!(
-            "{} {}",
-            pick(&pool.given_names, 0),
-            pick(&pool.family_names, 13)
-        ),
+        display_name,
         alive_today: true,
         sex: pool.sex,
         age: Some(
@@ -1032,7 +1054,6 @@ impl ScenarioLead {
     fn valid(&self) -> bool {
         !self.id.is_empty()
             && self.id.len() <= 256
-            && !self.companion_id.is_empty()
             && !self.observation.trim().is_empty()
             && !self.request.trim().is_empty()
             && !self.opens_when.is_empty()
@@ -5678,6 +5699,12 @@ impl FactionWorld {
         }
         completed.sort_by(|left, right| left.4.id.cmp(&right.4.id));
         let mut events = Vec::with_capacity(completed.len());
+        let mut names_in_use: BTreeSet<String> = self
+            .actors
+            .values()
+            .filter_map(|actor| actor.person.as_ref())
+            .map(|person| person.display_name.clone())
+            .collect();
         for (faction_id, building_id, node_id, rally_point_id, order) in completed {
             self.next_actor_serial += 1;
             // The one place a written identity stands in for a rolled one: this
@@ -5725,6 +5752,7 @@ impl FactionWorld {
                         &order.rule.actor_definition_id,
                         &instance_id,
                         self.next_actor_serial,
+                        &names_in_use,
                     )
                 },
                 instance_id,
@@ -5742,6 +5770,9 @@ impl FactionWorld {
                     rally_point_id,
                 },
             };
+            if let Some(person) = actor.person.as_ref() {
+                names_in_use.insert(person.display_name.clone());
+            }
             self.actors.insert(actor.instance_id.clone(), actor.clone());
             if let Some(profile) = self.combat_profiles.get(&actor.definition_id) {
                 self.unit_combat.insert(
@@ -6019,7 +6050,16 @@ impl FactionWorld {
 
     /// She is with Michael, alive, and loyal. A dead or estranged companion
     /// brings nothing, which is the cost of losing her.
+    ///
+    /// An empty `companion_id` means *any* companion: the lead belongs to
+    /// whoever is standing with him rather than to one named woman. Most of the
+    /// women a player actually recruits are produced by the factions, not
+    /// authored, so a game where only named characters can raise anything is a
+    /// game where most players never see a lead at all.
     fn companion_is_present(&self, companion_id: &str) -> bool {
+        if companion_id.is_empty() {
+            return self.loyal_companion_count() > 0;
+        }
         self.actors.get(companion_id).is_some_and(|actor| {
             actor.faction_id == "faction.michael"
                 && actor
@@ -6027,6 +6067,19 @@ impl FactionWorld {
                     .as_ref()
                     .is_some_and(|person| person.loyal_to_michael && person.alive_today)
         })
+    }
+
+    /// Who is actually raising a lead: the woman it names, or -- for a lead
+    /// any companion can raise -- the first loyal companion by id, so the same
+    /// world always attributes it to the same person.
+    pub fn lead_speaker(&self, lead: &ScenarioLead) -> Option<&NamedPerson> {
+        if !lead.companion_id.is_empty() {
+            return self.actors.get(&lead.companion_id)?.person.as_ref();
+        }
+        self.actors
+            .values()
+            .filter_map(|actor| actor.person.as_ref())
+            .find(|person| person.loyal_to_michael && person.alive_today)
     }
 
     /// Every lead waiting on the player's judgment, in authored order.
@@ -6944,7 +6997,7 @@ mod tests {
     /// the world `prototype_island()` + `install_preview_factions()` built at
     /// the commit before they were deleted, field for field, at tick zero and
     /// after a full day. `godot-rust/tests/fixtures/` holds that world's save.
- 
+
     /// The hero's identity is the pack's too. Asserting against the record the
     /// definition carries, rather than against the strings the simulation used
     /// to hard-code, is the point: the same literals would pass either way, so
@@ -7326,7 +7379,7 @@ mod tests {
 
     /// A version-1 save predates the world carrying its rules. It resumes into
     /// the scenario it is loaded for, and then plays the same day identically.
- 
+
     /// The main scenario's clock is the authored record, not a Rust default.
     #[test]
     fn the_scenario_document_supplies_the_campaign_clock() {
@@ -8177,8 +8230,15 @@ mod tests {
                         && building.level >= 2
                 )
         );
-        assert_eq!(world.open_leads().len(), 1);
-        assert_eq!(world.open_leads()[0].interpretations.len(), 2);
+        // Other leads may be open too -- a companion standing with him can raise
+        // one of her own -- so assert about hers rather than about the count.
+        let hers = world
+            .open_leads()
+            .into_iter()
+            .find(|open| open.id == lead)
+            .expect("her lead is open");
+        assert_eq!(hers.interpretations.len(), 2);
+        assert_eq!(hers.companion_id, neriah);
 
         // A reading she never offered is refused, and refusing changes nothing.
         assert!(!world.resolve_lead(lead, "interpretation.invented"));
@@ -8194,8 +8254,9 @@ mod tests {
         );
         // The reading he did not back leaves no trace.
         assert!(!world.flags.contains("flag.neriah.water_is_theirs"));
-        // A lead is answered once.
-        assert!(world.open_leads.is_empty());
+        // A lead is answered once: hers is gone from the open set, whatever else
+        // a companion may still be waiting to ask him.
+        assert!(!world.open_leads.contains_key(lead));
         assert_eq!(
             world.resolved_leads.get(lead),
             Some(&"interpretation.symptom".to_string())
@@ -8208,7 +8269,7 @@ mod tests {
             restored.resolved_leads.get(lead),
             Some(&"interpretation.symptom".to_string())
         );
-        assert!(restored.open_leads.is_empty());
+        assert!(!restored.open_leads.contains_key(lead));
     }
 
     fn test_quest(initial_stage: &str) -> ScenarioQuest {
@@ -8949,7 +9010,16 @@ mod tests {
                 assert!(values.iter().all(|v| !v.trim().is_empty()));
             }
         }
-        assert!(produced_person(&pools, "actor_def.unknown_machine", "machine.1", 1).is_none());
+        assert!(
+            produced_person(
+                &pools,
+                "actor_def.unknown_machine",
+                "machine.1",
+                1,
+                &BTreeSet::new()
+            )
+            .is_none()
+        );
         let mut world = main_scenario_world();
         for _ in 0..4 {
             world.advance_island_tick();

@@ -1072,7 +1072,9 @@ for (const pack of scenarioPacks) {
       else leadIds.add(lead.id);
       // She has to exist, and she has to be someone this scenario can actually
       // put in front of the player, or her lead can never open.
-      if (!packCharacters.has(lead.companion_id)) fail(file, `${name} ${where} belongs to ${lead.companion_id}, whose record this pack does not carry`);
+      // An empty companion_id is a lead any loyal companion can raise.
+      if (lead.companion_id === "") { /* any companion */ }
+      else if (!packCharacters.has(lead.companion_id)) fail(file, `${name} ${where} belongs to ${lead.companion_id}, whose record this pack does not carry`);
       else if (lead.companion_id !== manifest.start?.captainId && !placed.has(lead.companion_id)) {
         fail(file, `${name} ${where} belongs to ${lead.companion_id}, whom this pack never rosters, so she could never be recruited to raise it`);
       }

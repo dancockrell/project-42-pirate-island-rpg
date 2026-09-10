@@ -9,7 +9,8 @@ pub mod world;
 #[cfg(feature = "godot-ext")]
 mod godot_bridge;
 
-#[cfg(test)]
+// Not test-gated: the headless driver (src/bin/island_cli.rs) needs the same
+// deterministic land the proofs use, and a second rasteriser would be a fork.
 pub mod scenario_fixture;
 
 pub use battle::{
