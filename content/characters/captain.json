@@ -5,14 +5,24 @@
   "kind": "protagonist",
   "implementationOwner": "rust-simulation",
   "presentationOwner": "godot-gdscript",
-  "tags": ["adult", "human", "protagonist", "echo-bearer", "harem-leader", "prototype"],
+  "tags": [
+    "adult",
+    "human",
+    "protagonist",
+    "echo-bearer",
+    "harem-leader",
+    "frontier-cowboy",
+    "superheroic-inventor",
+    "self-insert",
+    "prototype"
+  ],
   "signatureWeaponId": "weapon.captain.handsome_jack_steam_carbine",
   "skillIds": [],
   "island": {
     "boardName": "Michael",
     "sex": "male",
-    "age": 20,
-    "backstory": "Captain of the Handsome Jack. Shipwreck survivor and inventor."
+    "age": 25,
+    "backstory": "Captain of the Handsome Jack: twenty-five, raised to the saddle and the frontier and schooled in nothing, which did not stop him building an engine a generation ahead of anyone who went to school for it. Shipwrecked here with his tools and no crew."
   },
   "art": {
     "activeActorAssetId": "art.placeholder.captain.active_actor",
@@ -26,6 +36,16 @@
     "releaseLegal": false,
     "titleCardName": "Michael",
     "narrativeAuthoringRule": "Every protagonist and heroine must have a personal history, a present pressure, a household life, a specific relationship progression, and a contribution outside combat before the character is production-ready.",
-    "notes": ["Full canonical name: Captain Michael Corrigan. Title cards and ordinary dialogue use Michael; Captain Corrigan is the formal or professional address.", "Michael is visible in every battle roster. This first Betty-focused prototype does not expose his Echo command deck yet.", "Before the island he commanded the Handsome Jack, an old tea cutter already obsolete by the time of Commodore Perry's expedition. A later owner fitted it with a steam engine too powerful and poorly balanced for the hull.", "The engine's weight and thrust made the Handsome Jack fast in fair water. In the typhoon that wrecked the expedition, the overloaded machinery and unstable hull tore the ship apart. Michael survived the wreck; the Handsome Jack did not.", "His player-facing silhouette is American frontier circa the 1850s: lean, weathered, practical, with a slouch hat and gun belt. He reads as a cowboy who has also survived a sea wreck, not as a uniformed naval officer.", "His loadout is steampunk. The Handsome Jack steam carbine, experimental sidearm, cutlass, compact boiler pack, brass tools and echo compass must look like one repairable field kit rather than unrelated costume props.", "He is a genius inventor. Each heroine teaches him a real method from her own discipline; he adapts those methods into expedition hardware with her knowledge and approval. Their relationships drive shared discovery and household projects, never extraction of an ability from a passive companion.", "Echo abilities are mechanically distinct from heroine bond skills and must be authored as their own combat records before they become player commands.", "The paper card is a contract for rail scale, silhouette and costume read; it is not a substitute for final character art."]
+    "notes": [
+      "Full canonical name: Captain Michael Corrigan. Title cards and ordinary dialogue use Michael; Captain Corrigan is the formal or professional address.",
+      "Michael is visible in every battle roster. This first Betty-focused prototype does not expose his Echo command deck yet.",
+      "Before the island he commanded the Handsome Jack, an old tea cutter already obsolete by the time of Commodore Perry's expedition. A later owner fitted it with a steam engine too powerful and poorly balanced for the hull.",
+      "The engine's weight and thrust made the Handsome Jack fast in fair water. In the typhoon that wrecked the expedition, the overloaded machinery and unstable hull tore the ship apart. Michael survived the wreck; the Handsome Jack did not.",
+      "His player-facing silhouette is American frontier circa the 1850s: lean, weathered, practical, with a slouch hat and gun belt. He reads as a cowboy who has also survived a sea wreck, not as a uniformed naval officer.",
+      "His loadout is steampunk. The Handsome Jack steam carbine, experimental sidearm, cutlass, compact boiler pack, brass tools and echo compass must look like one repairable field kit rather than unrelated costume props.",
+      "He is a genius inventor. Each heroine teaches him a real method from her own discipline; he adapts those methods into expedition hardware with her knowledge and approval. Their relationships drive shared discovery and household projects, never extraction of an ability from a passive companion.",
+      "Echo abilities are mechanically distinct from heroine bond skills and must be authored as their own combat records before they become player commands.",
+      "The paper card is a contract for rail scale, silhouette and costume read; it is not a substitute for final character art."
+    ]
   }
 }

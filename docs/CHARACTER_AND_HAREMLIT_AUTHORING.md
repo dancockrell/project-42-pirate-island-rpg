@@ -1,5 +1,52 @@
 # Character and Haremlit Authoring Contract
 
+## The product line
+
+This is not a one-off game. The owner is building a line of them on these
+systems, and the parts below are constant across the line. Author to them.
+
+**The self-insert.** Michael is the player's stand-in, in this game and in the
+others. He is twenty-five, a frontier cowboy, and an inventor running ahead of
+his period by a superheroic margin -- steam where steam is the ceiling, and
+past it where it is not. He is not an everyman: the technology gap is his
+distinctive power, the way recruitment is. Write him as competent and
+unembarrassed.
+
+**The romance profile.** His companions are women of eighteen to twenty-four:
+young, cute, small-chested. Each one has a real job and a power of her own --
+a wayfinder who reads the sky, a surgeon's mate, a broker, an archivist. That
+last part is a design requirement and not a garnish: a companion who is only
+an object of romance is a failure of this contract, because she also has to be
+worth something to the side you are running. Author her competence before you
+author her attraction.
+
+**Tone.** No man-hating, in dialogue or framing. Male-on-male romance is fine
+in fiction and is not part of this line; do not author it here.
+
+**Factions are romance cultures too.** Michael's side is the haremlit one. The
+others are polyamorous or poly-accepting and each leans toward a different
+kind of romance; that difference is content, not flavour text. Sides are meant
+to be unlike each other -- the aim is that each one eventually plays and reads
+differently. "Balanced" means comparable in power, never interchangeable in
+design. The middle of this market is going to be saturated; the distinctness
+is the product.
+
+**Michael is one way to play, not the way.** Past the prototype, a player
+should be able to take another side and run the same systems from inside a
+different romance culture. That is what makes the systems worth exploring more
+than once. `set_autonomous` in `godot-rust/src/world.rs` is the seam: who is at
+the wheel is its own fact, independent of what a side owns. The remaining
+blocker is that the player verbs -- `build_foothold`, `salvage_foothold`,
+`repair_foothold`, `develop_foothold`, the party and recruitment -- are still
+hard-coded to `faction.michael`.
+
+**The shape of a campaign.** The base game is a real-time strategy game with a
+romance and RPG layer on top of it, not the other way round. One campaign is
+100 in-game days at about thirty minutes of play each -- fifteen of daylight
+and fifteen of night -- so a full campaign is roughly fifty hours at the
+keyboard. The simulation's own clock is 1,440 ticks to the day, which is one
+tick per in-game minute and 0.8 ticks per real second at that rate.
+
 > **Current scope:** follow [GAME_BUILD_PLAN.md](GAME_BUILD_PLAN.md). Michael starts alone and may recruit adult women from the island's shared NPC population. Up to four recruited women may occupy his active companion slots. Notables and generated ordinary women use the same population and membership rules; there is no separate protected heroine caste. Use the approved 2D sprite presentation, not the historical card-battle or rig-ready format.
 
 ## Recruitment, faction membership, and party contract

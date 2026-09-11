@@ -1887,13 +1887,37 @@ pub struct IslandCombatProfile {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IslandClock {
     pub ticks_per_day: u64,
+    /// How long a day is meant to take at the keyboard.
+    ///
+    /// One campaign is a hundred days at half an hour each -- fifteen minutes
+    /// of daylight and fifteen of night -- so about fifty hours of play. The
+    /// presentation layer paces itself from this rather than from a number of
+    /// its own, because two places that decide how fast a day goes will drift.
+    /// Defaulted so a save written before the campaign had a stated length
+    /// still loads at the length it now has.
+    #[serde(default = "default_real_seconds_per_day")]
+    pub real_seconds_per_day: u64,
+}
+
+fn default_real_seconds_per_day() -> u64 {
+    1800
+}
+
+impl IslandClock {
+    /// Half the day is dark. Night is the second half.
+    pub fn is_night(&self, tick: u64) -> bool {
+        let per_day = self.ticks_per_day.max(1);
+        tick % per_day >= per_day / 2
+    }
 }
 
 impl Default for IslandClock {
     fn default() -> Self {
-        // Provisional pacing, not a wall-clock promise. Saved with each campaign.
+        // One tick is an in-game minute; a day is 1,440 of them and half an
+        // hour of real play, which is 0.8 ticks a second.
         Self {
             ticks_per_day: 1440,
+            real_seconds_per_day: default_real_seconds_per_day(),
         }
     }
 }
@@ -5016,6 +5040,9 @@ impl FactionWorld {
             })
         {
             return Err("invalid_saved_salvage_caches".into());
+        }
+        if !(1..=86400).contains(&world.clock.real_seconds_per_day) {
+            return Err("invalid_saved_clock".into());
         }
         if !(1..=1000000).contains(&world.clock.ticks_per_day) {
             return Err("invalid_saved_clock".into());
@@ -9024,6 +9051,47 @@ mod tests {
     /// targets, and no side could be handed to a second player. Taking a side
     /// off the computer leaves everything it owns intact and stops only the
     /// deciding; giving it back resumes it.
+    /// The campaign has a stated length, and one place states it.
+    ///
+    /// A hundred days at half an hour of play each is about fifty hours, half
+    /// of every day dark. The scene paces itself from this rather than from a
+    /// number of its own, so there is nothing for the two to disagree about.
+    #[test]
+    fn a_day_is_half_an_hour_of_play_and_half_of_it_is_dark() {
+        let world = main_scenario_world();
+        let clock = &world.clock;
+        assert_eq!(clock.ticks_per_day, 1440, "one tick is an in-game minute");
+        assert_eq!(clock.real_seconds_per_day, 1800, "half an hour a day");
+        assert_eq!(
+            clock.real_seconds_per_day * u64::from(world.rules.campaign_clock.world_deadline_day),
+            180_000,
+            "a hundred days is fifty hours at the keyboard"
+        );
+
+        assert!(!clock.is_night(0), "a campaign opens in daylight");
+        assert!(!clock.is_night(clock.ticks_per_day / 2 - 1));
+        assert!(
+            clock.is_night(clock.ticks_per_day / 2),
+            "night is the second half"
+        );
+        assert!(clock.is_night(clock.ticks_per_day - 1));
+        assert!(
+            !clock.is_night(clock.ticks_per_day),
+            "and the next day opens in daylight"
+        );
+
+        // A save written before the campaign had a stated length loads at the
+        // length it now has, rather than at zero seconds a day.
+        let mut legacy: serde_json::Value =
+            serde_json::from_str(&world.save_json().unwrap()).unwrap();
+        legacy["world"]["clock"]
+            .as_object_mut()
+            .unwrap()
+            .remove("real_seconds_per_day");
+        let restored = FactionWorld::load_json(&legacy.to_string()).unwrap();
+        assert_eq!(restored.clock.real_seconds_per_day, 1800);
+    }
+
     #[test]
     fn a_side_can_be_taken_off_the_computer_without_losing_anything_it_owns() {
         let mut world = autonomous_world();

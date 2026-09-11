@@ -820,9 +820,14 @@ func refresh_inspection() -> void:
 func _process(delta: float) -> void:
 	if not ready_ok or paused:
 		return
-	elapsed += minf(delta, 0.2)
-	if elapsed >= 0.15:
-		elapsed -= 0.15
+	# A day is a hundredth of a campaign and half an hour of play; the native
+	# clock owns that number, so the scene does not keep a second one.
+	var seconds_per_tick: float = float(snapshot.get("seconds_per_tick", 1.25))
+	if seconds_per_tick <= 0.0:
+		seconds_per_tick = 1.25
+	elapsed += minf(delta, seconds_per_tick * 2.0)
+	while elapsed >= seconds_per_tick:
+		elapsed -= seconds_per_tick
 		advance_tick()
 
 func _unhandled_input(event: InputEvent) -> void:

@@ -284,6 +284,12 @@ impl Project42SimulationBridge {
             );
         }
         let mut snapshot = vdict! { "tick" => world.tick as i64, "day" => world.day() as i64, "minute_of_day" => world.minute_of_day(), "paused" => world.paused, "actors" => &actors, "buildings" => &buildings, "land" => &land, "casualties" => world.casualties.len() as i64, "party" => &party, "party_names" => &party_names, "approach_target" => world.approach_target.as_deref().unwrap_or(""), "salvage" => salvage, "salvage_caches" => &salvage_caches };
+        // The presentation layer paces itself from the campaign's own clock.
+        snapshot.set(
+            "seconds_per_tick",
+            world.clock.real_seconds_per_day as f64 / world.clock.ticks_per_day.max(1) as f64,
+        );
+        snapshot.set("night", world.clock.is_night(world.tick));
         // Flags a trigger has set: state, not narration. By the owner's
         // decision of 9 September a trigger changes the world and does not
         // describe the change, so there is no event feed beside this -- a
