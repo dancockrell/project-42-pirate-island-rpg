@@ -1816,6 +1816,18 @@ pub struct FactionWorld {
     pub travel_orders: BTreeMap<String, String>,
     #[serde(default)]
     pub policies: BTreeMap<String, FactionPolicy>,
+    /// Which factions the computer plays.
+    ///
+    /// This used to be spelled "which factions have a policy", and a policy is
+    /// two unrelated things at once: an economy (income and storage) and an AI
+    /// brain (production, development, objectives). So the switch that means
+    /// "the computer plays this side" was really "this side has an income",
+    /// and the captain could not be given one without his own people starting
+    /// to pick their own targets. Every faction is the same kind of thing;
+    /// this is the only line between them, and it is one a second player can
+    /// be handed.
+    #[serde(default)]
+    pub autonomous: BTreeSet<String>,
     #[serde(default)]
     pub eliminated_factions: BTreeSet<String>,
     #[serde(default)]
@@ -2859,7 +2871,7 @@ impl FactionWorld {
         let sites: Vec<_> = self
             .factions
             .values()
-            .filter(|f| self.policies.contains_key(&f.id))
+            .filter(|f| self.autonomous.contains(&f.id))
             .flat_map(|f| f.buildings.values())
             .map(|b| (b.faction_id.clone(), b.id.clone()))
             .collect();
@@ -2981,7 +2993,7 @@ impl FactionWorld {
 
     fn advance_holding_expansion(&mut self) {
         let rule = self.rules.expansion.clone();
-        if !self.policies.contains_key(&rule.faction_id) || self.tick < rule.minimum_tick {
+        if !self.autonomous.contains(&rule.faction_id) || self.tick < rule.minimum_tick {
             return;
         }
         let Some(faction) = self.factions.get(&rule.faction_id) else {
@@ -3715,7 +3727,7 @@ impl FactionWorld {
         let actor = self.actors.get(id)?;
         let origin = *self.positions.get(id)?;
         let profile = self.actor_combat_profile(id)?;
-        if !self.policies.contains_key(&actor.faction_id)
+        if !self.autonomous.contains(&actor.faction_id)
             || !self.unit_combat.get(id).is_some_and(|s| s.health > 0)
         {
             return None;
@@ -3775,7 +3787,7 @@ impl FactionWorld {
                     profile.damage,
                     profile.cooldown_ticks,
                 ));
-            } else if self.policies.contains_key(&actor.faction_id) {
+            } else if self.autonomous.contains(&actor.faction_id) {
                 let Some(origin) = self.positions.get(id).copied() else {
                     continue;
                 };
@@ -3993,20 +4005,19 @@ impl FactionWorld {
                 buildings: BTreeMap::new(),
             },
         );
-        // A faction with nothing to earn and nothing to store needs no economic
-        // policy, and the main pack's captain has neither.
-        if !(start_economy.income_per_tick.is_empty() && start_economy.storage_caps.is_empty()) {
-            staged
-                .set_policy(
-                    &michael,
-                    FactionPolicy {
-                        income_per_tick: start_economy.income_per_tick.clone(),
-                        storage_caps: start_economy.storage_caps.clone(),
-                        ..Default::default()
-                    },
-                )
-                .map_err(|_| "invalid_scenario_economy")?;
-        }
+        // The captain's faction is a faction: it carries its authored economy
+        // like any other, empty or not. What it does not carry is a place in
+        // `autonomous`, which is the only thing that makes a side play itself.
+        staged
+            .set_policy(
+                &michael,
+                FactionPolicy {
+                    income_per_tick: start_economy.income_per_tick.clone(),
+                    storage_caps: start_economy.storage_caps.clone(),
+                    ..Default::default()
+                },
+            )
+            .map_err(|_| "invalid_scenario_economy")?;
         staged.actors.insert(
             captain.clone(),
             ProducedActor {
@@ -4159,6 +4170,9 @@ impl FactionWorld {
             };
             staged
                 .set_policy(id, policy)
+                .map_err(|_| "invalid_scenario_policy")?;
+            staged
+                .set_autonomous(id, true)
                 .map_err(|_| "invalid_scenario_policy")?;
         }
         let initial = &definition.rules.initial_diplomacy;
@@ -4383,6 +4397,32 @@ impl FactionWorld {
         Ok(())
     }
 
+    /// Hand a faction to the computer, or take it back.
+    ///
+    /// This is the only line between a side a player runs and a side that runs
+    /// itself, and it is deliberately independent of everything else a faction
+    /// has -- its economy, its holdings, its production. Each side is meant to
+    /// play differently from the others; none of them is meant to differ in
+    /// who is allowed to be at the wheel.
+    pub fn set_autonomous(
+        &mut self,
+        faction_id: &str,
+        autonomous: bool,
+    ) -> Result<(), FactionWorldError> {
+        if self.eliminated_factions.contains(faction_id) {
+            return Err(FactionWorldError::FactionEliminated(faction_id.into()));
+        }
+        if !self.factions.contains_key(faction_id) {
+            return Err(FactionWorldError::UnknownFaction(faction_id.into()));
+        }
+        if autonomous {
+            self.autonomous.insert(faction_id.into());
+        } else {
+            self.autonomous.remove(faction_id);
+        }
+        Ok(())
+    }
+
     pub fn eliminate_faction(
         &mut self,
         faction_id: &str,
@@ -4401,6 +4441,7 @@ impl FactionWorld {
         faction.resources.clear();
         faction.population_used = 0;
         self.policies.remove(faction_id);
+        self.autonomous.remove(faction_id);
         let removed: Vec<String> = self
             .actors
             .values()
@@ -4458,7 +4499,7 @@ impl FactionWorld {
         self.advance_holding_repairs();
         self.advance_holding_expansion();
         for (id, policy) in self.policies.clone() {
-            if self.eliminated_factions.contains(&id) {
+            if self.eliminated_factions.contains(&id) || !self.autonomous.contains(&id) {
                 continue;
             }
             let Some(faction) = self.factions.get_mut(&id) else {
@@ -4816,6 +4857,22 @@ impl FactionWorld {
             .and_then(|value| serde_json::from_value::<ScenarioRules>(value.clone()).ok())
             .ok_or("invalid_save_json")?;
         if let Some(saved_world) = json.get_mut("world").and_then(|v| v.as_object_mut()) {
+            // A save written before the controller was separated from the
+            // economy said "the computer plays every faction that has a
+            // policy". Restate that, exactly, for a save that predates the
+            // distinction -- otherwise the sides it used to play would load
+            // with nobody at the wheel and the island would sit still.
+            if !saved_world.contains_key("autonomous") {
+                let played: Vec<String> = saved_world
+                    .get("policies")
+                    .and_then(serde_json::Value::as_object)
+                    .map(|policies| policies.keys().cloned().collect())
+                    .unwrap_or_default();
+                saved_world.insert(
+                    "autonomous".into(),
+                    serde_json::to_value(played).map_err(|_| "invalid_save_json")?,
+                );
+            }
             let legacy = saved_world.remove("foothold_cache");
             if !saved_world.contains_key("salvage_caches") {
                 if let Some(old) = legacy.filter(|v| !v.is_null()) {
@@ -5246,6 +5303,7 @@ impl FactionWorld {
             };
             if !faction.buildings.is_empty()
                 || world.policies.contains_key(id)
+                || world.autonomous.contains(id)
                 || world.actors.values().any(|actor| &actor.faction_id == id)
             {
                 return Err("eliminated_faction_has_live_state".into());
@@ -6318,7 +6376,7 @@ impl FactionWorld {
             .actors
             .iter()
             .filter(|(id, actor)| {
-                self.policies.contains_key(&actor.faction_id)
+                self.autonomous.contains(&actor.faction_id)
                     // A recalled repairer must leave the firing line and reach
                     // its holding. Combat hold must not cancel that work order.
                     && !actor.current_assignment_id.as_deref().is_some_and(|a| a.starts_with("repair."))
@@ -7649,9 +7707,22 @@ mod tests {
         }
         // The captain's own faction opens on `start.economy`, which the main
         // pack authors empty because Michael reaches the island with nothing.
+        // He carries that economy like any other faction; what he does not
+        // carry is a place at the computer's wheel.
         assert!(definition.start.economy.stockpile.is_empty());
         assert!(world.factions["faction.michael"].resources.is_empty());
-        assert!(!world.policies.contains_key("faction.michael"));
+        assert!(world.policies.contains_key("faction.michael"));
+        assert!(world.policies["faction.michael"].income_per_tick.is_empty());
+        assert!(world.policies["faction.michael"].production.is_empty());
+        assert!(world.policies["faction.michael"].objectives.is_empty());
+        assert!(!world.autonomous.contains("faction.michael"));
+        for entry in &definition.factions {
+            assert!(
+                world.autonomous.contains(&entry.id),
+                "{} plays itself",
+                entry.id
+            );
+        }
     }
 
     /// A captain who starts with supplies is expressible: `start.economy` is
@@ -8937,7 +9008,93 @@ mod tests {
                 },
             )
             .unwrap();
+        // A policy is an economy and a set of standing orders. Somebody still
+        // has to be at the wheel for them to be acted on.
         world
+            .set_autonomous("faction.colonial_powers.prototype", true)
+            .unwrap();
+        world
+    }
+
+    /// Who is at the wheel is its own fact.
+    ///
+    /// It used to be spelled "this faction has a policy", and a policy carries
+    /// an economy as well as standing orders -- so the captain could not be
+    /// given an income without his own people starting to choose their own
+    /// targets, and no side could be handed to a second player. Taking a side
+    /// off the computer leaves everything it owns intact and stops only the
+    /// deciding; giving it back resumes it.
+    #[test]
+    fn a_side_can_be_taken_off_the_computer_without_losing_anything_it_owns() {
+        let mut world = autonomous_world();
+        let colonial = "faction.colonial_powers.prototype";
+        let economy = world.policies[colonial].clone();
+
+        world.set_autonomous(colonial, false).unwrap();
+        assert!(
+            world.policies.contains_key(colonial),
+            "it keeps its economy"
+        );
+        assert_eq!(world.policies[colonial], economy);
+        let mut quiet = 0;
+        for _ in 0..400 {
+            quiet += world
+                .advance_island_tick()
+                .iter()
+                .filter(|event| {
+                    matches!(
+                        event,
+                        FactionWorldEvent::ProductionQueued { .. }
+                            | FactionWorldEvent::ActorAssigned { .. }
+                    )
+                })
+                .count();
+        }
+        assert_eq!(quiet, 0, "nobody is deciding for it");
+
+        world.set_autonomous(colonial, true).unwrap();
+        let mut acted = 0;
+        for _ in 0..400 {
+            acted += world
+                .advance_island_tick()
+                .iter()
+                .filter(|event| matches!(event, FactionWorldEvent::ProductionQueued { .. }))
+                .count();
+        }
+        assert!(acted > 0, "handed back, it plays itself again");
+        assert_eq!(
+            FactionWorld::load_json(&world.save_json().unwrap()).unwrap(),
+            world
+        );
+    }
+
+    /// A save written before the wheel and the economy were separate said
+    /// "the computer plays every faction that has a policy". It still means
+    /// that, or the sides it used to play would load with nobody deciding.
+    #[test]
+    fn a_save_without_a_controller_keeps_the_sides_the_computer_was_playing() {
+        let world = main_scenario_world();
+        let mut legacy: serde_json::Value =
+            serde_json::from_str(&world.save_json().unwrap()).unwrap();
+        let saved = legacy["world"].as_object_mut().unwrap();
+        saved.remove("autonomous");
+        // The captain had no policy at all before this change, so the old
+        // meaning has to be reconstructed from a world shaped like the old one.
+        saved
+            .get_mut("policies")
+            .unwrap()
+            .as_object_mut()
+            .unwrap()
+            .remove("faction.michael");
+        let restored = FactionWorld::load_json(&legacy.to_string()).unwrap();
+        assert!(!restored.autonomous.contains("faction.michael"));
+        for id in restored.policies.keys() {
+            assert!(
+                restored.autonomous.contains(id),
+                "{id} was being played by the computer"
+            );
+        }
+        assert_eq!(restored.autonomous.len(), 5);
     }
 
     #[test]
